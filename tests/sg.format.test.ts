@@ -126,4 +126,33 @@ describe("sg formatting", () => {
     const headers = out.split("\n").filter((l) => l.startsWith("--- "));
     expect(headers.length).toBe(2);
   });
+
+  it("skips matches from unreadable files without error", async () => {
+    const tool = await getSgTool();
+
+    const absSmallTs = resolve(fixturesDir, "small.ts");
+
+    const mockedMatches = [
+      { file: "/does/not/exist.ts", range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } } },
+      { file: absSmallTs, range: { start: { line: 44, column: 0 }, end: { line: 44, column: 0 } } },
+    ];
+
+    vi.mocked(cp.execFile).mockImplementation((_cmd: any, _args: any, _opts: any, cb: any) => {
+      cb(null, JSON.stringify(mockedMatches), "");
+      return {} as any;
+    });
+
+    const result = await tool.execute(
+      "tc",
+      { pattern: "p", path: fixturesDir },
+      new AbortController().signal,
+      () => {},
+      { cwd: process.cwd() },
+    );
+
+    expect(result.isError).toBeFalsy();
+    const out = text(result);
+    expect(out).toContain("small.ts");
+    expect(out).not.toContain("/does/not/exist.ts");
+  });
 });
