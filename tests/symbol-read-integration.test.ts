@@ -58,4 +58,15 @@ describe("symbol read integration", () => {
     expect(result.isError).toBe(true);
     expect(getTextContent(result)).toBe("Cannot combine symbol with offset/limit. Use one or the other.");
   });
+
+  it("returns error when symbol is combined with limit", async () => {
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "createDemoDirectory",
+      limit: 5,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getTextContent(result)).toBe("Cannot combine symbol with offset/limit. Use one or the other.");
+  });
 });

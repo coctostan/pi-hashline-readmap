@@ -40,7 +40,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 
 			throwIfAborted(signal);
 
-			if (params.symbol && params.offset !== undefined) {
+			if (params.symbol && (params.offset !== undefined || params.limit !== undefined)) {
 				return {
 					content: [{ type: "text", text: "Cannot combine symbol with offset/limit. Use one or the other." }],
 					isError: true,
