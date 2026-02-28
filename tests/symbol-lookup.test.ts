@@ -73,4 +73,27 @@ describe("findSymbol", () => {
       symbol: { name: "addUser", kind: "method", startLine: 20, endLine: 33 },
     });
   });
+
+  it("returns ambiguous for dot-notation when multiple children match", () => {
+    const map = makeMap([
+      {
+        name: "Manager",
+        kind: SymbolKind.Class,
+        startLine: 1,
+        endLine: 20,
+        children: [
+          { name: "init", kind: SymbolKind.Method, startLine: 3, endLine: 5 },
+          { name: "init", kind: SymbolKind.Method, startLine: 10, endLine: 12 },
+        ],
+      },
+    ]);
+
+    expect(findSymbol(map, "Manager.init")).toEqual({
+      type: "ambiguous",
+      candidates: [
+        { name: "init", kind: "method", startLine: 3, endLine: 5 },
+        { name: "init", kind: "method", startLine: 10, endLine: 12 },
+      ],
+    });
+  });
 });

@@ -41,6 +41,7 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
     }
 
     if (nested.length === 1) return { type: "found", symbol: toMatch(nested[0]) };
+    if (nested.length > 1) return { type: "ambiguous", candidates: nested.map(toMatch) };
   }
   return { type: "not-found" };
 }
