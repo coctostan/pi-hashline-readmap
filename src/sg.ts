@@ -47,6 +47,14 @@ export function registerSgTool(pi: ExtensionAPI): void {
           signal,
           maxBuffer: 10 * 1024 * 1024,
         });
+        const matches = JSON.parse(stdout);
+        if (!Array.isArray(matches) || matches.length === 0) {
+          return {
+            content: [{ type: "text", text: `No matches found for pattern: ${p.pattern}` }],
+            details: {},
+          };
+        }
+
         return { content: [{ type: "text", text: stdout }], details: {} };
       } catch (err: any) {
         if (err?.code === "ENOENT") {
