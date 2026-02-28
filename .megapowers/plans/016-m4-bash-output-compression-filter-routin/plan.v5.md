@@ -432,7 +432,6 @@ Expected: all passing
 
 **Files:**
 - Modify: `src/rtk/bash-filter.ts`
-- Modify: `src/rtk/git.ts`
 - Modify: `tests/bash-filter.test.ts`
 - Test: `tests/bash-filter.test.ts`
 
@@ -471,7 +470,7 @@ Expected: FAIL — `AssertionError: expected "spy" to have been called` (filterB
 
 1. Update `src/rtk/git.ts` — change `isGitCommand` to match any command starting with `git`:
 
-Replace the `isGitCommand` function:
+Replace the `GIT_COMMANDS` array and `isGitCommand` function:
 
 ```typescript
 export function isGitCommand(command: string | undefined | null): boolean {
@@ -484,7 +483,7 @@ export function isGitCommand(command: string | undefined | null): boolean {
 }
 ```
 
-(The `GIT_COMMANDS` array is still used internally by `compactGitOutput` for dispatch — don't remove it.)
+(Remove or leave the `GIT_COMMANDS` array — it's no longer used by `isGitCommand`, but `compactGitOutput` may reference it internally.)
 
 2. Update `src/rtk/bash-filter.ts` to add git routing after the test check:
 
