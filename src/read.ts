@@ -39,6 +39,14 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			const absolutePath = resolveToCwd(rawPath, ctx.cwd);
 
 			throwIfAborted(signal);
+
+			if (params.symbol && params.offset !== undefined) {
+				return {
+					content: [{ type: "text", text: "Cannot combine symbol with offset/limit. Use one or the other." }],
+					isError: true,
+					details: {},
+				};
+			}
 			try {
 				await fsAccess(absolutePath, constants.R_OK);
 			} catch {
