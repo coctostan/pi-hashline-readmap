@@ -96,4 +96,16 @@ describe("findSymbol", () => {
       ],
     });
   });
+
+  it("falls back to case-insensitive match when no exact match exists", () => {
+    const map = makeMap([
+      { name: "parseConfig", kind: SymbolKind.Function, startLine: 10, endLine: 25 },
+      { name: "parseConfigHelper", kind: SymbolKind.Function, startLine: 30, endLine: 40 },
+    ]);
+
+    expect(findSymbol(map, "PARSECONFIG")).toEqual({
+      type: "found",
+      symbol: { name: "parseConfig", kind: "function", startLine: 10, endLine: 25 },
+    });
+  });
 });
