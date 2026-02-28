@@ -56,4 +56,21 @@ describe("findSymbol", () => {
       ],
     });
   });
+
+  it("matches child symbol via ClassName.methodName", () => {
+    const map = makeMap([
+      {
+        name: "UserDirectory",
+        kind: SymbolKind.Class,
+        startLine: 13,
+        endLine: 38,
+        children: [{ name: "addUser", kind: SymbolKind.Method, startLine: 20, endLine: 33 }],
+      },
+    ]);
+
+    expect(findSymbol(map, "UserDirectory.addUser")).toEqual({
+      type: "found",
+      symbol: { name: "addUser", kind: "method", startLine: 20, endLine: 33 },
+    });
+  });
 });
