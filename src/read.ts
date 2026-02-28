@@ -92,13 +92,15 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			let symbolWarning: string | undefined;
 			if (params.symbol) {
 				const fileMap = await getOrGenerateMap(absolutePath);
-				if (fileMap) {
+				if (!fileMap) {
+					const extLabel = ext || "unknown";
+					symbolWarning = `[Warning: symbol lookup not available for .${extLabel} files — showing full file]\n\n`;
+				} else {
 					const lookup = findSymbol(fileMap, params.symbol);
 					if (lookup.type === "ambiguous") {
 						const lines = lookup.candidates.map(
 							(c) => `- ${c.name} (${c.kind}) — lines ${c.startLine}-${c.endLine}`,
 						);
-
 						return {
 							content: [
 								{

@@ -246,4 +246,20 @@ describe("symbol read integration", () => {
 		expect(listed).toContain("symbol20");
 		expect(listed).not.toContain("symbol21");
 	});
+
+	it("falls back with unmappable warning when map is unavailable", async () => {
+		const cacheModule = await import("../src/map-cache.js");
+		vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue(null);
+
+		const result = await callReadTool({
+			path: resolve(fixturesDir, "plain.txt"),
+			symbol: "anything",
+		});
+
+		const text = getTextContent(result);
+		expect(text).toContain("[Warning: symbol lookup not available for .txt files — showing full file]");
+
+		const rows = parseHashlineRows(text);
+		expect(rows.length).toBeGreaterThan(0);
+	});
 });
