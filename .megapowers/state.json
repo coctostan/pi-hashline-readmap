@@ -106,13 +106,16 @@
     }
   ],
   "reviewApproved": true,
-  "currentTaskIndex": 2,
+  "currentTaskIndex": 3,
   "completedTasks": [
     1,
-    2
+    2,
+    3
   ],
   "tddTaskState": null,
-  "taskJJChanges": {},
+  "taskJJChanges": {
+    "3": "snapshot"
+  },
   "jjChangeId": null,
   "doneActions": [],
   "megaEnabled": true

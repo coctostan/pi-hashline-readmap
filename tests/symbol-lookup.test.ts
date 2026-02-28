@@ -28,4 +28,16 @@ describe("findSymbol", () => {
     const map = makeMap([]);
     expect(findSymbol(map, "anything")).toEqual({ type: "not-found" });
   });
+
+  it("returns found for an exact single-name match", () => {
+    const map = makeMap([
+      { name: "formatOutput", kind: SymbolKind.Function, startLine: 30, endLine: 40 },
+      { name: "parseConfig", kind: SymbolKind.Function, startLine: 10, endLine: 25 },
+    ]);
+
+    expect(findSymbol(map, "parseConfig")).toEqual({
+      type: "found",
+      symbol: { name: "parseConfig", kind: "function", startLine: 10, endLine: 25 },
+    });
+  });
 });

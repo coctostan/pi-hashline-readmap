@@ -25,11 +25,7 @@ function toMatch(symbol: FileSymbol): SymbolMatch {
 export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
   if (!query) return { type: "not-found" };
   if (map.symbols.length === 0) return { type: "not-found" };
-
-  const first = map.symbols[0];
-  if (first.name === query) {
-    return { type: "found", symbol: toMatch(first) };
-  }
-
+  const exact = map.symbols.filter((s) => s.name === query);
+  if (exact.length === 1) return { type: "found", symbol: toMatch(exact[0]) };
   return { type: "not-found" };
 }
