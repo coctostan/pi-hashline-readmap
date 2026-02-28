@@ -141,4 +141,28 @@ describe("symbol read integration", () => {
     const text = getTextContent(result);
     expect(text).toMatch(/^\[Symbol: createDemoDirectory \(function\), lines 45-49 of 49\]/);
   });
+
+  it("does not append File Map for found symbol reads even when output is truncated", async () => {
+    const cacheModule = await import("../src/map-cache.js");
+    const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+      path: resolve(fixturesDir, "large.ts"),
+      totalLines: 10681,
+      totalBytes: 500000,
+      language: "typescript",
+      symbols: [{ name: "HugeBlock", kind: SymbolKind.Function, startLine: 1, endLine: 5000 }],
+      imports: [],
+      detailLevel: DetailLevel.Full,
+    });
+
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "large.ts"),
+      symbol: "HugeBlock",
+    });
+
+    const text = getTextContent(result);
+    expect(text).toContain("[Output truncated:");
+    expect(text).not.toContain("File Map:");
+  });
 });

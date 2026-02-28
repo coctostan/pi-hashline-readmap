@@ -119,7 +119,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 				text += `\n\n[Showing lines ${startLine}-${endIdx} of ${total}. Use offset=${endIdx + 1} to continue.]`;
 			}
 
-			if (truncation.truncated && !params.offset && !params.limit) {
+			if (truncation.truncated && !params.offset && !params.limit && !symbolMatch) {
 				try {
 					const fileMap = await getOrGenerateMap(absolutePath);
 					if (fileMap) {
