@@ -195,4 +195,18 @@ describe("symbol read integration", () => {
     expect(text).toContain("lines 20-30");
     expect(text).not.toMatch(/^\d+:[0-9a-f]{2}\|/m);
   });
+
+	it("prepends not-found warning and then returns normal hashlines", async () => {
+		const result = await callReadTool({
+			path: resolve(fixturesDir, "small.ts"),
+			symbol: "doesNotExist",
+		});
+
+		const text = getTextContent(result);
+		expect(text).toContain("[Warning: symbol 'doesNotExist' not found. Available symbols:");
+		expect(text).toContain("UserRecord");
+
+		const rows = parseHashlineRows(text);
+		expect(rows.length).toBeGreaterThan(0);
+	});
 });

@@ -89,6 +89,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			let symbolMatch:
 				| { name: string; kind: string; startLine: number; endLine: number }
 				| undefined;
+			let symbolWarning: string | undefined;
 			if (params.symbol) {
 				const fileMap = await getOrGenerateMap(absolutePath);
 				if (fileMap) {
@@ -113,6 +114,10 @@ export function registerReadTool(pi: ExtensionAPI): void {
 							isError: false,
 							details: {},
 						};
+					}
+					if (lookup.type === "not-found") {
+						const available = fileMap.symbols.map((s) => s.name).join(", ");
+						symbolWarning = `[Warning: symbol '${params.symbol}' not found. Available symbols: ${available}]\n\n`;
 					}
 					if (lookup.type === "found") {
 						startLine = Math.max(1, lookup.symbol.startLine);
@@ -154,6 +159,10 @@ export function registerReadTool(pi: ExtensionAPI): void {
 
 			if (params.symbol && symbolMatch) {
 				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind}), lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
+			}
+
+			if (symbolWarning) {
+				text = symbolWarning + text;
 			}
 
 			return {
