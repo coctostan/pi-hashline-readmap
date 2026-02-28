@@ -1,99 +1,21 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": null,
-  "phase": null,
+  "activeIssue": "016-m4-bash-output-compression-filter-routin",
+  "workflow": "feature",
+  "phase": "spec",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1772304817204
-    },
-    {
-      "from": "spec",
-      "to": "plan",
-      "timestamp": 1772304859407
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772304992543
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772305997363
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772306334638
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772307011784
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772307232406
-    },
-    {
-      "from": "review",
-      "to": "implement",
-      "timestamp": 1772307434411
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772308149171
-    },
-    {
-      "from": "verify",
-      "to": "code-review",
-      "timestamp": 1772308409321
-    },
-    {
-      "from": "code-review",
-      "to": "done",
-      "timestamp": 1772308658582
+      "timestamp": 1772314163697
     }
   ],
-  "reviewApproved": true,
-  "currentTaskIndex": 11,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12
-  ],
+  "reviewApproved": false,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "taskJJChanges": {
-    "2": "snapshot",
-    "3": "snapshot",
-    "4": "snapshot",
-    "5": "snapshot",
-    "6": "snapshot",
-    "7": "snapshot",
-    "8": "snapshot",
-    "9": "snapshot",
-    "10": "snapshot",
-    "11": "snapshot",
-    "12": "snapshot"
-  },
-  "jjChangeId": "snapshot",
-  "doneActions": [
-    "squash-task-changes",
-    "close-issue"
-  ],
+  "taskJJChanges": {},
+  "jjChangeId": "rztzqvuq",
+  "doneActions": [],
   "megaEnabled": true
 }
