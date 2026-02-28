@@ -1,0 +1,34 @@
+{
+  "name": "pi-hashline-readmap",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": ["./index.ts"]
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "diff": "^8.0.3",
+    "xxhashjs": "^0.2.2",
+    "ts-morph": "^27.0.2",
+    "tree-sitter": "0.22.4",
+    "tree-sitter-cpp": "0.23.4",
+    "tree-sitter-rust": "0.23.3",
+    "tree-sitter-clojure": "github:ghoseb/tree-sitter-clojure#78928e6"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.55.1",
+    "@sinclair/typebox": "^0.34.48",
+    "@types/node": "^25.3.2",
+    "@types/xxhashjs": "^0.2.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

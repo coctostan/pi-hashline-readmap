@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "activeIssue": "015-m2-symbol-addressable-read-lookup-engine",
+  "workflow": "feature",
+  "phase": "implement",
+  "phaseHistory": [
+    {
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1772232139290
+    },
+    {
+      "from": "spec",
+      "to": "plan",
+      "timestamp": 1772232268510
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772232668196
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772233150072
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772235817875
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772238768243
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772239203496
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772239687096
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772239966084
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772240587665
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772241746344
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772241998957
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772242471646
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772242699489
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772243459776
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772244850957
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772252655268
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772253626762
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772262180931
+    },
+    {
+      "from": "review",
+      "to": "implement",
+      "timestamp": 1772284330708
+    }
+  ],
+  "reviewApproved": true,
+  "currentTaskIndex": 2,
+  "completedTasks": [
+    1,
+    2
+  ],
+  "tddTaskState": null,
+  "taskJJChanges": {},
+  "jjChangeId": null,
+  "doneActions": [],
+  "megaEnabled": true
+}
