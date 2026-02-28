@@ -48,5 +48,7 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
   const ci = map.symbols.filter((s) => s.name.toLowerCase() === qLower);
   if (ci.length === 1) return { type: "found", symbol: toMatch(ci[0]) };
   if (ci.length > 1) return { type: "ambiguous", candidates: ci.map(toMatch) };
+  const partial = map.symbols.filter((s) => s.name.toLowerCase().includes(qLower));
+  if (partial.length === 1) return { type: "found", symbol: toMatch(partial[0]) };
   return { type: "not-found" };
 }

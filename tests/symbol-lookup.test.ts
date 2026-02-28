@@ -123,4 +123,16 @@ describe("findSymbol", () => {
       ],
     });
   });
+
+  it("returns found when partial tier has exactly one match", () => {
+    const map = makeMap([
+      { name: "createDemoDirectory", kind: SymbolKind.Function, startLine: 45, endLine: 49 },
+      { name: "formatOutput", kind: SymbolKind.Function, startLine: 60, endLine: 70 },
+    ]);
+
+    expect(findSymbol(map, "createDemo")).toEqual({
+      type: "found",
+      symbol: { name: "createDemoDirectory", kind: "function", startLine: 45, endLine: 49 },
+    });
+  });
 });
