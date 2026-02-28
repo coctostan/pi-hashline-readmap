@@ -15,3 +15,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Outline scripts under `scripts/`: `python_outline.py`, `go_outline.go` (#001)
 - Prompt templates under `prompts/`: `read.md`, `edit.md` (#001)
 - Vitest test suite with 33 tests covering all scaffold acceptance criteria (#001)
+- Added symbol-addressable reads via `read(path, { symbol })` with tiered symbol lookup, ambiguity handling, graceful fallback warnings, and prompt documentation updates (#015)

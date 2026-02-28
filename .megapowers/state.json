@@ -2,7 +2,7 @@
   "version": 1,
   "activeIssue": "015-m2-symbol-addressable-read-lookup-engine",
   "workflow": "feature",
-  "phase": "code-review",
+  "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
@@ -113,6 +113,11 @@
       "from": "verify",
       "to": "code-review",
       "timestamp": 1772300084473
+    },
+    {
+      "from": "code-review",
+      "to": "done",
+      "timestamp": 1772300283270
     }
   ],
   "reviewApproved": true,
@@ -143,7 +148,11 @@
     23,
     24
   ],
-  "tddTaskState": null,
+  "tddTaskState": {
+    "taskIndex": 24,
+    "state": "test-written",
+    "skipped": false
+  },
   "taskJJChanges": {
     "3": "snapshot",
     "4": "snapshot",
@@ -168,7 +177,10 @@
     "23": "snapshot",
     "24": "snapshot"
   },
-  "jjChangeId": null,
-  "doneActions": [],
+  "jjChangeId": "snapshot",
+  "doneActions": [
+    "squash-task-changes",
+    "close-issue"
+  ],
   "megaEnabled": true
 }

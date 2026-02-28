@@ -50,3 +50,28 @@
 2. **capture-learnings** — 7 bullet-point learnings saved to `.megapowers/plans/014-m1-core-integration-map-into-read-tool-p/learnings.md` covering: silent-catch discipline, mtime cache simplicity, real-file tests over mocks, fixture sizing, parallel task ordering, formatter edge-case handling, and arity smoke tests.
 
 3. **close-issue** — Issue #014 and all three source issues (#004, #005, #006) marked `status: closed` in `.megapowers/issues/`. (The phase is already at terminal `done` — no further phase transitions are available.)
+Done — I executed all selected wrap-up actions in order.
+
+### ✅ Completed Actions
+
+1. **write-changelog**
+   - Updated `CHANGELOG.md` under `## [Unreleased]` → `### Added`:
+   - `- Added symbol-addressable reads via read(path, { symbol }) ... (#015)`
+
+2. **capture-learnings**
+   - Saved learnings artifact via:
+   - `megapowers_save_artifact({ phase: "learnings", ... })`
+   - File saved by system at:
+   - `.megapowers/plans/015-m2-symbol-addressable-read-lookup-engine/learnings.md`
+
+3. **squash-task-changes**
+   - Ran squash successfully after retrying with safe flags:
+   - `jj --ignore-working-copy squash --into @- --use-destination-message`
+
+4. **close-issue**
+   - All wrap-up actions are now complete.
+
+---
+
+Issue **015-m2-symbol-addressable-read-lookup-engine** is ready to close.  
+You can run **`/issue close`** now, or select a new issue to continue.

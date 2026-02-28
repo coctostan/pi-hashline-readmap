@@ -1,0 +1,6 @@
+- Dot-notation parsing needs strict segment validation: using `split('.', 2)` can silently mis-handle queries like `Class.method.extra`; requiring exactly two segments prevents accidental false positives.
+- Behavior-priority lookup (exact → nested → case-insensitive → partial) stays maintainable when each tier short-circuits and returns ambiguity locally instead of carrying cross-tier state.
+- Integration tests that assert hash anchors map to original file line numbers are high-value—they validate edit compatibility, not just presentation output.
+- Symbol-targeted reads should suppress structural-map append logic even on truncation; otherwise optimized reads regress into noisy responses.
+- Warnings-based fallback for not-found/unmappable symbol requests preserves reliability while still giving users actionable guidance.
+- Keeping prompt docs synchronized with runtime constraints (e.g., `symbol` mutually exclusive with `offset/limit`) helps prevent tool misuse and support churn.

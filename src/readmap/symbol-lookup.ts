@@ -32,18 +32,19 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
   if (exact.length > 1) return { type: "ambiguous", candidates: exact.map(toMatch) };
 
   if (q.includes(".")) {
-    const [parentName, childName] = q.split(".", 2);
-    const nested: FileSymbol[] = [];
-
-    for (const top of map.symbols) {
-      if (top.name !== parentName || !top.children?.length) continue;
-      for (const child of top.children) {
-        if (child.name === childName) nested.push(child);
+    const parts = q.split(".");
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      const [parentName, childName] = parts;
+      const nested: FileSymbol[] = [];
+      for (const top of map.symbols) {
+        if (top.name !== parentName || !top.children?.length) continue;
+        for (const child of top.children) {
+          if (child.name === childName) nested.push(child);
+        }
       }
+      if (nested.length === 1) return { type: "found", symbol: toMatch(nested[0]) };
+      if (nested.length > 1) return { type: "ambiguous", candidates: nested.map(toMatch) };
     }
-
-    if (nested.length === 1) return { type: "found", symbol: toMatch(nested[0]) };
-    if (nested.length > 1) return { type: "ambiguous", candidates: nested.map(toMatch) };
   }
 
   const qLower = q.toLowerCase();

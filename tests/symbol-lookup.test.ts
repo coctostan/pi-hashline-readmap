@@ -97,6 +97,20 @@ describe("findSymbol", () => {
     });
   });
 
+  it("does not match dot-notation queries with more than one dot segment", () => {
+    const map = makeMap([
+      {
+        name: "Manager",
+        kind: SymbolKind.Class,
+        startLine: 1,
+        endLine: 20,
+        children: [{ name: "init", kind: SymbolKind.Method, startLine: 3, endLine: 5 }],
+      },
+    ]);
+
+    expect(findSymbol(map, "Manager.init.extra")).toEqual({ type: "not-found" });
+  });
+
   it("falls back to case-insensitive match when no exact match exists", () => {
     const map = makeMap([
       { name: "parseConfig", kind: SymbolKind.Function, startLine: 10, endLine: 25 },
