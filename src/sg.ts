@@ -3,6 +3,7 @@ import { Type } from "@sinclair/typebox";
 import * as cp from "node:child_process";
 import path from "node:path";
 import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { normalizeToLF, stripBom } from "./edit-diff.js";
 import { computeLineHash } from "./hashline.js";
 import { resolveToCwd } from "./path-utils.js";
@@ -13,6 +14,8 @@ type SgMatch = {
   file: string;
   range: { start: { line: number; column: number }; end: { line: number; column: number } };
 };
+
+const SG_DESC = readFileSync(new URL("../prompts/sg.md", import.meta.url), "utf-8").trim();
 
 function execFileText(
   cmd: string,
@@ -36,7 +39,7 @@ export function registerSgTool(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "sg",
     label: "AST Grep",
-    description: "Structural code search using ast-grep.",
+    description: SG_DESC,
     parameters: Type.Object({
       pattern: Type.String({ description: "AST pattern to search for" }),
       lang: Type.Optional(Type.String({ description: "Language hint for ast-grep (e.g. 'typescript')" })),

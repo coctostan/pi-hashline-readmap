@@ -1,7 +1,7 @@
 ---
 id: 10
 type: feature
-status: in-progress
+status: closed
 created: 2026-02-26T21:09:00Z
 milestone: M3
 priority: 8

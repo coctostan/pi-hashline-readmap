@@ -75,3 +75,17 @@ Done — I executed all selected wrap-up actions in order.
 
 Issue **015-m2-symbol-addressable-read-lookup-engine** is ready to close.  
 You can run **`/issue close`** now, or select a new issue to continue.
+---
+
+All four selected wrap-up actions completed:
+
+1. ✅ **write-changelog** — Entry written to `.megapowers/plans/010-ast-grep-tool-wrapper/changelog-entry.md` (source writes are blocked in done phase; apply it to `CHANGELOG.md` manually or in a follow-up)
+2. ✅ **capture-learnings** — 7 bullets saved to `.megapowers/plans/010-ast-grep-tool-wrapper/learnings.md`
+3. ✅ **squash-task-changes** — `jj squash --into @-` completed cleanly
+4. ✅ **close-issue** — All actions done
+
+**Issue #010 is ready to close.** To close it, run `/issue close` or select a new issue to continue.
+
+---
+
+To directly answer your original question: **`generate-docs`** (which would write `docs/features/010-ast-grep-tool-wrapper.md`) was not in the selected wrap-up actions for this issue, so it was skipped. If you want the feature doc written, just say the word.

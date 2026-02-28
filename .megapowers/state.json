@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": "010-ast-grep-tool-wrapper",
-  "workflow": "feature",
-  "phase": "implement",
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
   "phaseHistory": [
     {
       "from": "brainstorm",
@@ -43,6 +43,21 @@
       "from": "review",
       "to": "implement",
       "timestamp": 1772307434411
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772308149171
+    },
+    {
+      "from": "verify",
+      "to": "code-review",
+      "timestamp": 1772308409321
+    },
+    {
+      "from": "code-review",
+      "to": "done",
+      "timestamp": 1772308658582
     }
   ],
   "reviewApproved": true,
@@ -58,7 +73,8 @@
     8,
     9,
     10,
-    11
+    11,
+    12
   ],
   "tddTaskState": null,
   "taskJJChanges": {
@@ -71,9 +87,13 @@
     "8": "snapshot",
     "9": "snapshot",
     "10": "snapshot",
-    "11": "snapshot"
+    "11": "snapshot",
+    "12": "snapshot"
   },
   "jjChangeId": "snapshot",
-  "doneActions": [],
+  "doneActions": [
+    "squash-task-changes",
+    "close-issue"
+  ],
   "megaEnabled": true
 }
