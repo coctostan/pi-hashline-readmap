@@ -31,6 +31,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			path: Type.String({ description: "Path to the file to read (relative or absolute)" }),
 			offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
 			limit: Type.Optional(Type.Number({ description: "Maximum number of lines to read" })),
+			symbol: Type.Optional(Type.String({ description: "Symbol to read (e.g., functionName or ClassName.methodName)" })),
 		}),
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
