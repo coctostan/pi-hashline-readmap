@@ -2,7 +2,7 @@
   "version": 1,
   "activeIssue": "015-m2-symbol-addressable-read-lookup-engine",
   "workflow": "feature",
-  "phase": "implement",
+  "phase": "code-review",
   "phaseHistory": [
     {
       "from": "brainstorm",
@@ -103,6 +103,16 @@
       "from": "review",
       "to": "implement",
       "timestamp": 1772284330708
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772299782251
+    },
+    {
+      "from": "verify",
+      "to": "code-review",
+      "timestamp": 1772300084473
     }
   ],
   "reviewApproved": true,
@@ -130,7 +140,8 @@
     20,
     21,
     22,
-    23
+    23,
+    24
   ],
   "tddTaskState": null,
   "taskJJChanges": {
@@ -154,7 +165,8 @@
     "20": "snapshot",
     "21": "snapshot",
     "22": "snapshot",
-    "23": "snapshot"
+    "23": "snapshot",
+    "24": "snapshot"
   },
   "jjChangeId": null,
   "doneActions": [],
