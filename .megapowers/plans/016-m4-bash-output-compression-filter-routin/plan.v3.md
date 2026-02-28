@@ -572,7 +572,6 @@ Expected: all passing
 **Step 1 — Write the failing test**
 
 Create `tests/bash-filter-routing.test.ts`:
-
 ```typescript
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { filterBashOutput } from "../src/rtk/bash-filter.js";
@@ -581,7 +580,6 @@ import * as testOutput from "../src/rtk/test-output.js";
 afterEach(() => {
   vi.restoreAllMocks();
 });
-
 describe("filterBashOutput routing", () => {
   it("routes test commands to aggregateTestOutput (AC10)", () => {
     const spy = vi.spyOn(testOutput, "aggregateTestOutput").mockReturnValue("compressed-test");
@@ -660,7 +658,6 @@ Add to `tests/bash-filter-routing.test.ts`:
 
 ```typescript
 import * as git from "../src/rtk/git.js";
-
 describe("git routing", () => {
   it("routes git commands to compactGitOutput (AC11)", () => {
     const spy = vi.spyOn(git, "compactGitOutput").mockReturnValue("compressed-git");
@@ -750,7 +747,6 @@ Add to `tests/bash-filter-routing.test.ts`:
 
 ```typescript
 import * as build from "../src/rtk/build.js";
-
 describe("build routing", () => {
   it("routes build commands to filterBuildOutput (AC12)", () => {
     const spy = vi.spyOn(build, "filterBuildOutput").mockReturnValue("compressed-build");
@@ -851,7 +847,6 @@ Add to `tests/bash-filter-routing.test.ts`:
 
 ```typescript
 import * as linter from "../src/rtk/linter.js";
-
 describe("linter routing", () => {
   it("routes linter commands to aggregateLinterOutput (AC13)", () => {
     const spy = vi.spyOn(linter, "aggregateLinterOutput").mockReturnValue("compressed-lint");
@@ -962,8 +957,7 @@ Add to `tests/bash-filter-routing.test.ts`:
 
 ```typescript
 import * as build from "../src/rtk/build.js";
-
-describe("routing priority", () => {
+  describe("routing priority", () => {
   it("test command wins over build for 'cargo test' (AC14)", () => {
     const testSpy = vi.spyOn(testOutput, "aggregateTestOutput").mockReturnValue("test-wins");
     const buildSpy = vi.spyOn(build, "filterBuildOutput");
@@ -979,7 +973,6 @@ describe("routing priority", () => {
 **Step 2 — Run test, verify it passes (regression test)**
 Run: `npx vitest run tests/bash-filter-routing.test.ts`
 Expected: PASS — test routing already has priority over build in the implementation from Tasks 6/8. This is a regression test that documents AC14.
-
 **Step 3 — Write minimal implementation**
 No changes needed — current implementation already has test routing before build routing. This task adds a regression test for AC14.
 
