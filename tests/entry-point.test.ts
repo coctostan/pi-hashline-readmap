@@ -19,4 +19,15 @@ describe("extension entry point (AC8)", () => {
     expect(source).toContain('import { registerEditTool } from "./src/edit.js";');
     expect(source).toContain('import { registerGrepTool } from "./src/grep.js";');
   });
+  it("registers sg tool", async () => {
+    const mod = await import(pathToFileURL(resolve(root, "index.ts")).href);
+    const tools: string[] = [];
+    const mockPi = {
+      registerTool(def: any) {
+        tools.push(def.name);
+      },
+    };
+    mod.default(mockPi as any);
+    expect(tools).toContain("sg");
+  });
 });
