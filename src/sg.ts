@@ -88,19 +88,26 @@ export function registerSgTool(pi: ExtensionAPI): void {
           return searchPath;
         };
 
-        const blocks: string[] = [];
+        const grouped = new Map<string, { abs: string; matches: SgMatch[] }>();
         for (const m of matches as SgMatch[]) {
           const abs = toAbsoluteFile(m);
           const display = path.relative(ctx.cwd, abs);
+          const bucket = grouped.get(display);
+          if (bucket) bucket.matches.push(m);
+          else grouped.set(display, { abs, matches: [m] });
+        }
+        const blocks: string[] = [];
+        for (const [display, { abs, matches: fileMatches }] of grouped) {
           const lines = await getFileLines(abs);
           if (!lines) continue;
-
           blocks.push(`--- ${display} ---`);
-          const start = m.range.start.line + 1;
-          const end = m.range.end.line + 1;
-          for (let ln = start; ln <= end; ln++) {
-            const srcLine = lines[ln - 1] ?? "";
-            blocks.push(`>>${ln}:${computeLineHash(ln, srcLine)}|${srcLine}`);
+          for (const m of fileMatches) {
+            const start = m.range.start.line + 1;
+            const end = m.range.end.line + 1;
+            for (let ln = start; ln <= end; ln++) {
+              const srcLine = lines[ln - 1] ?? "";
+              blocks.push(`>>${ln}:${computeLineHash(ln, srcLine)}|${srcLine}`);
+            }
           }
         }
 

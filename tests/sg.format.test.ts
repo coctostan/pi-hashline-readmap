@@ -96,4 +96,34 @@ describe("sg formatting", () => {
     expect(edited.firstChangedLine).toBe(45);
     expect(edited.content).toContain("// sg-anchor-test");
   });
+
+  it("groups output by file with one header per file", async () => {
+    const tool = await getSgTool();
+
+    const absSmallTs = resolve(fixturesDir, "small.ts");
+    const absPlain = resolve(fixturesDir, "plain.txt");
+
+    const mockedMatches = [
+      { file: absSmallTs, range: { start: { line: 44, column: 0 }, end: { line: 44, column: 0 } } },
+      { file: absSmallTs, range: { start: { line: 45, column: 0 }, end: { line: 45, column: 0 } } },
+      { file: absPlain, range: { start: { line: 0, column: 0 }, end: { line: 0, column: 0 } } },
+    ];
+
+    vi.mocked(cp.execFile).mockImplementation((_cmd: any, _args: any, _opts: any, cb: any) => {
+      cb(null, JSON.stringify(mockedMatches), "");
+      return {} as any;
+    });
+
+    const result = await tool.execute(
+      "tc",
+      { pattern: "p", path: fixturesDir },
+      new AbortController().signal,
+      () => {},
+      { cwd: process.cwd() },
+    );
+
+    const out = text(result);
+    const headers = out.split("\n").filter((l) => l.startsWith("--- "));
+    expect(headers.length).toBe(2);
+  });
 });
