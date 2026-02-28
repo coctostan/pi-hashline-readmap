@@ -165,4 +165,34 @@ describe("symbol read integration", () => {
     expect(text).toContain("[Output truncated:");
     expect(text).not.toContain("File Map:");
   });
+
+  it("returns disambiguation text and no hashlines for ambiguous symbol query", async () => {
+    const cacheModule = await import("../src/map-cache.js");
+    const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+      path: resolve(fixturesDir, "small.ts"),
+      totalLines: 100,
+      totalBytes: 1000,
+      language: "typescript",
+      symbols: [
+        { name: "process", kind: SymbolKind.Function, startLine: 1, endLine: 10 },
+        { name: "process", kind: SymbolKind.Function, startLine: 20, endLine: 30 },
+      ],
+      imports: [],
+      detailLevel: DetailLevel.Full,
+    });
+
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "process",
+    });
+
+    const text = getTextContent(result);
+    expect(text.toLowerCase()).toContain("ambiguous");
+    expect(text).toContain("process (function)");
+    expect(text).toContain("lines 1-10");
+    expect(text).toContain("lines 20-30");
+    expect(text).not.toMatch(/^\d+:[0-9a-f]{2}\|/m);
+  });
 });

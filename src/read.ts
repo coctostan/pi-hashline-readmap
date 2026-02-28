@@ -93,6 +93,27 @@ export function registerReadTool(pi: ExtensionAPI): void {
 				const fileMap = await getOrGenerateMap(absolutePath);
 				if (fileMap) {
 					const lookup = findSymbol(fileMap, params.symbol);
+					if (lookup.type === "ambiguous") {
+						const lines = lookup.candidates.map(
+							(c) => `- ${c.name} (${c.kind}) — lines ${c.startLine}-${c.endLine}`,
+						);
+
+						return {
+							content: [
+								{
+									type: "text",
+									text: [
+										`Symbol '${params.symbol}' is ambiguous.`,
+										"Matches:",
+										...lines,
+										"Use dot notation to disambiguate.",
+									].join("\n"),
+								},
+							],
+							isError: false,
+							details: {},
+						};
+					}
 					if (lookup.type === "found") {
 						startLine = Math.max(1, lookup.symbol.startLine);
 						endIdx = Math.min(total, lookup.symbol.endLine);
