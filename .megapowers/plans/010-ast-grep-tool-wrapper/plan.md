@@ -11,7 +11,7 @@
 
 ---
 
-## Task 1: Register `sg` tool + schema (pattern required, lang/path optional) [depends: none]
+### Task 1: Register `sg` tool + schema (pattern required, lang/path optional) [depends: none]
 **Covers:** AC 1, 2, 3, 4
 
 **Files:**
@@ -93,7 +93,7 @@ Expected: all passing
 
 ---
 
-## Task 2: Wire `registerSgTool()` into `index.ts` [depends: 1]
+### Task 2: Wire `registerSgTool()` into `index.ts` [depends: 1]
 **Covers:** AC 20
 
 **Files:**
@@ -143,7 +143,7 @@ Expected: all passing
 
 ---
 
-## Task 3: Execute returns install hint when `sg` missing (ENOENT) [depends: 1]
+### Task 3: Execute returns install hint when `sg` missing (ENOENT) [depends: 1]
 **Covers:** AC 14
 
 **Files:**
@@ -279,7 +279,7 @@ Expected: all passing
 
 ---
 
-## Task 4: Non-zero `sg` exit returns stderr text [depends: 3]
+### Task 4: Non-zero `sg` exit returns stderr text [depends: 3]
 **Covers:** AC 15
 
 **Files:**
@@ -337,7 +337,7 @@ Expected: all passing
 
 ---
 
-## Task 5: CLI args include `-l <lang>` only when `lang` is provided [depends: 3]
+### Task 5: CLI args include `-l <lang>` only when `lang` is provided [depends: 3]
 **Covers:** AC 5, 6
 
 **Files:**
@@ -405,7 +405,7 @@ Expected: all passing
 
 ---
 
-## Task 6: Resolve `path` relative to `ctx.cwd` [depends: 3]
+### Task 6: Resolve `path` relative to `ctx.cwd` [depends: 3]
 **Covers:** AC 7
 
 **Files:**
@@ -477,7 +477,7 @@ Expected: all passing
 
 ---
 
-## Task 7: Parse sg JSON and return no-match message for `[]` [depends: 3]
+### Task 7: Parse sg JSON and return no-match message for `[]` [depends: 3]
 **Covers:** AC 13
 
 **Files:**
@@ -558,7 +558,7 @@ Expected: all passing
 
 ---
 
-## Task 8: Format a multi-line match as `>>LINE:HASH|content` using real file lines + edit compatibility [depends: 6, 7]
+### Task 8: Format a multi-line match as `>>LINE:HASH|content` using real file lines + edit compatibility [depends: 6, 7]
 **Covers:** AC 8, 10, 11, 12, 17
 
 **Files:**
@@ -744,7 +744,7 @@ Expected: all passing
 
 ---
 
-## Task 9: Group multiple files with `--- file ---` headers (one header per file) [depends: 8]
+### Task 9: Group multiple files with `--- file ---` headers (one header per file) [depends: 8]
 **Covers:** AC 9
 
 **Files:**
@@ -832,7 +832,7 @@ Expected: all passing
 
 ---
 
-## Task 10: Skip unreadable matched files silently [depends: 9]
+### Task 10: Skip unreadable matched files silently [depends: 9]
 **Covers:** AC 16
 
 **Files:**
@@ -906,7 +906,7 @@ Expected: all passing
 
 ---
 
-## Task 11: Add `prompts/sg.md` and validate required metavariable docs [depends: none]
+### Task 11: Add `prompts/sg.md` and validate required metavariable docs [depends: none]
 **Covers:** AC 18
 
 **Files:**
@@ -969,7 +969,7 @@ Expected: all passing
 
 ---
 
-## Task 12: Load `prompts/sg.md` as the tool description [depends: 1, 11]
+### Task 12: Load `prompts/sg.md` as the tool description [depends: 1, 11]
 **Covers:** AC 19
 
 **Files:**
