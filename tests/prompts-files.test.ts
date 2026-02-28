@@ -30,4 +30,16 @@ describe("prompts directory (AC15)", () => {
     expect(readPrompt).toContain("cached in memory by file modification time");
     expect(readPrompt).toContain("Images");
   });
+
+  it("sg prompt exists and documents metavariables and workflow", () => {
+    const sgPromptPath = resolve(root, "prompts/sg.md");
+    expect(existsSync(sgPromptPath)).toBe(true);
+
+    const content = readFileSync(sgPromptPath, "utf8");
+    expect(content).toContain("$NAME");
+    expect(content).toContain("$$$ARGS");
+    expect(content).toContain("$_");
+    expect(content.toLowerCase()).toContain("workflow");
+    expect(content.toLowerCase()).toContain("edit");
+  });
 });
