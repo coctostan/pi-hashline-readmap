@@ -131,4 +131,14 @@ describe("symbol read integration", () => {
     expect(edited.firstChangedLine).toBe(45);
     expect(edited.content).toContain("// symbol-anchor-edit");
   });
+
+  it("prepends symbol header with name, kind, and line range", async () => {
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "createDemoDirectory",
+    });
+
+    const text = getTextContent(result);
+    expect(text).toMatch(/^\[Symbol: createDemoDirectory \(function\), lines 45-49 of 49\]/);
+  });
 });

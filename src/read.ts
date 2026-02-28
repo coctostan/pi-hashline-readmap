@@ -131,6 +131,10 @@ export function registerReadTool(pi: ExtensionAPI): void {
 				}
 			}
 
+			if (params.symbol && symbolMatch) {
+				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind}), lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
+			}
+
 			return {
 				content: [{ type: "text", text }],
 				details: { truncation: truncation.truncated ? truncation : undefined },
