@@ -86,22 +86,22 @@ export function registerReadTool(pi: ExtensionAPI): void {
 
 			let startLine = params.offset ? Math.max(1, params.offset) : 1;
 			let endIdx = params.limit ? Math.min(startLine - 1 + params.limit, total) : total;
-			let selected = allLines.slice(startLine - 1, endIdx);
-
 			let symbolMatch:
 				| { name: string; kind: string; startLine: number; endLine: number }
 				| undefined;
-
 			if (params.symbol) {
 				const fileMap = await getOrGenerateMap(absolutePath);
 				if (fileMap) {
 					const lookup = findSymbol(fileMap, params.symbol);
 					if (lookup.type === "found") {
-						selected = allLines.slice(lookup.symbol.startLine - 1, Math.min(total, lookup.symbol.endLine));
+						startLine = Math.max(1, lookup.symbol.startLine);
+						endIdx = Math.min(total, lookup.symbol.endLine);
 						symbolMatch = lookup.symbol;
 					}
 				}
 			}
+
+			const selected = allLines.slice(startLine - 1, endIdx);
 
 			const formatted = selected
 				.map((line, i) => {

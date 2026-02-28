@@ -104,4 +104,31 @@ describe("symbol read integration", () => {
     expect(rows.some((r) => r.content.includes("export function createDemoDirectory"))).toBe(true);
     expect(rows.some((r) => r.content.includes("return directory;"))).toBe(true);
   });
+
+  it("symbol read anchors refer to original file line numbers (edit-compatible)", async () => {
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "createDemoDirectory",
+    });
+
+    const text = getTextContent(result);
+    const rows = parseHashlineRows(text);
+
+    // In tests/fixtures/small.ts, createDemoDirectory is on lines 45-49.
+    expect(rows).toHaveLength(5);
+    expect(rows[0].line).toBe(45);
+    expect(rows[rows.length - 1].line).toBe(49);
+
+    // Anchor should apply to the original file (edit-tool compatibility)
+    const { applyHashlineEdits } = await import("../src/hashline.js");
+    const { readFileSync } = await import("node:fs");
+    const filePath = resolve(fixturesDir, "small.ts");
+    const original = readFileSync(filePath, "utf-8");
+    const edited = applyHashlineEdits(original, [
+      { set_line: { anchor: rows[0].anchor, new_text: "// symbol-anchor-edit" } },
+    ]);
+
+    expect(edited.firstChangedLine).toBe(45);
+    expect(edited.content).toContain("// symbol-anchor-edit");
+  });
 });
