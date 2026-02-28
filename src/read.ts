@@ -116,7 +116,10 @@ export function registerReadTool(pi: ExtensionAPI): void {
 						};
 					}
 					if (lookup.type === "not-found") {
-						const available = fileMap.symbols.map((s) => s.name).join(", ");
+						const available = fileMap.symbols
+							.slice(0, 20)
+							.map((s) => s.name)
+							.join(", ");
 						symbolWarning = `[Warning: symbol '${params.symbol}' not found. Available symbols: ${available}]\n\n`;
 					}
 					if (lookup.type === "found") {

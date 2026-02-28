@@ -209,4 +209,41 @@ describe("symbol read integration", () => {
 		const rows = parseHashlineRows(text);
 		expect(rows.length).toBeGreaterThan(0);
 	});
+
+	it("limits not-found available-symbol list to 20 entries", async () => {
+		const cacheModule = await import("../src/map-cache.js");
+		const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+
+		const manySymbols = Array.from({ length: 25 }, (_, i) => ({
+			name: `symbol${String(i + 1).padStart(2, "0")}`,
+			kind: SymbolKind.Function,
+			startLine: i + 1,
+			endLine: i + 1,
+		}));
+
+		vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+			path: resolve(fixturesDir, "small.ts"),
+			totalLines: 200,
+			totalBytes: 2000,
+			language: "typescript",
+			symbols: manySymbols,
+			imports: [],
+			detailLevel: DetailLevel.Full,
+		});
+
+		const result = await callReadTool({
+			path: resolve(fixturesDir, "small.ts"),
+			symbol: "missing",
+		});
+
+		const text = getTextContent(result);
+		const match = text.match(/Available symbols: ([^\]]+)\]/);
+		expect(match).not.toBeNull();
+
+		const listed = match![1].split(", ");
+		expect(listed.length).toBe(20);
+		expect(listed).toContain("symbol01");
+		expect(listed).toContain("symbol20");
+		expect(listed).not.toContain("symbol21");
+	});
 });
