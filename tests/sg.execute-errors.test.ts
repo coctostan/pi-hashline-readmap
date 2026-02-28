@@ -42,4 +42,26 @@ describe("sg execute errors", () => {
     expect(result.isError).toBe(true);
     expect(text(result)).toBe("ast-grep (sg) is not installed. Run: brew install ast-grep");
   });
+
+  it("returns stderr when sg exits non-zero", async () => {
+    const tool = await getSgTool();
+
+    vi.mocked(cp.execFile).mockImplementation((_cmd: any, _args: any, _opts: any, cb: any) => {
+      const err: any = new Error("sg failed");
+      err.code = 2;
+      cb(err, "", "Error: invalid pattern");
+      return {} as any;
+    });
+
+    const result = await tool.execute(
+      "tc",
+      { pattern: "{{bad" },
+      new AbortController().signal,
+      () => {},
+      { cwd: process.cwd() },
+    );
+
+    expect(result.isError).toBe(true);
+    expect(text(result)).toContain("invalid pattern");
+  });
 });

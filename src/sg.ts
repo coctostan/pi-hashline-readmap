@@ -53,7 +53,7 @@ export function registerSgTool(pi: ExtensionAPI): void {
           };
         }
         return {
-          content: [{ type: "text", text: String(err?.message ?? err) }],
+          content: [{ type: "text", text: String(err?.stderr || err?.message || err) }],
           isError: true,
           details: {},
         };
