@@ -2,6 +2,9 @@
 
 Overall: plan is close and covers all acceptance criteria, but two tasks need minor fixes to be self-contained and executable in this repo.
 
+Update: plan.md revised to address both items (Task 2 snippet now reuses existing `root`/imports; Task 10 includes explicit code and depends on Task 9). Ready for approval.
+
+
 ## Task 2 (index.ts wiring test)
 - The plan’s Step 1 snippet redeclares `root` and uses `__dirname` without defining it.
 - In this repo, `tests/entry-point.test.ts` already defines `__dirname` via `import.meta.url` and defines `root` once at top-level.

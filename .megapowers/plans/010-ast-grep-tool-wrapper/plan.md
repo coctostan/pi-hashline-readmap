@@ -832,7 +832,7 @@ Expected: all passing
 
 ---
 
-## Task 10: Skip unreadable matched files silently [depends: 8]
+## Task 10: Skip unreadable matched files silently [depends: 9]
 **Covers:** AC 16
 
 **Files:**
