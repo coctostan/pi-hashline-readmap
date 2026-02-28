@@ -104,25 +104,18 @@ Expected: all passing
 **Step 1 — Write the failing test**
 Append to `tests/entry-point.test.ts`:
 ```ts
-import { describe, it, expect } from "vitest";
-import { pathToFileURL } from "node:url";
-import { resolve } from "node:path";
-
-describe("extension entry point (sg)", () => {
-  it("registers sg tool", async () => {
-    const root = resolve(__dirname, "..");
+// In tests/entry-point.test.ts, add this new test inside the existing
+// describe("extension entry point (AC8)", ...) block (reuse existing imports + `root`).
+it("registers sg tool", async () => {
     const mod = await import(pathToFileURL(resolve(root, "index.ts")).href);
-
-    const tools: string[] = [];
-    const mockPi = {
-      registerTool(def: any) {
-        tools.push(def.name);
-      },
-    };
-
+  const tools: string[] = [];
+  const mockPi = {
+    registerTool(def: any) {
+      tools.push(def.name);
+    },
+  };
     mod.default(mockPi as any);
-    expect(tools).toContain("sg");
-  });
+  expect(tools).toContain("sg");
 });
 ```
 
@@ -884,9 +877,25 @@ Run: `npx vitest run tests/sg.format.test.ts -t "unreadable files"`
 Expected: FAIL — output includes a header for `/does/not/exist.ts` or tool errors.
 
 **Step 3 — Write minimal implementation**
-In `src/sg.ts` ensure that when `getFileLines(abs)` returns `undefined`, that file (and its matches) are skipped silently:
-- When grouping, only emit header after successfully reading the file.
+In `src/sg.ts`, ensure you only emit a file header after the file was successfully read. Minimal change (in the grouped loop from Task 9):
 
+```ts
+for (const [display, { abs, matches: fileMatches }] of grouped) {
+  const lines = await getFileLines(abs);
+  if (!lines) continue; // skip unreadable/missing files silently
+
+  blocks.push(`--- ${display} ---`);
+
+  for (const m of fileMatches) {
+    const start = m.range.start.line + 1;
+    const end = m.range.end.line + 1;
+    for (let ln = start; ln <= end; ln++) {
+      const srcLine = lines[ln - 1] ?? "";
+      blocks.push(`>>${ln}:${computeLineHash(ln, srcLine)}|${srcLine}`);
+    }
+  }
+}
+```
 **Step 4 — Run test, verify it passes**
 Run: `npx vitest run tests/sg.format.test.ts -t "unreadable files"`
 Expected: PASS

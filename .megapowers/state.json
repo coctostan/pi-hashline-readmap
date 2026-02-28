@@ -2,7 +2,7 @@
   "version": 1,
   "activeIssue": "010-ast-grep-tool-wrapper",
   "workflow": "feature",
-  "phase": "plan",
+  "phase": "review",
   "phaseHistory": [
     {
       "from": "brainstorm",
@@ -33,6 +33,11 @@
       "from": "review",
       "to": "plan",
       "timestamp": 1772307011784
+    },
+    {
+      "from": "plan",
+      "to": "review",
+      "timestamp": 1772307232406
     }
   ],
   "reviewApproved": false,
