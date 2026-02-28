@@ -108,4 +108,19 @@ describe("findSymbol", () => {
       symbol: { name: "parseConfig", kind: "function", startLine: 10, endLine: 25 },
     });
   });
+
+  it("returns ambiguous when case-insensitive tier has multiple matches", () => {
+    const map = makeMap([
+      { name: "parseConfig", kind: SymbolKind.Function, startLine: 10, endLine: 20 },
+      { name: "PARSECONFIG", kind: SymbolKind.Function, startLine: 30, endLine: 40 },
+    ]);
+
+    expect(findSymbol(map, "parseconfig")).toEqual({
+      type: "ambiguous",
+      candidates: [
+        { name: "parseConfig", kind: "function", startLine: 10, endLine: 20 },
+        { name: "PARSECONFIG", kind: "function", startLine: 30, endLine: 40 },
+      ],
+    });
+  });
 });
