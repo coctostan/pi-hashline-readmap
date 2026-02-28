@@ -106,7 +106,7 @@
     }
   ],
   "reviewApproved": true,
-  "currentTaskIndex": 14,
+  "currentTaskIndex": 15,
   "completedTasks": [
     1,
     2,
@@ -121,7 +121,8 @@
     11,
     12,
     13,
-    14
+    14,
+    15
   ],
   "tddTaskState": null,
   "taskJJChanges": {
@@ -136,7 +137,8 @@
     "11": "snapshot",
     "12": "snapshot",
     "13": "snapshot",
-    "14": "snapshot"
+    "14": "snapshot",
+    "15": "snapshot"
   },
   "jjChangeId": null,
   "doneActions": [],

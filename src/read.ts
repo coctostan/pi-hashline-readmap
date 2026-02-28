@@ -16,6 +16,7 @@ import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { getOrGenerateMap } from "./map-cache";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
+import { findSymbol } from "./readmap/symbol-lookup.js";
 
 const READ_DESC = readFileSync(new URL("../prompts/read.md", import.meta.url), "utf-8")
 	.replaceAll("{{DEFAULT_MAX_LINES}}", String(DEFAULT_MAX_LINES))
@@ -83,9 +84,24 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			const allLines = normalized.split("\n");
 			const total = allLines.length;
 
-			const startLine = params.offset ? Math.max(1, params.offset) : 1;
-			const endIdx = params.limit ? Math.min(startLine - 1 + params.limit, total) : total;
-			const selected = allLines.slice(startLine - 1, endIdx);
+			let startLine = params.offset ? Math.max(1, params.offset) : 1;
+			let endIdx = params.limit ? Math.min(startLine - 1 + params.limit, total) : total;
+			let selected = allLines.slice(startLine - 1, endIdx);
+
+			let symbolMatch:
+				| { name: string; kind: string; startLine: number; endLine: number }
+				| undefined;
+
+			if (params.symbol) {
+				const fileMap = await getOrGenerateMap(absolutePath);
+				if (fileMap) {
+					const lookup = findSymbol(fileMap, params.symbol);
+					if (lookup.type === "found") {
+						selected = allLines.slice(lookup.symbol.startLine - 1, Math.min(total, lookup.symbol.endLine));
+						symbolMatch = lookup.symbol;
+					}
+				}
+			}
 
 			const formatted = selected
 				.map((line, i) => {

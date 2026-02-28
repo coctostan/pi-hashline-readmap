@@ -13,6 +13,14 @@ type ReadParams = {
   symbol?: string;
 };
 
+
+type HashlineRow = {
+  line: number;
+  hash: string;
+  anchor: string;
+  content: string;
+};
+
 async function getReadTool() {
   const { registerReadTool } = await import("../src/read.js");
   let capturedTool: any = null;
@@ -35,6 +43,17 @@ async function callReadTool(params: ReadParams) {
 
 function getTextContent(result: any): string {
   return result.content.find((c: any) => c.type === "text")?.text ?? "";
+}
+
+
+function parseHashlineRows(text: string): HashlineRow[] {
+  const rows: HashlineRow[] = [];
+  for (const line of text.split("\n")) {
+    const match = line.match(/^(\d+):([0-9a-f]{2})\|(.*)$/);
+    if (!match) continue;
+    rows.push({ line: Number(match[1]), hash: match[2], anchor: `${match[1]}:${match[2]}`, content: match[3] });
+  }
+  return rows;
 }
 
 describe("symbol read integration", () => {
@@ -68,5 +87,21 @@ describe("symbol read integration", () => {
 
     expect(result.isError).toBe(true);
     expect(getTextContent(result)).toBe("Cannot combine symbol with offset/limit. Use one or the other.");
+  });
+
+
+  it("returns only rows from the matched symbol body", async () => {
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "createDemoDirectory",
+    });
+
+    const text = getTextContent(result);
+    const rows = parseHashlineRows(text);
+
+    // The fixture function body is 5 lines total.
+    expect(rows).toHaveLength(5);
+    expect(rows.some((r) => r.content.includes("export function createDemoDirectory"))).toBe(true);
+    expect(rows.some((r) => r.content.includes("return directory;"))).toBe(true);
   });
 });
