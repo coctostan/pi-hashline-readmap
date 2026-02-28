@@ -2,7 +2,7 @@
   "version": 1,
   "activeIssue": "016-m4-bash-output-compression-filter-routin",
   "workflow": "feature",
-  "phase": "review",
+  "phase": "plan",
   "phaseHistory": [
     {
       "from": "brainstorm",
@@ -18,6 +18,11 @@
       "from": "plan",
       "to": "review",
       "timestamp": 1772314582529
+    },
+    {
+      "from": "review",
+      "to": "plan",
+      "timestamp": 1772315408843
     }
   ],
   "reviewApproved": false,
@@ -25,7 +30,7 @@
   "completedTasks": [],
   "tddTaskState": null,
   "taskJJChanges": {},
-  "jjChangeId": "pxrywoly",
+  "jjChangeId": "zqxrwqux",
   "doneActions": [],
   "megaEnabled": true
 }
