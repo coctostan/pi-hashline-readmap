@@ -40,4 +40,20 @@ describe("findSymbol", () => {
       symbol: { name: "parseConfig", kind: "function", startLine: 10, endLine: 25 },
     });
   });
+
+  it("returns exact-tier ambiguity only when exact has multiple matches", () => {
+    const map = makeMap([
+      { name: "init", kind: SymbolKind.Method, startLine: 3, endLine: 10 },
+      { name: "init", kind: SymbolKind.Method, startLine: 32, endLine: 40 },
+      { name: "initialize", kind: SymbolKind.Function, startLine: 60, endLine: 90 },
+    ]);
+
+    expect(findSymbol(map, "init")).toEqual({
+      type: "ambiguous",
+      candidates: [
+        { name: "init", kind: "method", startLine: 3, endLine: 10 },
+        { name: "init", kind: "method", startLine: 32, endLine: 40 },
+      ],
+    });
+  });
 });
