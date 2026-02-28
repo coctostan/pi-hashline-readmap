@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import * as cp from "node:child_process";
+import { resolveToCwd } from "./path-utils.js";
 
 type SgParams = { pattern: string; lang?: string; path?: string };
 
@@ -37,7 +38,8 @@ export function registerSgTool(pi: ExtensionAPI): void {
       const p = params as SgParams;
       const args = ["run", "--json", "-p", p.pattern];
       if (p.lang) args.push("-l", p.lang);
-      args.push(p.path ?? ".");
+      const searchPath = resolveToCwd(p.path ?? ".", ctx.cwd);
+      args.push(searchPath);
 
       try {
         const { stdout } = await execFileText("sg", args, {
