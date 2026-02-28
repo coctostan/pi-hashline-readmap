@@ -23,14 +23,16 @@ function toMatch(symbol: FileSymbol): SymbolMatch {
 }
 
 export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
-  if (!query) return { type: "not-found" };
+  const q = query.trim();
+  if (!q) return { type: "not-found" };
   if (map.symbols.length === 0) return { type: "not-found" };
-  const exact = map.symbols.filter((s) => s.name === query);
+
+  const exact = map.symbols.filter((s) => s.name === q);
   if (exact.length === 1) return { type: "found", symbol: toMatch(exact[0]) };
   if (exact.length > 1) return { type: "ambiguous", candidates: exact.map(toMatch) };
 
-  if (query.includes(".")) {
-    const [parentName, childName] = query.split(".", 2);
+  if (q.includes(".")) {
+    const [parentName, childName] = q.split(".", 2);
     const nested: FileSymbol[] = [];
 
     for (const top of map.symbols) {
@@ -44,12 +46,15 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
     if (nested.length > 1) return { type: "ambiguous", candidates: nested.map(toMatch) };
   }
 
-  const qLower = query.toLowerCase();
+  const qLower = q.toLowerCase();
+
   const ci = map.symbols.filter((s) => s.name.toLowerCase() === qLower);
   if (ci.length === 1) return { type: "found", symbol: toMatch(ci[0]) };
   if (ci.length > 1) return { type: "ambiguous", candidates: ci.map(toMatch) };
+
   const partial = map.symbols.filter((s) => s.name.toLowerCase().includes(qLower));
   if (partial.length === 1) return { type: "found", symbol: toMatch(partial[0]) };
   if (partial.length > 1) return { type: "ambiguous", candidates: partial.map(toMatch) };
+
   return { type: "not-found" };
 }

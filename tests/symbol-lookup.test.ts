@@ -150,4 +150,13 @@ describe("findSymbol", () => {
       ],
     });
   });
+
+  it("returns not-found for empty or whitespace query", () => {
+    const map = makeMap([
+      { name: "   ", kind: SymbolKind.Function, startLine: 1, endLine: 1 },
+      { name: "parseConfig", kind: SymbolKind.Function, startLine: 10, endLine: 25 },
+    ]);
+
+    expect(findSymbol(map, "   ")).toEqual({ type: "not-found" });
+  });
 });
