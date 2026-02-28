@@ -35,7 +35,9 @@ export function registerSgTool(pi: ExtensionAPI): void {
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const p = params as SgParams;
-      const args = ["run", "--json", "-p", p.pattern, p.path ?? "."];
+      const args = ["run", "--json", "-p", p.pattern];
+      if (p.lang) args.push("-l", p.lang);
+      args.push(p.path ?? ".");
 
       try {
         const { stdout } = await execFileText("sg", args, {
