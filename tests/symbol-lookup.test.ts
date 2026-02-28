@@ -135,4 +135,19 @@ describe("findSymbol", () => {
       symbol: { name: "createDemoDirectory", kind: "function", startLine: 45, endLine: 49 },
     });
   });
+
+  it("returns ambiguous when partial tier has multiple matches", () => {
+    const map = makeMap([
+      { name: "processData", kind: SymbolKind.Function, startLine: 1, endLine: 10 },
+      { name: "processInput", kind: SymbolKind.Function, startLine: 12, endLine: 22 },
+    ]);
+
+    expect(findSymbol(map, "process")).toEqual({
+      type: "ambiguous",
+      candidates: [
+        { name: "processData", kind: "function", startLine: 1, endLine: 10 },
+        { name: "processInput", kind: "function", startLine: 12, endLine: 22 },
+      ],
+    });
+  });
 });

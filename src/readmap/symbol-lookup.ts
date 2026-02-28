@@ -50,5 +50,6 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
   if (ci.length > 1) return { type: "ambiguous", candidates: ci.map(toMatch) };
   const partial = map.symbols.filter((s) => s.name.toLowerCase().includes(qLower));
   if (partial.length === 1) return { type: "found", symbol: toMatch(partial[0]) };
+  if (partial.length > 1) return { type: "ambiguous", candidates: partial.map(toMatch) };
   return { type: "not-found" };
 }
