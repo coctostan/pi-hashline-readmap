@@ -1,5 +1,6 @@
 import { stripAnsi } from "./ansi.js";
 import * as testOutput from "./test-output.js";
+import * as git from "./git.js";
 
 export interface FilterResult {
   output: string;
@@ -36,6 +37,8 @@ export function filterBashOutput(command: string, output: string): FilterResult 
   let result: string;
   if (isTestCommand(command)) {
     result = testOutput.aggregateTestOutput(stripped, command) ?? stripped;
+  } else if (isGitCommand(command)) {
+    result = git.compactGitOutput(stripped, command) ?? stripped;
   } else {
     result = stripped;
   }

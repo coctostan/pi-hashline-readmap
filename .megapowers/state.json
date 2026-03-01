@@ -121,16 +121,18 @@
     }
   ],
   "reviewApproved": true,
-  "currentTaskIndex": 3,
+  "currentTaskIndex": 4,
   "completedTasks": [
     1,
     2,
-    3
+    3,
+    4
   ],
   "tddTaskState": null,
   "taskJJChanges": {
     "2": "lprnkmzw",
-    "3": "mxnpmktu"
+    "3": "mxnpmktu",
+    "4": "qnkksqvk"
   },
   "jjChangeId": "pmlmpuzr",
   "doneActions": [],
