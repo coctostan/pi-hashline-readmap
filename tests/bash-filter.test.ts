@@ -89,4 +89,23 @@ describe("filterBashOutput routing", () => {
 
     spy.mockRestore();
   });
+
+  it("test command wins over build when both match (AC14: cargo test)", () => {
+    // "cargo test" matches isTestCommand (contains "cargo test") AND isBuildCommand (contains "cargo")
+    const cmd = "cargo test";
+    expect(isTestCommand(cmd)).toBe(true);
+    expect(isBuildCommand(cmd)).toBe(true);
+
+    const testSpy = vi.spyOn(testOutput, "aggregateTestOutput").mockReturnValue("test wins");
+    const buildSpy = vi.spyOn(buildModule, "filterBuildOutput").mockReturnValue("build wins");
+
+    const result = filterBashOutput(cmd, "some output");
+
+    expect(testSpy).toHaveBeenCalledWith("some output", cmd);
+    expect(buildSpy).not.toHaveBeenCalled();
+    expect(result.output).toBe("test wins");
+
+    testSpy.mockRestore();
+    buildSpy.mockRestore();
+  });
 });
