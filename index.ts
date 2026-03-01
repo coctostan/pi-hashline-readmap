@@ -23,7 +23,11 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       .map((c) => c.text)
       .join("\n");
 
-    const { output } = filterBashOutput(command, originalText);
+    const { output, savedChars } = filterBashOutput(command, originalText);
+
+    if (process.env.PI_RTK_SAVINGS === "1") {
+      process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
+    }
 
     return {
       content: [{ type: "text" as const, text: output }],
