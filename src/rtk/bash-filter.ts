@@ -21,7 +21,7 @@ export function isGitCommand(command: string): boolean {
 
 export function isBuildCommand(command: string): boolean {
   const c = command.toLowerCase();
-  return ["tsc", "cargo", "npm run build"].some((t) => c.includes(t));
+  return ["tsc", "cargo build", "cargo check", "cargo test", "npm run build"].some((t) => c.includes(t));
 }
 
 export function isLinterCommand(command: string): boolean {
@@ -36,18 +36,25 @@ export function filterBashOutput(command: string, output: string): FilterResult 
 
   const stripped = stripAnsi(output);
 
-  let result: string;
+  let result = stripped;
   try {
-    if (isTestCommand(command)) {
-      result = testOutput.aggregateTestOutput(stripped, command) ?? stripped;
-    } else if (isGitCommand(command)) {
-      result = git.compactGitOutput(stripped, command) ?? stripped;
-    } else if (isLinterCommand(command)) {
-      result = linter.aggregateLinterOutput(stripped, command) ?? stripped;
-    } else if (isBuildCommand(command)) {
-      result = build.filterBuildOutput(stripped, command) ?? stripped;
-    } else {
-      result = stripped;
+    const routes: Array<{ matches: boolean; apply: () => string | null }> = [
+      { matches: isTestCommand(command), apply: () => testOutput.aggregateTestOutput(stripped, command) },
+      { matches: isGitCommand(command), apply: () => git.compactGitOutput(stripped, command) },
+      { matches: isLinterCommand(command), apply: () => linter.aggregateLinterOutput(stripped, command) },
+      { matches: isBuildCommand(command), apply: () => build.filterBuildOutput(stripped, command) },
+    ];
+
+    for (const route of routes) {
+      if (!route.matches) {
+        continue;
+      }
+
+      const next = route.apply();
+      if (next !== null) {
+        result = next;
+        break;
+      }
     }
   } catch {
     result = stripped;

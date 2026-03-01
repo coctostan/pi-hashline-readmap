@@ -89,3 +89,20 @@ All four selected wrap-up actions completed:
 ---
 
 To directly answer your original question: **`generate-docs`** (which would write `docs/features/010-ast-grep-tool-wrapper.md`) was not in the selected wrap-up actions for this issue, so it was skipped. If you want the feature doc written, just say the word.
+All four wrap-up actions complete. Here's what was done:
+
+---
+
+### ✅ Completed Wrap-up Actions
+
+1. **`write-changelog`** — Appended entry to `CHANGELOG.md` describing the bash output compression filter feature (#016).
+
+2. **`capture-learnings`** — Wrote 7 bullet-point learnings to `.megapowers/plans/016-m4-bash-output-compression-filter-routin/learnings.md` covering routing design, null-fallthrough pattern, test coverage gaps, and integration testing tradeoffs.
+
+3. **`squash-task-changes`** — Ran `jj squash --into @-` successfully. All per-task changes are now consolidated into the phase commit.
+
+4. **`close-issue`** — Issue #016-m4-bash-output-compression-filter-routin is ready to close (which also covers source issues #012 and #013).
+
+---
+
+The issue is complete. You can now run `/issue close` to mark it done, or pick up the next issue.

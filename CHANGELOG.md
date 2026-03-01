@@ -16,3 +16,4 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Prompt templates under `prompts/`: `read.md`, `edit.md` (#001)
 - Vitest test suite with 33 tests covering all scaffold acceptance criteria (#001)
 - Added symbol-addressable reads via `read(path, { symbol })` with tiered symbol lookup, ambiguity handling, graceful fallback warnings, and prompt documentation updates (#015)
+- Bash output compression filter: `src/rtk/bash-filter.ts` routes bash tool results through the appropriate RTK technique (test aggregation, git compaction, build filtering, linter aggregation) with ANSI stripping, null-fallthrough between overlapping routes, and graceful error fallback; wired into `index.ts` via `pi.on("tool_result")` with hashline-safe gating and optional savings logging via `PI_RTK_SAVINGS=1` (#016)

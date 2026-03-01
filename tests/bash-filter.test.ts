@@ -26,11 +26,27 @@ describe("command detection", () => {
     expect(isBuildCommand("cargo build")).toBe(true);
     expect(isBuildCommand("npm run build")).toBe(true);
 
+    expect(isBuildCommand("cargo clippy")).toBe(false);
+
     expect(isLinterCommand("eslint .")).toBe(true);
     expect(isLinterCommand("prettier --check .")).toBe(true);
     expect(isLinterCommand("tsc --noEmit")).toBe(true);
 
     expect(isTestCommand("echo hello")).toBe(false);
+  });
+});
+
+
+describe("filterBashOutput core behavior", () => {
+  it("returns empty output and zero savings for empty output", () => {
+    expect(filterBashOutput("echo hello", "")).toEqual({ output: "", savedChars: 0 });
+  });
+
+  it("returns ANSI-stripped output unchanged for unknown commands", () => {
+    const input = "\x1b[32mhello\x1b[0m";
+    const result = filterBashOutput("echo hello", input);
+    expect(result.output).toBe("hello");
+    expect(result.savedChars).toBe(input.length - "hello".length);
   });
 });
 
@@ -74,6 +90,20 @@ describe("filterBashOutput routing", () => {
     expect(nullResult.output).toBe("raw linter output");
 
     spy.mockRestore();
+  });
+
+  it("falls through to build filtering when linter route matches but returns null", () => {
+    const linterSpy = vi.spyOn(linterModule, "aggregateLinterOutput").mockReturnValue(null);
+    const buildSpy = vi.spyOn(buildModule, "filterBuildOutput").mockReturnValue("build fallback output");
+
+    const result = filterBashOutput("tsc --noEmit", "raw build output");
+
+    expect(linterSpy).toHaveBeenCalledWith("raw build output", "tsc --noEmit");
+    expect(buildSpy).toHaveBeenCalledWith("raw build output", "tsc --noEmit");
+    expect(result.output).toBe("build fallback output");
+
+    linterSpy.mockRestore();
+    buildSpy.mockRestore();
   });
 
   it("routes build commands to filterBuildOutput and falls back when null", () => {

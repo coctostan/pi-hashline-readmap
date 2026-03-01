@@ -1,7 +1,7 @@
 ---
 id: 13
 type: feature
-status: open
+status: closed
 created: 2026-02-26T21:12:00Z
 milestone: M4
 priority: 10
