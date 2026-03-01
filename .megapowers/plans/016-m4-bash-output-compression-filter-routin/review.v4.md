@@ -92,6 +92,7 @@ No blocking issues.
 
 ### Task 2: filterBashOutput — empty input and ANSI stripping — ⚠️ REVISE (granularity)
 - Anchor `281:a2` — single test covers multiple behaviors (empty output + ANSI stripping + savedChars). Consider splitting into 2–3 smaller `it(...)` cases for clearer failures.
+  - Not strictly blocking if you keep it, but it improves TDD feedback quality.
 
 ### Task 3: command detection and test command routing — ❌ REVISE
 - Must add assertion that the routed technique receives **ANSI-stripped** input (AC2), not just that the final output is stripped.
@@ -111,25 +112,31 @@ No blocking issues.
 ### Task 7: routing priority tests — ❌ REVISE
 - Prefer overlap command (`cargo test && cargo build`) rather than modifying `isBuildCommand`.
   - Anchors `861:6f`, `887:9e`.
+- If you keep it as a separate task, Step 1 must be full file content.
+  - Anchor `858:fe`.
 
 ### Task 8: technique error returns ANSI-stripped original — ❌ REVISE
 - Step 1 is not self-contained (snippet only).
   - Anchor `917:fe`.
 
 ### Task 9: index.ts wiring — ✅ PASS (with required test expansion)
+- Implementation approach is fine.
 - Must extend the “non-bash untouched” integration test to cover grep/edit/sg as well.
   - Anchor `1035:e6`.
 
 ### Task 10: Savings logging — ❌ REVISE
-- Step 1 is not self-contained (snippet-only changes) and env restore is incorrect.
-  - Anchors `1131:df`, `1182:93`.
+- Step 1 is not self-contained (snippet-only changes).
+  - Anchor `1131:df`.
+- Must fix env restore logic.
+  - Anchor `1182:93`.
 
 ---
 
 ## Missing Coverage
-- **AC2 (strip before technique):** not explicitly asserted for a routed technique call.
-- **Hashline isolation safety:** integration test should explicitly include `grep`, `edit`, `sg`.
+- **AC2 (strip before technique):** not explicitly asserted for a routed technique call (only indirectly via output).
+- **Hashline isolation safety:** integration test should explicitly include `grep`, `edit`, `sg` (spec emphasis).
 
 ---
 
 ## Verdict: **revise**
+The plan is close and largely correct, but it needs the self-containment fixes (full test file listings) plus the AC2/"strip before technique" assertion, expanded non-bash integration coverage, and the `process.env` restore fix.
