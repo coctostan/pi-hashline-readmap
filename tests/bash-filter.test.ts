@@ -91,7 +91,6 @@ describe("filterBashOutput routing", () => {
   });
 
   it("test command wins over build when both match (AC14: cargo test)", () => {
-    // "cargo test" matches isTestCommand (contains "cargo test") AND isBuildCommand (contains "cargo")
     const cmd = "cargo test";
     expect(isTestCommand(cmd)).toBe(true);
     expect(isBuildCommand(cmd)).toBe(true);
@@ -107,5 +106,18 @@ describe("filterBashOutput routing", () => {
 
     testSpy.mockRestore();
     buildSpy.mockRestore();
+  });
+
+  it("catches technique errors and returns ANSI-stripped original", () => {
+    const spy = vi.spyOn(testOutput, "aggregateTestOutput").mockImplementation(() => {
+      throw new Error("technique exploded");
+    });
+
+    const input = "\x1b[31mtest output\x1b[0m";
+    const result = filterBashOutput("npm test", input);
+    expect(result.output).toBe("test output");
+    expect(result.savedChars).toBe(input.length - "test output".length);
+
+    spy.mockRestore();
   });
 });

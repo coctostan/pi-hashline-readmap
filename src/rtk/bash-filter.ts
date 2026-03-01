@@ -37,15 +37,19 @@ export function filterBashOutput(command: string, output: string): FilterResult 
   const stripped = stripAnsi(output);
 
   let result: string;
-  if (isTestCommand(command)) {
-    result = testOutput.aggregateTestOutput(stripped, command) ?? stripped;
-  } else if (isGitCommand(command)) {
-    result = git.compactGitOutput(stripped, command) ?? stripped;
-  } else if (isLinterCommand(command)) {
-    result = linter.aggregateLinterOutput(stripped, command) ?? stripped;
-  } else if (isBuildCommand(command)) {
-    result = build.filterBuildOutput(stripped, command) ?? stripped;
-  } else {
+  try {
+    if (isTestCommand(command)) {
+      result = testOutput.aggregateTestOutput(stripped, command) ?? stripped;
+    } else if (isGitCommand(command)) {
+      result = git.compactGitOutput(stripped, command) ?? stripped;
+    } else if (isLinterCommand(command)) {
+      result = linter.aggregateLinterOutput(stripped, command) ?? stripped;
+    } else if (isBuildCommand(command)) {
+      result = build.filterBuildOutput(stripped, command) ?? stripped;
+    } else {
+      result = stripped;
+    }
+  } catch {
     result = stripped;
   }
 
