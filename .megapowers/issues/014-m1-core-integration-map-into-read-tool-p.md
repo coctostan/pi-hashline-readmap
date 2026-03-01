@@ -1,7 +1,7 @@
 ---
 id: 14
 type: feature
-status: done
+status: closed
 created: 2026-02-27T14:38:56.845Z
 sources: [4, 5, 6]
 ---

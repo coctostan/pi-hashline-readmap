@@ -19,12 +19,37 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Editor
+# Editors & IDEs
 .idea/
+.vscode/
 *.swp
 *.swo
-.vscode/settings.json
+*~
 
 # Logs
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# npm pack artifacts
+*.tgz
+
+# Environment
+.env
+.env.*
+
+# pi agent local state
+.megapowers/
+.pi/
+
+# Local workspace / planning docs
+.zellij*
+.npmrc
+AGENT-NATIVE-TOOLS.md
+ROADMAP.md
+ARCHITECTURE.md
+BUILD-PLAN.md
+DESIGN.md
+PRD.md
+docs/features/

@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": "016-m4-bash-output-compression-filter-routin",
+  "activeIssue": null,
   "workflow": "feature",
-  "phase": "done",
+  "phase": null,
   "phaseHistory": [
     {
       "from": "brainstorm",
@@ -166,9 +166,6 @@
     "10": "oklsrmtm"
   },
   "jjChangeId": "mtswkqpx",
-  "doneActions": [
-    "squash-task-changes",
-    "close-issue"
-  ],
+  "doneActions": [],
   "megaEnabled": true
 }

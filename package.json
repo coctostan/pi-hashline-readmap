@@ -1,11 +1,25 @@
 {
   "name": "pi-hashline-readmap",
   "version": "0.1.0",
-  "private": true,
+  "description": "Unified pi extension: hash-anchored read/edit/grep, structural code maps, AST-grep, and bash output compression",
   "type": "module",
+  "keywords": ["pi-package", "pi-extension", "hashline", "code-map", "ast-grep"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/coctostan/pi-hashline-readmap.git"
+  },
+  "author": "Maxwell Newman",
+  "license": "MIT",
   "pi": {
     "extensions": ["./index.ts"]
   },
+  "files": [
+    "index.ts",
+    "src/",
+    "prompts/",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"

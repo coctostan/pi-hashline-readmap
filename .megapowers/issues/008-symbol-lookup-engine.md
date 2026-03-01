@@ -1,7 +1,7 @@
 ---
 id: 8
 type: feature
-status: done
+status: closed
 created: 2026-02-26T21:07:00Z
 milestone: M2
 priority: 6

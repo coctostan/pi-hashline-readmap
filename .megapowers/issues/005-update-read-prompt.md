@@ -1,7 +1,7 @@
 ---
 id: 5
 type: feature
-status: done
+status: closed
 created: 2026-02-26T21:04:00Z
 milestone: M1
 priority: 4
