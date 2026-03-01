@@ -8,6 +8,7 @@ import {
 } from "../src/rtk/bash-filter.js";
 import * as testOutput from "../src/rtk/test-output.js";
 import * as gitModule from "../src/rtk/git.js";
+import * as linterModule from "../src/rtk/linter.js";
 
 describe("command detection", () => {
   it("matches all AC6–AC9 examples", () => {
@@ -38,9 +39,11 @@ describe("filterBashOutput routing", () => {
     const result = filterBashOutput("npm test", "raw test output");
     expect(spy).toHaveBeenCalledWith("raw test output", "npm test");
     expect(result.output).toBe("compressed test output");
+
     // AC2: technique receives ANSI-stripped input
     filterBashOutput("npm test", "\x1b[32mraw test\x1b[0m");
     expect(spy).toHaveBeenLastCalledWith("raw test", "npm test");
+
     spy.mockRestore();
   });
 
@@ -54,6 +57,19 @@ describe("filterBashOutput routing", () => {
     spy.mockReturnValue(null);
     const nullResult = filterBashOutput("git commit -m 'fix'", "commit output");
     expect(nullResult.output).toBe("commit output");
+
+    spy.mockRestore();
+  });
+  it("routes linter commands to aggregateLinterOutput and falls back when null", () => {
+    const spy = vi.spyOn(linterModule, "aggregateLinterOutput").mockReturnValue("compressed linter output");
+
+    const result = filterBashOutput("eslint .", "raw linter output");
+    expect(spy).toHaveBeenCalledWith("raw linter output", "eslint .");
+    expect(result.output).toBe("compressed linter output");
+
+    spy.mockReturnValue(null);
+    const nullResult = filterBashOutput("eslint .", "raw linter output");
+    expect(nullResult.output).toBe("raw linter output");
 
     spy.mockRestore();
   });

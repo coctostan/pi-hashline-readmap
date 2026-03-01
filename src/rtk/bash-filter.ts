@@ -1,6 +1,7 @@
 import { stripAnsi } from "./ansi.js";
 import * as testOutput from "./test-output.js";
 import * as git from "./git.js";
+import * as linter from "./linter.js";
 
 export interface FilterResult {
   output: string;
@@ -39,6 +40,8 @@ export function filterBashOutput(command: string, output: string): FilterResult 
     result = testOutput.aggregateTestOutput(stripped, command) ?? stripped;
   } else if (isGitCommand(command)) {
     result = git.compactGitOutput(stripped, command) ?? stripped;
+  } else if (isLinterCommand(command)) {
+    result = linter.aggregateLinterOutput(stripped, command) ?? stripped;
   } else {
     result = stripped;
   }
