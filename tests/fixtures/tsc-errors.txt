@@ -1,0 +1,13 @@
+src/router.ts(12,5): error TS2322: Type 'string' is not assignable to type 'number'.
+src/router.ts(45,18): error TS2345: Argument of type 'undefined' is not assignable to parameter of type 'Request'.
+src/utils.ts(8,1): error TS7006: Parameter 'x' implicitly has an 'any' type.
+src/middleware.ts(23,10): error TS2339: Property 'headers' does not exist on type 'BasicResponse'.
+src/index.ts(5,27): error TS2307: Cannot find module './missing' or its corresponding type declarations.
+
+Found 5 errors in 4 files.
+
+Errors  Files
+     2  src/router.ts:12
+     1  src/utils.ts:8
+     1  src/middleware.ts:23
+     1  src/index.ts:5

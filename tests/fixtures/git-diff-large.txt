@@ -1,0 +1,84 @@
+diff --git a/src/router.ts b/src/router.ts
+index abc1234..def5678 100644
+--- a/src/router.ts
++++ b/src/router.ts
+@@ -10,6 +10,8 @@ export class Router {
+   private routes: Map<string, Handler>;
++  private middleware: Middleware[];
++  private errorHandler: ErrorHandler;
+ 
+   constructor() {
+     this.routes = new Map();
+@@ -25,7 +27,12 @@ export class Router {
+   handle(path: string): Response {
+-    const handler = this.routes.get(path);
++    const handler = this.findHandler(path);
++    if (!handler) {
++      return { status: 404, body: { error: "Not Found" } };
++    }
++    return this.runMiddleware(handler, path);
+   }
+
+diff --git a/src/utils.ts b/src/utils.ts
+index 111aaaa..222bbbb 100644
+--- a/src/utils.ts
++++ b/src/utils.ts
+@@ -1,4 +1,5 @@
++import { Config } from "./types";
+ 
+ export function parseConfig(raw: string): Config {
+-  return JSON.parse(raw);
++  return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+ }
+
+diff --git a/src/middleware.ts b/src/middleware.ts
+index 333cccc..444dddd 100644
+--- a/src/middleware.ts
++++ b/src/middleware.ts
+@@ -5,3 +5,15 @@ export function authMiddleware(token: string) {
+     if (!token) throw new Error("Unauthorized");
++    const decoded = verifyToken(token);
++    req.user = decoded;
+   };
+ }
++
++export function loggingMiddleware() {
++  return (req: Request, next: () => Response) => {
++    console.log(`${req.method} ${req.path}`);
++    const res = next();
++    console.log(`  -> ${res.status}`);
++    return res;
++  };
++}
+
+diff --git a/src/types.ts b/src/types.ts
+index 555eeee..666ffff 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -8,3 +8,9 @@ export interface Config {
+   port: number;
++  host: string;
++  debug: boolean;
+ }
++
++export interface Middleware {
++  (req: Request, next: () => Response): Response;
++}
+
+diff --git a/src/index.ts b/src/index.ts
+index 777gggg..888hhhh 100644
+--- a/src/index.ts
++++ b/src/index.ts
+@@ -1,8 +1,12 @@
+ import { Router } from "./router";
++import { authMiddleware, loggingMiddleware } from "./middleware";
+ 
+ const router = new Router();
++router.use(loggingMiddleware());
++router.use(authMiddleware(process.env.TOKEN!));
+ 
+ router.add("/health", () => ({ status: 200, body: "ok" }));
++router.add("/api/users", handleUsers);
+ 
+ router.listen(3000);
++router.listen(parseInt(process.env.PORT || "3000"));

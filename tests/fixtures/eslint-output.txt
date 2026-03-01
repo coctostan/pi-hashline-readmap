@@ -1,0 +1,16 @@
+/home/user/project/src/router.ts
+   12:5   error    Unexpected any. Specify a different type               @typescript-eslint/no-explicit-any
+   23:10  warning  'tempVar' is assigned a value but never used           @typescript-eslint/no-unused-vars
+   45:1   error    Missing return type on function                        @typescript-eslint/explicit-function-return-type
+
+/home/user/project/src/utils.ts
+    8:1   error    Unexpected console statement                           no-console
+   15:22  warning  'err' is defined but never used                        @typescript-eslint/no-unused-vars
+
+/home/user/project/src/middleware.ts
+    3:1   error    'fs' is defined but never used                         @typescript-eslint/no-unused-vars
+   18:5   error    Do not use 'any' as a type                             @typescript-eslint/no-explicit-any
+   30:12  warning  Unexpected empty function                              @typescript-eslint/no-empty-function
+
+✖ 8 problems (5 errors, 3 warnings)
+  2 errors and 1 warning potentially fixable with the `--fix` option.

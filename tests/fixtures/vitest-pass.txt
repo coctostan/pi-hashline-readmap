@@ -1,0 +1,20 @@
+ ✓ src/utils.test.ts (3 tests) 12ms
+   ✓ parseConfig returns defaults
+   ✓ parseConfig merges overrides
+   ✓ parseConfig throws on invalid input
+ ✓ src/router.test.ts (5 tests) 45ms
+   ✓ matches exact routes
+   ✓ matches parameterized routes
+   ✓ returns 404 for unknown paths
+   ✓ handles query strings
+   ✓ decodes URL components
+ ✓ src/middleware.test.ts (4 tests) 23ms
+   ✓ auth middleware rejects missing token
+   ✓ auth middleware accepts valid token
+   ✓ logging middleware records request
+   ✓ cors middleware sets headers
+
+ Test Files  3 passed (3)
+      Tests  12 passed (12)
+   Start at  14:32:01
+   Duration  245ms

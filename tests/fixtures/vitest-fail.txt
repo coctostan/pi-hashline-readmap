@@ -1,0 +1,30 @@
+ ✓ src/utils.test.ts (3 tests) 12ms
+ ✗ src/router.test.ts (5 tests) 67ms
+   ✓ matches exact routes
+   ✓ matches parameterized routes
+   ✗ returns 404 for unknown paths
+   ✓ handles query strings
+   ✓ decodes URL components
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/router.test.ts > returns 404 for unknown paths
+
+AssertionError: expected 200 to be 404
+
+  ❯ src/router.test.ts:34:18
+     32|   const res = router.handle("/nonexistent");
+     33|   expect(res.status).toBe(404);
+     34|   expect(res.body).toEqual({ error: "Not Found" });
+       |                  ^
+     35| });
+
+  - Expected: 404
+  + Received: 200
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  1 failed | 11 passed (12)
+   Start at  14:33:01
+   Duration  312ms
