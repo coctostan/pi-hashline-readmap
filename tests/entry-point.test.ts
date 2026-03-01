@@ -26,6 +26,7 @@ describe("extension entry point (AC8)", () => {
       registerTool(def: any) {
         tools.push(def.name);
       },
+      on() {},
     };
     mod.default(mockPi as any);
     expect(tools).toContain("sg");

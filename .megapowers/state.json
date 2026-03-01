@@ -121,7 +121,7 @@
     }
   ],
   "reviewApproved": true,
-  "currentTaskIndex": 8,
+  "currentTaskIndex": 9,
   "completedTasks": [
     1,
     2,
@@ -130,7 +130,8 @@
     5,
     6,
     7,
-    8
+    8,
+    9
   ],
   "tddTaskState": null,
   "taskJJChanges": {
@@ -140,7 +141,8 @@
     "5": "vyyummlk",
     "6": "yxnzrtpm",
     "7": "yztlyvwo",
-    "8": "ruzpyrty"
+    "8": "ruzpyrty",
+    "9": "xusqnwon"
   },
   "jjChangeId": "pmlmpuzr",
   "doneActions": [],
