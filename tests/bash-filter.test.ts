@@ -9,6 +9,7 @@ import {
 import * as testOutput from "../src/rtk/test-output.js";
 import * as gitModule from "../src/rtk/git.js";
 import * as linterModule from "../src/rtk/linter.js";
+import * as buildModule from "../src/rtk/build.js";
 
 describe("command detection", () => {
   it("matches all AC6–AC9 examples", () => {
@@ -60,6 +61,7 @@ describe("filterBashOutput routing", () => {
 
     spy.mockRestore();
   });
+
   it("routes linter commands to aggregateLinterOutput and falls back when null", () => {
     const spy = vi.spyOn(linterModule, "aggregateLinterOutput").mockReturnValue("compressed linter output");
 
@@ -70,6 +72,20 @@ describe("filterBashOutput routing", () => {
     spy.mockReturnValue(null);
     const nullResult = filterBashOutput("eslint .", "raw linter output");
     expect(nullResult.output).toBe("raw linter output");
+
+    spy.mockRestore();
+  });
+
+  it("routes build commands to filterBuildOutput and falls back when null", () => {
+    const spy = vi.spyOn(buildModule, "filterBuildOutput").mockReturnValue("compressed build output");
+
+    const result = filterBashOutput("tsc", "raw build output");
+    expect(spy).toHaveBeenCalledWith("raw build output", "tsc");
+    expect(result.output).toBe("compressed build output");
+
+    spy.mockReturnValue(null);
+    const nullResult = filterBashOutput("npm run build", "raw build output");
+    expect(nullResult.output).toBe("raw build output");
 
     spy.mockRestore();
   });
