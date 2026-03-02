@@ -5,7 +5,7 @@
  * Key additions ported: merge detection, confusable hyphens, restoreOldWrappedLines.
  */
 
-import * as XXH from "xxhashjs";
+import xxhashWasm from "xxhash-wasm";
 import { throwIfAborted } from "./runtime";
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -52,14 +52,39 @@ const DIFF_PLUS_RE = /^\+(?!\+)/;
 const CONFUSABLE_HYPHENS_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]/g;
 const HASH_RELOCATION_WINDOW = 20;
 
+let h32Fn: ((input: string, seed?: number) => number) | null = null;
+let initPromise: Promise<void> | null = null;
+
+export async function ensureHashInit(): Promise<void> {
+	if (h32Fn) return;
+	if (!initPromise) {
+		initPromise = xxhashWasm().then((hasher) => {
+			h32Fn = hasher.h32;
+		});
+	}
+	await initPromise;
+}
+
 function xxh32(input: string): number {
-	return XXH.h32(0).update(input).digest().toNumber() >>> 0;
+	if (!h32Fn) throw new Error("Hash not initialized — call ensureHashInit() first");
+	return h32Fn(input, 0) >>> 0;
 }
 
 export function computeLineHash(_idx: number, line: string): string {
 	if (line.endsWith("\r")) line = line.slice(0, -1);
 	line = line.replace(/\s+/g, "");
 	return DICT[xxh32(line) % HASH_MOD];
+}
+
+export function hashLine(lineNumber: number, content: string): string {
+	return `${lineNumber}:${computeLineHash(lineNumber, content)}|${content}`;
+}
+
+export function hashLines(content: string): string {
+	return content
+		.split("\n")
+		.map((line, i) => hashLine(i + 1, line))
+		.join("\n");
 }
 
 // ─── Parsing ────────────────────────────────────────────────────────────

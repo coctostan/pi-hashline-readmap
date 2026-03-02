@@ -2,10 +2,9 @@ import type { ExtensionAPI, EditToolDetails } from "@mariozechner/pi-coding-agen
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { readFileSync } from "fs";
-import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
-import { constants } from "fs";
-import { detectLineEnding, generateDiffString, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff";
-import { applyHashlineEdits, computeLineHash, parseLineRef, type HashlineEditItem } from "./hashline";
+import { readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
+import { detectLineEnding, generateCompactOrFullDiff, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff";
+import { applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem } from "./hashline";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 
@@ -46,6 +45,7 @@ export function registerEditTool(pi: ExtensionAPI): void {
 		parameters: hashlineEditSchema,
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			await ensureHashInit();
 			const parsed = params as HashlineParams;
 			const input = params as Record<string, unknown>;
 			const rawPath = parsed.path;
@@ -130,14 +130,19 @@ export function registerEditTool(pi: ExtensionAPI): void {
 				(e): e is { replace: { old_text: string; new_text: string; all?: boolean } } => "replace" in e,
 			);
 
+			let raw: string;
 			try {
-				await fsAccess(absolutePath, constants.R_OK | constants.W_OK);
-			} catch {
-				throw new Error(`File not found: ${path}`);
+				raw = (await fsReadFile(absolutePath)).toString("utf-8");
+			} catch (err: any) {
+				const code = err?.code;
+				if (code === "EISDIR") {
+					throw new Error(`Path is a directory: ${path}`);
+				}
+				if (code === "ENOENT") {
+					throw new Error(`File not found: ${path}`);
+				}
+				throw new Error(`File not readable: ${path}`);
 			}
-			throwIfAborted(signal);
-
-			const raw = (await fsReadFile(absolutePath)).toString("utf-8");
 			throwIfAborted(signal);
 
 			const { bom, text: content } = stripBom(raw);
@@ -202,7 +207,7 @@ export function registerEditTool(pi: ExtensionAPI): void {
 			throwIfAborted(signal);
 			await fsWriteFile(absolutePath, bom + restoreLineEndings(result, originalEnding), "utf-8");
 
-			const diffResult = generateDiffString(originalNormalized, result);
+			const diffResult = generateCompactOrFullDiff(originalNormalized, result);
 			const warnings: string[] = [];
 			if (anchorResult.warnings?.length) warnings.push(...anchorResult.warnings);
 			if (legacyNormalizationWarning) warnings.push(legacyNormalizationWarning);

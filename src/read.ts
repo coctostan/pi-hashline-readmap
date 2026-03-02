@@ -8,10 +8,9 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { readFileSync } from "fs";
-import { access as fsAccess, readFile as fsReadFile, stat as fsStat } from "fs/promises";
-import { constants } from "fs";
+import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom } from "./edit-diff";
-import { computeLineHash } from "./hashline";
+import { computeLineHash, ensureHashInit } from "./hashline";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { getOrGenerateMap } from "./map-cache";
@@ -36,6 +35,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 		}),
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			await ensureHashInit();
 			const rawPath = params.path.replace(/^@/, "");
 			const absolutePath = resolveToCwd(rawPath, ctx.cwd);
 
@@ -44,25 +44,6 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			if (params.symbol && (params.offset !== undefined || params.limit !== undefined)) {
 				return {
 					content: [{ type: "text", text: "Cannot combine symbol with offset/limit. Use one or the other." }],
-					isError: true,
-					details: {},
-				};
-			}
-			try {
-				await fsAccess(absolutePath, constants.R_OK);
-			} catch {
-				return {
-					content: [{ type: "text", text: `File not found or not readable: ${rawPath}` }],
-					isError: true,
-					details: {},
-				};
-			}
-
-			throwIfAborted(signal);
-			const pathStat = await fsStat(absolutePath);
-			if (pathStat.isDirectory()) {
-				return {
-					content: [{ type: "text", text: `Path is a directory: ${rawPath}. Use ls to inspect directories.` }],
 					isError: true,
 					details: {},
 				};
@@ -77,7 +58,38 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			}
 
 			throwIfAborted(signal);
-			const rawBuffer = await fsReadFile(absolutePath);
+			let rawBuffer: Buffer;
+			try {
+				rawBuffer = await fsReadFile(absolutePath);
+			} catch (err: any) {
+				const code = err?.code;
+				if (code === "EISDIR") {
+					return {
+						content: [{ type: "text", text: `Path is a directory: ${rawPath}. Use ls to inspect directories.` }],
+						isError: true,
+						details: {},
+					};
+				}
+				if (code === "EACCES" || code === "EPERM") {
+					return {
+						content: [{ type: "text", text: `Permission denied — cannot access: ${rawPath}` }],
+						isError: true,
+						details: {},
+					};
+				}
+				if (code === "ENOENT") {
+					return {
+						content: [{ type: "text", text: `File not found: ${rawPath}` }],
+						isError: true,
+						details: {},
+					};
+				}
+				return {
+					content: [{ type: "text", text: `File not found: ${rawPath}` }],
+					isError: true,
+					details: {},
+				};
+			}
 			const hasBinaryContent = rawBuffer.includes(0);
 			throwIfAborted(signal);
 

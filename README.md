@@ -63,14 +63,28 @@ Use `LINE:HASH` anchors from `read` or `grep` output to make precise, atomic edi
 
 Hash verification ensures edits target the exact line you intended — no drift, no surprises.
 
+When an edit changes a single line, the diff is compact:
+
+```
+45:e4|  router.addRoute("/api", handler); → 45:f9|  router.addRoute("/api/v2", handler);
+```
+
+Multi-line edits use the full unified diff format.
+
 ### 🔍 `grep` — Hash-anchored search
 
-Search results come with `LINE:HASH|` anchors, ready to feed directly into `edit`:
+Search results come with `LINE:HASH|` anchors, ready to feed directly into `edit`. Every result opens with a summary header and per-file match counts:
 
 ```
+[3 matches in 2 files]
+--- src/server.ts (2 matches) ---
 src/server.ts:>>45:e4|  router.addRoute("/api", handler);
+src/server.ts:>>89:2c|  router.addRoute("/health", ping);
+--- src/client.ts (1 match) ---
 src/client.ts:>>12:7d|  const router = new Router();
 ```
+
+When total matches exceed 50, each file is capped at 10 shown matches with a `... +K more matches` footer. When `context > 0`, overlapping context windows from adjacent matches are merged — each source line appears at most once — and non-adjacent groups are separated by `--`.
 
 Supports regex patterns, literal search, glob filtering, case-insensitive mode, and context lines.
 
@@ -86,7 +100,7 @@ sg({ pattern: "console.log($$$ARGS)", path: "src/" })
 >>45:f1|  console.log(error.message, error.stack);
 ```
 
-All results come with hash anchors for direct use with `edit`.
+Overlapping or adjacent match ranges (gap ≤ 1 line) are merged before output, so each source line appears at most once. All results come with hash anchors for direct use with `edit`.
 
 ### 📦 Bash output compression
 
@@ -139,7 +153,7 @@ PI_RTK_SAVINGS=1 pi
 
 ```bash
 npm install          # install dependencies
-npm test             # run tests (27 test files)
+npm test             # run tests (39 test files)
 npm run typecheck    # TypeScript type check
 ```
 
@@ -153,7 +167,7 @@ src/
   edit-diff.ts              # Diff computation for edit operations
   grep.ts                   # Grep tool with hashlined results
   sg.ts                     # AST-grep tool wrapper
-  hashline.ts               # LINE:HASH computation (xxhash)
+  hashline.ts               # LINE:HASH computation (xxhash-wasm, async init)
   map-cache.ts              # In-memory map cache (mtime-based)
   path-utils.ts             # Path resolution utilities
   runtime.ts                # Abort signal helpers
@@ -185,7 +199,7 @@ prompts/
   read.md                   # Read tool description/prompt
   edit.md                   # Edit tool description/prompt
   sg.md                     # AST-grep tool description/prompt
-tests/                      # 27 test files covering all features
+tests/                      # 39 test files covering all features
 ```
 
 ## Credits

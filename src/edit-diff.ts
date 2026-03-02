@@ -1,4 +1,5 @@
 import * as Diff from "diff";
+import { computeLineHash } from "./hashline";
 
 // ─── Line ending normalization ──────────────────────────────────────────
 
@@ -248,4 +249,82 @@ export function generateDiffString(
 	}
 
 	return { diff: output.join("\n"), firstChangedLine };
+}
+
+/**
+ * Generate a compact diff for single-line edits, or fall back to the full diff.
+ *
+ * - Single-line replacement: `LINE:HASH|old → LINE:HASH|new`
+ * - Single-line deletion: `LINE:HASH|old → [deleted]`
+ * - Multi-line changes: full output from generateDiffString()
+ */
+export function generateCompactOrFullDiff(
+	oldContent: string,
+	newContent: string,
+	contextLines = 4,
+): { diff: string; firstChangedLine: number | undefined } {
+	if (oldContent === newContent) return { diff: "", firstChangedLine: undefined };
+
+	const oldLines = oldContent.split("\n");
+	const newLines = newContent.split("\n");
+
+	// Case 1: Same line count, exactly one changed line → compact replacement.
+	if (oldLines.length === newLines.length) {
+		let changedIndex = -1;
+		let changeCount = 0;
+
+		for (let i = 0; i < oldLines.length; i++) {
+			if (oldLines[i] !== newLines[i]) {
+				changedIndex = i;
+				changeCount++;
+				if (changeCount > 1) break;
+			}
+		}
+
+		if (changeCount === 1 && changedIndex >= 0) {
+			const lineNum = changedIndex + 1;
+			const oldLine = oldLines[changedIndex] ?? "";
+			const newLine = newLines[changedIndex] ?? "";
+			const oldHash = computeLineHash(lineNum, oldLine);
+			const newHash = computeLineHash(lineNum, newLine);
+			return {
+				diff: `${lineNum}:${oldHash}|${oldLine} → ${lineNum}:${newHash}|${newLine}`,
+				firstChangedLine: lineNum,
+			};
+		}
+	}
+
+	// Case 2: Exactly one line deleted.
+	// old has one more line than new, and removing a single line makes them equal.
+	if (oldLines.length === newLines.length + 1) {
+		let deletedIndex = -1;
+		let j = 0;
+		let failed = false;
+
+		for (let i = 0; i < oldLines.length; i++) {
+			if (j < newLines.length && oldLines[i] === newLines[j]) {
+				j++;
+				continue;
+			}
+			if (deletedIndex === -1) {
+				deletedIndex = i;
+				continue;
+			}
+			failed = true;
+			break;
+		}
+
+		if (!failed && deletedIndex !== -1 && j === newLines.length) {
+			const lineNum = deletedIndex + 1;
+			const oldLine = oldLines[deletedIndex] ?? "";
+			const oldHash = computeLineHash(lineNum, oldLine);
+			return {
+				diff: `${lineNum}:${oldHash}|${oldLine} → [deleted]`,
+				firstChangedLine: lineNum,
+			};
+		}
+	}
+
+	// Fall back to the full (existing) diff format.
+	return generateDiffString(oldContent, newContent, contextLines);
 }

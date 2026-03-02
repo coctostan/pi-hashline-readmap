@@ -93,7 +93,7 @@ brew install shellcheck yq scc # linting/analysis utilities
 ### Running tests
 
 ```bash
-npm test             # vitest run (27 tests)
+npm test             # vitest run (39 tests)
 npm run typecheck    # tsc --noEmit
 ```
 
@@ -109,7 +109,7 @@ src/
   edit-diff.ts        # diff computation and patch application
   grep.ts             # grep tool: regex search with hashlined results
   sg.ts               # sg tool: ast-grep wrapper with hashlined output
-  hashline.ts         # LINE:HASH generation (xxhash)
+  hashline.ts         # LINE:HASH generation (xxhash-wasm)
   map-cache.ts        # in-memory map cache (keyed by mtime)
   path-utils.ts       # path resolution helpers
   runtime.ts          # AbortSignal helpers
@@ -135,7 +135,7 @@ prompts/
   read.md             # read tool schema description
   edit.md             # edit tool schema description
   sg.md               # sg tool schema description
-tests/                # 27 test files — one per feature area
+tests/                # 39 test files — one per feature area
 ```
 
 ### Adding a new language mapper

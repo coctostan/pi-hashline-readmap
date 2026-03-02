@@ -5,7 +5,7 @@ import path from "node:path";
 import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { normalizeToLF, stripBom } from "./edit-diff.js";
-import { computeLineHash } from "./hashline.js";
+import { computeLineHash, ensureHashInit } from "./hashline.js";
 import { resolveToCwd } from "./path-utils.js";
 
 type SgParams = { pattern: string; lang?: string; path?: string };
@@ -14,6 +14,32 @@ type SgMatch = {
   file: string;
   range: { start: { line: number; column: number }; end: { line: number; column: number } };
 };
+
+export interface SgRange {
+  startLine: number;
+  endLine: number;
+}
+
+export function mergeRanges(ranges: SgRange[]): SgRange[] {
+  if (ranges.length === 0) return [];
+  if (ranges.length === 1) return [{ ...ranges[0] }];
+
+  const sorted = [...ranges].sort((a, b) => a.startLine - b.startLine);
+  const merged: SgRange[] = [{ ...sorted[0] }];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const last = merged[merged.length - 1];
+    // Merge if overlapping or gap ≤ 1 line
+    if (current.startLine <= last.endLine + 2) {
+      last.endLine = Math.max(last.endLine, current.endLine);
+    } else {
+      merged.push({ ...current });
+    }
+  }
+
+  return merged;
+}
 
 const SG_DESC = readFileSync(new URL("../prompts/sg.md", import.meta.url), "utf-8").trim();
 
@@ -51,6 +77,7 @@ export function registerSgTool(pi: ExtensionAPI): void {
     }),
 
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      await ensureHashInit();
       const p = params as SgParams;
       const args = ["run", "--json", "-p", p.pattern];
       if (p.lang) args.push("-l", p.lang);
@@ -108,10 +135,13 @@ export function registerSgTool(pi: ExtensionAPI): void {
           const lines = await getFileLines(abs);
           if (!lines) continue;
           blocks.push(`--- ${display} ---`);
-          for (const m of fileMatches) {
-            const start = m.range.start.line + 1;
-            const end = m.range.end.line + 1;
-            for (let ln = start; ln <= end; ln++) {
+          const ranges: SgRange[] = fileMatches.map((m) => ({
+            startLine: m.range.start.line + 1,
+            endLine: m.range.end.line + 1,
+          }));
+          const mergedRanges = mergeRanges(ranges);
+          for (const range of mergedRanges) {
+            for (let ln = range.startLine; ln <= range.endLine; ln++) {
               const srcLine = lines[ln - 1] ?? "";
               blocks.push(`>>${ln}:${computeLineHash(ln, srcLine)}|${srcLine}`);
             }

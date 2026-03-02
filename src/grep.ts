@@ -4,7 +4,7 @@ import { Type } from "@sinclair/typebox";
 import { readFile as fsReadFile, stat as fsStat } from "fs/promises";
 import path from "path";
 import { normalizeToLF, stripBom } from "./edit-diff";
-import { computeLineHash } from "./hashline";
+import { computeLineHash, ensureHashInit } from "./hashline";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 
@@ -61,6 +61,142 @@ function parseGrepOutputLine(line: string):
 	return null;
 }
 
+export interface GrepIRLine {
+	kind: "match" | "context" | "separator";
+	raw: string;
+}
+
+export interface GrepIRFile {
+	path: string;
+	matchCount: number;
+	lines: GrepIRLine[];
+}
+
+export interface GrepIR {
+	totalMatches: number;
+	files: GrepIRFile[];
+}
+
+const IR_MATCH_LINE_RE = /^(.+?):>>/;
+const IR_CONTEXT_LINE_RE = /^(.+?):  /;
+
+export function parseGrepIR(lines: string[]): GrepIR {
+	const fileMap = new Map<string, GrepIRFile>();
+	let totalMatches = 0;
+
+	for (const line of lines) {
+		const matchResult = line.match(IR_MATCH_LINE_RE);
+		let filePath: string | undefined;
+		let kind: "match" | "context" = "context";
+
+		if (matchResult) {
+			filePath = matchResult[1];
+			kind = "match";
+			totalMatches++;
+		} else {
+			const contextResult = line.match(IR_CONTEXT_LINE_RE);
+			if (contextResult) {
+				filePath = contextResult[1];
+				kind = "context";
+			}
+		}
+
+		if (!filePath) continue;
+
+		let file = fileMap.get(filePath);
+		if (!file) {
+			file = { path: filePath, matchCount: 0, lines: [] };
+			fileMap.set(filePath, file);
+		}
+
+		file.lines.push({ kind, raw: line });
+		if (kind === "match") file.matchCount++;
+	}
+
+	return { totalMatches, files: [...fileMap.values()] };
+}
+
+export function formatGrepOutput(ir: GrepIR): string {
+	const header = `[${ir.totalMatches} matches in ${ir.files.length} files]`;
+	if (ir.files.length === 0) return header;
+
+	const blocks: string[] = [header];
+	for (const file of ir.files) {
+		blocks.push(`--- ${file.path} (${file.matchCount} matches) ---`);
+		for (const line of file.lines) {
+			blocks.push(line.raw);
+		}
+	}
+
+	return blocks.join("\n");
+}
+
+const GREP_TRUNCATION_THRESHOLD = 50;
+const GREP_MAX_MATCHES_PER_FILE = 10;
+
+export function truncateGrepIR(ir: GrepIR): GrepIR {
+	if (ir.totalMatches <= GREP_TRUNCATION_THRESHOLD) return ir;
+
+	const files = ir.files.map((file) => {
+		let matchesSeen = 0;
+		const keptLines: GrepIRLine[] = [];
+		let truncatedCount = 0;
+
+		for (const line of file.lines) {
+			if (line.kind === "match") {
+				matchesSeen++;
+				if (matchesSeen <= GREP_MAX_MATCHES_PER_FILE) {
+					keptLines.push(line);
+				} else {
+					truncatedCount++;
+				}
+			} else if (matchesSeen <= GREP_MAX_MATCHES_PER_FILE) {
+				keptLines.push(line);
+			}
+		}
+
+		if (truncatedCount > 0) {
+			keptLines.push({
+				kind: "separator",
+				raw: `... +${truncatedCount} more matches`,
+			});
+		}
+
+		return { ...file, lines: keptLines };
+	});
+
+	return { ...ir, files };
+}
+
+const LINE_NUM_RE = /(?:>>|  )(\d+):/;
+
+export function deduplicateContext(lines: GrepIRLine[]): GrepIRLine[] {
+	if (lines.length === 0) return lines;
+
+	const byLineNum = new Map<number, GrepIRLine>();
+	for (const line of lines) {
+		const match = line.raw.match(LINE_NUM_RE);
+		if (!match) continue;
+		const lineNum = Number.parseInt(match[1], 10);
+		const existing = byLineNum.get(lineNum);
+		if (!existing || (line.kind === "match" && existing.kind === "context")) {
+			byLineNum.set(lineNum, line);
+		}
+	}
+
+	const sorted = [...byLineNum.entries()].sort(([a], [b]) => a - b);
+	const result: GrepIRLine[] = [];
+
+	for (let i = 0; i < sorted.length; i++) {
+		if (i > 0 && sorted[i][0] > sorted[i - 1][0] + 1) {
+			result.push({ kind: "separator", raw: "--" });
+		}
+		result.push(sorted[i][1]);
+	}
+
+	return result;
+}
+
 export function registerGrepTool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "grep",
@@ -69,6 +205,7 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 		parameters: grepSchema,
 
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
+			await ensureHashInit();
 			const builtin = createGrepTool(ctx.cwd);
 			const result = await builtin.execute(toolCallId, params, signal, onUpdate);
 
@@ -159,10 +296,16 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 				};
 			}
 
+			const grepIR = parseGrepIR(transformed);
+			for (const file of grepIR.files) {
+				file.lines = deduplicateContext(file.lines);
+			}
+			const truncatedIR = truncateGrepIR(grepIR);
+			const formattedOutput = formatGrepOutput(truncatedIR);
 			return {
 				...result,
 				content: result.content.map((item) =>
-					item === textBlock ? ({ ...item, text: transformed.join("\n") } as typeof item) : item,
+					item === textBlock ? ({ ...item, text: formattedOutput } as typeof item) : item,
 				),
 			};
 		},
