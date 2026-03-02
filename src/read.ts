@@ -77,10 +77,11 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			}
 
 			throwIfAborted(signal);
-			const raw = (await fsReadFile(absolutePath)).toString("utf-8");
+			const rawBuffer = await fsReadFile(absolutePath);
+			const hasBinaryContent = rawBuffer.includes(0);
 			throwIfAborted(signal);
 
-			const normalized = normalizeToLF(stripBom(raw).text);
+			const normalized = normalizeToLF(stripBom(rawBuffer.toString("utf-8")).text);
 			const allLines = normalized.split("\n");
 			const total = allLines.length;
 
@@ -101,6 +102,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 						const lines = lookup.candidates.map(
 							(c) => `- ${c.name} (${c.kind}) — lines ${c.startLine}-${c.endLine}`,
 						);
+						const hints = lookup.candidates.map((c) => `${params.symbol}@${c.startLine}`).join(" or ");
 						return {
 							content: [
 								{
@@ -109,7 +111,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 										`Symbol '${params.symbol}' is ambiguous.`,
 										"Matches:",
 										...lines,
-										"Use dot notation to disambiguate.",
+										`Use ${hints} to select by start line.`,
 									].join("\n"),
 								},
 							],
@@ -168,6 +170,10 @@ export function registerReadTool(pi: ExtensionAPI): void {
 
 			if (symbolWarning) {
 				text = symbolWarning + text;
+			}
+
+			if (hasBinaryContent) {
+				text = "[Warning: file appears to be binary — output may be garbled]\n\n" + text;
 			}
 
 			return {

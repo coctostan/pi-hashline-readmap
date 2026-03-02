@@ -88,18 +88,23 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 				searchPathIsDirectory = false;
 			}
 
-			const fileCache = new Map<string, string[]>();
+			const fileCache = new Map<string, string[] | undefined>();
 			const getFileLines = async (absolutePath: string): Promise<string[] | undefined> => {
 				throwIfAborted(signal);
 				if (fileCache.has(absolutePath)) return fileCache.get(absolutePath);
 				try {
-					const raw = (await fsReadFile(absolutePath)).toString("utf-8");
+					const rawBuffer = await fsReadFile(absolutePath);
+					if (rawBuffer.includes(0)) {
+						fileCache.set(absolutePath, undefined);
+						return undefined;
+					}
+					const raw = rawBuffer.toString("utf-8");
 					const lines = normalizeToLF(stripBom(raw).text).split("\n");
 					fileCache.set(absolutePath, lines);
 					return lines;
 				} catch {
 					fileCache.set(absolutePath, []);
-					return undefined;
+					return [];
 				}
 			};
 
@@ -127,6 +132,7 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 				parsedCount++;
 				const absolute = toAbsolutePath(parsed.displayPath);
 				const fileLines = await getFileLines(absolute);
+				if (fileLines === undefined) continue;
 				const sourceLine = fileLines?.[parsed.lineNumber - 1] ?? parsed.text;
 				const ref = `${parsed.lineNumber}:${computeLineHash(parsed.lineNumber, sourceLine)}`;
 				const marker = parsed.kind === "match" ? ">>" : "  ";
