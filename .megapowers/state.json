@@ -1,171 +1,66 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": "feature",
-  "phase": null,
+  "activeIssue": "022-exploratory-testing-bug-fixes",
+  "workflow": "bugfix",
+  "phase": "done",
   "phaseHistory": [
     {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1772314163697
+      "from": "reproduce",
+      "to": "diagnose",
+      "timestamp": 1772467071250
     },
     {
-      "from": "spec",
+      "from": "diagnose",
       "to": "plan",
-      "timestamp": 1772314347932
+      "timestamp": 1772467397002
     },
     {
       "from": "plan",
-      "to": "review",
-      "timestamp": 1772314582529
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772315408843
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772316100453
-    },
-    {
-      "from": "review",
       "to": "implement",
-      "timestamp": 1772316106922
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772316480577
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772317269317
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772317494102
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772317775073
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772317942934
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772318575565
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772318843157
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772333916148
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772334289443
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772369743698
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772370514604
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772373290936
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772374282338
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772377859092
-    },
-    {
-      "from": "review",
-      "to": "plan",
-      "timestamp": 1772378833073
-    },
-    {
-      "from": "plan",
-      "to": "review",
-      "timestamp": 1772380677498
-    },
-    {
-      "from": "review",
-      "to": "implement",
-      "timestamp": 1772380684545
+      "timestamp": 1772468506972
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1772383730128
+      "timestamp": 1772480661211
     },
     {
       "from": "verify",
-      "to": "code-review",
-      "timestamp": 1772384225460
+      "to": "implement",
+      "timestamp": 1772480872583
     },
     {
-      "from": "code-review",
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772480892593
+    },
+    {
+      "from": "verify",
       "to": "done",
-      "timestamp": 1772384913773
+      "timestamp": 1772480961715
     }
   ],
-  "reviewApproved": true,
-  "currentTaskIndex": 9,
+  "reviewApproved": false,
+  "planMode": null,
+  "planIteration": 2,
+  "currentTaskIndex": 0,
   "completedTasks": [
     1,
     2,
     3,
     4,
     5,
-    6,
-    7,
-    8,
-    9,
-    10
+    6
   ],
   "tddTaskState": {
-    "taskIndex": 10,
+    "taskIndex": 1,
     "state": "test-written",
     "skipped": false
   },
-  "taskJJChanges": {
-    "2": "lprnkmzw",
-    "3": "mxnpmktu",
-    "4": "qnkksqvk",
-    "5": "vyyummlk",
-    "6": "yxnzrtpm",
-    "7": "yztlyvwo",
-    "8": "ruzpyrty",
-    "9": "xusqnwon",
-    "10": "oklsrmtm"
-  },
-  "jjChangeId": "mtswkqpx",
-  "doneActions": [],
-  "megaEnabled": true
+  "taskJJChanges": {},
+  "jjChangeId": "omwnrwnw",
+  "doneActions": [
+    "close-issue"
+  ],
+  "megaEnabled": false
 }

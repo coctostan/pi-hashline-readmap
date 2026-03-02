@@ -109,7 +109,9 @@ function formatMismatchError(mismatches: HashMismatch[], fileLines: string[]): s
 // ─── DST preprocessing helpers ──────────────────────────────────────────
 
 function splitDst(dst: string): string[] {
-	return dst === "" ? [] : dst.split("\n");
+	if (dst === "") return [];
+	const normalized = dst.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n$/, "");
+	return normalized.split("\n");
 }
 
 function stripNewLinePrefixes(lines: string[]): string[] {
@@ -493,7 +495,7 @@ export function applyHashlineEdits(
 			if (orig.join("\n") === newL.join("\n") && orig.some((line) => CONFUSABLE_HYPHENS_RE.test(line))) {
 				newL = normalizeConfusableHyphensInLines(newL);
 			}
-			if (orig.join("\n") === newL.join("\n")) {
+			if (orig.length === newL.length && orig.join("\n") === newL.join("\n")) {
 				noopEdits.push({ editIndex: idx, loc: `${spec.ref.line}:${spec.ref.hash}`, currentContent: orig.join("\n") });
 				continue;
 			}
@@ -508,7 +510,7 @@ export function applyHashlineEdits(
 			if (orig.join("\n") === newL.join("\n") && orig.some((line) => CONFUSABLE_HYPHENS_RE.test(line))) {
 				newL = normalizeConfusableHyphensInLines(newL);
 			}
-			if (orig.join("\n") === newL.join("\n")) {
+			if (orig.length === newL.length && orig.join("\n") === newL.join("\n")) {
 				noopEdits.push({ editIndex: idx, loc: `${spec.start.line}:${spec.start.hash}`, currentContent: orig.join("\n") });
 				continue;
 			}

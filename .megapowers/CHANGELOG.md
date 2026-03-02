@@ -106,3 +106,20 @@ All four wrap-up actions complete. Here's what was done:
 ---
 
 The issue is complete. You can now run `/issue close` to mark it done, or pick up the next issue.
+All three wrap-up actions complete:
+
+### ✅ write-changelog
+Changelog entry generated (above) — system will append to `.megapowers/CHANGELOG.md`.
+
+### ✅ capture-learnings
+Saved to `.megapowers/plans/022-exploratory-testing-bug-fixes/learnings.md` — 7 bullets covering:
+- Binary detection must precede `Buffer.toString()`
+- `Array.join("")` false-positive noop pattern and the length-guard fix
+- `splitDst()` as the highest-risk internal helper (CRLF normalization)
+- Exit code semantics need documentation at the call site
+- `tsc --noEmit` catches what vitest misses (incomplete fixtures)
+- `@LINE` vs `#index` ergonomics for symbol disambiguation
+- "FAILS:" test title convention debt
+
+### ✅ close-issue
+**Issue #022 is ready to close.** Run `/issue close` to finalize, or select a new issue to continue.

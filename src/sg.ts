@@ -25,6 +25,10 @@ function execFileText(
   return new Promise((resolve, reject) => {
     cp.execFile(cmd, args, opts, (err, stdout, stderr) => {
       if (err) {
+        if ((err as any)?.code === 1) {
+          resolve({ stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+          return;
+        }
         (err as any).stdout = stdout;
         (err as any).stderr = stderr;
         reject(err);

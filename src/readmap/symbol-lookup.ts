@@ -27,6 +27,17 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
   if (!q) return { type: "not-found" };
   if (map.symbols.length === 0) return { type: "not-found" };
 
+  if (q.includes("@")) {
+    const parts = q.split("@");
+    if (parts.length === 2 && parts[0] && /^\d+$/.test(parts[1])) {
+      const [namePart, linePart] = parts;
+      const lineNum = Number.parseInt(linePart, 10);
+      const byLine = map.symbols.filter((s) => s.name === namePart && s.startLine === lineNum);
+      if (byLine.length === 1) return { type: "found", symbol: toMatch(byLine[0]) };
+      if (byLine.length > 1) return { type: "ambiguous", candidates: byLine.map(toMatch) };
+    }
+  }
+
   const exact = map.symbols.filter((s) => s.name === q);
   if (exact.length === 1) return { type: "found", symbol: toMatch(exact[0]) };
   if (exact.length > 1) return { type: "ambiguous", candidates: exact.map(toMatch) };
