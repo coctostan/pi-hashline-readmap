@@ -1,64 +1,37 @@
 {
   "version": 1,
-  "activeIssue": "022-exploratory-testing-bug-fixes",
+  "activeIssue": "037-wave-2-edit-pipeline-bugs-resilience",
   "workflow": "bugfix",
-  "phase": "done",
+  "phase": "implement",
   "phaseHistory": [
     {
       "from": "reproduce",
       "to": "diagnose",
-      "timestamp": 1772467071250
+      "timestamp": 1772497008003
     },
     {
       "from": "diagnose",
       "to": "plan",
-      "timestamp": 1772467397002
+      "timestamp": 1772497130738
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772468506972
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772480661211
-    },
-    {
-      "from": "verify",
-      "to": "implement",
-      "timestamp": 1772480872583
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772480892593
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1772480961715
+      "timestamp": 1772500613227
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 2,
-  "currentTaskIndex": 0,
+  "planIteration": 4,
+  "currentTaskIndex": 5,
   "completedTasks": [
     1,
     2,
     3,
     4,
-    5,
-    6
+    5
   ],
-  "tddTaskState": {
-    "taskIndex": 1,
-    "state": "test-written",
-    "skipped": false
-  },
-  "taskJJChanges": {},
-  "jjChangeId": "omwnrwnw",
+  "tddTaskState": null,
   "doneActions": [],
-  "megaEnabled": false
+  "megaEnabled": true
 }

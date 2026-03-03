@@ -8,6 +8,18 @@ import { applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 
+export function wrapWriteError(err: any, path: string): Error {
+	const code = err?.code;
+	if (code === "EACCES" || code === "EPERM") {
+		return new Error(`Permission denied: ${path}`);
+	}
+	return new Error(`Failed to write file: ${path}`);
+}
+
+export function isBinaryBuffer(buf: Buffer): boolean {
+	return buf.includes(0);
+}
+
 // ─── Schema ─────────────────────────────────────────────────────────────
 
 const hashlineEditItemSchema = Type.Union([
@@ -130,9 +142,9 @@ export function registerEditTool(pi: ExtensionAPI): void {
 				(e): e is { replace: { old_text: string; new_text: string; all?: boolean } } => "replace" in e,
 			);
 
-			let raw: string;
+			let rawBuffer: Buffer;
 			try {
-				raw = (await fsReadFile(absolutePath)).toString("utf-8");
+				rawBuffer = await fsReadFile(absolutePath);
 			} catch (err: any) {
 				const code = err?.code;
 				if (code === "EISDIR") {
@@ -143,8 +155,11 @@ export function registerEditTool(pi: ExtensionAPI): void {
 				}
 				throw new Error(`File not readable: ${path}`);
 			}
+			if (isBinaryBuffer(rawBuffer)) {
+				throw new Error(`Cannot edit binary file: ${path}`);
+			}
 			throwIfAborted(signal);
-
+			const raw = rawBuffer.toString("utf-8");
 			const { bom, text: content } = stripBom(raw);
 			const originalEnding = detectLineEnding(content);
 			const originalNormalized = normalizeToLF(content);
@@ -205,7 +220,11 @@ export function registerEditTool(pi: ExtensionAPI): void {
 			}
 
 			throwIfAborted(signal);
-			await fsWriteFile(absolutePath, bom + restoreLineEndings(result, originalEnding), "utf-8");
+			try {
+				await fsWriteFile(absolutePath, bom + restoreLineEndings(result, originalEnding), "utf-8");
+			} catch (err: any) {
+				throw wrapWriteError(err, path);
+			}
 
 			const diffResult = generateCompactOrFullDiff(originalNormalized, result);
 			const warnings: string[] = [];

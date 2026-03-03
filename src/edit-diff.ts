@@ -22,6 +22,15 @@ export function stripBom(content: string): { bom: string; text: string } {
 	return content.startsWith("\uFEFF") ? { bom: "\uFEFF", text: content.slice(1) } : { bom: "", text: content };
 }
 
+/**
+ * Detect bare \r characters that are NOT part of \r\n sequences.
+ * These cause line-count mismatches between normalizeToLF and external tools (ripgrep, wc).
+ */
+export function hasBareCarriageReturn(content: string): boolean {
+	// Remove all \r\n first, then check if any \r remains
+	return content.replace(/\r\n/g, "").includes("\r");
+}
+
 // ─── Fuzzy text matching ────────────────────────────────────────────────
 
 const SINGLE_QUOTES_RE = /[\u2018\u2019\u201A\u201B]/g;
