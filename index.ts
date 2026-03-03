@@ -9,7 +9,7 @@ import { stripAnsi } from "./src/rtk/ansi.js";
 
 // Set to false to disable semantic compression (test summaries, git, build, etc.).
 // ANSI stripping always runs regardless.
-const BASH_FILTER_ENABLED = false;
+const BASH_FILTER_ENABLED = true;
 
 export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   registerReadTool(pi);

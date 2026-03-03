@@ -1,52 +1,32 @@
 {
   "version": 1,
-  "activeIssue": null,
-  "workflow": null,
-  "phase": null,
+  "activeIssue": "038-wave-2-additive-features-rtk-compressors",
+  "workflow": "feature",
+  "phase": "implement",
   "phaseHistory": [
     {
-      "from": "reproduce",
-      "to": "diagnose",
-      "timestamp": 1772497008003
+      "from": "brainstorm",
+      "to": "spec",
+      "timestamp": 1772508306318
     },
     {
-      "from": "diagnose",
+      "from": "spec",
       "to": "plan",
-      "timestamp": 1772497130738
+      "timestamp": 1772508354110
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1772500613227
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772501995171
-    },
-    {
-      "from": "verify",
-      "to": "done",
-      "timestamp": 1772502253876
+      "timestamp": 1772508463835
     }
   ],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 4,
-  "currentTaskIndex": 5,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4,
-    5,
-    6
-  ],
+  "planIteration": 1,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "capture-learnings",
-    "close-issue"
-  ],
+  "doneActions": [],
   "megaEnabled": true,
   "branchName": null,
   "baseBranch": null
