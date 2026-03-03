@@ -37,6 +37,11 @@
 ```
 ## [Unreleased]
 ### Added
+- `read` tool accepts optional `map: true` parameter to append structural map for any file, even small ones; mutually exclusive with `symbol` (#039)
+- `grep` tool accepts optional `summary: true` parameter returning `[N matches in M files]` header + per-file counts sorted descending, no hashline anchors (#039)
+- `grep` tool appends `[Results truncated at N matches — refine pattern or increase limit]` when results hit the limit in both normal and summary modes (#039)
+- `prompts/sg.md` expanded with 7 additional pattern examples (class, if, try-catch, arrow functions, JSX, async) and a 7-entry Tips & Common Pitfalls section (#039)
+- `prompts/read.md` symbol table expanded with 4 new symbol type examples: interface, type alias, const/variable, enum (#039)
 - Map cache module (`src/map-cache.ts`) with mtime-keyed cache for FileMap results (#004)
 - Structural map appended to truncated reads in `src/read.ts`; map failures are silent (#004)
 - All three tools (read, edit, grep) wired in `index.ts` default export (#004)
@@ -148,3 +153,32 @@ All wrap-up actions completed:
 **218 tests pass, 0 failures.**
 
 Run `/issue close` to close this issue, or select a new issue to continue.
+PR created: https://github.com/coctostan/pi-hashline-readmap/pull/8
+
+### Action 4: close-issue
+
+All wrap-up actions are complete. Here's the full summary:
+
+---
+
+## ✅ Wrap-up Complete — Issue #039
+
+### Actions Executed
+
+| Action | Status | Details |
+|--------|--------|---------|
+| **write-changelog** | ✅ Done | 5 entries appended to `.megapowers/CHANGELOG.md` under `## [Unreleased] → ### Added` |
+| **capture-learnings** | ✅ Done | 7 learnings saved to `.megapowers/plans/039-read-grep-sg-agent-ux-enhancements/learnings.md` |
+| **push-and-pr** | ✅ Done | Branch pushed; PR #8 created: https://github.com/coctostan/pi-hashline-readmap/pull/8 |
+| **close-issue** | ✅ Reporting now | |
+
+### What Shipped
+
+- **`read` tool**: `map: true` parameter appends structural map for any file on demand
+- **`grep` tool**: `summary: true` parameter for per-file match counts; truncation indicator at result limit
+- **`prompts/sg.md`**: 7 new patterns + 7-entry Tips & Common Pitfalls section
+- **`prompts/read.md`**: Map Parameter section + 4 new symbol type examples
+- **Code review fixes**: duplicate block consolidation, comment fix, markdown spacing, new combination test
+- **300 tests pass**, 0 failures
+
+**Issue 039 is ready to close.** Run `/issue close` to finalize, or select a new issue to continue.
