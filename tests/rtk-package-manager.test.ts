@@ -11,12 +11,18 @@ describe("isPackageManagerCommand", () => {
     expect(isPackageManagerCommand("pnpm install")).toBe(true);
     expect(isPackageManagerCommand("pnpm i")).toBe(true);
     expect(isPackageManagerCommand("pnpm add zod")).toBe(true);
+    expect(isPackageManagerCommand("npm i")).toBe(true);
+    expect(isPackageManagerCommand("npm i react")).toBe(true);
+    expect(isPackageManagerCommand("npm i --save-dev jest")).toBe(true);
   });
 
   it("does not match non-install package-manager commands", () => {
     expect(isPackageManagerCommand("npm test")).toBe(false);
     expect(isPackageManagerCommand("npm run build")).toBe(false);
     expect(isPackageManagerCommand("yarn test")).toBe(false);
+    expect(isPackageManagerCommand("npm run i")).toBe(false);
+    expect(isPackageManagerCommand("npm info")).toBe(false);
+    expect(isPackageManagerCommand("npm init")).toBe(false);
   });
 });
 

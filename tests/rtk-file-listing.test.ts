@@ -17,6 +17,12 @@ describe("isFileListingCommand", () => {
     expect(isFileListingCommand("cat file.txt")).toBe(false);
     expect(isFileListingCommand("grep -r pattern")).toBe(false);
   });
+
+  it("does not match GNU long-form flags like --all or --recursive", () => {
+    expect(isFileListingCommand("ls --all")).toBe(false);
+    expect(isFileListingCommand("ls --recursive")).toBe(false);
+    expect(isFileListingCommand("ls --long")).toBe(false);
+  });
 });
 
 describe("compressFileListingOutput", () => {
