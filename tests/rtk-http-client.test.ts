@@ -20,8 +20,8 @@ describe("isHttpCommand", () => {
 });
 
 describe("compressHttpOutput", () => {
-  it("returns null for short output (<10 lines)", () => {
-    expect(compressHttpOutput("HTTP/1.1 200 OK\n{}\n")).toBeNull();
+  it("returns input for short output (<10 lines)", () => {
+    expect(compressHttpOutput("HTTP/1.1 200 OK\n{}\n")).toBe("HTTP/1.1 200 OK\n{}\n");
   });
 
   it("strips curl progress bar lines", () => {

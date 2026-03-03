@@ -14,7 +14,7 @@ const WGET_PROGRESS_RE = /^\s*\d+K\s+\./;
 
 export function compressHttpOutput(output: string): string | null {
   const lines = output.split("\n");
-  if (lines.length < 10) return null;
+  if (lines.length < 10) return output;
 
   const kept: string[] = [];
   let bodyLineCount = 0;
