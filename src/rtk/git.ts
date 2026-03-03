@@ -16,100 +16,127 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 	let added = 0;
 	let removed = 0;
 	let inHunk = false;
-	// Maximum context lines (` `) to emit per hunk
-	const maxContextPerHunk = 3;
-	let hunkContextLines = 0;
+	const maxContextPerSide = 3;
+	// Per-hunk accumulators
+	let hunkChangeLines: string[] = [];   // +/- lines plus interstitial context
+	let hunkPreContext: string[] = [];    // context before first change
+	let hunkPostContext: string[] = [];   // context after last change
+	let seenChanges = false;
 
-	// Collect all change lines separately to handle the case where change lines
-	// themselves exceed the overall cap
-	const changeLines: string[] = [];
-	let totalChangeLinesCount = 0;
-
-	// Two-pass approach: first pass collects everything, respecting context budget
-	// but NOT the overall cap for change lines. Second pass applies overall cap.
-
+	function flushHunk() {
+		if (hunkChangeLines.length === 0 && hunkPreContext.length === 0) return;
+		if (hunkPreContext.length > maxContextPerSide) {
+			result.push(`  ... (${hunkPreContext.length - maxContextPerSide} context lines)`);
+			hunkPreContext = hunkPreContext.slice(-maxContextPerSide);
+		}
+		for (const l of hunkPreContext) result.push(`  ${l}`);
+		for (const l of hunkChangeLines) result.push(`  ${l}`);
+		const postShow = hunkPostContext.slice(0, maxContextPerSide);
+		for (const l of postShow) result.push(`  ${l}`);
+		if (hunkPostContext.length > maxContextPerSide) {
+			result.push(`  ... (${hunkPostContext.length - maxContextPerSide} context lines)`);
+		}
+		hunkChangeLines = [];
+		hunkPreContext = [];
+		hunkPostContext = [];
+		seenChanges = false;
+	}
 	for (const line of lines) {
 		// New file
 		if (line.startsWith("diff --git")) {
-			// Flush previous file stats
+			flushHunk();
 			if (currentFile && (added > 0 || removed > 0)) {
 				result.push(`  +${added} -${removed}`);
 			}
-
-			// Extract filename
 			const match = line.match(/diff --git a\/(.+) b\/(.+)/);
 			currentFile = match ? match[2] : "unknown";
-			result.push("");
-			result.push(`📄 ${currentFile}`);
+			result.push(`\n📄 ${currentFile}`);
 			added = 0;
 			removed = 0;
 			inHunk = false;
 			continue;
 		}
-
 		// Hunk header
 		if (line.startsWith("@@")) {
+			flushHunk();
 			inHunk = true;
-			hunkContextLines = 0;
 			const hunkInfo = line.match(/@@ .+ @@/)?.[0] || "@@";
 			result.push(`  ${hunkInfo}`);
 			continue;
 		}
-
+		// Skip diff meta lines
+		if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\\\")) {
+			continue;
+		}
 		// Hunk content
 		if (inHunk) {
-			if (line.startsWith("+") && !line.startsWith("+++")) {
-				added++;
-				totalChangeLinesCount++;
-				result.push(`  ${line}`);
-			} else if (line.startsWith("-") && !line.startsWith("---")) {
-				removed++;
-				totalChangeLinesCount++;
-				result.push(`  ${line}`);
-			} else if (!line.startsWith("\\")) {
-				// Context line — only emit up to budget
-				if (hunkContextLines < maxContextPerHunk) {
-					result.push(`  ${line}`);
-					hunkContextLines++;
+			if (line.startsWith("+") || line.startsWith("-")) {
+				if (line.startsWith("+")) added++;
+				else removed++;
+				// If we had post-context and hit more changes, that context
+				// is interstitial — add it inline
+				if (hunkPostContext.length > 0) {
+					for (const c of hunkPostContext) hunkChangeLines.push(c);
+					hunkPostContext = [];
 				}
-				// Silently skip context lines beyond budget
+				hunkChangeLines.push(line);
+				seenChanges = true;
+			} else {
+				// Context line
+				if (seenChanges) {
+					hunkPostContext.push(line);
+				} else {
+					hunkPreContext.push(line);
+				}
 			}
 		}
 	}
 
+	flushHunk();
 	// Flush last file stats
 	if (currentFile && (added > 0 || removed > 0)) {
 		result.push(`  +${added} -${removed}`);
 	}
 
-	// Apply overall line cap
+	// Apply maxLines cap
 	if (result.length <= maxLines) {
 		return result.join("\n");
 	}
 
-	// Too many lines: keep first portion and append indicator
-	// If there are more change lines than the cap, emit head + tail of change lines
-	if (totalChangeLinesCount > maxLines) {
-		// Find all change lines in result
-		const changeLineResults = result.filter(
-			(l) => l.startsWith("  +") || l.startsWith("  -")
-		);
-		const headCount = Math.floor(maxLines / 2);
-		const tailCount = maxLines - headCount;
-		const head = changeLineResults.slice(0, headCount);
-		const tail = changeLineResults.slice(changeLineResults.length - tailCount);
-		const hiddenCount = changeLineResults.length - headCount - tailCount;
-		return [
-			...head,
-			`  ... +${hiddenCount} more changes`,
-			...tail,
-		].join("\n");
+	// Identify change lines vs structural lines in the output
+	const changeLineIndices: number[] = [];
+	for (let i = 0; i < result.length; i++) {
+		const trimmed = result[i].trimStart();
+		if (trimmed.startsWith("+") || trimmed.startsWith("-")) {
+			// But not file stats like "+5 -3"
+			if (!trimmed.match(/^\+\d+ -\d+$/)) {
+				changeLineIndices.push(i);
+			}
+		}
 	}
 
-	// Otherwise just truncate to maxLines and append indicator
-	const truncated = result.slice(0, maxLines);
-	truncated.push("... (more changes truncated)");
-	return truncated.join("\n");
+	// How many change lines must we cut to fit under maxLines?
+	const overBudget = result.length - maxLines;
+	if (overBudget <= 0 || changeLineIndices.length <= overBudget) {
+		// Fallback: simple first/last truncation
+		const halfBudget = Math.floor((maxLines - 1) / 2);
+		const head = result.slice(0, halfBudget);
+		const tail = result.slice(result.length - halfBudget);
+		const omitted = result.length - halfBudget * 2;
+		return [...head, `  ... +${omitted} more changes`, ...tail].join("\n");
+	}
+
+	// Remove middle change lines, keep first N and last N change lines
+	const keepCount = changeLineIndices.length - overBudget;
+	const keepFirst = Math.ceil(keepCount / 2);
+	const keepLast = keepCount - keepFirst;
+	const cutStart = changeLineIndices[keepFirst];
+	const cutEnd = changeLineIndices[changeLineIndices.length - keepLast - 1];
+	const omitted = cutEnd - cutStart + 1;
+
+	const head = result.slice(0, cutStart);
+	const tail = result.slice(cutEnd + 1);
+	return [...head, `  ... +${omitted} more changes`, ...tail].join("\n");
 }
 
 interface StatusStats {

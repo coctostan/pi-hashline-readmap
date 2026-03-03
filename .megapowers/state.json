@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": "037-wave-2-edit-pipeline-bugs-resilience",
-  "workflow": "bugfix",
-  "phase": "implement",
+  "activeIssue": null,
+  "workflow": null,
+  "phase": null,
   "phaseHistory": [
     {
       "from": "reproduce",
@@ -18,6 +18,16 @@
       "from": "plan",
       "to": "implement",
       "timestamp": 1772500613227
+    },
+    {
+      "from": "implement",
+      "to": "verify",
+      "timestamp": 1772501995171
+    },
+    {
+      "from": "verify",
+      "to": "done",
+      "timestamp": 1772502253876
     }
   ],
   "reviewApproved": false,
@@ -29,9 +39,13 @@
     2,
     3,
     4,
-    5
+    5,
+    6
   ],
   "tddTaskState": null,
-  "doneActions": [],
-  "megaEnabled": true
+  "doneActions": [
+    "capture-learnings",
+    "close-issue"
+  ],
+  "megaEnabled": false
 }

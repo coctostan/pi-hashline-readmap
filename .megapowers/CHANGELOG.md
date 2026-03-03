@@ -123,3 +123,28 @@ Saved to `.megapowers/plans/022-exploratory-testing-bug-fixes/learnings.md` — 
 
 ### ✅ close-issue
 **Issue #022 is ready to close.** Run `/issue close` to finalize, or select a new issue to continue.
+## Action 3: close-issue
+
+All wrap-up actions completed:
+
+| Action | Status |
+|--------|--------|
+| **write-changelog** | ✅ Done — changelog entry generated (5 entries: 3 Fixed, 2 Added) |
+| **capture-learnings** | ✅ Done — 7 learnings saved to `.megapowers/plans/037-wave-2-edit-pipeline-bugs-resilience/learnings.md` |
+| **close-issue** | ✅ Reporting now |
+
+---
+
+**Issue 037 (`wave-2-edit-pipeline-bugs-resilience`) is complete and ready to close.**
+
+### Summary of what shipped
+
+- **#023** — `edit` write-path now catches `EACCES`/`EPERM` and returns `"Permission denied: <path>"` (was: unhandled Node error)
+- **#024** — `read` prepends a bare-CR warning header when `\r`-only line endings are detected (was: silent mismatch with ripgrep)
+- **#030a** — `edit` reads as Buffer first and rejects NUL-byte files with `"Cannot edit binary file: <path>"` (was: silent corruption)
+- **#030b** — Anchor mismatch errors include `"Did you mean?"` similarity suggestions in `LINE:HASH|content` format when anchor carries content (was: no guidance)
+- **#030c** — `compactDiff` preserves all `+`/`-` lines, compresses context to 3/side, default cap 100, configurable, with `... +K more changes` truncation indicator (was: hard-capped at 10 hunk lines / 50 total)
+
+**218 tests pass, 0 failures.**
+
+Run `/issue close` to close this issue, or select a new issue to continue.
