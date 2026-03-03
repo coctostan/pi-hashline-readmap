@@ -20,9 +20,10 @@ interface HashMismatch {
 	line: number;
 	expected: string;
 	actual: string;
+	expectedContent?: string;
 }
 
-type ParsedRef = { line: number; hash: string };
+type ParsedRef = { line: number; hash: string; content?: string };
 
 type ParsedSpec =
 	| { kind: "single"; ref: ParsedRef }
@@ -89,18 +90,59 @@ export function hashLines(content: string): string {
 
 // ─── Parsing ────────────────────────────────────────────────────────────
 
-export function parseLineRef(ref: string): { line: number; hash: string } {
+export function parseLineRef(ref: string): { line: number; hash: string; content?: string } {
+	const contentMatch = ref.match(/^[^|]*\|(.*)$/);
+	const contentAfterPipe = contentMatch ? contentMatch[1] : undefined;
 	const cleaned = ref.replace(/\|.*$/, "").replace(/ {2}.*$/, "").trim();
 	const normalized = cleaned.replace(/\s*:\s*/, ":");
 	const match = normalized.match(new RegExp(`^(\\d+):([0-9a-fA-F]{${HASH_LEN}})$`));
 	if (!match) throw new Error(`Invalid line reference "${ref}". Expected "LINE:HASH" (e.g. "5:ab").`);
 	const line = Number.parseInt(match[1], 10);
 	if (line < 1) throw new Error(`Line number must be >= 1, got ${line} in "${ref}".`);
-	return { line, hash: match[2] };
+	return { line, hash: match[2], content: contentAfterPipe };
 }
 
 // ─── Mismatch formatting ────────────────────────────────────────────────
 
+function tokenSimilarity(a: string, b: string): number {
+	const tokA = new Set(a.trim().split(/\s+/));
+	const tokB = new Set(b.trim().split(/\s+/));
+	if (tokA.size === 0 && tokB.size === 0) return 1;
+	if (tokA.size === 0 || tokB.size === 0) return 0;
+	let overlap = 0;
+	for (const t of tokA) {
+		if (tokB.has(t)) overlap++;
+	}
+	return overlap / Math.max(tokA.size, tokB.size);
+}
+
+function findSimilarLines(
+	expectedContent: string,
+	fileLines: string[],
+	hintLine: number,
+	maxSuggestions: number = 3,
+): string[] {
+	const SCAN_WINDOW = 50;
+	const MIN_SIMILARITY = 0.3;
+	const start = Math.max(0, hintLine - 1 - SCAN_WINDOW);
+	const end = Math.min(fileLines.length, hintLine - 1 + SCAN_WINDOW + 1);
+	const candidates: { line: number; score: number; content: string }[] = [];
+
+	for (let i = start; i < end; i++) {
+		const content = fileLines[i];
+		if (!content.trim()) continue;
+		const score = tokenSimilarity(expectedContent, content);
+		if (score >= MIN_SIMILARITY) {
+			candidates.push({ line: i + 1, score, content });
+		}
+	}
+
+	candidates.sort((a, b) => b.score - a.score);
+	return candidates.slice(0, maxSuggestions).map((c) => {
+		const hash = computeLineHash(c.line, c.content);
+		return `  ${c.line}:${hash}|${c.content}`;
+	});
+}
 function formatMismatchError(mismatches: HashMismatch[], fileLines: string[]): string {
 	const mismatchSet = new Map<number, HashMismatch>();
 	for (const m of mismatches) mismatchSet.set(m.line, m);
@@ -126,6 +168,18 @@ function formatMismatchError(mismatches: HashMismatch[], fileLines: string[]): s
 		const hash = computeLineHash(num, content);
 		const prefix = `${num}:${hash}`;
 		out.push(mismatchSet.has(num) ? `>>> ${prefix}|${content}` : `    ${prefix}|${content}`);
+	}
+
+	const withContent = mismatches.filter((m) => m.expectedContent !== undefined);
+	if (withContent.length > 0) {
+		for (const m of withContent) {
+			const suggestions = findSimilarLines(m.expectedContent!, fileLines, m.line);
+			if (suggestions.length > 0) {
+				out.push("");
+				out.push("Did you mean one of these nearby lines?");
+				out.push(...suggestions);
+			}
+		}
 	}
 
 	return out.join("\n");
@@ -368,7 +422,7 @@ export function applyHashlineEdits(
 			);
 			return true;
 		}
-		mismatches.push({ line: originalLine, expected: ref.hash, actual });
+		mismatches.push({ line: originalLine, expected: ref.hash, actual, expectedContent: ref.content });
 		return false;
 	}
 

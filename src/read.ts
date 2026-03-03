@@ -9,7 +9,7 @@ import {
 import { Type } from "@sinclair/typebox";
 import { readFileSync } from "fs";
 import { readFile as fsReadFile } from "fs/promises";
-import { normalizeToLF, stripBom } from "./edit-diff";
+import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
 import { computeLineHash, ensureHashInit } from "./hashline";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
@@ -186,6 +186,12 @@ export function registerReadTool(pi: ExtensionAPI): void {
 
 			if (hasBinaryContent) {
 				text = "[Warning: file appears to be binary — output may be garbled]\n\n" + text;
+			}
+
+			if (hasBareCarriageReturn(rawBuffer.toString("utf-8"))) {
+				text =
+					"[Warning: file contains bare CR (\\r) line endings — line numbering may be inconsistent with grep and other tools]\n\n" +
+					text;
 			}
 
 			return {

@@ -9,22 +9,26 @@ export function isGitCommand(command: string | undefined | null): boolean {
 	return GIT_COMMANDS.some((gc) => cmdLower.startsWith(gc));
 }
 
-export function compactDiff(output: string, maxLines: number = 50): string {
+export function compactDiff(output: string, maxLines: number = 100): string {
 	const lines = output.split("\n");
 	const result: string[] = [];
 	let currentFile = "";
 	let added = 0;
 	let removed = 0;
 	let inHunk = false;
-	let hunkLines = 0;
-	const maxHunkLines = 10;
+	// Maximum context lines (` `) to emit per hunk
+	const maxContextPerHunk = 3;
+	let hunkContextLines = 0;
+
+	// Collect all change lines separately to handle the case where change lines
+	// themselves exceed the overall cap
+	const changeLines: string[] = [];
+	let totalChangeLinesCount = 0;
+
+	// Two-pass approach: first pass collects everything, respecting context budget
+	// but NOT the overall cap for change lines. Second pass applies overall cap.
 
 	for (const line of lines) {
-		if (result.length >= maxLines) {
-			result.push("\n... (more changes truncated)");
-			break;
-		}
-
 		// New file
 		if (line.startsWith("diff --git")) {
 			// Flush previous file stats
@@ -35,7 +39,8 @@ export function compactDiff(output: string, maxLines: number = 50): string {
 			// Extract filename
 			const match = line.match(/diff --git a\/(.+) b\/(.+)/);
 			currentFile = match ? match[2] : "unknown";
-			result.push(`\n📄 ${currentFile}`);
+			result.push("");
+			result.push(`📄 ${currentFile}`);
 			added = 0;
 			removed = 0;
 			inHunk = false;
@@ -45,7 +50,7 @@ export function compactDiff(output: string, maxLines: number = 50): string {
 		// Hunk header
 		if (line.startsWith("@@")) {
 			inHunk = true;
-			hunkLines = 0;
+			hunkContextLines = 0;
 			const hunkInfo = line.match(/@@ .+ @@/)?.[0] || "@@";
 			result.push(`  ${hunkInfo}`);
 			continue;
@@ -55,26 +60,19 @@ export function compactDiff(output: string, maxLines: number = 50): string {
 		if (inHunk) {
 			if (line.startsWith("+") && !line.startsWith("+++")) {
 				added++;
-				if (hunkLines < maxHunkLines) {
-					result.push(`  ${line}`);
-					hunkLines++;
-				}
+				totalChangeLinesCount++;
+				result.push(`  ${line}`);
 			} else if (line.startsWith("-") && !line.startsWith("---")) {
 				removed++;
-				if (hunkLines < maxHunkLines) {
+				totalChangeLinesCount++;
+				result.push(`  ${line}`);
+			} else if (!line.startsWith("\\")) {
+				// Context line — only emit up to budget
+				if (hunkContextLines < maxContextPerHunk) {
 					result.push(`  ${line}`);
-					hunkLines++;
+					hunkContextLines++;
 				}
-			} else if (hunkLines < maxHunkLines && !line.startsWith("\\")) {
-				if (hunkLines > 0) {
-					result.push(`  ${line}`);
-					hunkLines++;
-				}
-			}
-
-			if (hunkLines === maxHunkLines) {
-				result.push("  ... (truncated)");
-				hunkLines++;
+				// Silently skip context lines beyond budget
 			}
 		}
 	}
@@ -84,7 +82,34 @@ export function compactDiff(output: string, maxLines: number = 50): string {
 		result.push(`  +${added} -${removed}`);
 	}
 
-	return result.join("\n");
+	// Apply overall line cap
+	if (result.length <= maxLines) {
+		return result.join("\n");
+	}
+
+	// Too many lines: keep first portion and append indicator
+	// If there are more change lines than the cap, emit head + tail of change lines
+	if (totalChangeLinesCount > maxLines) {
+		// Find all change lines in result
+		const changeLineResults = result.filter(
+			(l) => l.startsWith("  +") || l.startsWith("  -")
+		);
+		const headCount = Math.floor(maxLines / 2);
+		const tailCount = maxLines - headCount;
+		const head = changeLineResults.slice(0, headCount);
+		const tail = changeLineResults.slice(changeLineResults.length - tailCount);
+		const hiddenCount = changeLineResults.length - headCount - tailCount;
+		return [
+			...head,
+			`  ... +${hiddenCount} more changes`,
+			...tail,
+		].join("\n");
+	}
+
+	// Otherwise just truncate to maxLines and append indicator
+	const truncated = result.slice(0, maxLines);
+	truncated.push("... (more changes truncated)");
+	return truncated.join("\n");
 }
 
 interface StatusStats {
