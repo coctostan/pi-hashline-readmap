@@ -51,16 +51,11 @@ describe("filterBashOutput core behavior", () => {
 });
 
 describe("filterBashOutput routing", () => {
-  it("routes test commands to aggregateTestOutput", () => {
-    const spy = vi.spyOn(testOutput, "aggregateTestOutput").mockReturnValue("compressed test output");
-    const result = filterBashOutput("npm test", "raw test output");
-    expect(spy).toHaveBeenCalledWith("raw test output", "npm test");
-    expect(result.output).toBe("compressed test output");
-
-    // AC2: technique receives ANSI-stripped input
-    filterBashOutput("npm test", "\x1b[32mraw test\x1b[0m");
-    expect(spy).toHaveBeenLastCalledWith("raw test", "npm test");
-
+  it("test commands bypass compression — returns ANSI-stripped only", () => {
+    const spy = vi.spyOn(testOutput, "aggregateTestOutput");
+    const result = filterBashOutput("npm test", "\x1b[32mraw test\x1b[0m");
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.output).toBe("raw test");
     spy.mockRestore();
   });
 
@@ -120,19 +115,20 @@ describe("filterBashOutput routing", () => {
     spy.mockRestore();
   });
 
-  it("test command wins over build when both match (AC14: cargo test)", () => {
+  it("test command bypass wins over build when both match (AC14: cargo test)", () => {
     const cmd = "cargo test";
     expect(isTestCommand(cmd)).toBe(true);
     expect(isBuildCommand(cmd)).toBe(true);
 
-    const testSpy = vi.spyOn(testOutput, "aggregateTestOutput").mockReturnValue("test wins");
-    const buildSpy = vi.spyOn(buildModule, "filterBuildOutput").mockReturnValue("build wins");
+    const testSpy = vi.spyOn(testOutput, "aggregateTestOutput");
+    const buildSpy = vi.spyOn(buildModule, "filterBuildOutput");
 
-    const result = filterBashOutput(cmd, "some output");
+    const result = filterBashOutput(cmd, "\x1b[32msome output\x1b[0m");
 
-    expect(testSpy).toHaveBeenCalledWith("some output", cmd);
+    // Bypass fires: neither compressor is called
+    expect(testSpy).not.toHaveBeenCalled();
     expect(buildSpy).not.toHaveBeenCalled();
-    expect(result.output).toBe("test wins");
+    expect(result.output).toBe("some output");
 
     testSpy.mockRestore();
     buildSpy.mockRestore();

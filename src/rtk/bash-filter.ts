@@ -3,6 +3,10 @@ import * as testOutput from "./test-output.js";
 import * as git from "./git.js";
 import * as linter from "./linter.js";
 import * as build from "./build.js";
+import * as packageManager from "./package-manager.js";
+import * as docker from "./docker.js";
+import * as fileListing from "./file-listing.js";
+import * as httpClient from "./http-client.js";
 
 export interface FilterResult {
   output: string;
@@ -11,7 +15,9 @@ export interface FilterResult {
 
 export function isTestCommand(command: string): boolean {
   const c = command.toLowerCase();
-  return ["vitest", "jest", "pytest", "cargo test", "npm test", "npx vitest"].some((t) => c.includes(t));
+  return ["vitest", "jest", "pytest", "cargo test", "npm test", "npx vitest", "bun test", "go test", "mocha"].some(
+    (t) => c.includes(t),
+  );
 }
 
 export function isGitCommand(command: string): boolean {
@@ -36,13 +42,21 @@ export function filterBashOutput(command: string, output: string): FilterResult 
 
   const stripped = stripAnsi(output);
 
+  // Test commands are never compressed — agents need full failure output
+  if (isTestCommand(command)) {
+    return { output: stripped, savedChars: output.length - stripped.length };
+  }
+
   let result = stripped;
   try {
     const routes: Array<{ matches: boolean; apply: () => string | null }> = [
-      { matches: isTestCommand(command), apply: () => testOutput.aggregateTestOutput(stripped, command) },
       { matches: isGitCommand(command), apply: () => git.compactGitOutput(stripped, command) },
       { matches: isLinterCommand(command), apply: () => linter.aggregateLinterOutput(stripped, command) },
       { matches: isBuildCommand(command), apply: () => build.filterBuildOutput(stripped, command) },
+      { matches: packageManager.isPackageManagerCommand(command), apply: () => packageManager.compressPackageManagerOutput(stripped) },
+      { matches: docker.isDockerCommand(command), apply: () => docker.compressDockerOutput(stripped) },
+      { matches: fileListing.isFileListingCommand(command), apply: () => fileListing.compressFileListingOutput(stripped) },
+      { matches: httpClient.isHttpCommand(command), apply: () => httpClient.compressHttpOutput(stripped) },
     ];
 
     for (const route of routes) {

@@ -99,6 +99,13 @@ export function registerReadTool(pi: ExtensionAPI): void {
 
 			let startLine = params.offset ? Math.max(1, params.offset) : 1;
 			let endIdx = params.limit ? Math.min(startLine - 1 + params.limit, total) : total;
+			if (params.offset && startLine > total) {
+				return {
+					content: [{ type: "text", text: `[offset ${params.offset} is past end of file (${total} lines)]` }],
+					isError: true,
+					details: {},
+				};
+			}
 			let symbolMatch:
 				| { name: string; kind: string; startLine: number; endLine: number }
 				| undefined;
@@ -177,7 +184,8 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			}
 
 			if (params.symbol && symbolMatch) {
-				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind}), lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
+				const parentInfo = symbolMatch.parentName ? ` in ${symbolMatch.parentName}` : "";
+				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind})${parentInfo}, lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
 			}
 
 			if (symbolWarning) {

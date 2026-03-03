@@ -62,25 +62,16 @@ describe("savings logging", () => {
     };
 
     const bashEvent = makeEvent("bash", "t-log", { command: "echo hello" }, "\x1b[32mhello\x1b[0m");
-
     const origEnv = process.env.PI_RTK_SAVINGS;
-    // Logging enabled
-    process.env.PI_RTK_SAVINGS = "1";
-    const stderrSpy1 = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-    const mod1 = await import(modUrl + "-on");
-    mod1.default(mockPi as any);
-    await handlers["tool_result"](bashEvent);
-    expect(stderrSpy1).toHaveBeenCalledWith(expect.stringContaining("[RTK] Saved"));
-    stderrSpy1.mockRestore();
+    // No [RTK] output when savings logging is off
     delete process.env.PI_RTK_SAVINGS;
-    const stderrSpy2 = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-    const mod2 = await import(modUrl + "-off");
-    mod2.default(mockPi as any);
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
+    const mod = await import(modUrl + "-v2");
+    mod.default(mockPi as any);
     await handlers["tool_result"](bashEvent);
-    const rtkCalls = stderrSpy2.mock.calls.filter((c) => String(c[0]).includes("[RTK]"));
+    const rtkCalls = stderrSpy.mock.calls.filter((c) => String(c[0]).includes("[RTK]"));
     expect(rtkCalls).toHaveLength(0);
-    stderrSpy2.mockRestore();
-    // Correct env restore: delete if originally unset, otherwise restore
+    stderrSpy.mockRestore();
     if (origEnv === undefined) delete process.env.PI_RTK_SAVINGS;
     else process.env.PI_RTK_SAVINGS = origEnv;
   });

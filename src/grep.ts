@@ -224,6 +224,25 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 			} catch {
 				searchPathIsDirectory = false;
 			}
+			// Warn when the user targets a single binary file directly — grep
+			// silently skips binary files and would return 0 matches with no
+			// indication of why.
+			if (!searchPathIsDirectory) {
+				try {
+					const buf = await fsReadFile(searchPath);
+					if (buf.includes(0)) {
+						const warning = `[Warning: '${params.path ?? searchPath}' appears to be a binary file — grep skips binary files by default. Use a hex tool or the read tool to inspect it.]`;
+						return {
+							...result,
+							content: result.content.map((item) =>
+								item === textBlock ? ({ ...item, text: warning } as typeof item) : item,
+							),
+						};
+					}
+				} catch {
+					// can't read file — let normal flow continue
+				}
+			}
 
 			const fileCache = new Map<string, string[] | undefined>();
 			const getFileLines = async (absolutePath: string): Promise<string[] | undefined> => {

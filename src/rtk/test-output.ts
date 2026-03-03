@@ -25,41 +25,40 @@ const TEST_RESULT_PATTERNS = [
 	/tests?:\s*(\d+)\s*passed(?:,\s*(\d+)\s*failed)?(?:,\s*(\d+)\s*skipped)?/i,
 ];
 
-const FAILURE_START_PATTERNS = [
-	/^FAIL\s+/,
-	/^FAILED\s+/,
-	/^\s*●\s+/,
-	/^\s*✕\s+/,
-	/test\s+\w+\s+\.\.\.\s*FAILED/,
-	/thread\s+'\w+'\s+panicked/,
-];
-
 export function isTestCommand(command: string | undefined | null): boolean {
 	if (typeof command !== "string" || command.length === 0) {
 		return false;
 	}
 
-	const cmdLower = command.toLowerCase();
-	return TEST_COMMANDS.some((tc) => cmdLower.includes(tc.toLowerCase()));
-}
+	// Only examine the command name and subcommands — stop at the first flag
+	// or quoted arg so that words like "test" in commit messages or file paths
+	// don't cause false positives (e.g. jj describe -m "...failing tests...").
+	const tokens = command.toLowerCase().split(/\s+/);
+	const firstFlagIdx = tokens.findIndex((t) => t.startsWith("-") || t.startsWith('"') || t.startsWith("'"));
+	const cmdBase = (firstFlagIdx === -1 ? tokens : tokens.slice(0, firstFlagIdx)).join(" ");
 
-function isFailureStart(line: string): boolean {
-	return FAILURE_START_PATTERNS.some((pattern) => pattern.test(line));
+	return TEST_COMMANDS.some((tc) => cmdBase.includes(tc.toLowerCase()));
 }
 
 function extractTestStats(output: string): Partial<TestSummary> {
 	const summary: Partial<TestSummary> = {};
-
 	for (const pattern of TEST_RESULT_PATTERNS) {
 		const match = output.match(pattern);
 		if (match) {
 			summary.passed = parseInt(match[1], 10) || 0;
 			summary.failed = parseInt(match[2], 10) || 0;
 			summary.skipped = parseInt(match[3], 10) || 0;
-			return summary;
+			break;
 		}
 	}
-
+	// Scan for failure count separately to handle "N failed, M passed" ordering
+	// (e.g. vitest: "1 failed | 2 passed") that the combined patterns miss.
+	if (!summary.failed) {
+		const failMatch = output.match(/(\d+)\s*failed/i);
+		if (failMatch) {
+			summary.failed = parseInt(failMatch[1], 10);
+		}
+	}
 	return summary;
 }
 
@@ -68,6 +67,10 @@ export function aggregateTestOutput(
 	command: string | undefined | null
 ): string | null {
 	if (typeof command !== "string" || !isTestCommand(command)) {
+		return null;
+	}
+	// "| cat" is the universal escape hatch — raw output, no compression
+	if (command.includes("| cat")) {
 		return null;
 	}
 
@@ -93,80 +96,27 @@ export function aggregateTestOutput(
 		}
 	}
 
-	// Extract failure details if tests failed
+	// When tests fail, the implementer needs the full error output —
+	// stack traces, assertion diffs, TypeScript errors — not a truncated
+	// summary. Return the raw stripped output so nothing is hidden.
 	if (summary.failed > 0) {
-		let inFailure = false;
-		let currentFailure: string[] = [];
-		let blankCount = 0;
-
-		for (const line of lines) {
-			if (isFailureStart(line)) {
-				if (inFailure && currentFailure.length > 0) {
-					summary.failures.push(currentFailure.join("\n"));
-				}
-				inFailure = true;
-				currentFailure = [line];
-				blankCount = 0;
-				continue;
-			}
-
-			if (inFailure) {
-				if (line.trim() === "") {
-					blankCount++;
-					if (blankCount >= 2 && currentFailure.length > 3) {
-						summary.failures.push(currentFailure.join("\n"));
-						inFailure = false;
-						currentFailure = [];
-					} else {
-						currentFailure.push(line);
-					}
-				} else if (line.match(/^\s/) || line.match(/^-/)) {
-					// Continuation of failure
-					currentFailure.push(line);
-					blankCount = 0;
-				} else {
-					// End of failure block
-					summary.failures.push(currentFailure.join("\n"));
-					inFailure = false;
-					currentFailure = [];
-				}
-			}
+		const MAX_CHARS = 8000;
+		if (output.length <= MAX_CHARS) {
+			return output;
 		}
-
-		if (inFailure && currentFailure.length > 0) {
-			summary.failures.push(currentFailure.join("\n"));
-		}
+		// Keep the tail — vitest/jest put error details and summary at the end
+		const tail = output.slice(-MAX_CHARS);
+		const firstNewline = tail.indexOf("\n");
+		const trimmedTail = firstNewline >= 0 ? tail.slice(firstNewline + 1) : tail;
+		return `... (output truncated, showing last ${MAX_CHARS} chars)\n${trimmedTail}`;
 	}
 
-	// Format output
+	// All passing — compress to a brief summary so we don't flood context
+	// with hundreds of "✓ test name" lines.
 	const result: string[] = ["📋 Test Results:"];
 	result.push(`   ✅ ${summary.passed} passed`);
-	if (summary.failed > 0) {
-		result.push(`   ❌ ${summary.failed} failed`);
-	}
 	if (summary.skipped > 0) {
 		result.push(`   ⏭️  ${summary.skipped} skipped`);
 	}
-
-	if (summary.failed > 0 && summary.failures.length > 0) {
-		result.push("\n   Failures:");
-		for (const failure of summary.failures.slice(0, 5)) {
-			const lines = failure.split("\n");
-			const firstLine = lines[0];
-			result.push(`   • ${firstLine.slice(0, 70)}${firstLine.length > 70 ? "..." : ""}`);
-			for (const line of lines.slice(1, 4)) {
-				if (line.trim()) {
-					result.push(`     ${line.slice(0, 65)}${line.length > 65 ? "..." : ""}`);
-				}
-			}
-			if (lines.length > 4) {
-				result.push(`     ... (${lines.length - 4} more lines)`);
-			}
-		}
-		if (summary.failures.length > 5) {
-			result.push(`   ... and ${summary.failures.length - 5} more failures`);
-		}
-	}
-
 	return result.join("\n");
 }
