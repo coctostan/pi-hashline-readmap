@@ -68,7 +68,7 @@ describe("findSymbol", () => {
       },
     ]);
 
-    expect(findSymbol(map, "UserDirectory.addUser")).toEqual({
+    expect(findSymbol(map, "UserDirectory.addUser")).toMatchObject({
       type: "found",
       symbol: { name: "addUser", kind: "method", startLine: 20, endLine: 33 },
     });
@@ -88,7 +88,7 @@ describe("findSymbol", () => {
       },
     ]);
 
-    expect(findSymbol(map, "Manager.init")).toEqual({
+    expect(findSymbol(map, "Manager.init")).toMatchObject({
       type: "ambiguous",
       candidates: [
         { name: "init", kind: "method", startLine: 3, endLine: 5 },

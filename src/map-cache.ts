@@ -7,7 +7,10 @@ interface CacheEntry {
 	map: FileMap | null;
 }
 
+export const MAP_CACHE_MAX_SIZE = 500;
+
 const cache = new Map<string, CacheEntry>();
+let maxSize = MAP_CACHE_MAX_SIZE;
 
 /**
  * Get or generate a structural file map, with mtime-based caching.
@@ -20,15 +23,27 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 
 		const cached = cache.get(absPath);
 		if (cached && cached.mtimeMs === mtimeMs) {
+			// LRU refresh: move hit to the end (most recently used)
+			cache.delete(absPath);
+			cache.set(absPath, cached);
 			return cached.map;
 		}
 
 		const map = await generateMap(absPath);
+		if (cache.has(absPath)) cache.delete(absPath); // refresh recency for stale regenerated entries
 		cache.set(absPath, { mtimeMs, map });
+		if (cache.size > maxSize) {
+			const oldestKey = cache.keys().next().value;
+			if (oldestKey !== undefined) cache.delete(oldestKey);
+		}
 		return map;
 	} catch {
 		return null;
 	}
+}
+
+export function setMapCacheMaxSize(size: number): void {
+	maxSize = size;
 }
 
 /**
@@ -36,4 +51,5 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
  */
 export function clearMapCache(): void {
 	cache.clear();
+	maxSize = MAP_CACHE_MAX_SIZE;
 }

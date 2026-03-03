@@ -184,7 +184,8 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			}
 
 			if (params.symbol && symbolMatch) {
-				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind}), lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
+				const parentInfo = symbolMatch.parentName ? ` in ${symbolMatch.parentName}` : "";
+				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind})${parentInfo}, lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
 			}
 
 			if (symbolWarning) {

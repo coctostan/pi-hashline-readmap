@@ -142,6 +142,21 @@ describe("symbol read integration", () => {
     expect(text).toMatch(/^\[Symbol: createDemoDirectory \(function\), lines 45-49 of 49\]/);
   });
 
+  it("includes parent breadcrumb when child symbol is queried by name", async () => {
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "addUser",
+    });
+
+    const text = getTextContent(result);
+    expect(text).toMatch(/^\[Symbol: addUser \(method\) in UserDirectory, lines 20-33 of 49\]/);
+
+    const rows = parseHashlineRows(text);
+    expect(rows).toHaveLength(14);
+    expect(rows[0].line).toBe(20);
+    expect(rows[rows.length - 1].line).toBe(33);
+  });
+
   it("does not append File Map for found symbol reads even when output is truncated", async () => {
     const cacheModule = await import("../src/map-cache.js");
     const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
