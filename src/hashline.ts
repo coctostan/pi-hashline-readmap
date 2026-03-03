@@ -13,7 +13,7 @@ import { throwIfAborted } from "./runtime";
 export type HashlineEditItem =
 	| { set_line: { anchor: string; new_text: string } }
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
-	| { insert_after: { anchor: string; text: string } }
+	| { insert_after: { anchor: string; new_text?: string; text?: string } }
 	| { replace: { old_text: string; new_text: string; all?: boolean } };
 
 interface HashMismatch {
@@ -336,7 +336,7 @@ function parseHashlineEditItem(edit: HashlineEditItem): ParsedEdit {
 	if ("insert_after" in edit) {
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
-			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.text ?? "")),
+			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text ?? edit.insert_after.text ?? "")),
 		};
 	}
 	throw new Error("replace edits are applied separately");

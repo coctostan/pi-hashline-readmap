@@ -4,7 +4,7 @@ Surgically edit files with hash-verified line references (anchors). Use the `LIN
 - edits: Array of operations:
   - { set_line: { anchor, new_text } }              // Replace or delete a single line
   - { replace_lines: { start_anchor, end_anchor, new_text } } // Replace a range
-  - { insert_after: { anchor, text } }              // Insert after anchor
+  - { insert_after: { anchor, new_text } }           // Insert after anchor
   - { replace: { old_text, new_text, all? } }       // Global string replace (fallback)
 
 Rules:

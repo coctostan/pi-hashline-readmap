@@ -47,5 +47,7 @@
     "capture-learnings",
     "close-issue"
   ],
-  "megaEnabled": false
+  "megaEnabled": true,
+  "branchName": null,
+  "baseBranch": null
 }
