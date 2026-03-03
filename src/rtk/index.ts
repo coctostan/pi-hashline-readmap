@@ -9,3 +9,5 @@ export { isPackageManagerCommand, compressPackageManagerOutput } from "./package
 export { isDockerCommand, compressDockerOutput } from "./docker";
 export { isFileListingCommand, compressFileListingOutput } from "./file-listing";
 export { isHttpCommand, compressHttpOutput } from "./http-client";
+export { isBuildToolsCommand, compressBuildToolsOutput } from "./build-tools";
+export { isTransferCommand, compressTransferOutput } from "./transfer";

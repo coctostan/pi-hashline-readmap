@@ -10,6 +10,8 @@ describe("RTK required files (AC12)", () => {
   const required = [
     "src/rtk/ansi.ts",
     "src/rtk/build.ts",
+    "src/rtk/build-tools.ts",
+    "src/rtk/transfer.ts",
     "src/rtk/test-output.ts",
     "src/rtk/git.ts",
     "src/rtk/linter.ts",
