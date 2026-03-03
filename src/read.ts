@@ -32,6 +32,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			offset: Type.Optional(Type.Number({ description: "Line number to start reading from (1-indexed)" })),
 			limit: Type.Optional(Type.Number({ description: "Maximum number of lines to read" })),
 			symbol: Type.Optional(Type.String({ description: "Symbol to read (e.g., functionName or ClassName.methodName)" })),
+			map: Type.Optional(Type.Boolean({ description: "Append structural map to output (cannot combine with symbol)" })),
 		}),
 
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
@@ -44,6 +45,14 @@ export function registerReadTool(pi: ExtensionAPI): void {
 			if (params.symbol && (params.offset !== undefined || params.limit !== undefined)) {
 				return {
 					content: [{ type: "text", text: "Cannot combine symbol with offset/limit. Use one or the other." }],
+					isError: true,
+					details: {},
+				};
+			}
+
+			if (params.map && params.symbol) {
+				return {
+					content: [{ type: "text", text: "Cannot combine map with symbol. Use one or the other." }],
 					isError: true,
 					details: {},
 				};
@@ -171,7 +180,11 @@ export function registerReadTool(pi: ExtensionAPI): void {
 				text += `\n\n[Showing lines ${startLine}-${endIdx} of ${total}. Use offset=${endIdx + 1} to continue.]`;
 			}
 
-			if (truncation.truncated && !params.offset && !params.limit && !symbolMatch) {
+			// Append structural map: on-demand (params.map) or auto on truncated full-file reads
+			const shouldAppendMap =
+				!!params.map ||
+				(!!truncation.truncated && !params.offset && !params.limit && !symbolMatch);
+			if (shouldAppendMap) {
 				try {
 					const fileMap = await getOrGenerateMap(absolutePath);
 					if (fileMap) {
@@ -179,7 +192,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 						text += "\n\n" + mapText;
 					}
 				} catch {
-					// Map generation failed — still return hashlined content without map
+					// Map formatting failed — still return hashlined content without map
 				}
 			}
 
