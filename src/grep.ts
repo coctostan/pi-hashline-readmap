@@ -19,6 +19,7 @@ const grepSchema = Type.Object({
 	literal: Type.Optional(Type.Boolean({ description: "Treat pattern as literal string instead of regex (default: false)" })),
 	context: Type.Optional(Type.Number({ description: "Number of lines to show before and after each match (default: 0)" })),
 	limit: Type.Optional(Type.Number({ description: "Maximum number of matches to return (default: 100)" })),
+	summary: Type.Optional(Type.Boolean({ description: "Return per-file match counts only (no hashline anchors)" })),
 });
 
 interface GrepParams {
@@ -29,6 +30,7 @@ interface GrepParams {
 	literal?: boolean;
 	context?: number;
 	limit?: number;
+	summary?: boolean;
 }
 
 const MATCH_LINE_RE = /^(.*):(\d+): (.*)$/;
@@ -116,19 +118,31 @@ export function parseGrepIR(lines: string[]): GrepIR {
 	return { totalMatches, files: [...fileMap.values()] };
 }
 
-export function formatGrepOutput(ir: GrepIR): string {
+export function formatGrepOutput(ir: GrepIR, options?: { summary?: boolean; limit?: number }): string {
 	const header = `[${ir.totalMatches} matches in ${ir.files.length} files]`;
 	if (ir.files.length === 0) return header;
-
-	const blocks: string[] = [header];
-	for (const file of ir.files) {
-		blocks.push(`--- ${file.path} (${file.matchCount} matches) ---`);
-		for (const line of file.lines) {
-			blocks.push(line.raw);
+	let output: string;
+	if (options?.summary) {
+		const fileLines = [...ir.files]
+			.sort((a, b) => b.matchCount - a.matchCount)
+			.map((f) => `${f.path}: ${f.matchCount} matches`);
+		output = [header, ...fileLines].join("\n");
+	} else {
+		const blocks: string[] = [header];
+		for (const file of ir.files) {
+			blocks.push(`--- ${file.path} (${file.matchCount} matches) ---`);
+			for (const line of file.lines) {
+				blocks.push(line.raw);
+			}
 		}
+		output = blocks.join("\n");
 	}
 
-	return blocks.join("\n");
+	if (options?.limit !== undefined && ir.totalMatches === options.limit) {
+		output += `\n\n[Results truncated at ${options.limit} matches — refine pattern or increase limit]`;
+	}
+
+	return output;
 }
 
 const GREP_TRUNCATION_THRESHOLD = 50;
@@ -320,7 +334,15 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 				file.lines = deduplicateContext(file.lines);
 			}
 			const truncatedIR = truncateGrepIR(grepIR);
-			const formattedOutput = formatGrepOutput(truncatedIR);
+			const { summary, limit } = params as GrepParams;
+			const effectiveLimit = limit ?? 100;
+			const outputIR = summary
+				? {
+					...truncatedIR,
+					files: truncatedIR.files.map((file) => ({ ...file, path: toAbsolutePath(file.path) })),
+				}
+				: truncatedIR;
+			const formattedOutput = formatGrepOutput(outputIR, { summary, limit: effectiveLimit });
 			return {
 				...result,
 				content: result.content.map((item) =>
