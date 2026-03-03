@@ -7,7 +7,11 @@ export function isFileListingCommand(cmd: string): boolean {
   // ls with recursive or long flags
   if (c.startsWith("ls ")) {
     const rest = c.slice(3);
-    if (rest.includes("-") && (rest.includes("r") || rest.includes("l"))) return true;
+    const shortFlagRe = /(?:^|\s)-([a-zA-Z]+)/g;
+    let m;
+    while ((m = shortFlagRe.exec(rest)) !== null) {
+      if (m[1].includes("r") || m[1].includes("l")) return true;
+    }
   }
   return false;
 }

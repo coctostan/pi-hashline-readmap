@@ -1,5 +1,6 @@
 const INSTALL_COMMAND_PATTERNS = [
   /^npm\s+install(?:\s|$)/,
+  /^npm\s+i(?:\s|$)/,
   /^npm\s+ci(?:\s|$)/,
   /^yarn\s*$/,
   /^yarn\s+install(?:\s|$)/,
