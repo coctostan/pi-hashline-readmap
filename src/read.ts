@@ -11,6 +11,7 @@ import { readFileSync } from "fs";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
 import { computeLineHash, ensureHashInit } from "./hashline";
+import { looksLikeBinary } from "./binary-detect";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { getOrGenerateMap } from "./map-cache";
@@ -99,7 +100,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 					details: {},
 				};
 			}
-			const hasBinaryContent = rawBuffer.includes(0);
+			const hasBinaryContent = looksLikeBinary(rawBuffer);
 			throwIfAborted(signal);
 
 			const normalized = normalizeToLF(stripBom(rawBuffer.toString("utf-8")).text);

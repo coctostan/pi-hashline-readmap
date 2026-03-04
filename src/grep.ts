@@ -3,7 +3,8 @@ import { createGrepTool } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { readFile as fsReadFile, stat as fsStat } from "fs/promises";
 import path from "path";
-import { normalizeToLF, stripBom } from "./edit-diff";
+import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
+import { looksLikeBinary } from "./binary-detect";
 import { computeLineHash, ensureHashInit } from "./hashline";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
@@ -211,6 +212,13 @@ export function deduplicateContext(lines: GrepIRLine[]): GrepIRLine[] {
 	return result;
 }
 
+/**
+ * Escape special regex characters in a literal string for use in `new RegExp()`.
+ */
+function escapeForRegex(s: string): string {
+	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function registerGrepTool(pi: ExtensionAPI): void {
 	pi.registerTool({
 		name: "grep",
@@ -244,7 +252,7 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 			if (!searchPathIsDirectory) {
 				try {
 					const buf = await fsReadFile(searchPath);
-					if (buf.includes(0)) {
+					if (looksLikeBinary(buf)) {
 						const warning = `[Warning: '${params.path ?? searchPath}' appears to be a binary file — grep skips binary files by default. Use a hex tool or the read tool to inspect it.]`;
 						return {
 							...result,
@@ -259,16 +267,18 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 			}
 
 			const fileCache = new Map<string, string[] | undefined>();
+			const bareCRFiles = new Set<string>();
 			const getFileLines = async (absolutePath: string): Promise<string[] | undefined> => {
 				throwIfAborted(signal);
 				if (fileCache.has(absolutePath)) return fileCache.get(absolutePath);
 				try {
 					const rawBuffer = await fsReadFile(absolutePath);
-					if (rawBuffer.includes(0)) {
+					if (looksLikeBinary(rawBuffer)) {
 						fileCache.set(absolutePath, undefined);
 						return undefined;
 					}
 					const raw = rawBuffer.toString("utf-8");
+					if (hasBareCarriageReturn(raw)) bareCRFiles.add(absolutePath);
 					const lines = normalizeToLF(stripBom(raw).text).split("\n");
 					fileCache.set(absolutePath, lines);
 					return lines;
@@ -303,6 +313,38 @@ export function registerGrepTool(pi: ExtensionAPI): void {
 				const absolute = toAbsolutePath(parsed.displayPath);
 				const fileLines = await getFileLines(absolute);
 				if (fileLines === undefined) continue;
+				// Bare-CR remapping: rg treats the entire bare-CR file as line 1, and the
+				// builtin grep tool may strip \r before this code sees the output. So
+				// parsed.text is just the first CR-separated fragment and parsed.lineNumber
+				// is always 1 — both are wrong for match lines. Only remap when
+				// parsed.kind === "match"; context lines are irrelevant here (rg won’t
+				// produce them for bare-CR files in any meaningful way).
+				if (parsed.kind === "match" && bareCRFiles.has(absolute)) {
+					const gp = params as GrepParams;
+					const flags = gp.ignoreCase ? "i" : "";
+					let patternRe: RegExp | null = null;
+					try {
+						patternRe = gp.literal
+							? new RegExp(escapeForRegex(gp.pattern), flags)
+							: new RegExp(gp.pattern, flags);
+					} catch {
+						// Malformed regex — fall through to normal anchor path
+					}
+					if (patternRe !== null) {
+						let emitted = false;
+						for (let i = 0; i < fileLines.length; i++) {
+							if (!patternRe.test(fileLines[i])) continue;
+							const lineNum = i + 1;
+							const ref = `${lineNum}:${computeLineHash(lineNum, fileLines[i])}`;
+							const marker = ">>";
+							transformed.push(`${parsed.displayPath}:${marker}${ref}|${fileLines[i]}`);
+							emitted = true;
+						}
+						if (emitted) continue;
+						// No lines matched — fall through to normal path
+					}
+				}
+				// Normal (non-bare-CR) path
 				const sourceLine = fileLines?.[parsed.lineNumber - 1] ?? parsed.text;
 				const ref = `${parsed.lineNumber}:${computeLineHash(parsed.lineNumber, sourceLine)}`;
 				const marker = parsed.kind === "match" ? ">>" : "  ";
