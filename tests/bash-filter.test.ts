@@ -148,6 +148,33 @@ describe("filterBashOutput routing", () => {
     expect(result.output).toBe("compressed scp output");
     spy.mockRestore();
   });
+  it("keeps rsync completion status words while removing listing noise", () => {
+    const input = [
+      "src/file1.txt",
+      "src/file2.txt",
+      "src/file3.txt",
+      "src/file4.txt",
+      "src/file5.txt",
+      "src/file6.txt",
+      "src/file7.txt",
+      "src/file8.txt",
+      "src/file9.txt",
+      "src/file10.txt",
+      "src/file11.txt",
+      "done",
+      "transfer-complete",
+      "sent 12000 bytes  received 34 bytes  100.00 bytes/sec",
+    ].join("\n");
+
+    const result = filterBashOutput("rsync -av src/ dst/", input);
+
+    expect(result.output).toContain("done");
+    expect(result.output).toContain("transfer-complete");
+    expect(result.output).toContain("sent 12000 bytes");
+    expect(result.output).not.toContain("src/file1.txt");
+    expect(result.output).not.toContain("src/file11.txt");
+  });
+
 
   it("test command bypass wins over build when both match (AC14: cargo test)", () => {
     const cmd = "cargo test";
