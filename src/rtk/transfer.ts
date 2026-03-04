@@ -8,6 +8,7 @@ const SCP_PROGRESS_RE = /\d+%\s+\d+\s+[\d.]+[KMGkmg]B\/s/;
 const RSYNC_AV_HEADER_RE = /^(sending|receiving) incremental file list$/;
 // rsync -av per-file path lines: no whitespace, only path-safe chars (word chars, dots, slashes, hyphens)
 const RSYNC_AV_FILE_RE = /^[\w./\-]+$/;
+const RSYNC_AV_STATUS_RE = /^(done|transfer-complete)$/i;
 
 const SIGNAL_PATTERNS: RegExp[] = [
   /sent .* bytes/, // rsync summary
@@ -23,7 +24,7 @@ function isNoise(line: string): boolean {
     RSYNC_XFR_RE.test(line) ||
     SCP_PROGRESS_RE.test(line) ||
     RSYNC_AV_HEADER_RE.test(line) ||
-    RSYNC_AV_FILE_RE.test(line)
+    RSYNC_AV_FILE_RE.test(line) && !RSYNC_AV_STATUS_RE.test(line)
   );
 }
 
@@ -49,6 +50,6 @@ export function compressTransferOutput(output: string): string | null {
       kept.push(line);
     }
   }
-  if (kept.length === 0) return null;
+  if (kept.length === 0 || kept.every((line) => line.trim() === "")) return null;
   return kept.join("\n");
 }
