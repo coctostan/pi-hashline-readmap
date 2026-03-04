@@ -1,14 +1,14 @@
-import { stripAnsi } from "./ansi.js";
-import * as testOutput from "./test-output.js";
-import * as git from "./git.js";
-import * as linter from "./linter.js";
-import * as build from "./build.js";
-import * as packageManager from "./package-manager.js";
-import * as docker from "./docker.js";
-import * as fileListing from "./file-listing.js";
-import * as httpClient from "./http-client.js";
-import * as buildTools from "./build-tools.js";
-import * as transfer from "./transfer.js";
+import { stripAnsi } from "./ansi.ts";
+import * as testOutput from "./test-output.ts";
+import * as git from "./git.ts";
+import * as linter from "./linter.ts";
+import * as build from "./build.ts";
+import * as packageManager from "./package-manager.ts";
+import * as docker from "./docker.ts";
+import * as fileListing from "./file-listing.ts";
+import * as httpClient from "./http-client.ts";
+import * as buildTools from "./build-tools.ts";
+import * as transfer from "./transfer.ts";
 
 export interface FilterResult {
   output: string;

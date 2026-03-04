@@ -11,11 +11,12 @@ import { readFileSync } from "fs";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
 import { computeLineHash, ensureHashInit } from "./hashline";
+import { looksLikeBinary } from "./binary-detect";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { getOrGenerateMap } from "./map-cache";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
-import { findSymbol } from "./readmap/symbol-lookup.js";
+import { findSymbol, type SymbolMatch } from "./readmap/symbol-lookup.js";
 
 const READ_DESC = readFileSync(new URL("../prompts/read.md", import.meta.url), "utf-8")
 	.replaceAll("{{DEFAULT_MAX_LINES}}", String(DEFAULT_MAX_LINES))
@@ -99,7 +100,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 					details: {},
 				};
 			}
-			const hasBinaryContent = rawBuffer.includes(0);
+			const hasBinaryContent = looksLikeBinary(rawBuffer);
 			throwIfAborted(signal);
 
 			const normalized = normalizeToLF(stripBom(rawBuffer.toString("utf-8")).text);
@@ -115,9 +116,7 @@ export function registerReadTool(pi: ExtensionAPI): void {
 					details: {},
 				};
 			}
-			let symbolMatch:
-				| { name: string; kind: string; startLine: number; endLine: number }
-				| undefined;
+			let symbolMatch: SymbolMatch | undefined;
 			let symbolWarning: string | undefined;
 			if (params.symbol) {
 				const fileMap = await getOrGenerateMap(absolutePath);

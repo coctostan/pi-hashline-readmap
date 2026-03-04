@@ -3,7 +3,11 @@ const RSYNC_PROGRESS_RE = /^\s+[\d,]+\s+\d+%/;
 // rsync xfr detail: lines with (xfr#N, to-chk=N/N)
 const RSYNC_XFR_RE = /\(\s*xfr#\d+/;
 // scp progress bar: "file.txt    100%  1234   1.2KB/s   00:00"
-const SCP_PROGRESS_RE = /\d+%\s+\d+\s+[\d.]+[KMG]B\/s/;
+const SCP_PROGRESS_RE = /\d+%\s+\d+\s+[\d.]+[KMGkmg]B\/s/;
+// rsync -av header: "sending incremental file list" / "receiving incremental file list"
+const RSYNC_AV_HEADER_RE = /^(sending|receiving) incremental file list$/;
+// rsync -av per-file path lines: no whitespace, only path-safe chars (word chars, dots, slashes, hyphens)
+const RSYNC_AV_FILE_RE = /^[\w./\-]+$/;
 
 const SIGNAL_PATTERNS: RegExp[] = [
   /sent .* bytes/, // rsync summary
@@ -14,7 +18,13 @@ const SIGNAL_PATTERNS: RegExp[] = [
 ];
 
 function isNoise(line: string): boolean {
-  return RSYNC_PROGRESS_RE.test(line) || RSYNC_XFR_RE.test(line) || SCP_PROGRESS_RE.test(line);
+  return (
+    RSYNC_PROGRESS_RE.test(line) ||
+    RSYNC_XFR_RE.test(line) ||
+    SCP_PROGRESS_RE.test(line) ||
+    RSYNC_AV_HEADER_RE.test(line) ||
+    RSYNC_AV_FILE_RE.test(line)
+  );
 }
 
 function isSignal(line: string): boolean {
@@ -39,5 +49,6 @@ export function compressTransferOutput(output: string): string | null {
       kept.push(line);
     }
   }
+  if (kept.length === 0) return null;
   return kept.join("\n");
 }

@@ -31,7 +31,7 @@ describe("Bug #019: CRLF files corrupted by insert_after", () => {
 
   it("normalizes CRLF insert_after text without doubled CR", () => {
     const restored = applyAndRestore(rawCRLF, [
-      { insert_after: { anchor: `1:${hash1}`, text: "inserted\r\n" } }
+      { insert_after: { anchor: `1:${hash1}`, new_text: "inserted\r\n" } }
     ]);
 
     // Bug: splitDst("inserted\r\n") = ["inserted\r", ""]
@@ -46,7 +46,7 @@ describe("Bug #019: CRLF files corrupted by insert_after", () => {
 
   it("does not add an extra blank line when insert_after text ends with LF", () => {
     const restored = applyAndRestore(rawCRLF, [
-      { insert_after: { anchor: `1:${hash1}`, text: "inserted\n" } }
+      { insert_after: { anchor: `1:${hash1}`, new_text: "inserted\n" } }
     ]);
 
     // Bug: splitDst("inserted\n") = ["inserted", ""] — trailing "" → extra blank
@@ -57,7 +57,7 @@ describe("Bug #019: CRLF files corrupted by insert_after", () => {
 
   it("insert_after without trailing newline inserts correctly", () => {
     const restored = applyAndRestore(rawCRLF, [
-      { insert_after: { anchor: `1:${hash1}`, text: "inserted" } }
+      { insert_after: { anchor: `1:${hash1}`, new_text: "inserted" } }
     ]);
 
     // This works because splitDst("inserted") = ["inserted"] — no trailing ""
