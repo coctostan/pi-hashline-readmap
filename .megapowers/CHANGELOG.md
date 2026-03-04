@@ -182,3 +182,4 @@ All wrap-up actions are complete. Here's the full summary:
 - **300 tests pass**, 0 failures
 
 **Issue 039 is ready to close.** Run `/issue close` to finalize, or select a new issue to continue.
+Done. Main is fast-forwarded to `978f645` (the merge commit), feature branch deleted. All 21 files from both #039 and #040 are now on local `main`, matching `origin/main`. You're ready to pick the next issue.

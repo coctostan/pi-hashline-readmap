@@ -52,5 +52,6 @@ export function compressBuildToolsOutput(output: string): string | null {
       kept.push(line);
     }
   }
+  if (kept.length === 0 || kept.every((line) => line.trim() === "")) return null;
   return kept.join("\n");
 }

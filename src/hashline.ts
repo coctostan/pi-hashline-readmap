@@ -13,7 +13,7 @@ import { throwIfAborted } from "./runtime";
 export type HashlineEditItem =
 	| { set_line: { anchor: string; new_text: string } }
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
-	| { insert_after: { anchor: string; new_text?: string; text?: string } }
+	| { insert_after: { anchor: string; new_text: string; text?: string } }
 	| { replace: { old_text: string; new_text: string; all?: boolean } };
 
 interface HashMismatch {

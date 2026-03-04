@@ -1,60 +1,18 @@
 {
   "version": 1,
-  "activeIssue": "040-rtk-compressor-coverage-gaps-consistency",
+  "activeIssue": "039-read-grep-sg-agent-ux-enhancements",
   "workflow": "feature",
-  "phase": "done",
-  "phaseHistory": [
-    {
-      "from": "brainstorm",
-      "to": "spec",
-      "timestamp": 1772566454852
-    },
-    {
-      "from": "spec",
-      "to": "plan",
-      "timestamp": 1772566593111
-    },
-    {
-      "from": "plan",
-      "to": "implement",
-      "timestamp": 1772568993280
-    },
-    {
-      "from": "implement",
-      "to": "verify",
-      "timestamp": 1772570976388
-    },
-    {
-      "from": "verify",
-      "to": "code-review",
-      "timestamp": 1772571111397
-    },
-    {
-      "from": "code-review",
-      "to": "done",
-      "timestamp": 1772571368418
-    }
-  ],
+  "phase": "brainstorm",
+  "phaseHistory": [],
   "reviewApproved": false,
   "planMode": null,
-  "planIteration": 3,
-  "currentTaskIndex": 3,
-  "completedTasks": [
-    1,
-    2,
-    3,
-    4
-  ],
+  "planIteration": 2,
+  "currentTaskIndex": 0,
+  "completedTasks": [],
   "tddTaskState": null,
-  "doneActions": [
-    "generate-docs",
-    "write-changelog",
-    "capture-learnings",
-    "push-and-pr",
-    "close-issue"
-  ],
-  "doneChecklistShown": true,
+  "doneActions": [],
+  "doneChecklistShown": false,
   "megaEnabled": true,
-  "branchName": "feat/040-rtk-compressor-coverage-gaps-consistency",
-  "baseBranch": "feat/039-read-grep-sg-agent-ux-enhancements"
+  "branchName": "fix/050-binary-edge-case-file-handling-dx-fixes",
+  "baseBranch": "main"
 }
