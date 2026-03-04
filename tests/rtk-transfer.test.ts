@@ -35,6 +35,13 @@ describe("compressTransferOutput", () => {
     expect(result).not.toContain("1.2KB/s");
   });
 
+  it("returns null for scp progress-only output with a trailing newline", () => {
+    const progress = "file.txt                    100%  1234   1.2KB/s   00:00";
+    const input = Array.from({ length: 10 }, () => progress).join("\n") + "\n";
+
+    expect(compressTransferOutput(input)).toBeNull();
+  });
+
   it("preserves final summary line with 'sent ... bytes'", () => {
     const lines = Array(14).fill("noise progress\n").join("") + "sent 1,234 bytes  received 85 bytes  876.00 bytes/sec\n";
     const result = compressTransferOutput(lines)!;
