@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "activeIssue": "039-read-grep-sg-agent-ux-enhancements",
-  "workflow": "feature",
-  "phase": "brainstorm",
+  "activeIssue": "052-read-grep-sg-outputs-with-raw-control-ch",
+  "workflow": "bugfix",
+  "phase": "reproduce",
   "phaseHistory": [],
   "reviewApproved": false,
   "planMode": null,
