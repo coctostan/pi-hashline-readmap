@@ -1,11 +1,23 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { isBashToolResult } from "@mariozechner/pi-coding-agent";
 import { registerReadTool } from "./src/read.js";
 import { registerEditTool } from "./src/edit.js";
 import { registerGrepTool } from "./src/grep.js";
 import { registerSgTool } from "./src/sg.js";
 import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { stripAnsi } from "./src/rtk/ansi.js";
+
+// Compatibility note:
+// - Upstream @mariozechner/pi-coding-agent exports isBashToolResult in newer builds.
+// - GSD aliases that package name to its vendored @gsd/pi-coding-agent, whose public
+//   root export surface differs and does not export isBashToolResult.
+// Keep this local guard instead of importing the helper so the extension works in both runtimes.
+function isBashToolResult(event: unknown): event is {
+  toolName: string;
+  input: { command?: string };
+  content: Array<{ type: string; text?: string }>;
+} {
+  return !!event && typeof event === "object" && (event as { toolName?: unknown }).toolName === "bash";
+}
 
 export {
   HASHLINE_TOOL_PTC_POLICY,
