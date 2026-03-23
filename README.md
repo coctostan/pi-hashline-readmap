@@ -1,98 +1,104 @@
 # pi-hashline-readmap
 
-A drop-in [pi](https://github.com/mariozechner/pi-coding-agent) extension that replaces the stock `read`, `edit`, `grep`, and `sg` workflows with a single, integrated toolset built for reliable agent coding.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/pi-hashline-readmap)](https://www.npmjs.com/package/pi-hashline-readmap)
 
-It combines:
-- **hash-anchored read/edit/grep**
-- **structural file maps**
-- **symbol-addressable reads**
-- **AST-grep with hashline output**
-- **bash output compression**
+A drop-in [pi](https://github.com/mariozechner/pi-coding-agent) extension that replaces the stock `read`, `edit`, `grep`, and `sg` tools with a unified toolset built for reliable agent coding. It also compresses noisy `bash` output so more context budget goes to code.
 
 ## Why use this instead of the stock tools?
 
-The stock tools work, but they leave a lot of efficiency and reliability on the table.
+### Safer edits
 
-### 1. Safer edits
-Stock read/search output is easy for a model to paraphrase or drift from.
-
-This package returns **`LINE:HASH|content` anchors** so the follow-up edit can target the exact line that was read:
+Stock read/search output is easy for a model to paraphrase or drift from. This package returns **`LINE:HASH|content` anchors** so follow-up edits target the exact line that was read:
 
 ```text
 45:e4|router.addRoute("/api", handler);
 ```
 
-That means:
-- fewer accidental edits to the wrong line
-- better resistance to file drift between read and edit
-- much more reliable surgical changes
+Fewer accidental wrong-line edits, better resistance to file drift, more reliable surgical changes.
 
-### 2. Better navigation on large files
-Stock file reads are just text.
+### Better navigation on large files
 
-This package can append a **structural map** for large files so the agent sees classes, functions, methods, and ranges instead of scrolling blind through thousands of lines.
+Reads can append a **structural map** showing classes, functions, methods, and line ranges — so the agent sees the shape of a file instead of scrolling blind.
 
-### 3. Direct symbol lookup
-Instead of hunting with offsets, the agent can ask for:
+### Direct symbol lookup
+
+Instead of hunting with offsets:
 
 ```ts
 read({ path: "src/server.ts", symbol: "handleRequest" })
 read({ path: "src/router.ts", symbol: "Router.addRoute" })
 ```
 
-That cuts tokens and reduces exploratory round-trips.
+Cuts tokens and reduces exploratory round-trips.
 
-### 4. Search results that are immediately editable
-`grep` and `sg` output is formatted so the agent can go straight from:
-- search
-- to anchored result
-- to `edit`
+### Search results that are immediately editable
 
-without needing a cleanup read in between.
+`grep` and `sg` output is hashline-anchored, so the agent can go straight from search to edit without a cleanup read in between.
 
-### 5. Less wasted context on noisy command output
-Large `bash` outputs from test runners, builds, git, and linters are compressed into the parts that matter.
+### Less wasted context on noisy command output
 
-That means more context budget goes to code, not terminal noise.
+`bash` outputs from test runners, builds, git, linters, Docker, package managers, and more are compressed to the parts that matter.
 
-### 6. One package, no overlapping-tool fights
-A common pi problem is stacking multiple extensions that all want to own `read`, `grep`, or `edit`.
+### One package, no overlapping-tool fights
 
-This package is useful specifically because it **unifies the overlapping improvements into one extension** instead of forcing you to choose between them.
+A common pi problem is stacking multiple extensions that all want to own `read`, `grep`, or `edit` — leading to conflict and unpredictable behavior. This package unifies the overlapping improvements into one extension.
 
 ## What you get
 
 ### `read`
+
 - `LINE:HASH|content` output
-- optional structural maps via `map: true`
-- structural maps support **17 languages** including TypeScript, Python, Rust, Go, C/C++, Java, SQL, YAML, TOML, and Markdown
-- automatic maps on truncated reads
-- symbol lookup via `symbol`
-- image delegation
-- display-safe escaping for control characters in output
+- Structural maps via `map: true` — supports **17 languages** (TypeScript, JavaScript, Python, Rust, Go, C, C++, Clojure, SQL, JSON, JSONL, Markdown, YAML, TOML, CSV)
+- Automatic maps on truncated reads
+- Symbol lookup via `symbol` param (dot notation for methods: `ClassName.methodName`)
+- `map` and `symbol` are mutually exclusive; `symbol` cannot combine with `offset`/`limit`
+- Image delegation, binary file detection, display-safe control character escaping
+- Custom TUI rendering with symbol/map/warning badges
 
 ### `edit`
-- hash-verified anchored edits
-- `set_line`, `replace_lines`, `insert_after`, and `replace`
-- compact diff / full diff support
-- better mismatch diagnostics
+
+- Hash-verified anchored edits using `LINE:HASH` anchors from `read`/`grep`/`sg`
+- Operations: `set_line`, `replace_lines`, `insert_after`, `replace`
+- Compact diff and full diff support
+- Mismatch diagnostics with context
+- Custom TUI rendering with diff preview
 
 ### `grep`
-- hash-anchored match output
-- context support with deduped/merged windows
+
+- Hash-anchored match output, ready to feed directly into `edit`
+- Context lines with deduped/merged windows
 - `summary: true` mode for file-level match counts
-- truncation indicators when results hit the limit
-- output ready to feed directly into `edit`
+- Truncation indicators when results hit the limit
+- Custom TUI rendering with match distribution and truncation badges
 
 ### `sg`
-- wraps `ast-grep`
-- returns merged, hash-anchored match blocks
-- ideal for structural search → edit workflows
 
-### `bash`
-- test/build/git/linter-aware output compression
-- ANSI stripping
-- less token waste in long command output
+- Wraps [ast-grep](https://ast-grep.github.io/) for structural code search
+- Returns merged, hash-anchored match blocks grouped by file
+- Ideal for structural search → edit workflows
+- Custom TUI rendering
+- Requires `ast-grep` installed (`brew install ast-grep`)
+
+### `bash` output compression
+
+Eleven specialized compressors for common command output:
+
+| Compressor | What it handles |
+|---|---|
+| test-output | Test runner results (vitest, jest, pytest, etc.) |
+| build | Build tool output (tsc, esbuild, webpack, etc.) |
+| build-tools | Compiler/bundler noise |
+| git | Git command output |
+| linter | Linter results (eslint, shellcheck, etc.) |
+| docker | Docker build/run output |
+| package-manager | npm/yarn/pnpm install output |
+| http-client | curl/wget output |
+| transfer | rsync/scp output |
+| file-listing | ls/find/tree output |
+| truncate | Smart truncation for oversized output |
+
+ANSI escape stripping runs on all bash output regardless.
 
 ## Example workflows
 
@@ -126,7 +132,7 @@ edit({
 read({ path: "src/server.ts", symbol: "handleRequest" })
 ```
 
-Returns only that symbol’s body, already hashlined.
+Returns only that symbol's body, already hashlined and ready for editing.
 
 ### Read with a map
 
@@ -184,146 +190,127 @@ pi install .
 ## Requirements
 
 - Node.js **>= 20**
-- pi with extension support
+- [pi](https://github.com/mariozechner/pi-coding-agent) with extension support
 
-Optional but recommended for full functionality:
+Optional CLI tools for full functionality:
 
 ```bash
-brew install ast-grep
-brew install difftastic
-brew install shellcheck yq scc
+brew install ast-grep          # required for sg tool
+brew install difftastic        # enhanced diffs
+brew install shellcheck yq scc # used by some compressors
 ```
 
-## Usage notes
+## PTC structured output
 
-### `read`
+All four tools expose machine-facing structured payloads at `details.ptcValue` alongside their human-facing `content[].text` output:
 
-- `map` and `symbol` are mutually exclusive
-- `symbol` cannot be combined with `offset` or `limit`
-- large reads can automatically append structural maps
-- symbol reads preserve hash anchors for later edits
+- **`read`** — path, line range, warnings, truncation info, symbol metadata, map status, per-line anchors
+- **`grep`** — summary flag, total matches, per-match records with anchors
+- **`sg`** — per-file match ranges and anchored lines
+- **`edit`** — ok/fail, summary, diff, changed line, warnings, noop edits
 
-### `grep`
-
-- `summary: true` returns plain-text orientation output, not anchors
-- normal grep output includes anchors and is edit-ready
-- when results hit the limit, output includes a truncation hint
-
-### `sg`
-
-- requires `ast-grep` installed on your machine
-- overlapping/adjacent match ranges are merged before output
-- output is grouped by file and anchored for editing
-
-### PTC structured output
-
-`read`, `grep`, `sg`, and `edit` keep their current human-facing `content[].text` output, but also expose a machine-facing payload at `details.ptcValue`.
-
-Current structured shapes:
-
-- `read.details.ptcValue`
-  - `tool: "read"`
-  - `path: string`
-  - `range: { startLine, endLine, totalLines }`
-  - `warnings: Array<{ code, message }>`
-  - `truncation: null | { outputLines, totalLines, outputBytes, totalBytes }`
-  - `symbol: null | { query, name, kind, parentName, startLine, endLine }`
-  - `map: { requested, appended }`
-  - `lines: Array<{ line, hash, anchor, raw, display }>`
-
-- `grep.details.ptcValue`
-  - `tool: "grep"`
-  - `summary: boolean`
-  - `totalMatches: number`
-  - `records: Array<{ path, line, hash, anchor, kind, raw, display }>`
-
-- `sg.details.ptcValue`
-  - `tool: "sg"`
-  - `files: Array<{ path, ranges: Array<{ startLine, endLine }>, lines: Array<{ line, hash, anchor, raw, display }> }>`
-
-- `edit.details.ptcValue`
-  - `tool: "edit"`
-  - `ok: boolean`
-  - `path: string`
-  - `summary: string`
-  - `diff: string`
-  - `firstChangedLine?: number`
-  - `warnings: string[]`
-  - `noopEdits: Array<{ editIndex, loc, currentContent }>`
-
-Hashes and anchors remain tied to raw file content semantics. `display` stays escaped for safe rendering, while `raw` preserves the underlying file text for programmatic consumers.
+Hashes and anchors are tied to raw file content. `display` fields are escaped for safe rendering; `raw` fields preserve the underlying file text.
 
 ### PTC tool policy contract
 
-In addition to `details.ptcValue`, the package exports a machine-readable policy contract at `HASHLINE_TOOL_PTC_POLICY` and `getHashlineToolPtcPolicy()`.
+The package exports a machine-readable policy contract via `HASHLINE_TOOL_PTC_POLICY` and `getHashlineToolPtcPolicy()`:
 
 ```ts
 import { HASHLINE_TOOL_PTC_POLICY } from "pi-hashline-readmap";
 ```
 
-Recommended exposure tiers:
 - `read` and `grep` are safe-by-default, read-only helpers.
 - `sg` is opt-in, read-only.
 - `edit` is not safe-by-default and is mutating/write-capable.
 
-`pi-prompt-assembler` may optionally consume this contract, but `pi-hashline-readmap` does not require `pi-prompt-assembler` to be installed in order to function.
-## Why this is especially good for agents
+`pi-prompt-assembler` may optionally consume this contract, but `pi-hashline-readmap` does not require it to function.
 
-This extension is optimized around the actual failure modes of coding agents:
-- copying stale line content
-- editing the wrong line after nearby changes
-- wasting context on giant files
-- wasting context on giant terminal output
-- needing multiple tools that conflict with each other
-- breaking downstream tool-call JSON by echoing unsafe raw text
+### EventBus integration
 
-In short: it makes the common read/search/edit loop **more deterministic, more token-efficient, and more composable**.
+On load, the extension emits tool executor references for downstream PTC consumers:
+
+```ts
+pi.events.emit("hashline:tool-executors", { read, edit, grep, sg });
+```
+
+Also available at `globalThis.__hashlineToolExecutors`.
 
 ## Development
 
 ```bash
 npm install
-npm test
-npm run typecheck
+npm test             # 483 tests across 92 files
+npm run typecheck    # tsc --noEmit
 ```
 
-Current repository layout:
+### Project structure
 
-```text
-index.ts              # extension entry point
+```
+index.ts                  # Extension entry point — registers tools + bash filter
 src/
-  read.ts             # read tool
-  edit.ts             # edit tool
-  grep.ts             # grep tool
-  sg.ts               # ast-grep wrapper
-  hashline.ts         # anchor generation / validation
-  map-cache.ts        # structural map cache
-  readmap/            # structural map engine
-  rtk/                # bash output compression
-prompts/              # tool prompt files
-tests/                # vitest suite
+  read.ts                 # read tool implementation
+  edit.ts                 # edit tool implementation
+  edit-diff.ts            # diff computation and patch application
+  grep.ts                 # grep tool implementation
+  sg.ts                   # ast-grep wrapper
+  hashline.ts             # LINE:HASH anchor generation (xxhash-wasm)
+  map-cache.ts            # mtime-keyed structural map cache
+  path-utils.ts           # path resolution helpers
+  runtime.ts              # AbortSignal helpers
+  binary-detect.ts        # binary file detection
+  ptc-value.ts            # structured PTC value builders
+  ptc-tool-policy.ts      # PTC tool policy contract
+  read-output.ts          # read output formatting
+  grep-output.ts          # grep output formatting
+  sg-output.ts            # sg output formatting
+  edit-output.ts          # edit output formatting
+  read-render-helpers.ts  # read TUI renderCall/renderResult
+  grep-render-helpers.ts  # grep TUI renderCall/renderResult
+  edit-render-helpers.ts  # edit TUI renderCall/renderResult
+  readmap/                # Structural map engine
+    mapper.ts             #   language dispatch + mapper registry
+    symbol-lookup.ts      #   symbol-addressable read
+    formatter.ts          #   FileMap → human-readable text
+    language-detect.ts    #   file extension → language mapping
+    types.ts              #   shared types
+    enums.ts              #   symbol kind enums
+    constants.ts          #   shared constants
+    mappers/              #   16 per-language mapper implementations
+  rtk/                    # Bash output compression
+    bash-filter.ts        #   command detection + routing
+    index.ts              #   technique registry
+    ansi.ts               #   ANSI escape stripping
+    test-output.ts        #   test runner summarizer
+    build.ts              #   build output extractor
+    build-tools.ts        #   compiler/bundler compressor
+    git.ts                #   git output compressor
+    linter.ts             #   linter result summarizer
+    docker.ts             #   Docker output compressor
+    package-manager.ts    #   npm/yarn/pnpm compressor
+    http-client.ts        #   curl/wget compressor
+    transfer.ts           #   rsync/scp compressor
+    file-listing.ts       #   ls/find/tree compressor
+    truncate.ts           #   smart truncation
+prompts/                  # Tool schema prompt files
+tests/                    # 92 vitest test files
 ```
 
 ## Publishing
 
 ```bash
-npm pack --dry-run
-npm publish
+npm pack --dry-run    # preview
+npm publish           # publish to npm
 ```
 
-The published package includes:
-- `index.ts`
-- `src/`
-- `prompts/`
-- `LICENSE`
-- `README.md`
+The published package includes: `index.ts`, `src/`, `prompts/`, `LICENSE`, `README.md`.
 
 ## Credits
 
-This project combines and adapts ideas/code from:
-- [pi-hashline-edit](https://github.com/nicholasgasior/pi-hashline-edit)
-- [pi-read-map](https://github.com/nicholasgasior/pi-read-map)
-- [pi-rtk](https://github.com/mcowger/pi-rtk)
+Combines and adapts ideas from:
+
+- [pi-hashline-edit](https://github.com/nicholasgasior/pi-hashline-edit) — hash-anchored editing
+- [pi-read-map](https://github.com/nicholasgasior/pi-read-map) — structural file maps
+- [pi-rtk](https://github.com/mcowger/pi-rtk) — bash output compression
 
 ## License
 
