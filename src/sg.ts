@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ToolRenderResultOptions } from "@mariozechner/pi-coding-agent";
+import { Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 import * as cp from "node:child_process";
 import path from "node:path";
@@ -211,6 +212,62 @@ export function registerSgTool(pi: ExtensionAPI) {
           details: {},
         };
       }
+    },
+    renderCall(args: any, theme: any, ...rest: any[]) {
+      const _context = rest[0];
+      let text = theme.fg("toolTitle", theme.bold("sg "));
+      text += theme.fg("accent", args.pattern);
+      if (args.lang) {
+        text += theme.fg("dim", ` (${args.lang})`);
+      }
+      if (args.path && args.path !== ".") {
+        text += theme.fg("dim", ` ${args.path}`);
+      }
+      return new Text(text, 0, 0);
+    },
+    renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {
+      const context: { isPartial?: boolean; isError?: boolean; expanded?: boolean; cwd?: string } =
+        rest[0] ?? options ?? {};
+      // In older pi versions, options has expanded/isPartial directly.
+      // In newer pi versions, context (4th arg) has expanded/isPartial/isError.
+      const isPartial = context.isPartial ?? (options as any)?.isPartial ?? false;
+      const isError = context.isError ?? false;
+      const expanded = context.expanded ?? (options as any)?.expanded ?? false;
+      const cwd = context.cwd ?? process.cwd();
+
+      if (isPartial) return new Text(theme.fg("warning", "Searching\u2026"), 0, 0);
+
+      const content = result.content?.[0];
+      const textContent = content?.type === "text" ? content.text : "";
+      if (isError || result.isError) {
+        const firstLine = textContent.split("\n")[0] || "Error";
+        return new Text(theme.fg("error", firstLine), 0, 0);
+      }
+      const ptcValue = (result.details as any)?.ptcValue as
+        | { tool: "sg"; files: Array<{ path: string; lines: any[] }> }
+        | undefined;
+      const files = ptcValue?.files ?? [];
+      if (files.length === 0) {
+        return new Text(theme.fg("muted", "No matches"), 0, 0);
+      }
+      const fileCount = files.length;
+      const totalMatches = files.reduce((sum: number, f: any) => sum + f.lines.length, 0);
+      const matchWord = totalMatches === 1 ? "match" : "matches";
+      const fileWord = fileCount === 1 ? "file" : "files";
+      let text = theme.fg("success", `\u2713 ${totalMatches} ${matchWord} in ${fileCount} ${fileWord}`);
+
+      if (expanded) {
+        const showFiles = files.slice(0, 20);
+        for (const file of showFiles) {
+          const display = path.relative(cwd, file.path) || file.path;
+          text += "\n" + theme.fg("dim", `  ${display} (${file.lines.length})`);
+        }
+        if (files.length > 20) {
+          text += "\n" + theme.fg("muted", `  \u2026 and ${files.length - 20} more files`);
+        }
+      }
+
+      return new Text(text, 0, 0);
     },
   } satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
 
