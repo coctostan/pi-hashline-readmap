@@ -251,3 +251,15 @@ The original PR/branch history is still valid historical context, but #039 shoul
 ### Tests
 - 23 new unit tests in `tests/edit-render-helpers.test.ts`
 - pi-hashline-readmap: 90 files, 455 tests, 0 failures
+
+## Issue #060: read/grep TUI rendering — CLOSED ✅
+**Date**: 2026-03-23
+
+### Added
+- `renderCall` and `renderResult` methods for the `read` tool — displays path, symbol, map, offset/limit context in call header; line count, symbol badge, map badge, warning badges, and truncation in result summary (#060)
+- `renderCall` and `renderResult` methods for the `grep` tool — displays pattern/path/glob in call header; match/file counts, truncation cap, summary mode badge, binary warning, and per-file distribution on expand (#060)
+- Pure formatting helpers: `src/read-render-helpers.ts`, `src/grep-render-helpers.ts`
+
+### Tests
+- 28 new unit tests across `tests/read-render-helpers.test.ts` and `tests/grep-render-helpers.test.ts`
+- pi-hashline-readmap: 92 files, 483 tests, 0 failures

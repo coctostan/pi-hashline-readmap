@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ToolRenderResultOptions } from "@mariozechner/pi-coding-agent";
 import {
 	createReadTool,
 	truncateHead,
@@ -19,6 +19,8 @@ import { getOrGenerateMap } from "./map-cache";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
 import { findSymbol, type SymbolMatch } from "./readmap/symbol-lookup.js";
 import { buildReadOutput } from "./read-output.js";
+import { Text } from "@mariozechner/pi-tui";
+import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
 
 const READ_DESC = readFileSync(new URL("../prompts/read.md", import.meta.url), "utf-8")
 	.replaceAll("{{DEFAULT_MAX_LINES}}", String(DEFAULT_MAX_LINES))
@@ -283,6 +285,87 @@ return {
 		ptcValue: readOutput.ptcValue,
 	},
 };
+		},
+		renderCall(args: any, theme: any, ...rest: any[]) {
+			const _context = rest[0];
+			const { path: filePath, suffix } = formatReadCallText(args);
+
+			let text = theme.fg("toolTitle", theme.bold("read"));
+			if (filePath) {
+				text += ` ${theme.fg("accent", filePath)}`;
+			} else {
+				text += ` ${theme.fg("toolOutput", "...")}`;
+			}
+			if (suffix) {
+				text += ` ${theme.fg("dim", suffix)}`;
+			}
+			return new Text(text, 0, 0);
+		},
+		renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {
+			const context: { isPartial?: boolean; isError?: boolean; expanded?: boolean; cwd?: string } =
+				rest[0] ?? options ?? {};
+			const isPartial = context.isPartial ?? (options as any)?.isPartial ?? false;
+			const isError = context.isError ?? false;
+			const expanded = context.expanded ?? (options as any)?.expanded ?? false;
+
+			if (isPartial) return new Text(theme.fg("dim", "Reading\u2026"), 0, 0);
+
+			const content = result.content?.[0];
+			const textContent = content?.type === "text" ? content.text : "";
+
+			if (isError || result.isError) {
+				const firstLine = textContent.split("\n")[0] || "Error";
+				if (expanded) {
+					return new Text(theme.fg("error", textContent || firstLine), 0, 0);
+				}
+				return new Text(theme.fg("error", firstLine), 0, 0);
+			}
+
+			const ptcValue = (result.details as any)?.ptcValue as {
+				tool: "read";
+				range: { startLine: number; endLine: number; totalLines: number };
+				warnings: Array<{ code: string; message: string }>;
+				truncation: { outputLines: number; totalLines: number; outputBytes: number; totalBytes: number } | null;
+				symbol: { query: string; name: string; kind: string; parentName?: string; startLine: number; endLine: number } | null;
+				map: { requested: boolean; appended: boolean };
+			} | undefined;
+
+			if (!ptcValue) {
+				const lines = textContent.split("\n").length;
+				return new Text(theme.fg("success", `\u2713 ${lines} lines`), 0, 0);
+			}
+
+			const info = formatReadResultText({
+				range: ptcValue.range,
+				truncation: ptcValue.truncation,
+				symbol: ptcValue.symbol,
+				map: ptcValue.map,
+				warnings: ptcValue.warnings,
+			});
+
+			const parts: string[] = [];
+
+			if (info.symbolBadge) {
+				parts.push(theme.fg("success", `\u2713 ${info.symbolBadge}`));
+			}
+
+			parts.push(theme.fg(info.truncated ? "warning" : "success", info.summary));
+
+			for (const badge of info.badges) {
+				if (badge.startsWith("\u26a0")) {
+					parts.push(theme.fg("warning", badge));
+				} else {
+					parts.push(theme.fg("dim", badge));
+				}
+			}
+
+			let text = parts.join("  ");
+
+			if (expanded && textContent) {
+				text += "\n" + textContent;
+			}
+
+			return new Text(text, 0, 0);
 		},
 	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
 

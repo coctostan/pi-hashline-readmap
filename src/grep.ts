@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ToolRenderResultOptions } from "@mariozechner/pi-coding-agent";
 import { createGrepTool } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { readFile as fsReadFile, stat as fsStat } from "fs/promises";
@@ -10,6 +10,8 @@ import { buildPtcLine } from "./ptc-value.js";
 import { buildGrepOutput } from "./grep-output.js";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
+import { Text } from "@mariozechner/pi-tui";
+import { formatGrepCallText, formatGrepResultText } from "./grep-render-helpers.js";
 
 const GREP_DESC =
 	"Search file contents for a pattern. Returns matching lines with LINE:HASH anchors for hashline edit workflows.";
@@ -501,6 +503,96 @@ return {
 		ptcValue: builtOutput.ptcValue,
 	},
 };
+		},
+		renderCall(args: any, theme: any, ...rest: any[]) {
+			const _context = rest[0];
+			const { pattern, suffix } = formatGrepCallText(args);
+
+			let text = theme.fg("toolTitle", theme.bold("grep "));
+			text += theme.fg("accent", pattern);
+			if (suffix) {
+				text += theme.fg("dim", ` ${suffix}`);
+			}
+			return new Text(text, 0, 0);
+		},
+		renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {
+			const context: { isPartial?: boolean; isError?: boolean; expanded?: boolean; cwd?: string } =
+				rest[0] ?? options ?? {};
+			const isPartial = context.isPartial ?? (options as any)?.isPartial ?? false;
+			const isError = context.isError ?? false;
+			const expanded = context.expanded ?? (options as any)?.expanded ?? false;
+			const cwd = context.cwd ?? process.cwd();
+
+			if (isPartial) return new Text(theme.fg("warning", "Searching\u2026"), 0, 0);
+
+			const content = result.content?.[0];
+			const textContent = content?.type === "text" ? content.text : "";
+
+			if (isError || result.isError) {
+				const firstLine = textContent.split("\n")[0] || "Error";
+				return new Text(theme.fg("error", firstLine), 0, 0);
+			}
+
+			const ptcValue = (result.details as any)?.ptcValue as {
+				tool: "grep";
+				summary: boolean;
+				totalMatches: number;
+				records: Array<{ path: string; kind: string }>;
+			} | undefined;
+
+			const hasBinaryWarning = textContent.includes("appears to be a binary file");
+
+			const fileSet = new Set<string>();
+			for (const r of ptcValue?.records ?? []) {
+				if (r.path) fileSet.add(r.path);
+			}
+
+			const info = formatGrepResultText({
+				totalMatches: ptcValue?.totalMatches ?? 0,
+				summary: ptcValue?.summary ?? false,
+				records: ptcValue?.records ?? [],
+				fileCount: fileSet.size,
+				hasBinaryWarning,
+			});
+
+			if (info.noMatches && !hasBinaryWarning) {
+				return new Text(theme.fg("muted", "No matches"), 0, 0);
+			}
+
+			const parts: string[] = [];
+			if (info.summary) {
+				parts.push(theme.fg(info.truncated ? "warning" : "success", info.summary));
+			}
+
+			for (const badge of info.badges) {
+				if (badge.startsWith("\u26a0")) {
+					parts.push(theme.fg("warning", badge));
+				} else {
+					parts.push(theme.fg("dim", badge));
+				}
+			}
+
+			let text = parts.join("  ") || theme.fg("muted", "No matches");
+
+			if (expanded && ptcValue?.records) {
+				const fileCounts = new Map<string, number>();
+				for (const r of ptcValue.records) {
+					if (r.path && r.kind === "match") {
+						fileCounts.set(r.path, (fileCounts.get(r.path) ?? 0) + 1);
+					}
+				}
+				const entries = [...fileCounts.entries()].sort((a, b) => b[1] - a[1]);
+				const showEntries = entries.slice(0, 20);
+				for (const [filePath, count] of showEntries) {
+					const display = path.relative(cwd, filePath) || filePath;
+					text += "\n" + theme.fg("dim", `  ${display} (${count})`);
+				}
+				if (entries.length > 20) {
+					text += "\n" + theme.fg("muted", `  \u2026 and ${entries.length - 20} more files`);
+				}
+			}
+
+			return new Text(text, 0, 0);
 		},
 	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
 
