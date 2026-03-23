@@ -1,46 +1,50 @@
 {
   "version": 1,
-  "activeIssue": "057-emit-tool-executors-on-eventbus-for-ptc-",
+  "activeIssue": "059-edit-tool-add-rendercall-renderresult-tu",
   "workflow": "feature",
   "phase": "done",
   "phaseHistory": [
     {
       "from": "brainstorm",
       "to": "spec",
-      "timestamp": 1773863299619
+      "timestamp": 1774271287599
     },
     {
       "from": "spec",
       "to": "plan",
-      "timestamp": 1773863333889
+      "timestamp": 1774271586685
     },
     {
       "from": "plan",
       "to": "implement",
-      "timestamp": 1773863373428
+      "timestamp": 1774271963374
     },
     {
       "from": "implement",
       "to": "verify",
-      "timestamp": 1773863751436
+      "timestamp": 1774272509515
     },
     {
       "from": "verify",
       "to": "code-review",
-      "timestamp": 1773863795125
+      "timestamp": 1774273985981
     },
     {
       "from": "code-review",
       "to": "done",
-      "timestamp": 1773863831813
+      "timestamp": 1774274050245
     }
   ],
   "planMode": null,
   "planIteration": 1,
-  "currentTaskIndex": 1,
+  "currentTaskIndex": 5,
   "completedTasks": [
     1,
-    2
+    2,
+    3,
+    4,
+    5,
+    6
   ],
   "tddTaskState": null,
   "doneActions": [
@@ -52,6 +56,6 @@
   ],
   "doneChecklistShown": true,
   "megaEnabled": true,
-  "branchName": "feat/057-emit-tool-executors-on-eventbus-for-ptc-",
+  "branchName": "feat/059-edit-tool-add-rendercall-renderresult-tu",
   "baseBranch": "main"
 }

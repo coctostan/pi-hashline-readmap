@@ -54,3 +54,17 @@ DESIGN.md
 PRD.md
 docs/features/
 .kotadb/
+
+# ── GSD baseline (auto-generated) ──
+.gsd
+*.code-workspace
+!.env.example
+.next/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+vendor/
+.cache/
+tmp/

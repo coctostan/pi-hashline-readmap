@@ -1,4 +1,4 @@
-import type { ExtensionAPI, EditToolDetails } from "@mariozechner/pi-coding-agent";
+import { renderDiff, type ExtensionAPI, type EditToolDetails, type ToolRenderResultOptions } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { readFileSync } from "fs";
@@ -8,6 +8,8 @@ import { applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { buildEditOutput } from "./edit-output.js";
+import { Text } from "@mariozechner/pi-tui";
+import { formatEditCallText, formatEditResultText } from "./edit-render-helpers.js";
 
 export function wrapWriteError(err: any, path: string): Error {
 	const code = err?.code;
@@ -269,6 +271,102 @@ export function registerEditTool(pi: ExtensionAPI) {
 					};
 				},
 			};
+		},
+		renderCall(args: any, theme: any, ...rest: any[]) {
+			const context: { argsComplete?: boolean; lastComponent?: any } = rest[0] ?? {};
+			const argsComplete = context.argsComplete ?? false;
+			const { path: filePath, suffix } = formatEditCallText(args, argsComplete);
+
+			let text = theme.fg("toolTitle", theme.bold("edit"));
+			if (filePath) {
+				text += ` ${theme.fg("accent", filePath)}`;
+			} else {
+				text += ` ${theme.fg("toolOutput", "...")}`;
+			}
+			if (suffix) {
+				text += ` ${theme.fg("dim", suffix)}`;
+			}
+
+			const component = context.lastComponent ?? new Text("", 0, 0);
+			component.setText(text);
+			return component;
+		},
+		renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {
+			const context: { isPartial?: boolean; isError?: boolean; expanded?: boolean; lastComponent?: any } =
+				rest[0] ?? options ?? {};
+			const isPartial = context.isPartial ?? (options as any)?.isPartial ?? false;
+			const isError = context.isError ?? false;
+			const expanded = context.expanded ?? (options as any)?.expanded ?? false;
+
+			if (isPartial) {
+				return new Text(theme.fg("dim", "Editing\u2026"), 0, 0);
+			}
+
+			// Extract data from result
+			const textContent = result.content
+				?.filter((c: any) => c.type === "text")
+				.map((c: any) => c.text || "")
+				.join("\n") ?? "";
+			const details = result.details ?? {};
+			const diff: string = details.diff ?? "";
+			const ptcValue = details.ptcValue as {
+				warnings?: string[];
+				noopEdits?: unknown[];
+			} | undefined;
+			const warnings = ptcValue?.warnings ?? [];
+			const noopEdits = ptcValue?.noopEdits ?? [];
+
+			const info = formatEditResultText({
+				isError: isError || !!result.isError,
+				diff,
+				warnings,
+				noopEdits,
+				errorText: textContent,
+			});
+
+			// Build display text
+			let text = "";
+
+			if (info.noOp) {
+				// No-op error
+				text = theme.fg("warning", "\u26a0 no-op");
+				if (expanded && info.errorText) {
+					text += `\n${theme.fg("error", info.errorText)}`;
+				}
+			} else if (info.errorText) {
+				// Non-noop error
+				const firstLine = info.errorText.split("\n")[0] || "Error";
+				text = theme.fg("error", firstLine);
+				if (expanded && info.errorText.includes("\n")) {
+					text = theme.fg("error", info.errorText);
+				}
+			} else {
+				// Success
+				const parts: string[] = [];
+				if (info.diffStats) {
+					parts.push(theme.fg("success", info.diffStats));
+				}
+				if (info.warningsBadge) {
+					parts.push(theme.fg("warning", info.warningsBadge));
+				}
+				text = parts.join("  ") || theme.fg("success", "\u2713");
+
+				if (expanded) {
+					if (diff) {
+						text += `\n${renderDiff(diff)}`;
+					}
+					if (warnings.length > 0) {
+						text += `\n${theme.fg("warning", "Warnings:")}`;
+						for (const w of warnings) {
+							text += `\n  ${theme.fg("dim", w)}`;
+						}
+					}
+				}
+			}
+
+			const component = context.lastComponent ?? new Text("", 0, 0);
+			component.setText(text);
+			return component;
 		},
 	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
 

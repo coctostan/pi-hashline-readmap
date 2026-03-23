@@ -239,3 +239,15 @@ The original PR/branch history is still valid historical context, but #039 shoul
 - 12 new tests across 2 test files (tool-executors.test.ts, tool-executor-emit.test.ts)
 - 3 existing test files updated with `events` mock
 - pi-hashline-readmap: 89 files, 432 tests, 0 failures
+
+## Issue #059: Edit Tool renderCall + renderResult TUI Rendering — CLOSED ✅
+**Date**: 2026-03-23
+
+### Added
+- Custom `renderCall` on edit tool: shows operation summary during arg streaming (`edit src/foo.ts 3 edits (2 set_line, 1 replace)`) (#059)
+- Custom `renderResult` on edit tool: shows `+N / -M` diff stats, `⚠ no-op` indicator, `⚠ N warnings` badge, expanded diff + warnings (#059)
+- Pure helper module `src/edit-render-helpers.ts` with `countEditTypes`, `parseDiffStats`, `formatEditCallText`, `formatEditResultText` (#059)
+
+### Tests
+- 23 new unit tests in `tests/edit-render-helpers.test.ts`
+- pi-hashline-readmap: 90 files, 455 tests, 0 failures
