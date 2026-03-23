@@ -1,4 +1,4 @@
-import type { ExtensionAPI, EditToolDetails } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, EditToolDetails, ToolRenderResultOptions } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { readFileSync } from "fs";
@@ -8,6 +8,8 @@ import { applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { buildEditOutput } from "./edit-output.js";
+import { Text } from "@mariozechner/pi-tui";
+import { formatEditCallText, formatEditResultText } from "./edit-render-helpers.js";
 
 export function wrapWriteError(err: any, path: string): Error {
 	const code = err?.code;
@@ -269,6 +271,84 @@ export function registerEditTool(pi: ExtensionAPI) {
 					};
 				},
 			};
+		},
+		renderCall(args: any, theme: any, ...rest: any[]) {
+			const { path: filePath, suffix } = formatEditCallText(args, true);
+			let text = theme.fg("toolTitle", theme.bold("edit "));
+			if (filePath) {
+				text += theme.fg("accent", filePath);
+			}
+			if (suffix) {
+				text += theme.fg("dim", ` ${suffix}`);
+			}
+			return new Text(text, 0, 0);
+		},
+		renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {
+			const context: { isPartial?: boolean; isError?: boolean; expanded?: boolean } =
+				rest[0] ?? options ?? {};
+			const isPartial = context.isPartial ?? (options as any)?.isPartial ?? false;
+			const isError = context.isError ?? false;
+			const expanded = context.expanded ?? (options as any)?.expanded ?? false;
+			if (isPartial) return new Text(theme.fg("warning", "Editing\u2026"), 0, 0);
+			const content = result.content?.[0];
+			const textContent = content?.type === "text" ? content.text : "";
+			const details = result.details as any;
+			const diff: string = details?.diff ?? "";
+			const ptcValue = details?.ptcValue as { warnings?: string[]; noopEdits?: unknown[] } | undefined;
+			const info = formatEditResultText({
+				isError: isError || !!result.isError,
+				diff,
+				warnings: ptcValue?.warnings ?? [],
+				noopEdits: ptcValue?.noopEdits ?? [],
+				errorText: textContent,
+			});
+
+			if (info.noOp) {
+				return new Text(theme.fg("warning", "\u26A0 no-op"), 0, 0);
+			}
+
+			if (info.errorText) {
+				const firstLine = info.errorText.split("\n")[0] || "Error";
+				return new Text(theme.fg("error", firstLine), 0, 0);
+			}
+
+			let text = "";
+			if (info.diffStats) {
+				const [addPart, remPart] = info.diffStats.split(" / ");
+				text = theme.fg("success", addPart);
+				text += theme.fg("dim", " / ");
+				text += theme.fg("error", remPart);
+			} else {
+				text = theme.fg("success", "Applied");
+			}
+
+			if (info.warningsBadge) {
+				text += " " + theme.fg("warning", info.warningsBadge);
+			}
+			if (expanded) {
+				const diffLines = diff ? diff.split("\n") : [];
+				const showLines = diffLines.slice(0, 30);
+				for (const line of showLines) {
+					if (line.startsWith("+") && !line.startsWith("+++")) {
+						text += "\n" + theme.fg("success", line);
+					} else if (line.startsWith("-") && !line.startsWith("---")) {
+						text += "\n" + theme.fg("error", line);
+					} else {
+						text += "\n" + theme.fg("dim", line);
+					}
+				}
+				if (diffLines.length > 30) {
+					text += "\n" + theme.fg("muted", `\u2026 ${diffLines.length - 30} more diff lines`);
+				}
+				const warnings = ptcValue?.warnings ?? [];
+				if (warnings.length > 0) {
+					text += "\n" + theme.fg("warning", "Warnings:");
+					for (const w of warnings) {
+						text += "\n" + theme.fg("warning", `  ${w}`);
+					}
+				}
+			}
+			return new Text(text, 0, 0);
 		},
 	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
 
