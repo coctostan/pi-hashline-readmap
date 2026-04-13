@@ -5,6 +5,8 @@ import { registerGrepTool } from "./src/grep.js";
 import { registerSgTool, isSgAvailable } from "./src/sg.js";
 import { registerNuTool } from "./src/nu.js";
 import { registerWriteTool } from "./src/write.js";
+import { registerLsTool } from "./src/ls.js";
+import { registerFindTool } from "./src/find.js";
 import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { stripAnsi } from "./src/rtk/ansi.js";
 import {
@@ -60,6 +62,8 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   const sgTool = registerSgTool(pi);
   registerNuTool(pi);
   const writeTool = registerWriteTool(pi);
+  registerLsTool(pi);
+  registerFindTool(pi);
 
   const toolExecutors = {
     read: readTool,
