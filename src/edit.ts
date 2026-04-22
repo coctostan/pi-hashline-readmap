@@ -74,6 +74,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 		description: EDIT_DESC,
 		parameters: hashlineEditSchema,
 		ptc,
+		renderShell: "default" as const,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			await ensureHashInit();
 			const parsed = params as HashlineParams;
