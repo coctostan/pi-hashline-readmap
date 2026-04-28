@@ -1,10 +1,9 @@
 import type { PtcLine, PtcWarning } from "./ptc-value.js";
 import {
-  DEFAULT_MAX_BYTES,
-  DEFAULT_MAX_LINES,
   formatSize,
   truncateHead,
 } from "@mariozechner/pi-coding-agent";
+import { resolveGrepOutputBudget } from "./grep-budget.js";
 import {
   buildContextHygieneMetadata,
   buildFileResource,
@@ -152,9 +151,10 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
   if (!input.summary && input.scopeMode === "symbol" && (input.scopeWarnings?.length ?? 0) > 0) {
     text = `${input.scopeWarnings!.map((warning) => warning.message).join("\n\n")}\n\n${text}`;
   }
+  const budget = resolveGrepOutputBudget();
   const truncated = truncateHead(text, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: Math.min(DEFAULT_MAX_BYTES, 50 * 1024),
+    maxLines: budget.maxLines,
+    maxBytes: budget.maxBytes,
   });
   if (truncated.truncated) {
     text = `${truncated.content}\n\n[Output truncated: showing ${truncated.outputLines} of ${truncated.totalLines} lines (${formatSize(truncated.outputBytes)} of ${formatSize(truncated.totalBytes)}). Refine pattern or increase limit.]`;
