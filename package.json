@@ -51,10 +51,16 @@
     "@sinclair/typebox": "*"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.55.4",
+    "@mariozechner/pi-coding-agent": "^0.70.5",
+    "@mariozechner/pi-tui": "^0.70.5",
     "@sinclair/typebox": "^0.34.48",
     "@types/node": "^25.5.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
+  },
+  "overrides": {
+    "tree-sitter-cpp": {
+      "tree-sitter": "0.22.4"
+    }
   }
 }

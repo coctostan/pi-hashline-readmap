@@ -29,6 +29,7 @@ describe("register functions return tool definitions", () => {
     expect(typeof tool.execute).toBe("function");
     expect(typeof tool.description).toBe("string");
     expect(tool.parameters).toBeDefined();
+    expect(tool.renderShell).toBe("default");
   });
 
   it("registerGrepTool returns a tool with name, execute, description, parameters", async () => {
