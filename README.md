@@ -59,9 +59,12 @@ These tools are not required for the extension to load, but they unlock more cap
 brew install nushell           # required for the nu tool
 brew install ast-grep          # required for ast_search
 brew install fd                # optional, speeds up find
+brew install universal-ctags   # optional, symbol maps for languages without a dedicated mapper
 brew install difftastic        # optional, improves semantic edit summaries
 brew install shellcheck yq scc # optional, improves some bash-output compression paths
 ```
+
+Dedicated readmap mappers handle TypeScript, Python, Rust, Go, Java, C, C++, Swift, Clojure, shell, SQL, Markdown, and several data formats (JSON/JSONL/YAML/TOML/CSV) with the highest-quality structural maps. For files outside that set, the read tool's structural map falls back to universal-ctags when it is installed, and to a generic regex-based extractor when it is not. Installing universal-ctags is therefore only worthwhile if you regularly read files in languages without a dedicated mapper (for example Ruby, PHP, Lua, Kotlin) and want symbol-aware maps for them.
 
 ## 30-second example
 
