@@ -1,18 +1,49 @@
-import { renderDiff, type ExtensionAPI, type EditToolDetails, type ToolRenderResultOptions } from "@mariozechner/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
+import {
+	type EditToolDetails,
+	type ExtensionAPI,
+	renderDiff,
+	type ToolRenderResultOptions,
+} from "@mariozechner/pi-coding-agent";
+import { Text } from "@mariozechner/pi-tui";
 import type { Static } from "@sinclair/typebox";
+import { Type } from "@sinclair/typebox";
 import { readFileSync } from "fs";
 import { readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
-import { detectLineEnding, generateCompactOrFullDiff, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff";
-import { HashlineMismatchError, applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline";
-import { resolveToCwd } from "./path-utils";
-import { throwIfAborted } from "./runtime";
+import {
+	classifyEdit,
+	isDifftAvailable,
+	runDifftastic,
+} from "./edit-classify.js";
+import {
+	detectLineEnding,
+	generateCompactOrFullDiff,
+	normalizeToLF,
+	replaceText,
+	restoreLineEndings,
+	stripBom,
+} from "./edit-diff";
 import { buildEditOutput } from "./edit-output.js";
-import { classifyEdit, isDifftAvailable, runDifftastic } from "./edit-classify.js";
+import {
+	formatEditCallText,
+	formatEditResultText,
+} from "./edit-render-helpers.js";
+import {
+	applyHashlineEdits,
+	computeLineHash,
+	ensureHashInit,
+	escapeControlCharsForDisplay,
+	type HashlineEditItem,
+	HashlineMismatchError,
+	parseLineRef,
+} from "./hashline";
+import { getOrGenerateMap } from "./map-cache.js";
+import { resolveToCwd } from "./path-utils";
 import type { SemanticSummary } from "./ptc-value.js";
 import { buildPtcError } from "./ptc-value.js";
-import { Text } from "@mariozechner/pi-tui";
-import { formatEditCallText, formatEditResultText } from "./edit-render-helpers.js";
+import { detectLanguage } from "./readmap/language-detect.js";
+import { findSymbol } from "./readmap/symbol-lookup.js";
+import { throwIfAborted } from "./runtime";
+import { checkSyntaxErrors, deterministicMerge } from "./symbol-merge.js";
 
 export function wrapWriteError(err: any, path: string): Error {
 	const code = err?.code;
@@ -26,17 +57,65 @@ export function isBinaryBuffer(buf: Buffer): boolean {
 	return buf.includes(0);
 }
 
+/** Build a hashline anchor string ("LINE:HASH") for a 0-based line index. */
+function hashlineForIndex(
+	lines: string[],
+	idx: number,
+	_filePath: string,
+): string | null {
+	if (idx < 0 || idx >= lines.length) return null;
+	const lineNum = idx + 1; // 1-based
+	const content = lines[idx];
+	const hash = computeLineHash(lineNum, content);
+	return `${lineNum}:${hash}`;
+}
+
 // ─── Schema ─────────────────────────────────────────────────────────────
 
 const hashlineEditItemSchema = Type.Union([
-	Type.Object({ set_line: Type.Object({ anchor: Type.String(), new_text: Type.String() }) }, { additionalProperties: true }),
 	Type.Object(
-		{ replace_lines: Type.Object({ start_anchor: Type.String(), end_anchor: Type.String(), new_text: Type.String() }) },
+		{
+			set_line: Type.Object({ anchor: Type.String(), new_text: Type.String() }),
+		},
 		{ additionalProperties: true },
 	),
-	Type.Object({ insert_after: Type.Object({ anchor: Type.String(), new_text: Type.String(), text: Type.Optional(Type.String()) }) }, { additionalProperties: true }),
 	Type.Object(
-		{ replace: Type.Object({ old_text: Type.String(), new_text: Type.String(), all: Type.Optional(Type.Boolean()) }) },
+		{
+			replace_lines: Type.Object({
+				start_anchor: Type.String(),
+				end_anchor: Type.String(),
+				new_text: Type.String(),
+			}),
+		},
+		{ additionalProperties: true },
+	),
+	Type.Object(
+		{
+			insert_after: Type.Object({
+				anchor: Type.String(),
+				new_text: Type.String(),
+				text: Type.Optional(Type.String()),
+			}),
+		},
+		{ additionalProperties: true },
+	),
+	Type.Object(
+		{
+			replace: Type.Object({
+				old_text: Type.String(),
+				new_text: Type.String(),
+				all: Type.Optional(Type.Boolean()),
+			}),
+		},
+		{ additionalProperties: true },
+	),
+	Type.Object(
+		{
+			replace_symbol: Type.Object({
+				symbol: Type.String(),
+				replacement: Type.String(),
+			}),
+		},
 		{ additionalProperties: true },
 	),
 ]);
@@ -44,14 +123,21 @@ const hashlineEditItemSchema = Type.Union([
 const hashlineEditSchema = Type.Object(
 	{
 		path: Type.String({ description: "File path (relative or absolute)" }),
-		edits: Type.Optional(Type.Array(hashlineEditItemSchema, { description: "Array of edit operations" })),
+		edits: Type.Optional(
+			Type.Array(hashlineEditItemSchema, {
+				description: "Array of edit operations",
+			}),
+		),
 	},
 	{ additionalProperties: true },
 );
 
 type HashlineParams = Static<typeof hashlineEditSchema>;
 
-const EDIT_DESC = readFileSync(new URL("../prompts/edit.md", import.meta.url), "utf-8").trim();
+const EDIT_DESC = readFileSync(
+	new URL("../prompts/edit.md", import.meta.url),
+	"utf-8",
+).trim();
 
 export interface EditToolOptions {
 	wasReadInSession?: (absolutePath: string) => boolean;
@@ -59,7 +145,10 @@ export interface EditToolOptions {
 
 // ─── Registration ───────────────────────────────────────────────────────
 
-export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}) {
+export function registerEditTool(
+	pi: ExtensionAPI,
+	options: EditToolOptions = {},
+) {
 	const ptc = {
 		callable: true,
 		enabled: true,
@@ -120,7 +209,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					: typeof input.new_text === "string"
 						? input.new_text
 						: undefined;
-			const hasLegacyInput = legacyOldText !== undefined || legacyNewText !== undefined;
+			const hasLegacyInput =
+				legacyOldText !== undefined || legacyNewText !== undefined;
 			const hasEditsInput = Array.isArray(parsed.edits);
 
 			let edits = parsed.edits ?? [];
@@ -168,7 +258,10 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 							tool: "edit",
 							ok: false,
 							path: absolutePath,
-							error: buildPtcError("invalid-edit-variant", "No edits provided."),
+							error: buildPtcError(
+								"invalid-edit-variant",
+								"No edits provided.",
+							),
 						},
 					} as EditToolDetails & { ptcValue: any },
 				};
@@ -216,7 +309,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					Number("set_line" in e) +
 					Number("replace_lines" in e) +
 					Number("insert_after" in e) +
-					Number("replace" in e);
+					Number("replace" in e) +
+					Number("replace_symbol" in e);
 				if (variantCount !== 1) {
 					const message = `edits[${i}] must contain exactly one of: 'set_line', 'replace_lines', 'insert_after', 'replace'. Got: [${Object.keys(e).join(", ")}].`;
 					return {
@@ -237,10 +331,19 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			}
 
 			const anchorEdits = edits.filter(
-				(e): e is HashlineEditItem => "set_line" in e || "replace_lines" in e || "insert_after" in e,
+				(e): e is HashlineEditItem =>
+					"set_line" in e || "replace_lines" in e || "insert_after" in e,
+			);
+			const symbolEdits = edits.filter(
+				(e): e is { replace_symbol: { symbol: string; replacement: string } } =>
+					"replace_symbol" in e,
 			);
 			const replaceEdits = edits.filter(
-				(e): e is { replace: { old_text: string; new_text: string; all?: boolean } } => "replace" in e,
+				(
+					e,
+				): e is {
+					replace: { old_text: string; new_text: string; all?: boolean };
+				} => "replace" in e,
 			);
 
 			let rawBuffer: Buffer;
@@ -351,7 +454,12 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						} as EditToolDetails & { ptcValue: any },
 					};
 				}
-				const rep = replaceText(result, r.replace.old_text, r.replace.new_text, { all: r.replace.all ?? false });
+				const rep = replaceText(
+					result,
+					r.replace.old_text,
+					r.replace.new_text,
+					{ all: r.replace.all ?? false },
+				);
 				if (!rep.count) {
 					const message = `Could not find text to replace in ${path}.`;
 					return {
@@ -372,6 +480,186 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				result = rep.content;
 			}
 
+			// Handle replace_symbol edits (AST-based deterministic merge)
+			let hadSymbolEdits = false;
+			for (const s of symbolEdits) {
+				const { symbol, replacement } = s.replace_symbol;
+				hadSymbolEdits = true;
+				const fileMap = await getOrGenerateMap(absolutePath);
+				if (!fileMap) {
+					const message = `Cannot generate AST map for ${path} — file was NOT modified. replace_symbol requires a supported language. Supported: Java, TypeScript/JavaScript, Python, Rust, Go, C/C++, Clojure, Swift, SQL, JSON, YAML, TOML, CSV, Markdown, Shell. Use read(${JSON.stringify(path)}) and edit with hashline anchors for other languages.`;
+					return {
+						content: [{ type: "text", text: message }],
+						isError: true,
+						details: {
+							diff: "",
+							firstChangedLine: undefined,
+							ptcValue: {
+								tool: "edit",
+								ok: false,
+								path: absolutePath,
+								error: buildPtcError("ast-map-failed", message),
+							},
+						} as EditToolDetails & { ptcValue: any },
+					};
+				}
+				const lookupResult = findSymbol(fileMap, symbol);
+				if (lookupResult.type !== "found") {
+					const hint =
+						lookupResult.type === "ambiguous"
+							? `Symbol "${symbol}" is ambiguous in ${path} — file was NOT modified. Matches: ${lookupResult.candidates.map((c) => c.name + (c.parentName ? ` (in ${c.parentName})` : "")).join(", ")}. Use symbol@line to disambiguate (e.g. "${symbol.split(".").pop()}@${lookupResult.candidates[0]?.symbol?.startLine ?? ""}" for the first match) or read(${JSON.stringify(path)}, { symbol: ${JSON.stringify(symbol)} }) to see all matches.`
+							: lookupResult.type === "fuzzy"
+								? `Symbol "${symbol}" not found in ${path} — file was NOT modified. Did you mean ${lookupResult.symbol.name}? (other candidates: ${lookupResult.otherCandidates.map((c) => c.name).join(", ")})`
+								: symbol.includes(".")
+									? `Symbol "${symbol}" not found in ${path} — file was NOT modified. Try using just the field/method name without the container class (e.g. "${symbol.split(".").pop()}" instead of "${symbol}").`
+									: `Symbol "${symbol}" not found in ${path} — file was NOT modified.`;
+					return {
+						content: [{ type: "text", text: hint }],
+						isError: true,
+						details: {
+							diff: "",
+							firstChangedLine: undefined,
+							ptcValue: {
+								tool: "edit",
+								ok: false,
+								path: absolutePath,
+								error: buildPtcError("symbol-not-found", hint),
+							},
+						} as EditToolDetails & { ptcValue: any },
+					};
+				}
+				const { startLine, endLine } = lookupResult.symbol;
+				const originalLines = result.split("\n");
+				const originalSymbol =
+					originalLines.slice(startLine - 1, endLine).join("\n") + "\n";
+				const lineCount = endLine - startLine + 1;
+
+				// --- Auto-fallback for short symbols (1-2 lines) ---
+				if (lineCount <= 2) {
+					// Use set_line with the AST map's hash anchor for the start line
+					const lineIdx = startLine - 1;
+					const hashLine = hashlineForIndex(
+						originalLines,
+						lineIdx,
+						absolutePath,
+					);
+					if (!hashLine) {
+						const message = `Symbol "${symbol}" is only ${lineCount} line(s) — too short for deterministic merge. File was NOT modified. Use read(${JSON.stringify(path)}, { symbol: ${JSON.stringify(symbol)} }) to get a hashline anchor, then edit with set_line or replace_lines.`;
+						return {
+							content: [{ type: "text", text: message }],
+							isError: true,
+							details: {
+								diff: "",
+								firstChangedLine: undefined,
+								ptcValue: {
+									tool: "edit",
+									ok: false,
+									path: absolutePath,
+									error: buildPtcError("symbol-too-short", message),
+								},
+							} as EditToolDetails & { ptcValue: any },
+						};
+					}
+					// Treat replacement as the new content for the entire symbol range
+					const replacementLines = replacement.split("\n");
+					// Strip trailing empty line if replacement ended with \n
+					if (
+						replacementLines.length > 0 &&
+						replacementLines[replacementLines.length - 1] === "" &&
+						replacement.endsWith("\n")
+					) {
+						replacementLines.pop();
+					}
+					// Build new_lines: the replacement lines, keeping the original indent of the first line
+					const originalFirstLine = originalLines[lineIdx];
+					const originalIndent = originalFirstLine.match(/^[ \t]*/)?.[0] || "";
+					const replacementFirstLine = replacementLines[0] || "";
+					const replacementIndent =
+						replacementFirstLine.match(/^[ \t]*/)?.[0] || "";
+					if (lineCount === 1) {
+						// Single line: replace the entire line content
+						const newContent =
+							originalIndent + replacementFirstLine.trimStart();
+						originalLines[lineIdx] = newContent;
+						result = originalLines.join("\n");
+					} else {
+						// 2 lines: use replace_lines logic — replace startLine..endLine with replacementLines
+						const adjustedLines = replacementLines.map((l, i) => {
+							if (i === 0) return originalIndent + l.trimStart();
+							return l;
+						});
+						const before = originalLines.slice(0, lineIdx);
+						const afterB = originalLines.slice(endLine);
+						result = [...before, ...adjustedLines, ...afterB].join("\n");
+					}
+					continue; // proceed to next symbolEdit
+				}
+
+				// --- Deterministic merge for multi-line symbols (≥3 lines) ---
+				const mergeResult = deterministicMerge(originalSymbol, replacement);
+				if (mergeResult.result === null) {
+					const reason = mergeResult.reason || "Not enough context anchors";
+					const message = `replace_symbol could not merge into ${symbol} — file was NOT modified. ${reason}. Use read(${JSON.stringify(path)}, { symbol: ${JSON.stringify(symbol)} }) and then edit with set_line/replace_lines.`;
+					return {
+						content: [{ type: "text", text: message }],
+						isError: true,
+						details: {
+							diff: "",
+							firstChangedLine: undefined,
+							ptcValue: {
+								tool: "edit",
+								ok: false,
+								path: absolutePath,
+								error: buildPtcError("deterministic-merge-failed", reason),
+							},
+						} as EditToolDetails & { ptcValue: any },
+					};
+				}
+				// Replace the symbol lines in result
+				const before = originalLines.slice(0, startLine - 1);
+				const afterB = originalLines.slice(endLine);
+				const mergedResult = mergeResult.result;
+				const mergedLines = mergedResult.split("\n");
+				// Strip trailing empty line if originalSymbol ended with \n
+				if (
+					mergedLines[mergedLines.length - 1] === "" &&
+					mergedResult.endsWith("\n")
+				) {
+					mergedLines.pop();
+				}
+				result = [...before, ...mergedLines, ...afterB].join("\n");
+			}
+
+			// Post-merge syntax validation for replace_symbol edits
+			// Post-merge syntax validation: BLOCK write if syntax errors found
+			if (hadSymbolEdits) {
+				const langInfo = detectLanguage(absolutePath);
+				if (langInfo) {
+					const syntaxErrors = checkSyntaxErrors(result, langInfo.id);
+					if (syntaxErrors && syntaxErrors.length > 0) {
+						const lines = syntaxErrors
+							.slice(0, 3)
+							.map((e) => `Line ${e.line}: possible syntax error`);
+						if (syntaxErrors.length > 3)
+							lines.push(`...and ${syntaxErrors.length - 3} more`);
+						const message = `replace_symbol produced code with syntax errors in ${path}. File was NOT modified.\n${lines.join("\n")}\nVerify the replacement includes the full symbol (signature + body + closing brace).`;
+						return {
+							content: [{ type: "text", text: message }],
+							isError: true,
+							details: {
+								diff: "",
+								firstChangedLine: undefined,
+								ptcValue: {
+									tool: "edit",
+									ok: false,
+									path: absolutePath,
+									error: buildPtcError("syntax-error-after-merge", message),
+								},
+							} as EditToolDetails & { ptcValue: any },
+						};
+					}
+				}
+			}
 			if (originalNormalized === result) {
 				let diagnostic = `No changes made to ${path}. The edits produced identical content.`;
 				if (anchorResult.noopEdits?.length) {
@@ -392,15 +680,21 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						const refs: string[] = [];
 						if ("set_line" in edit) refs.push((edit as any).set_line.anchor);
 						else if ("replace_lines" in edit) {
-							refs.push((edit as any).replace_lines.start_anchor, (edit as any).replace_lines.end_anchor);
-						} else if ("insert_after" in edit) refs.push((edit as any).insert_after.anchor);
+							refs.push(
+								(edit as any).replace_lines.start_anchor,
+								(edit as any).replace_lines.end_anchor,
+							);
+						} else if ("insert_after" in edit)
+							refs.push((edit as any).insert_after.anchor);
 						for (const ref of refs) {
 							try {
 								const parsed = parseLineRef(ref);
 								if (parsed.line >= 1 && parsed.line <= lines.length) {
 									const lineContent = lines[parsed.line - 1];
 									const hash = computeLineHash(parsed.line, lineContent);
-									targetLines.push(`${parsed.line}:${hash}|${escapeControlCharsForDisplay(lineContent)}`);
+									targetLines.push(
+										`${parsed.line}:${hash}|${escapeControlCharsForDisplay(lineContent)}`,
+									);
 								}
 							} catch {
 								/* skip malformed refs */
@@ -430,7 +724,11 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 
 			throwIfAborted(signal);
 			try {
-				await fsWriteFile(absolutePath, bom + restoreLineEndings(result, originalEnding), "utf-8");
+				await fsWriteFile(
+					absolutePath,
+					bom + restoreLineEndings(result, originalEnding),
+					"utf-8",
+				);
 			} catch (err: any) {
 				const wrapped = wrapWriteError(err, path);
 				const code =
@@ -440,7 +738,9 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 							? "file-not-found"
 							: "fs-error";
 				const message =
-					code === "fs-error" && err?.message ? `${wrapped.message} — ${err.message}` : wrapped.message;
+					code === "fs-error" && err?.message
+						? `${wrapped.message} — ${err.message}`
+						: wrapped.message;
 				return {
 					content: [{ type: "text", text: message }],
 					isError: true,
@@ -451,9 +751,14 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 							tool: "edit",
 							ok: false,
 							path: absolutePath,
-							error: buildPtcError(code, message, undefined, code === "fs-error"
-								? { fsCode: err?.code, fsMessage: err?.message }
-								: undefined),
+							error: buildPtcError(
+								code,
+								message,
+								undefined,
+								code === "fs-error"
+									? { fsCode: err?.code, fsMessage: err?.message }
+									: undefined,
+							),
 						},
 					} as EditToolDetails & { ptcValue: any },
 				};
@@ -461,9 +766,9 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 
 			const diffResult = generateCompactOrFullDiff(originalNormalized, result);
 			const warnings: string[] = [];
-			if (anchorResult.warnings?.length) warnings.push(...anchorResult.warnings);
+			if (anchorResult.warnings?.length)
+				warnings.push(...anchorResult.warnings);
 			if (legacyNormalizationWarning) warnings.push(legacyNormalizationWarning);
-			// Semantic classification
 			const internalClassification = classifyEdit(originalNormalized, result);
 			const difftAvailable = await isDifftAvailable();
 			let semanticSummary: SemanticSummary = {
@@ -473,12 +778,18 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 
 			if (difftAvailable) {
 				const ext = path.split(".").pop() ?? "txt";
-				const difftResult = await runDifftastic(originalNormalized, result, ext);
+				const difftResult = await runDifftastic(
+					originalNormalized,
+					result,
+					ext,
+				);
 				if (difftResult) {
 					semanticSummary = {
 						classification: difftResult.classification,
 						difftasticAvailable: true,
-						...(difftResult.movedBlocks > 0 ? { movedBlocks: difftResult.movedBlocks } : {}),
+						...(difftResult.movedBlocks > 0
+							? { movedBlocks: difftResult.movedBlocks }
+							: {}),
 					};
 				}
 			}
@@ -486,19 +797,23 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				path: absolutePath,
 				displayPath: path,
 				diff: diffResult.diff,
-				firstChangedLine: anchorResult.firstChangedLine ?? diffResult.firstChangedLine,
+				firstChangedLine:
+					anchorResult.firstChangedLine ?? diffResult.firstChangedLine,
 				warnings,
 				noopEdits: anchorResult.noopEdits ?? [],
 				edits,
 				semanticSummary,
 			});
 
-			const warn = warnings.length ? `\n\nWarnings:\n${warnings.join("\n")}` : "";
+			const warn = warnings.length
+				? `\n\nWarnings:\n${warnings.join("\n")}`
+				: "";
 			return {
 				content: [{ type: "text", text: builtOutput.text }],
 				details: {
 					diff: diffResult.diff,
-					firstChangedLine: anchorResult.firstChangedLine ?? diffResult.firstChangedLine,
+					firstChangedLine:
+						anchorResult.firstChangedLine ?? diffResult.firstChangedLine,
 					ptcValue: builtOutput.ptcValue,
 					contextHygiene: builtOutput.contextHygiene,
 				} as EditToolDetails & {
@@ -516,7 +831,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			};
 		},
 		renderCall(args: any, theme: any, ...rest: any[]) {
-			const context: { argsComplete?: boolean; lastComponent?: any } = rest[0] ?? {};
+			const context: { argsComplete?: boolean; lastComponent?: any } =
+				rest[0] ?? {};
 			const argsComplete = context.argsComplete ?? false;
 			const { path: filePath, suffix } = formatEditCallText(args, argsComplete);
 
@@ -534,10 +850,20 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			component.setText(text);
 			return component;
 		},
-		renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {
-			const context: { isPartial?: boolean; isError?: boolean; expanded?: boolean; lastComponent?: any } =
-				rest[0] ?? options ?? {};
-			const isPartial = context.isPartial ?? (options as any)?.isPartial ?? false;
+		renderResult(
+			result: any,
+			options: ToolRenderResultOptions,
+			theme: any,
+			...rest: any[]
+		) {
+			const context: {
+				isPartial?: boolean;
+				isError?: boolean;
+				expanded?: boolean;
+				lastComponent?: any;
+			} = rest[0] ?? options ?? {};
+			const isPartial =
+				context.isPartial ?? (options as any)?.isPartial ?? false;
 			const isError = context.isError ?? false;
 			const expanded = context.expanded ?? (options as any)?.expanded ?? false;
 
@@ -546,19 +872,23 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			}
 
 			// Extract data from result
-			const textContent = result.content
-				?.filter((c: any) => c.type === "text")
-				.map((c: any) => c.text || "")
-				.join("\n") ?? "";
+			const textContent =
+				result.content
+					?.filter((c: any) => c.type === "text")
+					.map((c: any) => c.text || "")
+					.join("\n") ?? "";
 			const details = result.details ?? {};
 			const diff: string = details.diff ?? "";
-			const ptcValue = details.ptcValue as {
-				warnings?: string[];
-				noopEdits?: unknown[];
-			} | undefined;
+			const ptcValue = details.ptcValue as
+				| {
+						warnings?: string[];
+						noopEdits?: unknown[];
+				  }
+				| undefined;
 			const warnings = ptcValue?.warnings ?? [];
 			const noopEdits = ptcValue?.noopEdits ?? [];
-			const semanticClassification = (ptcValue as any)?.semanticSummary?.classification as string | undefined;
+			const semanticClassification = (ptcValue as any)?.semanticSummary
+				?.classification as string | undefined;
 
 			const info = formatEditResultText({
 				isError: isError || !!result.isError,

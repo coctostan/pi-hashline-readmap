@@ -3,7 +3,7 @@ Surgically edit files with hash-verified line references (anchors). Copy `LINE:H
 ## What edit does
 `edit` applies one or more changes to an existing text file using hash-verified anchors. Anchored operations are verified against the current file contents before they are written.
 
-## The four edit variants — when to use which
+## The five edit variants — when to use which
 
 | Variant | Use for | Anchors needed |
 |---|---|---|
@@ -11,6 +11,7 @@ Surgically edit files with hash-verified line references (anchors). Copy `LINE:H
 | `replace_lines` | Replace or delete a contiguous range of lines | 2 |
 | `insert_after` | Insert new lines after an existing line | 1 |
 | `replace` | Fallback global string replacement | 0 |
+| `replace_symbol` | Edit a named symbol (function, method, class) by AST lookup | 0 |
 
 ### Prefer anchored variants
 `set_line`, `replace_lines`, and `insert_after` use `LINE:HASH` anchors and verify that the file still matches the content you saw earlier.
@@ -35,7 +36,7 @@ Surgically edit files with hash-verified line references (anchors). Copy `LINE:H
 
 - `path` is the file to edit
 - `edits` is an array of edit operations
-- Each edit entry must contain exactly one of `set_line`, `replace_lines`, `insert_after`, or `replace`
+- Each edit entry must contain exactly one of `set_line`, `replace_lines`, `insert_after`, `replace`, or `replace_symbol`
 - `new_text` is plain content — do not include hash prefixes or diff markers
 
 ## Variant examples
@@ -93,6 +94,47 @@ edit({
   ]
 })
 ```
+
+### `replace_symbol`
+Use `replace_symbol` to edit a named code symbol (function, method, class, field) without needing hash anchors. The tool uses the file's AST map to locate the symbol and applies a deterministic merge.
+
+**Important:** `replacement` must be the **full** new version of the symbol (signature + body + closing brace), not a diff or partial snippet.
+
+Use `# ... existing code ...` or `// ... existing code ...` markers inside the replacement to indicate where existing code should be kept.
+
+```text
+edit({
+  path: "src/UserService.java",
+  edits: [
+    {
+      replace_symbol: {
+        symbol: "findUser",
+        replacement: "public User findUser(String email) {\n    User user = userRepository.findByEmail(email);\n    log.debug(\"looking up {}\", email);\n    # ... existing code ...\n}"
+      }
+    }
+  ]
+})
+```
+
+**Supported languages:** Java, TypeScript/JavaScript, Python, Rust, Go, C/C++, Clojure, Swift, SQL, JSON, YAML, TOML, CSV, Markdown, Shell.
+
+**How it works:**
+1. Locates the symbol in the file's AST map
+2. For multi-line symbols: uses deterministic merge with context anchors and markers
+3. For short symbols (1-2 lines): auto-falls back to line-level editing
+4. If merge fails: returns an error with a specific reason and suggests using `read(symbol)` + `set_line/replace_lines` instead
+
+**Marker semantics:**
+- Lines that match the original are kept as-is (context anchors)
+- `# ...` / `// ...` / `...` markers indicate "keep existing code here"
+- Lines that don't match and aren't markers are new code (inserted)
+- Original lines in the gap between two matching lines are dropped
+
+**Limitations and tips:**
+- Do NOT use `# ...` / `// ...` markers when changing the method signature. Markers assume the signature line matches the original. If you change the signature, always provide the **full** replacement without markers.
+- For overloaded methods, use `symbol@line` disambiguation (e.g. `"put@7"`) or dot notation (`"ClassName.methodName"`).
+- For inner class fields, use just the field name without the container class prefix.
+- After merge, the tool checks for syntax errors in the result. If found, it shows `⚠️` warnings — verify the code compiles before committing.
 
 ## Recovery from hash mismatch errors
 When the file changes after you captured anchors, `edit` reports a hash mismatch and shows current file lines with `>>>` markers.

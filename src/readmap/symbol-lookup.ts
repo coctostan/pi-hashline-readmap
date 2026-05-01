@@ -95,16 +95,31 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
 
   const allSymbols = flattenSymbols(map.symbols);
 
-  if (q.includes("@")) {
-    const parts = q.split("@");
-    if (parts.length === 2 && parts[0] && /^\d+$/.test(parts[1])) {
-      const [namePart, linePart] = parts;
-      const lineNum = Number.parseInt(linePart, 10);
-      const byLine = allSymbols.filter((c) => c.symbol.name === namePart && c.symbol.startLine === lineNum);
-      if (byLine.length === 1) return { type: "found", symbol: toMatch(byLine[0].symbol, byLine[0].parentName) };
-      if (byLine.length > 1) return { type: "ambiguous", candidates: toMatches(byLine.slice(0, 5)) };
-    }
-  }
+	if (q.includes("@")) {
+		const parts = q.split("@");
+		if (parts.length === 2 && parts[0] && /^\d+$/.test(parts[1])) {
+			const [namePart, linePart] = parts;
+			const lineNum = Number.parseInt(linePart, 10);
+			// Support dot-path + @line (e.g. ClassName.methodName@42)
+			if (namePart.includes(".")) {
+				const dotParts = namePart.split(".").map((p) => p.trim());
+				if (dotParts.length >= 2 && dotParts.every((p) => p.length > 0)) {
+					const candidates = resolveDotPath(map.symbols, dotParts)
+						.filter((c) => c.symbol.startLine === lineNum);
+					if (candidates.length === 1) return { type: "found", symbol: toMatch(candidates[0].symbol, candidates[0].parentName) };
+					if (candidates.length > 1) return { type: "ambiguous", candidates: toMatches(candidates.slice(0, 5)) };
+				} else {
+					const byLine = allSymbols.filter((c) => c.symbol.name === namePart && c.symbol.startLine === lineNum);
+					if (byLine.length === 1) return { type: "found", symbol: toMatch(byLine[0].symbol, byLine[0].parentName) };
+					if (byLine.length > 1) return { type: "ambiguous", candidates: toMatches(byLine.slice(0, 5)) };
+				}
+			} else {
+				const byLine = allSymbols.filter((c) => c.symbol.name === namePart && c.symbol.startLine === lineNum);
+				if (byLine.length === 1) return { type: "found", symbol: toMatch(byLine[0].symbol, byLine[0].parentName) };
+				if (byLine.length > 1) return { type: "ambiguous", candidates: toMatches(byLine.slice(0, 5)) };
+			}
+		}
+	}
 
   const exact = allSymbols.filter((c) => c.symbol.name === q);
   if (exact.length === 1) return { type: "found", symbol: toMatch(exact[0].symbol, exact[0].parentName) };
