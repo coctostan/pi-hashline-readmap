@@ -135,7 +135,7 @@ export function replaceText(
 	oldText: string,
 	newText: string,
 	opts: { all?: boolean },
-): { content: string; count: number } {
+): { content: string; count: number; usedFuzzyMatch?: boolean } {
 	if (!oldText.length) return { content, count: 0 };
 	const normalizedNew = normalizeToLF(newText);
 
@@ -172,7 +172,7 @@ export function replaceText(
 			const span = spans[i]!;
 			out = out.substring(0, span.index) + normalizedNew + out.substring(span.index + span.matchLength);
 		}
-		return { content: out, count: spans.length };
+		return { content: out, count: spans.length, usedFuzzyMatch: true };
 	}
 
 	const result = fuzzyFindText(content, oldText);
@@ -181,7 +181,7 @@ export function replaceText(
 	return {
 		content: content.substring(0, result.index) + normalizedNew + content.substring(result.index + result.matchLength),
 		count: 1,
-	};
+		usedFuzzyMatch: result.usedFuzzyMatch || undefined,
 }
 
 // ─── Diff generation ────────────────────────────────────────────────────

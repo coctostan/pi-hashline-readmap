@@ -358,6 +358,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				}
 				throw err;
 			}
+			let replaceUsedFuzzy = false;
 			result = anchorResult.content;
 
 			for (const r of replaceEdits) {
@@ -372,6 +373,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					return buildEditError(absolutePath, "text-not-found", message);
 				}
 				result = rep.content;
+				if (rep.usedFuzzyMatch) replaceUsedFuzzy = true;
 			}
 
 			if (originalNormalized === result) {
@@ -461,6 +463,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			if (legacyNormalizationWarning) warnings.push(legacyNormalizationWarning);
 			if (replaceSymbolWarnings.length) warnings.push(...replaceSymbolWarnings);
 			if (syntaxWarning) warnings.push(syntaxWarning);
+			if (replaceUsedFuzzy) warnings.push("Exact match not found for old_text — used fuzzy matching. Verify the result carefully. For guaranteed accuracy, re-read the file and use anchored edit variants (set_line, replace_lines) instead of replace.");
 			// Semantic classification
 			const internalClassification = classifyEdit(originalNormalized, result);
 			const difftAvailable = await isDifftAvailable();
