@@ -4,17 +4,14 @@
  * Uses universal-ctags when installed to extract symbols.
  * Falls back gracefully when ctags is not available.
  */
-import { exec } from "node:child_process";
 import { stat } from "node:fs/promises";
-import { promisify } from "node:util";
 
 import type { FileMap, FileSymbol } from "../types.js";
 
 import { DetailLevel, SymbolKind } from "../enums.js";
 import { detectLanguage } from "../language-detect.js";
+import { countLinesNative, execFileSafe } from "./_subprocess-utils.js";
 export const MAPPER_VERSION = 1;
-
-const execAsync = promisify(exec);
 
 // Cache ctags availability check
 let ctagsAvailable: boolean | null = null;
@@ -98,9 +95,11 @@ export async function isCtagsAvailable(): Promise<boolean> {
   }
 
   try {
-    const { stdout } = await execAsync("ctags --version 2>&1", {
-      timeout: 2000,
-    });
+    const { stdout } = await execFileSafe(
+      "ctags",
+      ["--version"],
+      { timeout: 2000 }
+    );
     // Universal Ctags includes "Universal Ctags" in version output
     // Exuberant Ctags also works but is less feature-rich
     ctagsAvailable =
@@ -176,14 +175,20 @@ export async function ctagsMapper(
       return null;
     }
 
-    // Run ctags with JSON output and line numbers
+    // Run ctags with JSON output and line numbers (argv; no shell).
     // --output-format=json requires Universal Ctags 5.9+
-    // --fields=+n ensures line numbers are included in JSON output
-    const cmd = `ctags --output-format=json --fields=+n -f - "${filePath}" 2>/dev/null`;
+    // --fields=+n ensures line numbers are included in JSON output.
+    const ctagsArgs = [
+      "--output-format=json",
+      "--fields=+n",
+      "-f",
+      "-",
+      filePath,
+    ];
 
     let stdout: string;
     try {
-      ({ stdout } = await execAsync(cmd, {
+      ({ stdout } = await execFileSafe("ctags", ctagsArgs, {
         signal,
         timeout: 10_000,
         maxBuffer: 1024 * 1024,
@@ -197,11 +202,8 @@ export async function ctagsMapper(
       return null;
     }
 
-    // Count lines
-    const { stdout: wcOutput } = await execAsync(`wc -l < "${filePath}"`, {
-      signal,
-    });
-    const totalLines = Number.parseInt(wcOutput.trim(), 10) || 0;
+    // Count lines (native; no shell)
+    const totalLines = await countLinesNative(filePath, signal);
 
     // Parse output
     const entries = parseCtagsOutput(stdout);
@@ -260,10 +262,10 @@ async function ctagsMapperLegacy(
     const stats = await stat(filePath);
     const totalBytes = stats.size;
 
-    // Run ctags with line numbers
-    const cmd = `ctags --excmd=number -f - "${filePath}" 2>/dev/null`;
+    // Run ctags with line numbers (argv; no shell)
+    const ctagsArgs = ["--excmd=number", "-f", "-", filePath];
 
-    const { stdout } = await execAsync(cmd, {
+    const { stdout } = await execFileSafe("ctags", ctagsArgs, {
       signal,
       timeout: 10_000,
       maxBuffer: 1024 * 1024,
@@ -273,11 +275,8 @@ async function ctagsMapperLegacy(
       return null;
     }
 
-    // Count lines
-    const { stdout: wcOutput } = await execAsync(`wc -l < "${filePath}"`, {
-      signal,
-    });
-    const totalLines = Number.parseInt(wcOutput.trim(), 10) || 0;
+    // Count lines (native; no shell)
+    const totalLines = await countLinesNative(filePath, signal);
 
     // Parse traditional format
     const entries: CtagsEntry[] = [];

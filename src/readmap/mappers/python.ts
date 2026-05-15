@@ -1,15 +1,12 @@
-import { exec } from "node:child_process";
 import { stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
 import type { FileMap, FileSymbol } from "../types.js";
 
 import { DetailLevel, SymbolKind } from "../enums.js";
+import { countLinesNative, execFileSafe } from "./_subprocess-utils.js";
 export const MAPPER_VERSION = 1;
-
-const execAsync = promisify(exec);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT_PATH = join(__dirname, "../../scripts/python_outline.py");
@@ -98,15 +95,13 @@ export async function pythonMapper(
     const stats = await stat(filePath);
     const totalBytes = stats.size;
 
-    // Count lines
-    const { stdout: wcOutput } = await execAsync(`wc -l < "${filePath}"`, {
-      signal,
-    });
-    const totalLines = Number.parseInt(wcOutput.trim(), 10) || 0;
+    // Count lines (native; no shell)
+    const totalLines = await countLinesNative(filePath, signal);
 
-    // Run Python script
-    const { stdout, stderr } = await execAsync(
-      `python3 "${SCRIPT_PATH}" "${filePath}"`,
+    // Run Python script (argv; no shell)
+    const { stdout, stderr } = await execFileSafe(
+      "python3",
+      [SCRIPT_PATH, filePath],
       {
         signal,
         timeout: 10_000,

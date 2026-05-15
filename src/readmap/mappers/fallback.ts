@@ -1,14 +1,11 @@
-import { exec } from "node:child_process";
 import { stat } from "node:fs/promises";
-import { promisify } from "node:util";
 
 import type { FileMap, FileSymbol } from "../types.js";
 
 import { DetailLevel, SymbolKind } from "../enums.js";
 import { detectLanguage } from "../language-detect.js";
+import { countLinesNative, scanForMatches } from "./_subprocess-utils.js";
 export const MAPPER_VERSION = 1;
-
-const execAsync = promisify(exec);
 
 /**
  * Patterns to grep for common structural elements.
@@ -80,38 +77,30 @@ export async function fallbackMapper(
     const stats = await stat(filePath);
     const totalBytes = stats.size;
 
-    // Count lines
-    const { stdout: wcOutput } = await execAsync(`wc -l < "${filePath}"`, {
-      signal,
-    });
-    const totalLines = Number.parseInt(wcOutput.trim(), 10) || 0;
+    // Count lines (native; no shell)
+    const totalLines = await countLinesNative(filePath, signal);
 
-    // Build grep pattern
-    const combinedPattern = PATTERNS.map((p) => p.pattern).join("\\|");
+    // Native bounded scan replacing `grep -n PATTERN file | head -500`.
+    // PATTERNS is a STATIC list of regex strings; no user input is
+    // compiled into the regex set.
+    const compiledPatterns = PATTERNS.map(
+      (p) => new RegExp(p.pattern)
+    );
 
-    // Run grep
     let matches: GrepMatch[] = [];
     try {
-      const { stdout } = await execAsync(
-        `grep -n "${combinedPattern}" "${filePath}" | head -500`,
-        { signal, timeout: 5000 }
+      const scanned = await scanForMatches(
+        filePath,
+        compiledPatterns,
+        { limit: 500 },
+        signal
       );
 
-      // Parse grep output
-      for (const line of stdout.split("\n")) {
-        if (!line.trim()) {
-          continue;
-        }
+      for (const m of scanned) {
+        const content = m.content;
 
-        const colonIndex = line.indexOf(":");
-        if (colonIndex === -1) {
-          continue;
-        }
-
-        const lineNumber = Number.parseInt(line.slice(0, colonIndex), 10);
-        const content = line.slice(colonIndex + 1).trim();
-
-        // Determine kind from pattern match
+        // Determine kind from pattern match (legacy case-insensitive
+        // classification preserved).
         let matchedKind: SymbolKind = SymbolKind.Unknown;
         for (const p of PATTERNS) {
           if (new RegExp(p.pattern, "i").test(content)) {
@@ -120,10 +109,15 @@ export async function fallbackMapper(
           }
         }
 
-        matches.push({ lineNumber, content, kind: matchedKind });
+        matches.push({
+          lineNumber: m.lineNumber,
+          content,
+          kind: matchedKind,
+        });
       }
     } catch {
-      // grep returns exit code 1 when no matches, which throws
+      // Defensive: scanForMatches itself does not throw, but legacy
+      // behavior treated zero matches as a normal outcome.
       matches = [];
     }
 

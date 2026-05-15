@@ -1,16 +1,13 @@
-import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
 
 import type { FileMap, FileSymbol } from "../types.js";
 
 import { DetailLevel, SymbolKind } from "../enums.js";
+import { countLinesNative, execFileSafe } from "./_subprocess-utils.js";
 export const MAPPER_VERSION = 1;
-
-const execAsync = promisify(exec);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPTS_DIR = join(__dirname, "../../scripts");
@@ -45,7 +42,7 @@ let binaryAvailable = false;
  */
 async function hasGo(): Promise<boolean> {
   try {
-    await execAsync("go version", { timeout: 5000 });
+    await execFileSafe("go", ["version"], { timeout: 5000 });
     return true;
   } catch {
     return false;
@@ -83,10 +80,14 @@ async function ensureBinary(): Promise<boolean> {
 
   try {
     // Compile the binary
-    await execAsync(`go build -o "${GO_BINARY}" "${GO_SOURCE}"`, {
-      timeout: 30_000,
-      cwd: SCRIPTS_DIR,
-    });
+    await execFileSafe(
+      "go",
+      ["build", "-o", GO_BINARY, GO_SOURCE],
+      {
+        timeout: 30_000,
+        cwd: SCRIPTS_DIR,
+      }
+    );
     binaryAvailable = true;
     return true;
   } catch (error) {
@@ -181,14 +182,11 @@ export async function goMapper(
     const stats = await stat(filePath);
     const totalBytes = stats.size;
 
-    // Count lines
-    const { stdout: wcOutput } = await execAsync(`wc -l < "${filePath}"`, {
-      signal,
-    });
-    const totalLines = Number.parseInt(wcOutput.trim(), 10) || 0;
+    // Count lines (native; no shell)
+    const totalLines = await countLinesNative(filePath, signal);
 
-    // Run Go outline script
-    const { stdout, stderr } = await execAsync(`"${GO_BINARY}" "${filePath}"`, {
+    // Run Go outline script (argv; no shell)
+    const { stdout, stderr } = await execFileSafe(GO_BINARY, [filePath], {
       signal,
       timeout: 10_000,
     });
