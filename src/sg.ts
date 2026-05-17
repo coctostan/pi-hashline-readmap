@@ -3,7 +3,8 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import * as cp from "node:child_process";
 import path from "node:path";
-import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
+import { readFile as fsReadFile, stat as fsStat, writeFile as fsWriteFile, unlink as fsUnlink, mkdtemp as fsMkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { normalizeToLF, stripBom } from "./edit-diff.js";
 import { ensureHashInit } from "./hashline.js";
@@ -13,6 +14,25 @@ import type { FileSymbol } from "./readmap/types.js";
 import { buildSgOutput } from "./sg-output.js";
 import { buildAstSearchRehydrateDescriptor, isContextHygieneDebugEnabled } from "./context-hygiene.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+
+// Built-in languages supported by ast-grep's `--lang` flag.
+// Languages not in this list are treated as custom languages and require
+// `sg scan -r <rule_file>` instead of `sg run -l <lang>`.
+const SG_BUILTIN_LANGS = new Set([
+  "ts", "tsx", "js", "jsx", "json", "jsonc",
+  "py", "rs", "go", "java", "kt", "kts",
+  "rb", "php", "scala", "swift", "c", "cpp", "h", "hpp",
+  "css", "html", "xml", "yaml", "yml", "toml",
+  "sh", "bash", "zsh", "bat", "ps1",
+  "md", "txt", "csv",
+  "r", "dart", "lua", "elisp", "emacs-lisp",
+  "dockerfile", "docker", "sql", "graphql", "proto",
+  "hcl", "tf", "vue", "svelte", "astro",
+  "nix", "elm", "ocaml", "res", "resi",
+  "ml", "mli", "gleam", "zig", "v", "nim",
+  "jl", "fsharp", "fs", "fsi", "fsx", "fsscript",
+  "cobol", "cob", "cbl",
+]);
 
 type SgParams = { pattern: string; lang?: string; path?: string };
 const CONTEXT_HYGIENE_SG_SYMBOL_FILE_CAP = 20;
@@ -233,8 +253,24 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
           // Already handled by the prior fsStat block; fall through.
         }
       }
-      if (effectiveLang) args.push("-l", effectiveLang);
-      args.push(searchPath);
+
+      // Detect if the language is a custom language (not in ast-grep's built-in list).
+      // Custom languages require `sg scan -r <rule_file>` instead of `sg run -l <lang>`.
+      const isCustomLang = effectiveLang && !SG_BUILTIN_LANGS.has(effectiveLang.toLowerCase());
+      let ruleFile: string | undefined;
+
+      if (isCustomLang) {
+        // Create a temporary rule file for custom languages
+        const tmpDir = await fsMkdtemp(path.join(tmpdir(), "ast-grep-"));
+        ruleFile = path.join(tmpDir, "rule.yml");
+        const ruleContent = `rule:\n  pattern: ${p.pattern.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}\n  kind: ${effectiveLang}\n`;
+        await fsWriteFile(ruleFile, ruleContent);
+        args.length = 0; // Clear existing args
+        args.push("scan", "--json", "-r", ruleFile, searchPath);
+      } else {
+        if (effectiveLang) args.push("-l", effectiveLang);
+        args.push(searchPath);
+      }
 
       try {
         const { stdout } = await execFileText("sg", args, {
@@ -381,6 +417,15 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
             },
           },
         };
+      } finally {
+        // Clean up temporary rule file if we created one for custom languages
+        if (ruleFile) {
+          try {
+            await fsUnlink(ruleFile);
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
       }
     },
     renderCall(args: any, theme: any, ...rest: any[]) {
