@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { open, readFile, writeFile as fsWriteFile, mkdir as fsMkdir, rename, readdir, stat, unlink } from "node:fs/promises";
-import xxhashWasm from "xxhash-wasm";
+import { xxh32 } from "@node-rs/xxhash";
 import type { FileMap } from "./readmap/types.js";
 
 /**
@@ -45,15 +45,6 @@ export function computeKey(
 
 const CONTENT_HASH_WINDOW_BYTES = 64 * 1024;
 
-let xxhashReady: Promise<{ h32Raw: (b: Uint8Array, seed?: number) => number }> | null = null;
-
-function loadXxhash(): Promise<{ h32Raw: (b: Uint8Array, seed?: number) => number }> {
-  if (!xxhashReady) {
-    xxhashReady = xxhashWasm().then((h) => ({ h32Raw: h.h32Raw }));
-  }
-
-  return xxhashReady;
-}
 
 /**
  * xxHash32 hex digest over the first 64 KB of `absPath`. Returns "" if the
@@ -66,8 +57,7 @@ export async function contentHashFor64k(absPath: string): Promise<string> {
       const buf = Buffer.alloc(CONTENT_HASH_WINDOW_BYTES);
       const { bytesRead } = await fh.read(buf, 0, CONTENT_HASH_WINDOW_BYTES, 0);
       const view = buf.subarray(0, bytesRead);
-      const { h32Raw } = await loadXxhash();
-      const n = h32Raw(view, 0) >>> 0;
+      const n = xxh32(view, 0) >>> 0;
       return n.toString(16).padStart(8, "0");
     } finally {
       await fh.close();

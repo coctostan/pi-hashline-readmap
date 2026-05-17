@@ -37,6 +37,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@node-rs/xxhash": "^1.7.6",
     "diff": "^8.0.3",
     "ignore": "^7.0.5",
     "picomatch": "^4.0.4",
@@ -45,8 +46,7 @@
     "tree-sitter-cpp": "0.23.4",
     "tree-sitter-java": "^0.23.5",
     "tree-sitter-rust": "0.23.3",
-    "ts-morph": "^27.0.2",
-    "xxhash-wasm": "^1.1.0"
+    "ts-morph": "^27.0.2"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
