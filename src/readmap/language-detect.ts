@@ -79,6 +79,9 @@ const EXTENSION_MAP: Record<string, LanguageInfo> = {
   // CSV
   ".csv": { id: "csv", name: "CSV" },
   ".tsv": { id: "csv", name: "TSV" },
+
+  // GDScript
+  ".gd": { id: "gdscript", name: "GDScript" },
 };
 
 /**

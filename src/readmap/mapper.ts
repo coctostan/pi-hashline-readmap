@@ -8,6 +8,7 @@ import { cppMapper, MAPPER_VERSION as CPP_VERSION } from "./mappers/cpp.js";
 import { csvMapper, MAPPER_VERSION as CSV_VERSION } from "./mappers/csv.js";
 import { ctagsMapper, MAPPER_VERSION as CTAGS_VERSION } from "./mappers/ctags.js";
 import { fallbackMapper, MAPPER_VERSION as FALLBACK_VERSION } from "./mappers/fallback.js";
+import { gdscriptMapper, MAPPER_VERSION as GDSRIPT_VERSION } from "./mappers/gdscript.js";
 import { goMapper, MAPPER_VERSION as GO_VERSION } from "./mappers/go.js";
 import { jsonMapper, MAPPER_VERSION as JSON_VERSION } from "./mappers/json.js";
 import { javaMapper, javaMapperFromContent, MAPPER_VERSION as JAVA_VERSION } from "./mappers/java.js";
@@ -68,6 +69,8 @@ const MAPPERS_V: Record<string, MapperEntry> = {
   swift: { fn: swiftMapper, version: SWIFT_VERSION },
   // Phase 7: Shell/Bash regex mapper
   shell: { fn: shellMapper, version: SHELL_VERSION },
+  // Phase 8: GDScript (gdtoolkit subprocess)
+  gdscript: { fn: gdscriptMapper, version: GDSRIPT_VERSION },
 };
 
 type ContentMapperFn = (

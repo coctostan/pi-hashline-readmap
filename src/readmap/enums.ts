@@ -10,6 +10,7 @@ export enum SymbolKind {
   Interface = "interface",
   Type = "type",
   Enum = "enum",
+  Signal = "signal",
   Struct = "struct",
   Import = "import",
   Module = "module",
