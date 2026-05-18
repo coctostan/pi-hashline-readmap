@@ -3,7 +3,6 @@ import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { getOrGenerateMap } from "../src/map-cache.js";
 import { formatFileMapWithBudget } from "../src/readmap/formatter.js";
 import * as readModule from "../src/read.js";
@@ -33,7 +32,6 @@ function makeBareCrFixture(): string {
 
 describe("buildReadOutput metadata", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => {

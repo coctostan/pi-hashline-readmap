@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { registerEditTool } from "../src/edit.js";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerReadTool } from "../src/read.js";
 
 function makeFakePi() {
@@ -250,7 +250,6 @@ function bar(n: number) { return n; }
   });
 
   it("rejects an anchored edit whose line falls inside a replace_symbol pre-replace range", async () => {
-    await ensureHashInit();
     const dir = mkdtempSync(join(tmpdir(), "edit-rs-overlap-"));
     const fp = join(dir, "x.ts");
     writeFileSync(

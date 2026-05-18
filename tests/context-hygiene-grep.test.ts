@@ -2,7 +2,6 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildFileResource, buildSymbolResource } from "../src/context-hygiene.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildPtcLine } from "../src/ptc-value.js";
 import { buildGrepOutput } from "../src/grep-output.js";
 import { registerGrepTool } from "../src/grep.js";
@@ -19,7 +18,6 @@ async function callGrepTool(params: Record<string, unknown>) {
 
 describe("grep contextHygiene metadata", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("buildGrepOutput returns search-context metadata for matched files and scoped symbols", () => {

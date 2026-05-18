@@ -3,7 +3,7 @@ import * as cp from "node:child_process";
 import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
-import { ensureHashInit, computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 import * as sgModule from "../src/sg.js";
 import * as sgOutputModule from "../src/sg-output.js";
 
@@ -28,7 +28,6 @@ function getTextContent(result: any): string {
 
 describe("buildSgOutput", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => {

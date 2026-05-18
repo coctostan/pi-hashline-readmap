@@ -2,12 +2,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildPendingEditPreviewData } from "../src/pending-diff-preview.js";
 
 describe("pending hashline edit fallback", () => {
 	beforeAll(async () => {
-		await ensureHashInit();
 	});
 
 	it("skips an out-of-range anchor", async () => {

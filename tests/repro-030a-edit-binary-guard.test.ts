@@ -38,8 +38,6 @@ describe("Bug #030a: binary file guard in edit", () => {
 
   it("edit tool rejects binary file with 'Cannot edit binary file' error", async () => {
     const { registerEditTool } = await import("../src/edit.js");
-    const { ensureHashInit } = await import("../src/hashline.js");
-    await ensureHashInit();
     let capturedTool: any = null;
     const mockPi = {
       registerTool(def: any) {

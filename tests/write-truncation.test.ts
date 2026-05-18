@@ -2,14 +2,12 @@ import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { mkdtempSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { executeWrite } from "../src/write.js";
 
 describe("write truncation notice", () => {
   let tmpDir = "";
 
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => {

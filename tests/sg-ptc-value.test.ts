@@ -3,7 +3,7 @@ import * as cp from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
-import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
@@ -27,7 +27,6 @@ function getTextContent(result: any): string {
 
 describe("sg ptcValue", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => vi.restoreAllMocks());

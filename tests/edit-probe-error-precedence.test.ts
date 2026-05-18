@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { registerEditTool } from "../src/edit.js";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import * as mapperModule from "../src/readmap/mapper.js";
 
 function makeFakePi() {
@@ -28,7 +28,6 @@ const FIXTURE = [
 ].join("\n");
 
 describe("F2 — replace_symbol probe-pass error precedence", () => {
-	beforeAll(async () => { await ensureHashInit(); });
 	afterEach(() => { vi.restoreAllMocks(); });
 
 	it("AC 7: not-found replace_symbol error wins over anchor-overlap error", async () => {

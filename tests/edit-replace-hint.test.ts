@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 const INFO_HINT = "[info: this edit used replace (unverified). For safer future edits, prefer set_line/replace_lines with an anchor from read/grep/ast_search.]";
@@ -27,7 +27,6 @@ function getTextContent(result: any): string {
 
 describe("edit replace hint", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("adds the info line for successful replace-only batches", async () => {

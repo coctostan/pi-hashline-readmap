@@ -3,7 +3,6 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { registerGrepTool } from "../src/grep.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -34,7 +33,6 @@ export function writeFixture(name: string, content: string): string {
 
 describe("grep scopeContext parameter", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("rejects non-numeric scopeContext string with a coercion error", async () => {

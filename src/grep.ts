@@ -6,7 +6,7 @@ import path from "path";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
 import { looksLikeBinary } from "./binary-detect";
-import { ensureHashInit, formatHashlineDisplay, escapeControlCharsForDisplay } from "./hashline";
+import { formatHashlineDisplay, escapeControlCharsForDisplay } from "./hashline";
 import { buildPtcError, buildPtcLine } from "./ptc-value.js";
 import { buildGrepOutput } from "./grep-output.js";
 import { buildGrepRehydrateDescriptor } from "./context-hygiene.js";
@@ -310,7 +310,6 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 			? [GREP_PROMPT_METADATA.promptGuidelines[0], options.astSearchGuideline]
 			: GREP_PROMPT_METADATA.promptGuidelines,
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
-			await ensureHashInit();
 			const rawParams = params as GrepParams;
 			const context = coerceObviousBase10Int(rawParams.context, "context");
 			if (!context.ok) {

@@ -1,14 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import {
   applyHashlineEdits,
-  ensureHashInit,
   computeLineHash,
   HashlineMismatchError,
 } from "../src/hashline.js";
 
 describe("HashlineMismatchError exposes updatedAnchors", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("attaches PtcLine[] updatedAnchors for changed lines while preserving message text", () => {

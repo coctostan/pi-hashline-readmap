@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 
 describe("duplicate single-target hashline warnings", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("warns for same-line replace_lines conflicts and keeps the last effective single-target edit", () => {

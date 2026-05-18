@@ -10,7 +10,7 @@ import { Type } from "@sinclair/typebox";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
-import { ensureHashInit, formatHashlineDisplay } from "./hashline";
+import { formatHashlineDisplay } from "./hashline";
 import { buildPtcError, buildPtcWarning, buildPtcLines, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect";
 import { resolveToCwd } from "./path-utils";
@@ -90,7 +90,6 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 		}),
 		ptc,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			await ensureHashInit();
 			const rawParams = params as ReadParams;
 			const offset = coerceObviousBase10Int(rawParams.offset, "offset");
 			if (!offset.ok) {

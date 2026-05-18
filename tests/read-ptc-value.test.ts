@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = resolve(__dirname, "fixtures");
@@ -22,7 +22,6 @@ function getTextContent(result: any): string {
 
 describe("read ptcValue — basic line payload", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("returns a structured payload with exact line metadata while keeping text output unchanged", async () => {

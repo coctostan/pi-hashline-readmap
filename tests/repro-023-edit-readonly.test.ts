@@ -40,8 +40,7 @@ describe("Bug #023: edit readonly file -> permission denied", () => {
 
 	it("edit tool execute on chmod 444 file returns 'Permission denied: <path>'", async () => {
 		const { registerEditTool } = await import("../src/edit.js");
-		const { ensureHashInit, computeLineHash } = await import("../src/hashline.js");
-		await ensureHashInit();
+		const { computeLineHash } = await import("../src/hashline.js");
 		let capturedTool: any = null;
 		const mockPi = {
 			registerTool(def: any) {

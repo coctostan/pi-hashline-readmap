@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildPtcLine } from "../src/ptc-value.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildReadOutput } from "../src/read-output.js";
 
 describe("buildReadOutput bundle sections", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("renders requested symbol and local support sections while adding ptcValue.bundle", () => {

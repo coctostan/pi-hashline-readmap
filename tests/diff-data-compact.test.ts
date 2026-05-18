@@ -1,11 +1,9 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { generateCompactOrFullDiff } from "../src/edit-diff.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildDiffData } from "../src/diff-data.js";
 
 describe("DiffData compact hashline diffs", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("keeps compact replacement diff strings while expanding structured rows", () => {

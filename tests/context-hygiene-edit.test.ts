@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { buildFileResource } from "../src/context-hygiene.js";
 import { buildEditOutput } from "../src/edit-output.js";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 
 async function callEditTool(params: Record<string, unknown>) {
   const { registerEditTool } = await import("../src/edit.js");
@@ -27,7 +27,6 @@ function makeFixtureFile(): string {
 
 describe("edit contextHygiene metadata", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("buildEditOutput returns mutation metadata for the edited file", () => {

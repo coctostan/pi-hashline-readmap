@@ -3,7 +3,7 @@ import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = resolve(__dirname, "fixtures");
@@ -37,7 +37,6 @@ function makeBinaryFile(): string {
 
 describe("grep ptcValue", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("returns structured match and context records with complete fields while keeping rendered grep text unchanged", async () => {

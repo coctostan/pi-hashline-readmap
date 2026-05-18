@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 
 async function callEdit(params: Record<string, unknown>) {
   const { registerEditTool } = await import("../src/edit.js");
@@ -15,7 +14,6 @@ async function callEdit(params: Record<string, unknown>) {
 const getPtc = (r: any) => r.details?.ptcValue;
 
 describe("edit ptcValue.error — fs read errors", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("path-is-directory when target is a directory", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-pd-"));

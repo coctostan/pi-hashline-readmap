@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import init from "../index.js";
 
 function getTextContent(result: any): string {
@@ -22,7 +22,6 @@ function createHarness() {
 
 describe("issue 144 — fresh re-read survives a subsequent context turn", () => {
   it("read → edit → context-mask → read → context-turn → edit(fresh anchor) succeeds", async () => {
-    await ensureHashInit();
 
     const dir = mkdtempSync(resolve(tmpdir(), "pi-issue-144-rehydrate-"));
     const filePath = resolve(dir, "small.ts");

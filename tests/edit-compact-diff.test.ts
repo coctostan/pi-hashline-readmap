@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { generateCompactOrFullDiff } from "../src/edit-diff";
-import { ensureHashInit } from "../src/hashline";
 
 describe("edit compact diffs", () => {
 	beforeAll(async () => {
-		await ensureHashInit();
 	});
 
 	it("single-line change produces compact format: LINE:HASH|old → LINE:HASH|new", () => {

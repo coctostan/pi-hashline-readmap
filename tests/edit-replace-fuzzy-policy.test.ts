@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 async function callEditTool(params: Record<string, unknown>) {
@@ -25,7 +24,6 @@ function getTextContent(result: any): string {
 
 describe("edit replace fuzzy policy", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("rejects stale fuzzy-only replace by default and leaves the file unchanged", async () => {

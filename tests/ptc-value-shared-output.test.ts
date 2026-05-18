@@ -1,10 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit } from "../src/hashline.js";
 import * as ptc from "../src/ptc-value.js";
 
 describe("ptc-value shared primitives", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("builds canonical line records and renders them from display-safe text", () => {

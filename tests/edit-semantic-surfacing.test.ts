@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 import * as classifyModule from "../src/edit-classify.js";
 async function callEditTool(params: Record<string, unknown>) {
@@ -22,7 +22,6 @@ function getTextContent(result: any): string {
 }
 describe("edit semantic surfacing", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
   afterEach(() => {
     vi.restoreAllMocks();

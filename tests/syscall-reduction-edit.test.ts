@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit } from "../src/hashline";
 import { readFileSync } from "fs";
 import { readFile } from "fs/promises";
 import { mkdtemp } from "fs/promises";
@@ -8,7 +7,6 @@ import os from "os";
 
 describe("edit.ts syscall reduction", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("edit.ts does not import or use fsAccess", () => {

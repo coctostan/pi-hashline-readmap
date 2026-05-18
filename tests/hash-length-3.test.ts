@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit, computeLineHash, parseLineRef } from "../src/hashline.js";
+import { computeLineHash, parseLineRef } from "../src/hashline.js";
 
 describe("HASH_LEN = 3", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("produces 3-character hashes", () => {

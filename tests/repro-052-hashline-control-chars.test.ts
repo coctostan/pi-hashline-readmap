@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit, computeLineHash, hashLine } from "../src/hashline.js";
+import { computeLineHash, hashLine } from "../src/hashline.js";
 
 const CONTROL_CHAR_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/;
 
 describe("Bug #052: hashLine output escapes control characters", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("hashLine renders escaped display text while preserving raw hashes", () => {

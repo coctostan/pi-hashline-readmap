@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import init from "../index.js";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 
 function createHarness() {
   const tools = new Map<string, any>();
@@ -52,7 +52,6 @@ async function recordRead(tools: Map<string, any>, handlers: Record<string, Func
 
 describe("edit guard after bash shell-file mutation", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("requires a fresh read before immediate edit with pre-bash anchors", async () => {

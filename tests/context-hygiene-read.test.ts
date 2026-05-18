@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildFileResource, buildSymbolResource } from "../src/context-hygiene.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildReadOutput } from "../src/read-output.js";
 import { registerReadTool } from "../src/read.js";
 
@@ -31,7 +30,6 @@ function getTextContent(result: any): string {
 
 describe("read contextHygiene metadata", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("buildReadOutput returns additive read-context metadata for file and symbol resources", () => {

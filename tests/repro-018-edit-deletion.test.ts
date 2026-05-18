@@ -7,11 +7,10 @@
  * orig.join("\n") === "" === newL.join("\n") → noop detected → line NOT removed.
  */
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 
 describe("Bug #018: set_line with new_text='' line deletion", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
   // This case WORKS (non-empty line)
   it("set_line new_text='' removes a non-empty line (this works)", () => {

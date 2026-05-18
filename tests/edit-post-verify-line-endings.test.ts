@@ -2,7 +2,7 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 function captureEditTool() {
@@ -13,7 +13,6 @@ function captureEditTool() {
 }
 
 describe("edit postEditVerify line endings", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("confirms persisted LF, CRLF, and BOM-preserving edits", async () => {
     const cases = [

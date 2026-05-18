@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { ensureHashInit } from "../src/hashline";
 import { readFileSync, mkdirSync, writeFileSync, rmSync } from "fs";
 import { mkdtemp } from "fs/promises";
 import path from "path";
@@ -9,7 +8,6 @@ describe("read.ts syscall reduction", () => {
   let tmpDir: string;
 
   beforeAll(async () => {
-    await ensureHashInit();
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "read-test-"));
     writeFileSync(path.join(tmpDir, "exists.txt"), "hello\nworld");
     mkdirSync(path.join(tmpDir, "subdir"));

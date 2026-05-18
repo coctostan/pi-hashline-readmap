@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { PTC_ERROR_CODES } from "../src/ptc-error-codes.js";
 
 async function callTool(
@@ -29,7 +29,6 @@ async function callTool(
 const getPtc = (r: any) => r?.details?.ptcValue;
 
 describe("ptc-error fixes v2 — AC 6/8/14 gaps", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   // AC 8 — concrete recovery text in content[0].text must also populate error.hint
   it("read → path-is-directory populates error.hint with the recovery step", async () => {

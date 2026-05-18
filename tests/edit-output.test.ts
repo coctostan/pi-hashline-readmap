@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import * as editModule from "../src/edit.js";
 import * as editOutputModule from "../src/edit-output.js";
 import { buildEditOutput } from "../src/edit-output.js";
@@ -28,7 +28,6 @@ function getTextContent(result: any): string {
 }
 describe("buildEditOutput", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
   afterEach(() => {
     vi.restoreAllMocks();

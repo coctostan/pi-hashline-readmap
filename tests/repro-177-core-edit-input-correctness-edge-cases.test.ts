@@ -3,7 +3,6 @@ import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { Value } from "@sinclair/typebox/value";
-import { ensureHashInit } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 import { registerWriteTool } from "../src/write.js";
 import { buildPendingEditPreviewData } from "../src/pending-diff-preview.js";
@@ -25,7 +24,6 @@ function textOf(result: any): string {
 
 describe("repro 177 — core edit input correctness edge cases", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("insert_after on the synthetic empty-file anchor inserts the first line without a leading blank", async () => {

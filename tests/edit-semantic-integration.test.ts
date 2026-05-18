@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 async function callEditTool(params: Record<string, unknown>) {
@@ -21,7 +21,6 @@ function makeFixture(content: string): string {
 
 describe("edit semantic classification integration", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("includes semanticSummary with classification 'semantic' after a real code change", async () => {

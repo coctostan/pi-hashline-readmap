@@ -6,7 +6,6 @@ import path from "node:path";
 import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { normalizeToLF, stripBom } from "./edit-diff.js";
-import { ensureHashInit } from "./hashline.js";
 import { buildPtcError, buildPtcLine } from "./ptc-value.js";
 import { resolveToCwd } from "./path-utils.js";
 import type { FileSymbol } from "./readmap/types.js";
@@ -158,7 +157,6 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
     }),
     ptc,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-      await ensureHashInit();
       const p = params as SgParams;
       const rehydrate = buildAstSearchRehydrateDescriptor({
         pattern: p.pattern,

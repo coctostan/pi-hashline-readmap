@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 
 async function callEdit(params: Record<string, unknown>) {
   const { registerEditTool } = await import("../src/edit.js");
@@ -15,7 +14,6 @@ async function callEdit(params: Record<string, unknown>) {
 const getPtc = (r: any) => r.details?.ptcValue;
 
 describe("edit ptcValue.error — invalid-edit-variant", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("invalid-edit-variant when edits[i] has top-level old_text/new_text", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-tlv-"));

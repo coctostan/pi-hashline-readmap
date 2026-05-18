@@ -65,12 +65,6 @@ const CONFUSABLE_HYPHENS_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D
 const HASH_RELOCATION_WINDOW_BASE = 20;
 const HASH_RELOCATION_WINDOW_CAP = 100;
 
-
-/** @deprecated xxh32 is synchronous with @node-rs/xxhash. */
-export async function ensureHashInit(): Promise<void> {
-	// no-op
-}
-
 export function computeLineHash(_idx: number, line: string): string {
 	if (line.endsWith("\r")) line = line.slice(0, -1);
 	line = line.replace(/\s+/g, "");

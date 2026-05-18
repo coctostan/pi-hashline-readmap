@@ -9,7 +9,7 @@
  * The embedded \r (from \r\n) then gets doubled when restoreLineEndings applies.
  */
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 import { detectLineEnding, normalizeToLF, restoreLineEndings, stripBom } from "../src/edit-diff.js";
 
 function applyAndRestore(rawCRLF: string, edits: Parameters<typeof applyHashlineEdits>[1]) {
@@ -25,7 +25,6 @@ describe("Bug #019: CRLF files corrupted by insert_after", () => {
   let hash1 = "";
 
   beforeAll(async () => {
-    await ensureHashInit();
     hash1 = computeLineHash(1, "line1");
   });
 

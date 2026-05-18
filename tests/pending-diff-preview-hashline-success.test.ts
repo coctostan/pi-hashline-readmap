@@ -2,12 +2,11 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { buildPendingEditPreviewData } from "../src/pending-diff-preview.js";
 
 describe("pending hashline edit preview", () => {
 	beforeAll(async () => {
-		await ensureHashInit();
 	});
 
 	it("projects an anchored set_line edit", async () => {

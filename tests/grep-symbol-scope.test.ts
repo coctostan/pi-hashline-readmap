@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 import { registerGrepTool } from "../src/grep.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -41,7 +41,6 @@ function writeFixture(name: string, content: string): string {
 
 describe("grep scope=symbol integration", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("groups multiple matches from the same symbol into one deterministic symbol block", async () => {

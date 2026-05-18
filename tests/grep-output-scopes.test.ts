@@ -1,11 +1,9 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildPtcLine } from "../src/ptc-value.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildGrepOutput } from "../src/grep-output.js";
 
 describe("buildGrepOutput symbol scope", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("renders grouped symbol blocks and additive scopes metadata without replacing records", () => {

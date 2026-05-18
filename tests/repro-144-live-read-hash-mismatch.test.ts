@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import init from "../index.js";
 
 function getTextContent(result: any): string {
@@ -22,7 +22,6 @@ function createHarness() {
 
 describe("issue 144 — live-read hash-mismatch path is unchanged", () => {
   it("rejects with '>>>' annotated context, NOT with 'must get fresh anchors', when the read was live", async () => {
-    await ensureHashInit();
 
     const dir = mkdtempSync(resolve(tmpdir(), "pi-issue-144-mismatch-"));
     const filePath = resolve(dir, "small.ts");

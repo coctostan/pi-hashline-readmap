@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 function captureEditTool() {
@@ -18,7 +18,6 @@ function getTextContent(result: any): string {
 
 describe("issue #082 reproduction — duplicate anchors in one edit batch", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("warns when multiple set_line operations target the same anchor in one batch", async () => {

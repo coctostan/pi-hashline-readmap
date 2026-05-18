@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import { generateCompactOrFullDiff, generateDiffString } from "../src/edit-diff.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildDiffData, MAX_INLINE_DIFF_LINE_LENGTH, MAX_INLINE_DIFF_PAIRS, MAX_INLINE_DIFF_TOKENS } from "../src/diff-data.js";
 
 function joinSpans(spans: Array<{ text: string }>): string {
@@ -9,7 +8,6 @@ function joinSpans(spans: Array<{ text: string }>): string {
 
 describe("DiffData inline diffs", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("adds inline spans for similar compact rename rows", () => {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import init from "../index.js";
 
 function getTextContent(result: any): string {
@@ -30,7 +30,6 @@ function createHarness() {
 
 describe("extension-scoped read tracking", () => {
   it("blocks unread edits, then allows the same edit after a successful read of the normalized path", async () => {
-    await ensureHashInit();
 
     const dir = mkdtempSync(resolve(tmpdir(), "pi-read-before-edit-"));
     const filePath = resolve(dir, "sample.ts");

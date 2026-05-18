@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 import { clearMapCache } from "../src/map-cache.js";
 import * as bundleModule from "../src/read-local-bundle.js";
 import { registerReadTool } from "../src/read.js";
@@ -35,7 +35,6 @@ function writeFixture(name: string, content: string): string {
 }
 
 describe("read bundle=local integration", () => {
-  beforeAll(async () => { await ensureHashInit(); });
   beforeEach(() => { clearMapCache(); });
   afterEach(() => { vi.restoreAllMocks(); });
 

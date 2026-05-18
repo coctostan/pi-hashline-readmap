@@ -2,7 +2,6 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { executeWrite, registerWriteTool } from "../src/write.js";
 
 async function callWriteTool(params: Record<string, unknown>) {
@@ -13,7 +12,6 @@ async function callWriteTool(params: Record<string, unknown>) {
 
 describe("write diff data", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("executeWrite returns final diff string parity and diffData", async () => {

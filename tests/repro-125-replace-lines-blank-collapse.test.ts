@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 
 describe("issue 125: replace_lines blank-line collapse in new_text", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("preserves explicit blank paragraph separator in new_text", () => {

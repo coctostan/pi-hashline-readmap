@@ -3,7 +3,7 @@ import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 import * as grepModule from "../src/grep.js";
 import * as grepOutputModule from "../src/grep-output.js";
 import { buildGrepOutput } from "../src/grep-output.js";
@@ -33,7 +33,6 @@ function makeManyMatchesFile(): string {
 
 describe("buildGrepOutput", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => {

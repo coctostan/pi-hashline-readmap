@@ -3,7 +3,6 @@ import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { clearMapCache } from "../src/map-cache.js";
 import { registerGrepTool } from "../src/grep.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { registerReadTool } from "../src/read.js";
 import { generateMap, generateMapWithIdentity } from "../src/readmap/mapper.js";
 import { SymbolKind } from "../src/readmap/enums.js";
@@ -30,7 +29,6 @@ function text(result: any): string {
 
 describe("Java readmap registration and workflow integration", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   beforeEach(() => {

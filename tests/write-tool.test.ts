@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash, applyHashlineEdits } from "../src/hashline.js";
+import { computeLineHash, applyHashlineEdits } from "../src/hashline.js";
 
 // We'll test the write tool's core logic directly
 // The tool registration requires pi's ExtensionAPI, but the core logic is testable
@@ -11,7 +11,6 @@ describe("enhanced write tool", () => {
   let tmpDir: string;
 
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => {

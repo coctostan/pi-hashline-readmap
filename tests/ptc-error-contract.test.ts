@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 import { isNuAvailable } from "../src/nu.js";
 import { PTC_ERROR_CODES } from "../src/ptc-error-codes.js";
 
@@ -48,7 +47,6 @@ function assertContract(r: any, tool: string, expectedCode: string) {
 
 describe("ptc-error contract — every tool emits ptcValue.error on representative failure", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("read → file-not-found", async () => {

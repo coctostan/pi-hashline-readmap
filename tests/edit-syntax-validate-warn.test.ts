@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 function captureEditTool(opts?: any) {
@@ -13,7 +13,6 @@ function captureEditTool(opts?: any) {
 }
 
 describe("syntax-regression validator wired into edit (warn mode)", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("emits a syntax-regression warning when an edit introduces tree-sitter errors", async () => {
     const tool = captureEditTool();

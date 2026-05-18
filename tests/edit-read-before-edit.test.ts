@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 function getTextContent(result: any): string {
@@ -11,7 +11,6 @@ function getTextContent(result: any): string {
 
 describe("edit read-before-edit guard", () => {
   it("returns a soft error when the file has no fresh anchor source in this session", async () => {
-    await ensureHashInit();
 
     const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-unread-"));
     const filePath = resolve(dir, "sample.ts");

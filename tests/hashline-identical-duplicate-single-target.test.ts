@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 describe("identical duplicate single-target edits", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
   it("silently deduplicates identical replacements without warning", () => {
     const content = ["const a = 1;", "const b = 2;", "const c = 3;"].join("\n");

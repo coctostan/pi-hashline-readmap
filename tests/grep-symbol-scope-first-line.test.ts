@@ -1,5 +1,4 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildPtcLine } from "../src/ptc-value.js";
 import { scopeGrepGroupsToSymbols } from "../src/grep-symbol-scope.js";
 import { DetailLevel, SymbolKind } from "../src/readmap/enums.js";
@@ -7,7 +6,6 @@ import type { FileMap } from "../src/readmap/types.js";
 
 describe("scopeGrepGroupsToSymbols ordering", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("keeps deterministic ordering when groups include separators", () => {

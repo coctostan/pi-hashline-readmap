@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 
 describe("Feature #030b: Did you mean? suggestions on anchor mismatch", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("includes 'Did you mean?' with LINE:HASH|content suggestions when anchor mismatches", () => {

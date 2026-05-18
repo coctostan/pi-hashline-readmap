@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
+import { computeLineHash, escapeControlCharsForDisplay } from "../src/hashline.js";
 import * as readModule from "../src/read.js";
 import * as readOutputModule from "../src/read-output.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -20,7 +20,6 @@ function getTextContent(result: any): string {
 
 describe("buildReadOutput", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => {

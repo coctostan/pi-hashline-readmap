@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 
 async function callEdit(params: Record<string, unknown>, options: any = {}) {
   const { registerEditTool } = await import("../src/edit.js");
@@ -15,7 +15,6 @@ async function callEdit(params: Record<string, unknown>, options: any = {}) {
 const getPtc = (r: any) => r.details?.ptcValue;
 
 describe("edit ptcValue.error — validation", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("file-not-read when wasReadInSession returns false", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-fnr-"));

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 
 async function callEditTool(params: Record<string, unknown>) {
   const { registerEditTool } = await import("../src/edit.js");
@@ -30,7 +30,6 @@ function getTextContent(result: any): string {
 
 describe("edit ptcValue", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("returns structured status, diff, firstChangedLine, and noop metadata for anchor edits", async () => {

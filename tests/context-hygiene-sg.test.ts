@@ -3,7 +3,6 @@ import * as cp from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildFileResource, buildSymbolResource } from "../src/context-hygiene.js";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildPtcLine } from "../src/ptc-value.js";
 import { buildSgOutput } from "../src/sg-output.js";
 import { findEnclosingSgSymbols, registerSgTool } from "../src/sg.js";
@@ -33,7 +32,6 @@ async function callSgTool(params: Record<string, unknown>, debugEnv?: string) {
 
 describe("ast_search contextHygiene metadata", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   afterEach(() => vi.restoreAllMocks());

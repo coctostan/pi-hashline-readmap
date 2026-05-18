@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit } from "../src/hashline.js";
 import { buildEditOutput } from "../src/edit-output.js";
 describe("buildEditOutput semanticSummary", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
   it("includes semanticSummary in ptcValue when provided", () => {
     const result = buildEditOutput({

@@ -2,7 +2,7 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit, computeLineHash } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 function captureEditTool(opts?: any) {
@@ -13,7 +13,6 @@ function captureEditTool(opts?: any) {
 }
 
 describe("edit postEditVerify syntax validation ordering", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("block mode aborts before writing even when postEditVerify is true", async () => {
     const tool = captureEditTool({ syntaxValidate: "block" });

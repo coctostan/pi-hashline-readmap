@@ -2,7 +2,7 @@ import { describe, expect, it, beforeAll } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 
 async function callEditTool(params: Record<string, unknown>) {
@@ -13,7 +13,6 @@ async function callEditTool(params: Record<string, unknown>) {
 
 describe("edit tool diffData", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("returns diffData in details and ptcValue for compact anchor edits without changing legacy fields", async () => {

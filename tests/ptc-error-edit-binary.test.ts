@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { ensureHashInit } from "../src/hashline.js";
 
 async function callEdit(params: Record<string, unknown>) {
   const { registerEditTool } = await import("../src/edit.js");
@@ -14,7 +13,6 @@ async function callEdit(params: Record<string, unknown>) {
 }
 
 describe("edit ptcValue.error — binary-file", () => {
-  beforeAll(async () => { await ensureHashInit(); });
 
   it("returns binary-file when target is binary", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-bin-"));

@@ -4,7 +4,7 @@ import { Type } from "@sinclair/typebox";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, relative } from "node:path";
 import { resolveToCwd } from "./path-utils.js";
-import { ensureHashInit, formatHashlineDisplay } from "./hashline.js";
+import { formatHashlineDisplay } from "./hashline.js";
 import { buildPtcError, buildPtcLine, buildPtcWarning, type PtcLine, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { getOrGenerateMap } from "./map-cache.js";
@@ -147,7 +147,6 @@ export async function executeWrite(opts: {
   map?: boolean;
   cwd?: string;
 }): Promise<WriteResult> {
-  await ensureHashInit();
 
   const { path: filePath, content, map: requestMap, cwd } = opts;
   const warnings: string[] = [];

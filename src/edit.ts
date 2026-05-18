@@ -4,7 +4,7 @@ import type { Static } from "@sinclair/typebox";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
 import { detectLineEnding, generateCompactOrFullDiff, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff";
-import { HashlineMismatchError, applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline";
+import { HashlineMismatchError, applyHashlineEdits, computeLineHash, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { buildEditOutput } from "./edit-output.js";
@@ -144,7 +144,6 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 		ptc,
 		renderShell: "default" as const,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			await ensureHashInit();
 			const parsed = params as HashlineParams;
 			const input = params as Record<string, unknown>;
 			const rawPath = parsed.path;

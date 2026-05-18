@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit, computeLineHash, applyHashlineEdits } from "../src/hashline.js";
+import { computeLineHash, applyHashlineEdits } from "../src/hashline.js";
 
 describe("fuzzy content-based recovery", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("auto-relocates when one candidate has similarity > 0.8", () => {

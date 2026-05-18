@@ -16,8 +16,6 @@ const CONTROL_CHAR_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/;
 
 describe("Bug #052: edit no-op diagnostics escape control characters", () => {
   beforeAll(async () => {
-    const { ensureHashInit } = await import("../src/hashline.js");
-    await ensureHashInit();
   });
 
   it("no-op diagnostic previews render escaped control bytes", async () => {

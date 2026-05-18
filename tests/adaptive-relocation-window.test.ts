@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { ensureHashInit, computeLineHash, applyHashlineEdits } from "../src/hashline.js";
+import { computeLineHash, applyHashlineEdits } from "../src/hashline.js";
 
 describe("adaptive relocation window", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("single edit uses base window of ±20 — relocation at 21 lines fails", () => {

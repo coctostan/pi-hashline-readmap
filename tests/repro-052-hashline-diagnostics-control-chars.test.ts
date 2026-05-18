@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { applyHashlineEdits, computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { applyHashlineEdits, computeLineHash } from "../src/hashline.js";
 
 const CONTROL_CHAR_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/;
 
 describe("Bug #052: hashline mismatch diagnostics escape control characters", () => {
   beforeAll(async () => {
-    await ensureHashInit();
   });
 
   it("mismatch previews render escaped control bytes instead of raw bytes", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+import { computeLineHash } from "../src/hashline.js";
 
 const fsMock = vi.hoisted(() => ({
   readFile: vi.fn(),
@@ -22,7 +22,6 @@ function captureEditTool() {
 
 describe("edit postEditVerify success", () => {
   beforeEach(async () => {
-    await ensureHashInit();
     fsMock.readFile.mockReset();
     fsMock.writeFile.mockReset();
   });
