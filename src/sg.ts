@@ -119,12 +119,23 @@ function execFileText(
 }
 
 /**
- * Check if the `sg` (ast-grep) binary is available in PATH.
- * Runs `sg --version` synchronously with a 3-second timeout.
+ * Prefer `ast-grep`; `sg` is the setgid command on many Linux systems.
+ */
+function resolveSgCommand(): "ast-grep" | "sg" {
+  try {
+    cp.execFileSync("ast-grep", ["--version"], { timeout: 3000, stdio: "pipe" });
+    return "ast-grep";
+  } catch {
+    return "sg";
+  }
+}
+
+/**
+ * Check if an ast-grep-compatible binary is available in PATH.
  */
 export function isSgAvailable(): boolean {
   try {
-    cp.execFileSync("sg", ["--version"], { timeout: 3000, stdio: "pipe" });
+    cp.execFileSync(resolveSgCommand(), ["--version"], { timeout: 3000, stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -237,7 +248,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
       args.push(searchPath);
 
       try {
-        const { stdout } = await execFileText("sg", args, {
+        const { stdout } = await execFileText(resolveSgCommand(), args, {
           cwd: ctx.cwd,
           signal,
           maxBuffer: 10 * 1024 * 1024,
