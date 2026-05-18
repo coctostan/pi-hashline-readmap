@@ -30,7 +30,13 @@ describe("bash renderer wrapper", () => {
     const builtIn = { name: "bash", label: "bash", description: "real bash description", parameters: params, execute: async () => ({ content: [{ type: "text", text: "" }] }) };
     let registered: any;
     registerBashRendererTool({ registerTool(def: any) { registered = def; } } as any, { createBuiltInBashTool: () => builtIn, cwd: "/tmp/work" });
-    expect(registered.description).toBe("Run shell commands for tests, builds, git, package managers, and external CLIs.");
-    expect(registered.parameters.properties.command.description).toBe("Shell command to run");
+    expect(registered.description).toBe("Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write).");
+    expect(registered.promptSnippet).toBe("Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.");
+    expect(registered.promptGuidelines).toEqual([
+      "Use bash for tests, builds, git, package managers, and external CLIs.",
+      "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
+      "Use read/grep/find/ls/edit/write for repo file operations.",
+    ]);
+    expect(registered.parameters.properties.command.description).toBe("Test/build/git/pkg/external command; not repo file read/search/list/edit.");
   });
 });

@@ -5,9 +5,15 @@ import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabe
 
 type BuiltInFactory = (cwd: string) => any;
 
-const BASH_DESCRIPTION = "Run shell commands for tests, builds, git, package managers, and external CLIs.";
+const BASH_DESCRIPTION = "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write).";
+const BASH_PROMPT_SNIPPET = "Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.";
+const BASH_PROMPT_GUIDELINES = [
+  "Use bash for tests, builds, git, package managers, and external CLIs.",
+  "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
+  "Use read/grep/find/ls/edit/write for repo file operations.",
+];
 const BASH_PARAMETERS = Type.Object({
-  command: Type.String({ description: "Shell command to run" }),
+  command: Type.String({ description: "Test/build/git/pkg/external command; not repo file read/search/list/edit." }),
   timeout: Type.Optional(Type.Number({ description: "Timeout seconds" })),
 });
 
@@ -26,6 +32,8 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
     name: "bash",
     label: "bash",
     description: BASH_DESCRIPTION,
+    promptSnippet: BASH_PROMPT_SNIPPET,
+    promptGuidelines: BASH_PROMPT_GUIDELINES,
     parameters: BASH_PARAMETERS,
     async execute(toolCallId: string, params: any, signal?: AbortSignal, onUpdate?: any, ctx: any = {}) {
       const cwd = ctx?.cwd ?? options.cwd ?? process.cwd();
