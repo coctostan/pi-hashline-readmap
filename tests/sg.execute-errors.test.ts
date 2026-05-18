@@ -40,7 +40,9 @@ describe("sg execute errors", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(text(result)).toBe("ast-grep (sg) is not installed. Run: brew install ast-grep");
+    expect(text(result)).toBe(
+      "ast-grep (sg) could not be resolved or executed. pi-hashline-readmap includes @ast-grep/cli for normal npm installs; run npm install, or install ast-grep on PATH as a fallback (for example: brew install ast-grep).",
+    );
   });
 
   it("returns stderr when sg exits non-zero", async () => {

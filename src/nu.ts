@@ -10,6 +10,7 @@ import { buildPtcError } from "./ptc-value.js";
 import { stripAnsi } from "./rtk/ansi.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { executableCommand, resolveBundledBin } from "./binary-resolution.js";
 
 const MAX_LINES = 2000;
 const MAX_BYTES = 50 * 1024; // 50 KB
@@ -18,9 +19,14 @@ const MAX_BYTES = 50 * 1024; // 50 KB
  * Check if the `nu` (Nushell) binary is available in PATH.
  * Runs `nu --version` synchronously with a 3-second timeout.
  */
+export function resolveNuBinary(): string {
+  return resolveBundledBin("nushell", "nu", "nu");
+}
+
 export function isNuAvailable(): boolean {
   try {
-    execFileSync("nu", ["--version"], { timeout: 3000, stdio: "pipe" });
+    const binary = executableCommand(resolveNuBinary());
+    execFileSync(binary.command, [...binary.argsPrefix, "--version"], { timeout: 3000, stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -155,7 +161,8 @@ export async function executeNuScript(opts: NuExecuteOptions): Promise<NuExecute
     // Wrap spawn in try/catch for sync failures (e.g. invalid cwd)
     let proc;
     try {
-      proc = spawn("nu", args, {
+      const binary = executableCommand(resolveNuBinary());
+      proc = spawn(binary.command, [...binary.argsPrefix, ...args], {
         cwd,
         env: { ...process.env },
         detached: process.platform !== "win32",
@@ -213,7 +220,7 @@ export async function executeNuScript(opts: NuExecuteOptions): Promise<NuExecute
     proc.on("error", (err: NodeJS.ErrnoException) => {
       const hint =
         err.code === "ENOENT"
-          ? "\n\nHint: 'nu' was not found in PATH. Install nushell: https://www.nushell.sh/"
+          ? "\n\nHint: bundled npm package 'nushell' was unavailable or unusable. Run npm install, or install Nushell on PATH as a fallback: https://www.nushell.sh/"
           : "";
       settle({
         output: `Error spawning nushell: ${err.message}${hint}`,
@@ -361,7 +368,7 @@ export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
           error: buildPtcError(
             "nu-spawn-error",
             text,
-            "Install nushell: https://www.nushell.sh/",
+            "Run npm install to install the nushell package, or install Nushell on PATH as a fallback: https://www.nushell.sh/",
             { exitCode: result.exitCode, timedOut: false },
           ),
         };

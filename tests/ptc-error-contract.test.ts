@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { ensureHashInit } from "../src/hashline.js";
-import { isNuAvailable } from "../src/nu.js";
 import { PTC_ERROR_CODES } from "../src/ptc-error-codes.js";
 
+let nuAvailable = false;
 async function callTool(
   registerName:
     | "registerReadTool"
@@ -49,6 +49,15 @@ function assertContract(r: any, tool: string, expectedCode: string) {
 describe("ptc-error contract — every tool emits ptcValue.error on representative failure", () => {
   beforeAll(async () => {
     await ensureHashInit();
+    const nu = await import("../src/nu.js");
+    nuAvailable = nu.isNuAvailable();
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.doUnmock("../src/binary-resolution.js");
+    vi.doUnmock("node:child_process");
+    vi.resetModules();
   });
 
   it("read → file-not-found", async () => {
@@ -75,7 +84,19 @@ describe("ptc-error contract — every tool emits ptcValue.error on representati
     assertContract(r, "grep", "invalid-limit");
   });
 
-  it("ast_search → sg-not-installed (PATH stripped)", async () => {
+  it("ast_search → sg-not-installed", async () => {
+    vi.doMock("../src/binary-resolution.js", () => ({
+      resolveBundledBin: (_packageName: string, _binName: string, fallbackCommand: string) => fallbackCommand,
+      executableCommand: (command: string) => ({ command, argsPrefix: [] }),
+    }));
+    vi.doMock("node:child_process", () => ({
+      execFile: vi.fn((_cmd: any, _args: any, _opts: any, cb: any) => {
+        const err: any = new Error("command not found: sg");
+        err.code = "ENOENT";
+        cb(err, "", "");
+        return {} as any;
+      }),
+    }));
     const orig = process.env.PATH;
     process.env.PATH = "/nonexistent";
     try {
@@ -106,7 +127,8 @@ describe("ptc-error contract — every tool emits ptcValue.error on representati
     expect(r!.isError).toBe(true);
   });
 
-  (isNuAvailable() ? it : it.skip)("nu → nu-non-zero-exit (AC 15)", async () => {
+  it("nu → nu-non-zero-exit (AC 15)", async () => {
+    if (!nuAvailable) return;
     const r = await callTool("registerNuTool", "../src/nu.js", { command: "exit 1" });
     assertContract(r, "nu", "nu-non-zero-exit");
     expect(r!.isError).toBeFalsy();

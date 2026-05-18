@@ -13,6 +13,7 @@ import type { FileSymbol } from "./readmap/types.js";
 import { buildSgOutput } from "./sg-output.js";
 import { buildAstSearchRehydrateDescriptor, isContextHygieneDebugEnabled } from "./context-hygiene.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { executableCommand, resolveBundledBin } from "./binary-resolution.js";
 
 type SgParams = { pattern: string; lang?: string; path?: string };
 const CONTEXT_HYGIENE_SG_SYMBOL_FILE_CAP = 20;
@@ -122,9 +123,14 @@ function execFileText(
  * Check if the `sg` (ast-grep) binary is available in PATH.
  * Runs `sg --version` synchronously with a 3-second timeout.
  */
+export function resolveSgBinary(): string {
+  return resolveBundledBin("@ast-grep/cli", "sg", "sg");
+}
+
 export function isSgAvailable(): boolean {
   try {
-    cp.execFileSync("sg", ["--version"], { timeout: 3000, stdio: "pipe" });
+    const binary = executableCommand(resolveSgBinary());
+    cp.execFileSync(binary.command, [...binary.argsPrefix, "--version"], { timeout: 3000, stdio: "pipe" });
     return true;
   } catch {
     return false;
@@ -237,7 +243,8 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
       args.push(searchPath);
 
       try {
-        const { stdout } = await execFileText("sg", args, {
+        const binary = executableCommand(resolveSgBinary());
+        const { stdout } = await execFileText(binary.command, [...binary.argsPrefix, ...args], {
           cwd: ctx.cwd,
           signal,
           maxBuffer: 10 * 1024 * 1024,
@@ -352,7 +359,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         };
       } catch (err: any) {
         if (err?.code === "ENOENT") {
-          const message = "ast-grep (sg) is not installed. Run: brew install ast-grep";
+          const message = "ast-grep (sg) could not be resolved or executed. pi-hashline-readmap includes @ast-grep/cli for normal npm installs; run npm install, or install ast-grep on PATH as a fallback (for example: brew install ast-grep).";
           return {
             content: [{ type: "text", text: message }],
             isError: true,
@@ -363,7 +370,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
                 error: buildPtcError(
                   "sg-not-installed",
                   message,
-                  "Install with: brew install ast-grep (or see https://ast-grep.github.io)",
+                  "Run npm install to install @ast-grep/cli, or install ast-grep on PATH as a fallback: brew install ast-grep.",
                 ),
               },
             },

@@ -26,7 +26,7 @@ It also reduces extension conflict risk by replacing several overlapping tool pa
 ### Requirements
 
 - [pi](https://github.com/mariozechner/pi-coding-agent) with extension support
-- Node.js **>= 20** for local development in this repository
+- Node.js **>= 22** for installation/runtime and local development (the bundled `nushell` package declares this engine floor)
 
 ### From npm
 
@@ -51,13 +51,18 @@ pi install .
 
 Start a new pi session after installation. Running sessions do not hot-reload extension code or tool registrations.
 
-### Optional local tools
+### CLI dependencies and optional local tools
 
-These tools are not required for the extension to load, but they unlock more capability or better output quality:
+Normal npm installs of `pi-hashline-readmap` include npm-managed CLI packages for the tools this extension wraps:
+
+- `@ast-grep/cli` provides the `sg` binary used by `ast_search`.
+- `nushell` provides the `nu` binary used by the optional `nu` tool.
+
+The extension resolves those bundled binaries first and falls back to `sg` or `nu` on `PATH` when the npm-provided package or bin entry is unavailable. If troubleshooting a broken platform package, a system install can still be useful after repairing/removing the broken npm package or as a fallback in environments without the bundled binary:
 
 ```bash
-brew install nushell           # required for the nu tool
-brew install ast-grep          # required for ast_search
+brew install ast-grep          # fallback for ast_search if @ast-grep/cli cannot run
+brew install nushell           # fallback for the nu tool if the npm nushell package cannot run
 brew install fd                # optional, speeds up find
 brew install universal-ctags   # optional, symbol maps for languages without a dedicated mapper
 brew install difftastic        # optional, improves semantic edit summaries

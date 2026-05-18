@@ -6,8 +6,8 @@ const packageLock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
 describe("package version", () => {
   it("is bumped for the compact provider-visible metadata release", () => {
-    expect(packageJson.version).toBe("0.8.9");
-    expect(packageLock.version).toBe("0.8.9");
-    expect(packageLock.packages[""].version).toBe("0.8.9");
+    expect(packageJson.version).toBe("0.8.10");
+    expect(packageLock.version).toBe("0.8.10");
+    expect(packageLock.packages[""].version).toBe("0.8.10");
   });
 });
