@@ -24,18 +24,11 @@ import { typescriptMapper, typescriptMapperFromContent, MAPPER_VERSION as TYPESC
 import { yamlMapper, MAPPER_VERSION as YAML_VERSION } from "./mappers/yaml.js";
 
 /**
- * Check if GDScript mapper is explicitly enabled via env var or setting.
+ * Check if GDScript mapper is explicitly enabled via env var.
  * Opt-in by default to avoid hard gdtoolkit dependency.
  */
 function isGdscriptEnabled(): boolean {
-  // Check env var first
-  if (process.env.PI_HASHLINE_GDSCRIPT === "1") return true;
-  // Check setting
-  try {
-    const settings = pi?.settings;
-    if (settings?.hashlineReadmap?.gdscript?.enabled) return true;
-  } catch {}
-  return false;
+  return process.env.PI_HASHLINE_GDSCRIPT === "1";
 }
 type MapperFn = (
   filePath: string,
