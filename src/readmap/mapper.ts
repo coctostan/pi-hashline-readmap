@@ -8,7 +8,7 @@ import { cppMapper, MAPPER_VERSION as CPP_VERSION } from "./mappers/cpp.js";
 import { csvMapper, MAPPER_VERSION as CSV_VERSION } from "./mappers/csv.js";
 import { ctagsMapper, MAPPER_VERSION as CTAGS_VERSION } from "./mappers/ctags.js";
 import { fallbackMapper, MAPPER_VERSION as FALLBACK_VERSION } from "./mappers/fallback.js";
-import { gdscriptMapper, MAPPER_VERSION as GDSRIPT_VERSION } from "./mappers/gdscript.js";
+import { gdscriptMapper, MAPPER_VERSION as GDSCRIPT_VERSION } from "./mappers/gdscript.js";
 import { goMapper, MAPPER_VERSION as GO_VERSION } from "./mappers/go.js";
 import { jsonMapper, MAPPER_VERSION as JSON_VERSION } from "./mappers/json.js";
 import { javaMapper, javaMapperFromContent, MAPPER_VERSION as JAVA_VERSION } from "./mappers/java.js";
@@ -23,6 +23,20 @@ import { tomlMapper, MAPPER_VERSION as TOML_VERSION } from "./mappers/toml.js";
 import { typescriptMapper, typescriptMapperFromContent, MAPPER_VERSION as TYPESCRIPT_VERSION } from "./mappers/typescript.js";
 import { yamlMapper, MAPPER_VERSION as YAML_VERSION } from "./mappers/yaml.js";
 
+/**
+ * Check if GDScript mapper is explicitly enabled via env var or setting.
+ * Opt-in by default to avoid hard gdtoolkit dependency.
+ */
+function isGdscriptEnabled(): boolean {
+  // Check env var first
+  if (process.env.PI_HASHLINE_GDSCRIPT === "1") return true;
+  // Check setting
+  try {
+    const settings = pi?.settings;
+    if (settings?.hashlineReadmap?.gdscript?.enabled) return true;
+  } catch {}
+  return false;
+}
 type MapperFn = (
   filePath: string,
   signal?: AbortSignal
@@ -70,7 +84,7 @@ const MAPPERS_V: Record<string, MapperEntry> = {
   // Phase 7: Shell/Bash regex mapper
   shell: { fn: shellMapper, version: SHELL_VERSION },
   // Phase 8: GDScript (gdtoolkit subprocess)
-  gdscript: { fn: gdscriptMapper, version: GDSRIPT_VERSION },
+  gdscript: { fn: gdscriptMapper, version: GDSCRIPT_VERSION },
 };
 
 type ContentMapperFn = (
@@ -122,11 +136,16 @@ export async function generateMapWithIdentity(
   const { signal } = options;
   const langInfo = detectLanguage(filePath);
   if (langInfo) {
-    const entry = MAPPERS_V[langInfo.id];
-    if (entry) {
-      const result = await entry.fn(filePath, signal);
-      if (result) {
-        return { map: result, mapperName: langInfo.id, mapperVersion: entry.version };
+    // GDScript mapper is opt-in (requires gdtoolkit dependency)
+    if (langInfo.id === "gdscript" && !isGdscriptEnabled()) {
+      // Fall through to ctags/fallback
+    } else {
+      const entry = MAPPERS_V[langInfo.id];
+      if (entry) {
+        const result = await entry.fn(filePath, signal);
+        if (result) {
+          return { map: result, mapperName: langInfo.id, mapperVersion: entry.version };
+        }
       }
     }
   }

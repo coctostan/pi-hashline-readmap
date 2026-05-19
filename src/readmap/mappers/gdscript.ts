@@ -1,5 +1,5 @@
-import { exec } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { readFile, stat } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
@@ -9,7 +9,7 @@ import type { FileMap, FileSymbol } from "../types.js";
 import { DetailLevel, SymbolKind } from "../enums.js";
 export const MAPPER_VERSION = 1;
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT_PATH = join(__dirname, "gdscript_outline.py");
@@ -75,6 +75,17 @@ function convertSymbol(gs: GdSymbol): FileSymbol {
 }
 
 /**
+ * Count lines in file content without spawning wc.
+ */
+function countLines(content: string): number {
+  let count = 0;
+  for (let i = 0; i < content.length; i++) {
+    if (content[i] === "\n") count++;
+  }
+  return count;
+}
+
+/**
  * Generate a file map for a GDScript file using gdtoolkit (Lark-based parser).
  */
 export async function gdscriptMapper(
@@ -85,13 +96,14 @@ export async function gdscriptMapper(
     const stats = await stat(filePath);
     const totalBytes = stats.size;
 
-    const { stdout: wcOutput } = await execAsync(`wc -l < "${filePath}"`, {
-      signal,
-    });
-    const totalLines = Number.parseInt(wcOutput.trim(), 10) || 0;
+    // Count lines in JS instead of spawning wc
+    const content = await readFile(filePath, "utf-8");
+    const totalLines = countLines(content);
 
-    const { stdout, stderr } = await execAsync(
-      `python3 "${SCRIPT_PATH}" "${filePath}"`,
+    // Use execFile to avoid shell injection
+    const { stdout, stderr } = await execFileAsync(
+      "python3",
+      [SCRIPT_PATH, filePath],
       {
         signal,
         timeout: 10_000,
@@ -99,9 +111,18 @@ export async function gdscriptMapper(
       }
     );
 
-    if (stderr && !stdout) {
-      console.error(`GDScript mapper stderr: ${stderr}`);
-      return null;
+    // Check for stderr (non-fatal warnings are ok if we got output)
+    if (stderr) {
+      // Check for missing gdtoolkit
+      if (stderr.includes("ModuleNotFoundError") || stderr.includes("gdtoolkit")) {
+        console.error(
+          "[hashline] GDScript mapper requires gdtoolkit. " +
+          "Install it with: pip3 install --system gdtoolkit"
+        );
+      } else {
+        console.error(`GDScript mapper stderr: ${stderr}`);
+      }
+      if (!stdout) return null;
     }
 
     const result: GdOutlineResult = JSON.parse(stdout);
@@ -122,11 +143,20 @@ export async function gdscriptMapper(
     };
 
     return fileMap;
-  } catch (error) {
+  } catch (error: any) {
     if (signal?.aborted) {
       return null;
     }
-    console.error(`GDScript mapper failed: ${error}`);
+    // Check for missing gdtoolkit in exception
+    const errorMsg = String(error);
+    if (errorMsg.includes("ModuleNotFoundError") || errorMsg.includes("gdtoolkit")) {
+      console.error(
+        "[hashline] GDScript mapper requires gdtoolkit. " +
+        "Install it with: pip3 install --system gdtoolkit"
+      );
+    } else {
+      console.error(`GDScript mapper failed: ${error}`);
+    }
     return null;
   }
 }
