@@ -11,6 +11,7 @@ describe("required read-map mapper files (AC11)", () => {
     "typescript.ts",
     "python.ts",
     "go.ts",
+    "gdscript.ts",
     "rust.ts",
     "json.ts",
     "markdown.ts",

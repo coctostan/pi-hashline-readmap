@@ -6,6 +6,7 @@ export interface HashlineJsonSettings {
   grep?: { maxLines?: number; maxBytes?: number };
   mapCache?: { dir?: string; enabled?: boolean };
   bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
+  gdscript?: { enabled?: boolean };
 }
 export interface HashlineSettingsWarning { source: string; message: string; path?: string }
 export interface HashlineSettingsResult { settings: HashlineJsonSettings; warnings: HashlineSettingsWarning[] }
@@ -165,6 +166,12 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
     }
     if (Object.keys(bashContextGuard).length > 0) settings.bashContextGuard = bashContextGuard;
   }
+  if (isRecord(raw.gdscript)) {
+    const gdscript: NonNullable<HashlineJsonSettings["gdscript"]> = {};
+    const enabled = readBoolean(raw.gdscript, "enabled", "gdscript.enabled", source, warnings);
+    if (enabled !== undefined) gdscript.enabled = enabled;
+    if (Object.keys(gdscript).length > 0) settings.gdscript = gdscript;
+  }
   return { settings, warnings };
 }
 function readSettingsFile(path: string): HashlineSettingsResult {
@@ -184,10 +191,19 @@ function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSetting
   if (Object.keys(mapCache).length > 0) merged.mapCache = mapCache;
   const bashContextGuard = { ...(base.bashContextGuard ?? {}), ...(override.bashContextGuard ?? {}) };
   if (Object.keys(bashContextGuard).length > 0) merged.bashContextGuard = bashContextGuard;
+  const gdscript = { ...(base.gdscript ?? {}), ...(override.gdscript ?? {}) };
+  if (Object.keys(gdscript).length > 0) merged.gdscript = gdscript;
   return merged;
 }
 export function resolveHashlineJsonSettings(): HashlineSettingsResult {
   const globalResult = readSettingsFile(pathOverride?.globalSettingsPath ?? defaultGlobalSettingsPath());
   const projectResult = readSettingsFile(pathOverride?.projectSettingsPath ?? defaultProjectSettingsPath());
   return { settings: mergeSettings(globalResult.settings, projectResult.settings), warnings: [...globalResult.warnings, ...projectResult.warnings] };
+}
+
+export function isGdscriptMappingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (env.PI_HASHLINE_GDSCRIPT !== undefined) {
+    return env.PI_HASHLINE_GDSCRIPT === "1";
+  }
+  return resolveHashlineJsonSettings().settings.gdscript?.enabled === true;
 }
