@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/pi-hashline-readmap)](https://www.npmjs.com/package/pi-hashline-readmap)
 
-Upgrade pi's local coding workflow with hash-anchored reads and edits, structural file maps, symbol-aware navigation, structural search, agent-friendly file exploration, and compressed `bash` output.
+Upgrade pi's local coding workflow with hash-anchored text reads and edits, stock-pi-compatible image reads, structural file maps, symbol-aware navigation, structural search, agent-friendly file exploration, and compressed `bash` output.
 
 `pi-hashline-readmap` is a drop-in [pi](https://github.com/mariozechner/pi-coding-agent) extension. It replaces the stock `read`, `edit`, `grep`, `ls`, and `find` tools, provides an enhanced `ast_search` tool, registers `write`, adds an optional `nu` tool for structured exploration via Nushell, and post-processes `bash` output so more context budget goes to signal instead of noise.
 
@@ -15,6 +15,7 @@ It also reduces extension conflict risk by replacing several overlapping tool pa
 
 - Keep edits tied to stable `LINE:HASH` anchors instead of fragile line numbers.
 - Navigate large files with structural maps and direct symbol reads.
+- Read supported images and screenshots through pi-compatible image attachments instead of ad hoc OCR/tooling.
 - Turn search results into edit anchors without an extra read step.
 - Search code structurally with `ast_search` when text search is too brittle.
 - Keep readmap subprocesses safe for paths containing shell metacharacters such as `"` and `$`.
@@ -71,7 +72,7 @@ brew install difftastic        # optional, improves semantic edit summaries
 brew install shellcheck yq scc # optional, improves some bash-output compression paths
 ```
 
-Dedicated readmap mappers handle TypeScript, Python, Rust, Go, Java, C, C++, Swift, shell, SQL, Markdown, and several data formats (JSON/JSONL/YAML/TOML/CSV) with the highest-quality structural maps. Rust, C++, and Java structural maps use `web-tree-sitter` with packaged `tree-sitter-wasms` grammars; no native tree-sitter packages are installed for those mappers. For files outside that set, the read tool's structural map falls back to universal-ctags when it is installed, and to a generic regex-based extractor when it is not. Installing universal-ctags is therefore only worthwhile if you regularly read files in languages without a dedicated mapper (for example Ruby, PHP, Lua, Kotlin) and want symbol-aware maps for them.
+Dedicated readmap mappers handle TypeScript, JavaScript, Python, Rust, Go, Java, C, C++, Swift, shell, SQL, Markdown, JSON/JSONL, YAML, TOML, CSV/TSV, and opt-in GDScript with the highest-quality structural maps. Rust, C++, and Java structural maps use `web-tree-sitter` with packaged `tree-sitter-wasms` grammars; C/C++ headers share the C++ mapper, and no native tree-sitter packages are installed for those mappers. For files outside that set, the read tool's structural map falls back to universal-ctags when it is installed, and to a generic regex-based extractor when it is not. Installing universal-ctags is therefore only worthwhile if you regularly read files in languages without a dedicated mapper (for example Ruby, PHP, Lua, Kotlin) and want symbol-aware maps for them.
 
 ### Bash output contract
 
@@ -142,7 +143,7 @@ read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory" })
 read({ path: "tests/fixtures/small.ts", symbol: "UserDirectory.addUser" })
 ```
 
-Structural maps are appended automatically when large reads are truncated. The readmap supports 18 mapped language/file kinds, including TypeScript, JavaScript, Python, Rust, Go, Java, Swift, Shell, C/C++, SQL, JSON/JSONL, Markdown, YAML, TOML, and CSV/TSV. Direct symbol reads can target functions, classes, methods, interfaces, type aliases, constants, and enums when the file type is supported.
+Structural maps are appended automatically when large text reads are truncated. The readmap supports TypeScript, JavaScript, Python, Rust, Go, Java, Swift, Shell, C/C++, SQL, JSON/JSONL, Markdown, YAML, TOML, CSV/TSV, and opt-in GDScript. Direct symbol reads can target functions, classes, methods, interfaces, type aliases, constants, and enums when the file type is supported.
 
 ### Read a symbol with local support
 
@@ -151,6 +152,14 @@ read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", bundle: "
 ```
 
 Use `bundle: "local"` when you want the requested symbol plus direct same-file local support.
+
+### Read an image or screenshot
+
+```text
+read({ path: "screenshot.png" })
+```
+
+Supported images (`jpg`, `jpeg`, `png`, `gif`, and `webp`) are delegated to pi's stock image reader and return image attachments, not `LINE:HASH` edit anchors. Hashline also detects supported image magic bytes for extensionless or misnamed files before falling back to binary/text handling.
 
 ### Search and patch
 
@@ -254,6 +263,9 @@ Example project settings:
     "maxBytes": 40960,
     "headLines": 60,
     "tailLines": 100
+  },
+  "gdscript": {
+    "enabled": false
   }
 }
 ```
@@ -272,7 +284,8 @@ JSON fields:
 | `bashContextGuard.headLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES` | Tightens the guarded preview head size; default/ceiling `80` |
 | `bashContextGuard.tailLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES` | Tightens the guarded preview tail size; default/ceiling `120` |
 | `gdscript.enabled` | `PI_HASHLINE_GDSCRIPT` | Defaults to `false`; exact env value `1` enables the dedicated GDScript mapper and takes precedence over JSON |
-Budget fields must be strict positive base-10 integers. Zero, negative, signed, decimal, hexadecimal, exponent notation, separators, empty strings, and whitespace-only values are ignored. Malformed JSON files and invalid fields degrade safely: valid fields continue to apply where practical, invalid fields are ignored, and the loader emits non-fatal warnings where available.
+
+Budget fields must be strict positive base-10 integers. Zero, negative, signed, decimal, hexadecimal, exponent notation, separators, empty strings, and whitespace-only values are ignored. Boolean fields must be JSON booleans, and `mapCache.dir` must be a non-empty string. Malformed JSON files and invalid fields degrade safely: valid fields continue to apply where practical, invalid fields are ignored, and the loader emits non-fatal warnings where available.
 
 ### Optional GDScript maps
 

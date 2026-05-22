@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tmpdir } from "node:os";
 import { clearMapCache } from "../src/map-cache.js";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = resolve(__dirname, "fixtures");
@@ -115,6 +116,28 @@ describe("read integration — combined output", () => {
 		expect(text).toMatch(/^\d+:[0-9a-f]{3}\|/m);
 		expect(text).not.toContain("File Map:");
 		expect(text).not.toContain("[Output truncated:");
+	});
+
+
+	it("extensionless PNG files return stock pi image attachments", async () => {
+		const tempDir = mkdtempSync(resolve(tmpdir(), "hashline-read-image-"));
+		try {
+			const imagePath = resolve(tempDir, "screenshot");
+			writeFileSync(
+				imagePath,
+				Buffer.from(
+					"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lBBkGQAAAABJRU5ErkJggg==",
+					"base64",
+				),
+			);
+
+			const result = await callReadTool({ path: imagePath });
+
+			expect(getTextContent(result)).toContain("Read image file [image/png]");
+			expect(getTextContent(result)).not.toContain("LINE:HASH");
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
 	});
 
 	it("map generation failure still returns hashlines without error", async () => {

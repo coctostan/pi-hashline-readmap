@@ -134,7 +134,7 @@ describe("compact provider-visible descriptions", () => {
       nu: registerNuTool(pi as any),
     };
 
-    expect(tools.read.description).toBe("Read file contents by path, range, or symbol; returns LINE:HASH anchors for edits.");
+    expect(tools.read.description).toBe("Read text files/images by path; text has LINE:HASH anchors, images return attachments.");
     expect(tools.edit.description).toBe("Edit existing text files using fresh LINE:HASH anchors from read, grep, ast_search, or write.");
     expect(tools.grep.description).toBe("Search file contents; non-summary results include LINE:HASH anchors for edits.");
     expect(tools.find.description).toBe("Find files by glob, respecting .gitignore.");
