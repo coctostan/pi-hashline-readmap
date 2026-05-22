@@ -26,6 +26,9 @@ const EXTENSION_MAP: Record<string, LanguageInfo> = {
   // Go
   ".go": { id: "go", name: "Go" },
 
+  // GDScript
+  ".gd": { id: "gdscript", name: "GDScript" },
+
   // Java
   ".java": { id: "java", name: "Java" },
 

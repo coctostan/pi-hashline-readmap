@@ -1,4 +1,5 @@
 import type { FileMap, MapOptions } from "./types.js";
+import { isGdscriptMappingEnabled } from "../hashline-settings.js";
 
 import { THRESHOLDS } from "./constants.js";
 import { detectLanguage } from "./language-detect.js";
@@ -8,6 +9,7 @@ import { csvMapper, MAPPER_VERSION as CSV_VERSION } from "./mappers/csv.js";
 import { ctagsMapper, MAPPER_VERSION as CTAGS_VERSION } from "./mappers/ctags.js";
 import { fallbackMapper, MAPPER_VERSION as FALLBACK_VERSION } from "./mappers/fallback.js";
 import { goMapper, MAPPER_VERSION as GO_VERSION } from "./mappers/go.js";
+import { gdscriptMapper, MAPPER_VERSION as GDSCRIPT_VERSION } from "./mappers/gdscript.js";
 import { jsonMapper, MAPPER_VERSION as JSON_VERSION } from "./mappers/json.js";
 import { javaMapper, javaMapperFromContent, MAPPER_VERSION as JAVA_VERSION } from "./mappers/java.js";
 import { jsonlMapper, MAPPER_VERSION as JSONL_VERSION } from "./mappers/jsonl.js";
@@ -41,6 +43,7 @@ const MAPPERS_V: Record<string, MapperEntry> = {
   python: { fn: pythonMapper, version: PYTHON_VERSION },
   // Phase 2: Go AST-based
   go: { fn: goMapper, version: GO_VERSION },
+  gdscript: { fn: gdscriptMapper, version: GDSCRIPT_VERSION },
   // Phase 3: Internal ts-morph mappers
   typescript: { fn: typescriptMapper, version: TYPESCRIPT_VERSION },
   javascript: { fn: typescriptMapper, version: TYPESCRIPT_VERSION },
@@ -117,7 +120,8 @@ export async function generateMapWithIdentity(
   const langInfo = detectLanguage(filePath);
   if (langInfo) {
     const entry = MAPPERS_V[langInfo.id];
-    if (entry) {
+    const mapperEnabled = langInfo.id !== "gdscript" || isGdscriptMappingEnabled();
+    if (entry && mapperEnabled) {
       const result = await entry.fn(filePath, signal);
       if (result) {
         return { map: result, mapperName: langInfo.id, mapperVersion: entry.version };

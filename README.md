@@ -271,8 +271,30 @@ JSON fields:
 | `bashContextGuard.maxBytes` | `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES` | Tightens the post-RTK Bash guard byte budget; default/ceiling `51200` raw bytes |
 | `bashContextGuard.headLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES` | Tightens the guarded preview head size; default/ceiling `80` |
 | `bashContextGuard.tailLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES` | Tightens the guarded preview tail size; default/ceiling `120` |
-
+| `gdscript.enabled` | `PI_HASHLINE_GDSCRIPT` | Defaults to `false`; exact env value `1` enables the dedicated GDScript mapper and takes precedence over JSON |
 Budget fields must be strict positive base-10 integers. Zero, negative, signed, decimal, hexadecimal, exponent notation, separators, empty strings, and whitespace-only values are ignored. Malformed JSON files and invalid fields degrade safely: valid fields continue to apply where practical, invalid fields are ignored, and the loader emits non-fatal warnings where available.
+
+### Optional GDScript maps
+
+GDScript support is niche and opt-in. By default, `.gd` files continue to use the same ctags/fallback mapping path as other files without a dedicated enabled mapper, so existing users do not need any new dependency.
+
+To enable the dedicated GDScript structural mapper, install the Python backend in the environment where pi runs:
+
+```sh
+pip install gdtoolkit
+```
+
+or use an equivalent Python environment setup that makes `gdtoolkit.parser` importable by `python3`.
+
+Then enable it in `.pi/hashline-readmap/settings.json` (project) or `~/.pi/agent/hashline-readmap/settings.json` (global):
+
+```json
+{
+  "gdscript": { "enabled": true }
+}
+```
+
+For a one-off session, `PI_HASHLINE_GDSCRIPT=1` also enables the mapper and takes precedence over JSON settings. If the backend is missing or broken, Hashline falls back to ctags/fallback mapping; install `gdtoolkit` or unset `PI_HASHLINE_GDSCRIPT` to silence the diagnostic.
 
 Other environment-only options:
 

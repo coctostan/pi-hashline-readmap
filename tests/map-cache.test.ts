@@ -142,4 +142,31 @@ describe("map-cache", () => {
 
 		spy.mockRestore();
 	});
+
+
+	it("does not reuse a stale GDScript map when enablement changes", async () => {
+		const mapperModule = await import("../src/readmap/mapper.js");
+		const spy = vi.spyOn(mapperModule, "generateMap");
+		const originalEnv = process.env.PI_HASHLINE_GDSCRIPT;
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		const p = createTempFile("", ".gd");
+		await writeFile(p, "func _ready():\n\tpass\n");
+		try {
+			delete process.env.PI_HASHLINE_GDSCRIPT;
+			const first = await getOrGenerateMap(p);
+			const callsAfterFirst = spy.mock.calls.length;
+			process.env.PI_HASHLINE_GDSCRIPT = "1";
+			const second = await getOrGenerateMap(p);
+
+			expect(first).not.toBeNull();
+			expect(second).not.toBeNull();
+			expect(spy.mock.calls.length).toBe(callsAfterFirst + 1);
+			expect(second).not.toBe(first);
+		} finally {
+			if (originalEnv === undefined) delete process.env.PI_HASHLINE_GDSCRIPT;
+			else process.env.PI_HASHLINE_GDSCRIPT = originalEnv;
+			error.mockRestore();
+			spy.mockRestore();
+		}
+	});
 });

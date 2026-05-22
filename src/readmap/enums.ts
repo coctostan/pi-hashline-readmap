@@ -22,6 +22,7 @@ export enum SymbolKind {
   Trigger = "trigger",
   Index = "index",
   Schema = "schema",
+  Signal = "signal",
   Unknown = "unknown",
 }
 

@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 const modules = [
   "../src/readmap/mappers/python.js",
   "../src/readmap/mappers/go.js",
+  "../src/readmap/mappers/gdscript.js",
   "../src/readmap/mappers/typescript.js",
   "../src/readmap/mappers/markdown.js",
   "../src/readmap/mappers/rust.js",

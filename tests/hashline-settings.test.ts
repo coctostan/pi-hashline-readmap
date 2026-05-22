@@ -237,4 +237,38 @@ describe("resolveHashlineJsonSettings", () => {
     expect(result.settings.grep?.maxLines).toBe(10);
     expect(result.warnings[0].message).toContain("Invalid JSON");
   });
+
+
+  it("accepts boolean gdscript.enabled settings", async () => {
+    const root = tempRoot("hashline-settings-gdscript-enabled");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ gdscript: { enabled: true } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
+
+    expect(resolveHashlineJsonSettings()).toEqual({
+      settings: { gdscript: { enabled: true } },
+      warnings: [],
+    });
+  });
+
+  it("ignores invalid gdscript.enabled values with a settings warning", async () => {
+    const root = tempRoot("hashline-settings-gdscript-invalid");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ gdscript: { enabled: "yes" } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
+
+    const result = resolveHashlineJsonSettings();
+    expect(result.settings).toEqual({});
+    expect(result.warnings.map((warning) => warning.path)).toEqual(["gdscript.enabled"]);
+  });
 });

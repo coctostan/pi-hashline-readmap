@@ -47,8 +47,10 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 	try {
 		const fileStat = await stat(absPath);
 		const { mtimeMs } = fileStat;
+		const lang = detectLanguage(absPath);
+		const bypassMapCache = lang?.id === "gdscript";
 		const cached = cache.get(absPath);
-		if (cached && cached.mtimeMs === mtimeMs) {
+		if (!bypassMapCache && cached && cached.mtimeMs === mtimeMs) {
 			const currentHash = await contentHashFor64k(absPath);
 			if (currentHash && currentHash === cached.contentHash) {
 				cache.delete(absPath);
@@ -56,10 +58,12 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 				return cached.map;
 			}
 		}
-		if (!persistenceEnabled()) {
+		if (!persistenceEnabled() || bypassMapCache) {
 			const map = await generateMap(absPath);
-			const hash = await contentHashFor64k(absPath);
-			rememberInMemory(absPath, { mtimeMs, contentHash: hash, map });
+			if (!bypassMapCache) {
+				const hash = await contentHashFor64k(absPath);
+				rememberInMemory(absPath, { mtimeMs, contentHash: hash, map });
+			}
 			return map;
 		}
 
@@ -67,7 +71,6 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 		try {
 			preContentHash = await contentHashFor64k(absPath);
 			if (preContentHash) {
-				const lang = detectLanguage(absPath);
 				const langIdentity = lang ? ALL_MAPPER_IDENTITIES[lang.id] : undefined;
 				const candidates = [
 					...(langIdentity ? [langIdentity] : []),
@@ -85,8 +88,8 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 					);
 					const fromDisk = await readCached(key);
 					if (fromDisk) {
-					rememberInMemory(absPath, { mtimeMs, contentHash: preContentHash, map: fromDisk });
-					return fromDisk;
+						rememberInMemory(absPath, { mtimeMs, contentHash: preContentHash, map: fromDisk });
+						return fromDisk;
 					}
 				}
 			}
