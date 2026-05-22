@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 
 const COMPACT_DESCRIPTIONS: Record<string, string> = {
-  "read.md": "Read file contents by path, range, or symbol; returns LINE:HASH anchors for edits.",
+  "read.md": "Read text files/images by path; text has LINE:HASH anchors, images return attachments.",
   "edit.md": "Edit existing text files using fresh LINE:HASH anchors from read, grep, ast_search, or write.",
   "grep.md": "Search file contents; non-summary results include LINE:HASH anchors for edits.",
   "find.md": "Find files by glob, respecting .gitignore.",
@@ -16,8 +16,8 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
 
 const COMPACT_GUIDELINES: Record<string, string[]> = {
   "read.md": [
-    "Use read for file contents, ranges, symbols, and edit anchors.",
-    "Use read map or symbol options to keep reads focused.",
+    "Use read for file contents, images/screenshots, ranges, symbols, and edit anchors.",
+    "Use read for images; it returns attachments, so avoid OCR tools unless explicitly needed.",
   ],
   "edit.md": [
     "Use edit with fresh LINE:HASH anchors for existing files.",
