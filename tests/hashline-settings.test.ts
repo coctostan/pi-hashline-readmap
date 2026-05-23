@@ -271,4 +271,88 @@ describe("resolveHashlineJsonSettings", () => {
     expect(result.settings).toEqual({});
     expect(result.warnings.map((warning) => warning.path)).toEqual(["gdscript.enabled"]);
   });
+
+  it("accepts edit.diffDisplay = \"expanded\" from JSON without warnings", async () => {
+    const root = tempRoot("hashline-settings-edit-diff-expanded");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ edit: { diffDisplay: "expanded" } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
+
+    expect(resolveHashlineJsonSettings()).toEqual({
+      settings: { edit: { diffDisplay: "expanded" } },
+      warnings: [],
+    });
+  });
+  it("accepts edit.diffDisplay = \"collapsed\" from JSON without warnings", async () => {
+    const root = tempRoot("hashline-settings-edit-diff-collapsed");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ edit: { diffDisplay: "collapsed" } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
+
+    expect(resolveHashlineJsonSettings()).toEqual({
+      settings: { edit: { diffDisplay: "collapsed" } },
+      warnings: [],
+    });
+  });
+
+  it("rejects invalid edit.diffDisplay values with a warning", async () => {
+    const root = tempRoot("hashline-settings-edit-diff-invalid");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ edit: { diffDisplay: "auto" } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
+
+    const result = resolveHashlineJsonSettings();
+    expect(result.settings).toEqual({});
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toEqual({
+      source: projectSettingsPath,
+      path: "edit.diffDisplay",
+      message: `Invalid hashline setting at edit.diffDisplay`,
+    });
+  });
+
+  it("rejects non-string edit.diffDisplay values with a warning", async () => {
+    const root = tempRoot("hashline-settings-edit-diff-nonstring");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ edit: { diffDisplay: 42 } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
+
+    const result = resolveHashlineJsonSettings();
+    expect(result.settings).toEqual({});
+    expect(result.warnings.map((warning) => warning.path)).toEqual(["edit.diffDisplay"]);
+  });
+
+  it("lets project edit.diffDisplay override global edit.diffDisplay", async () => {
+    const root = tempRoot("hashline-settings-edit-diff-merge");
+    cleanup.push(root);
+    const globalSettingsPath = join(root, "home/.pi/agent/hashline-readmap/settings.json");
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(globalSettingsPath, ".."), { recursive: true });
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(globalSettingsPath, JSON.stringify({ edit: { diffDisplay: "collapsed" } }));
+    await writeFile(projectSettingsPath, JSON.stringify({ edit: { diffDisplay: "expanded" } }));
+    __setHashlineSettingsPathsForTest({ globalSettingsPath, projectSettingsPath });
+
+    expect(resolveHashlineJsonSettings().settings.edit).toEqual({ diffDisplay: "expanded" });
+  });
 });

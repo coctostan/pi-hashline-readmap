@@ -21,6 +21,7 @@ import { buildDiffData, type DiffBlockRange } from "./diff-data.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, summaryLine } from "./tui-render-utils.js";
 import { DiffPreviewComponent } from "./tui-diff-component.js";
 import { buildContextHygieneMetadata, buildFileResource, type ContextHygieneMetadata } from "./context-hygiene.js";
+import { resolveEditDiffDisplay } from "./hashline-settings.js";
 
 const EDIT_PENDING_PREVIEW_STATE_KEY = "hashline-edit-pending-preview";
 
@@ -642,7 +643,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				previewKey,
 				() => buildPendingEditPreviewData(args ?? {}, context.cwd ?? process.cwd()),
 			);
-			const expanded = !!context.expanded;
+			const expanded = !!context.expanded || resolveEditDiffDisplay() === "expanded";
 			const preview2 = pendingPreviewLines(text, preview, expanded);
 			if (preview2.diffData) {
 				const diffComponent = context.lastComponent instanceof DiffPreviewComponent
@@ -692,7 +693,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				semanticClassification: semanticClassification as any,
 			});
 
-			const expanded = isRendererExpanded(options as any, context as any);
+			const expanded = isRendererExpanded(options as any, context as any) || resolveEditDiffDisplay() === "expanded";
 			const width = (context as any).width ?? (options as any)?.width;
 			const diffData = (details as any).diffData;
 			const stats = diffData?.stats ?? { added: 0, removed: 0 };
