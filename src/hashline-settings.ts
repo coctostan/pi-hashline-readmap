@@ -7,6 +7,7 @@ export interface HashlineJsonSettings {
   mapCache?: { dir?: string; enabled?: boolean };
   bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
   gdscript?: { enabled?: boolean };
+  edit?: { diffDisplay?: "collapsed" | "expanded" };
 }
 export interface HashlineSettingsWarning { source: string; message: string; path?: string }
 export interface HashlineSettingsResult { settings: HashlineJsonSettings; warnings: HashlineSettingsWarning[] }
@@ -172,6 +173,16 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
     if (enabled !== undefined) gdscript.enabled = enabled;
     if (Object.keys(gdscript).length > 0) settings.gdscript = gdscript;
   }
+  if (isRecord(raw.edit)) {
+    const edit: NonNullable<HashlineJsonSettings["edit"]> = {};
+    if ("diffDisplay" in raw.edit) {
+      const value = raw.edit.diffDisplay;
+      // Accept both "collapsed" and "expanded" literals (AC 2 + AC 3); other values warn.
+      if (value === "collapsed" || value === "expanded") edit.diffDisplay = value;
+      else warnings.push(invalid(source, "edit.diffDisplay"));
+    }
+    if (Object.keys(edit).length > 0) settings.edit = edit;
+  }
   return { settings, warnings };
 }
 function readSettingsFile(path: string): HashlineSettingsResult {
@@ -193,6 +204,8 @@ function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSetting
   if (Object.keys(bashContextGuard).length > 0) merged.bashContextGuard = bashContextGuard;
   const gdscript = { ...(base.gdscript ?? {}), ...(override.gdscript ?? {}) };
   if (Object.keys(gdscript).length > 0) merged.gdscript = gdscript;
+  const edit = { ...(base.edit ?? {}), ...(override.edit ?? {}) };
+  if (Object.keys(edit).length > 0) merged.edit = edit;
   return merged;
 }
 export function resolveHashlineJsonSettings(): HashlineSettingsResult {
@@ -206,4 +219,15 @@ export function isGdscriptMappingEnabled(env: NodeJS.ProcessEnv = process.env): 
     return env.PI_HASHLINE_GDSCRIPT === "1";
   }
   return resolveHashlineJsonSettings().settings.gdscript?.enabled === true;
+}
+
+export function resolveEditDiffDisplay(env: NodeJS.ProcessEnv = process.env): "collapsed" | "expanded" {
+  const raw = env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+  if (typeof raw === "string") {
+    const normalized = raw.trim().toLowerCase();
+    if (normalized === "expanded" || normalized === "collapsed") return normalized;
+  }
+  const json = resolveHashlineJsonSettings().settings.edit?.diffDisplay;
+  if (json === "expanded" || json === "collapsed") return json;
+  return "collapsed";
 }

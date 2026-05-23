@@ -51,4 +51,13 @@ describe("README.md content (AC-1, AC-2)", () => {
     expect(readme).toContain("Rust, C++, and Java structural maps use `web-tree-sitter` with packaged `tree-sitter-wasms` grammars");
     expect(readme).toContain("no native tree-sitter packages are installed for those mappers");
   });
+
+  it("documents the edit.diffDisplay setting and PI_HASHLINE_EDIT_DIFF_DISPLAY env override", () => {
+    expect(readme).toContain("edit.diffDisplay");
+    expect(readme).toContain("PI_HASHLINE_EDIT_DIFF_DISPLAY");
+    expect(readme).toContain("`collapsed`");
+    expect(readme).toContain("`expanded`");
+    expect(readme).toContain("Defaults to `collapsed`");
+    expect(readme).toMatch(/case-insensitive/i);
+  });
 });
