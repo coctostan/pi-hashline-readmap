@@ -53,6 +53,24 @@ def _find_var_name(node):
     return node  # leaf token
 
 
+def _find_const_name(node):
+    """Extract the NAME token from a const node (handles const_typed_assigned, const_inf, etc.)."""
+    if hasattr(node, "data"):
+        if node.data in (
+            "const_typed_assigned",
+            "const_assigned",
+            "const_typed",
+            "const",
+            "const_inf",
+        ):
+            return node.children[0]
+        for child in node.children:
+            result = _find_const_name(child)
+            if result is not None:
+                return result
+    return node  # leaf token
+
+
 # ---------------------------------------------------------------------------
 # AST walker
 # ---------------------------------------------------------------------------
@@ -123,11 +141,11 @@ def _process_node(node) -> dict[str, Any] | None:
         }
 
     if rule == "const_stmt":
-        name_token = children[0]
+        name_node = _find_const_name(children[0])
         return {
             "kind": "constant",
-            "name": _token_str(name_token),
-            "startLine": _token_line(name_token),
+            "name": _token_str(name_node),
+            "startLine": _token_line(name_node),
         }
 
     if rule == "class_var_stmt":
