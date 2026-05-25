@@ -207,15 +207,15 @@ export function buildStaleContextRecord(input: BuildStaleContextRecordInput): Co
 }
 
 export function renderStaleReadPlaceholder(): string {
-  return "[Stale read context: file content changed after this result. Re-run read to refresh.]";
+  return "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]";
 }
 
 export function renderStaleGrepPlaceholder(): string {
-  return "[Stale grep context: matched file content changed after this result. Re-run grep to refresh.]";
+  return "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Run grep again for current matches.]";
 }
 
 export function renderStaleAstSearchPlaceholder(): string {
-  return "[Stale ast_search context: matched file content changed after this result. Re-run ast_search to refresh.]";
+  return "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Run ast_search again for current matches.]";
 }
 
 export function renderStaleBashPlaceholder(record: ContextHygieneStaleRecord): string {

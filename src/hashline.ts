@@ -61,6 +61,7 @@ const DICT = Array.from({ length: HASH_MOD }, (_, i) => i.toString(RADIX).padSta
 
 const HASHLINE_PREFIX_RE = /^\d+:[0-9a-zA-Z]{1,16}\|/;
 const DIFF_PLUS_RE = /^\+(?!\+)/;
+const HASH_ONLY_PREFIX_RE = /^[0-9a-f]{3}\|/;
 const CONFUSABLE_HYPHENS_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]/g;
 const HASH_RELOCATION_WINDOW_BASE = 20;
 const HASH_RELOCATION_WINDOW_CAP = 100;
@@ -193,6 +194,7 @@ function formatMismatchError(
 	}
 	const sorted = [...displayLines].sort((a, b) => a - b);
 	const out: string[] = [
+		"Edit rejected — nothing was written. The anchor hash did not match the current file content.",
 		`${mismatches.length} line${mismatches.length > 1 ? "s have" : " has"} changed since last read. Auto-relocation checks only within ±${relocationWindow} lines of each anchor. Use the updated LINE:HASH references shown below (>>> marks changed lines).`,
 		"",
 	];
@@ -234,6 +236,7 @@ function splitDst(dst: string): string[] {
 
 function stripNewLinePrefixes(lines: string[]): string[] {
 	let hashCount = 0;
+	let hashOnlyCount = 0;
 	let plusCount = 0;
 	let nonEmpty = 0;
 
@@ -241,16 +244,24 @@ function stripNewLinePrefixes(lines: string[]): string[] {
 		if (!l.length) continue;
 		nonEmpty++;
 		if (HASHLINE_PREFIX_RE.test(l)) hashCount++;
+		else if (HASH_ONLY_PREFIX_RE.test(l)) hashOnlyCount++;
 		if (DIFF_PLUS_RE.test(l)) plusCount++;
 	}
 
 	if (!nonEmpty) return lines;
 	const stripHash = hashCount > 0 && hashCount >= nonEmpty * 0.5;
-	const stripPlus = !stripHash && plusCount > 0 && plusCount >= nonEmpty * 0.5;
-	if (!stripHash && !stripPlus) return lines;
+	const stripHashOnly = !stripHash && nonEmpty >= 2 && hashOnlyCount > 0 && hashOnlyCount >= nonEmpty * 0.5;
+	const stripPlus = !stripHash && !stripHashOnly && plusCount > 0 && plusCount >= nonEmpty * 0.5;
+	if (!stripHash && !stripHashOnly && !stripPlus) return lines;
 
 	return lines.map((l) =>
-		stripHash ? l.replace(HASHLINE_PREFIX_RE, "") : stripPlus ? l.replace(DIFF_PLUS_RE, "") : l,
+		stripHash
+			? l.replace(HASHLINE_PREFIX_RE, "")
+			: stripHashOnly
+				? l.replace(HASH_ONLY_PREFIX_RE, "")
+				: stripPlus
+					? l.replace(DIFF_PLUS_RE, "")
+					: l,
 	);
 }
 

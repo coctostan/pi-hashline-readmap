@@ -47,9 +47,9 @@ Maskable stale tools are:
 Rendered placeholders include:
 
 ```text
-[Stale read context: file content changed after this result. Re-run read to refresh.]
-[Stale grep context: matched file content changed after this result. Re-run grep to refresh.]
-[Stale ast_search context: matched file content changed after this result. Re-run ast_search to refresh.]
+[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]
+[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Run grep again for current matches.]
+[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Run ast_search again for current matches.]
 [Stale bash context: mutation-after-read. Re-run the Bash command to refresh. Command: npm test]
 ```
 

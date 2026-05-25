@@ -127,6 +127,12 @@ edit({
 
 `read`, `grep`, `ast_search`, and `write` all return hashlined output that can feed follow-up edits.
 
+### Editing notes
+
+- `new_text` is plain file content — never include `LINE:HASH|`, hash-only (`a1b|`), or `+` diff prefixes. `edit` strips them defensively when they dominate the replacement, but you should omit them.
+- Set `new_text` to `""` to delete the anchored line(s); use `"\n"` for an intentionally blank line.
+- `replace` is exact-only by default. `fuzzy: true` only normalizes whitespace and confusable Unicode after an exact match fails — it is not approximate or semantic matching.
+
 ### Create a new file with `write`
 
 ```text
