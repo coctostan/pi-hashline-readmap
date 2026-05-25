@@ -75,7 +75,7 @@ describe("context hygiene provider context handler", () => {
     const result = handlers.context({ type: "context", messages: providerContextCopy }, {});
 
     expect(result.messages[0].content).toEqual([
-      { type: "text", text: "[Stale read context: file content changed after this result. Re-run read to refresh.]" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]" },
     ]);
     expect(result.messages[0].details).toMatchObject({
       ptcValue: { tool: "read" },

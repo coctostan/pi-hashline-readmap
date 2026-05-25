@@ -12,9 +12,10 @@ Surgically edit existing text files. Prefer hash-verified anchored edits from fr
 | `replace_symbol` | Replace one function/class/method/etc. | 0 (`symbol`) |
 | `replace` | String replacement escape hatch; one match by default, all with `all: true` | 0 |
 
+Set `new_text` (or `replace_lines` `new_text`) to `""` to delete the anchored line(s). For an intentionally blank line, use `"\n"` or whitespace content, not `""`.
 Prefer `set_line`, `replace_lines`, and `insert_after`: they verify the file still matches the anchored content. Use `replace` only when anchors are impractical, such as repeated text across many unrelated lines.
 
-`replace` is exact-only by default: missing `old_text` fails with `text-not-found`. Fuzzy replacement requires explicit `fuzzy: true`; when used, the response warns that exact text was not found and fuzzy matching was used.
+`replace` is exact-only by default: missing `old_text` fails with `text-not-found`. Wrap old_text/new_text in {replace: ...} — a bare top-level `{old_text, new_text}` inside `edits[]` is rejected with guidance. `fuzzy: true` is a narrow fallback that only normalizes whitespace and confusable Unicode (e.g. smart hyphens) after exact matching fails; it is **not approximate or Levenshtein/semantic matching** and will not find renamed or reworded text. When fuzzy matching is used, the response warns that exact text was not found.
 
 ## Input shape
 

@@ -80,6 +80,11 @@ describe("repro 177 — core edit input correctness edge cases", () => {
     await writeTool.execute("write", { path: filePath, content: "const a = 1;\n" }, new AbortController().signal, () => {}, { cwd: process.cwd() });
 
     expect(Value.Check(editTool.parameters, commonMistake)).toBe(true);
+    // #199: the bare member stays valid (so the guard runs) but is now annotated to reduce exposure.
+    const bareMember = (editTool.parameters as any).properties?.edits?.items?.anyOf?.find(
+      (m: any) => m.properties?.old_text && m.properties?.new_text && !m.properties?.replace,
+    );
+    expect(bareMember?.description).toContain("Wrap as { replace");
     const result = await editTool.execute("edit", commonMistake, new AbortController().signal, () => {}, { cwd: process.cwd() });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toContain("edits[0] has top-level 'old_text'/'new_text'");

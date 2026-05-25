@@ -63,7 +63,10 @@ const hashlineEditItemSchema = Type.Union([
 	),
 	Type.Object(
 		{ old_text: Type.String(), new_text: Type.String() },
-		{ additionalProperties: true },
+		{
+			additionalProperties: true,
+			description: "Do not use — Wrap as { replace: {old_text, new_text} }.",
+		},
 	),
 ]);
 

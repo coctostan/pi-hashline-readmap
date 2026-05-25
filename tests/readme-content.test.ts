@@ -60,4 +60,10 @@ describe("README.md content (AC-1, AC-2)", () => {
     expect(readme).toContain("Defaults to `collapsed`");
     expect(readme).toMatch(/case-insensitive/i);
   });
+
+  it("documents edit new_text safety, deletion, and fuzzy semantics", () => {
+    expect(readme).toContain("never include `LINE:HASH|`");
+    expect(readme).toContain('Set `new_text` to `""` to delete');
+    expect(readme).toContain("not approximate or semantic matching");
+  });
 });

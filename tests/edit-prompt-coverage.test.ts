@@ -16,6 +16,9 @@ describe("prompts/edit.md coverage", () => {
     expect(content.toLowerCase()).toContain("escape hatch");
     expect(content).toContain("exact-only");
     expect(content).toContain("fuzzy: true");
+    expect(content).toContain("to delete the anchored line");
+    expect(content).toContain("not approximate or Levenshtein");
+    expect(content).toContain("Wrap old_text/new_text in {replace: ...}");
     expect(content).toContain("read");
     expect(content).toContain("grep");
     expect(content).toContain("ast_search");

@@ -85,7 +85,7 @@ describe("issue 144 — stale-masked read must not satisfy edit's must-read guar
       ],
     }, {});
     expect(ctxResult.messages[0].content[0].text)
-      .toContain("[Stale read context: file content changed after this result. Re-run read to refresh.]");
+      .toContain("[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]");
 
     // 4. Edit with a structurally-valid LINE:HASH whose hash matches a *different*
     //    line — adaptive relocation would silently land it. The fix must intercept
