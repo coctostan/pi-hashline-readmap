@@ -314,12 +314,21 @@ export async function executeWrite(opts: {
 }
 
 export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = {}) {
+  const ptc = {
+    callable: true,
+    enabled: true,
+    policy: "mutating" as const,
+    readOnly: false,
+    pythonName: "write",
+    defaultExposure: "not-safe-by-default" as const,
+  };
   const tool = {
     name: "write",
     label: "write",
     description: WRITE_PROMPT_METADATA.description,
     promptSnippet: WRITE_PROMPT_METADATA.promptSnippet,
     promptGuidelines: WRITE_PROMPT_METADATA.promptGuidelines,
+    ptc,
     parameters: Type.Object({
       path: Type.String({ description: "File path" }),
       content: Type.String({ description: "File content" }),
@@ -489,7 +498,7 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
       }
       return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
     },
-  };
+  } satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
   pi.registerTool(tool);
   return tool;
 }

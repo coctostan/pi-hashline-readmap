@@ -77,6 +77,7 @@ Current policy summary:
 | `grep` | `grep` | Yes | `read-only` | `safe-by-default` |
 | `ast_search` | `ast_search` | No | `read-only` | `opt-in` |
 | `edit` | `edit` | Yes | `mutating` | `not-safe-by-default` |
+| `write` | `write` | Yes | `mutating` | `not-safe-by-default` |
 | `ls` | `ls` | Yes | `read-only` | `safe-by-default` |
 | `find` | `find` | Yes | `read-only` | `safe-by-default` |
 | `nu` | `nu` | No | `read-only` | `opt-in` |
@@ -86,4 +87,4 @@ Current policy summary:
 - Treat `ptcValue` as additive metadata, not a replacement for rendered text.
 - Use stable fields such as `tool`, `path`, `lines`, `anchor`, `warnings`, and `error.code` when available.
 - Avoid parsing rendered text when the same data exists in `ptcValue`.
-- Mutating consumers should honor the exported policy: `edit` is not safe-by-default, while `read`, `grep`, `ls`, and `find` are read-only.
+- Mutating consumers should honor the exported policy: `edit` and `write` are mutating and not safe-by-default, while `read`, `grep`, `ls`, and `find` are read-only.
