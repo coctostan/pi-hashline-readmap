@@ -12,7 +12,6 @@ import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
 import { applyBashContextGuard, resolveBashContextGuardConfig, type BashContextGuardConfig } from "./src/rtk/bash-context-guard.js";
-import { stripAnsi } from "./src/rtk/ansi.js";
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
 import { buildBashCommandState } from "./src/bash-command-state.js";
 import {
@@ -139,9 +138,6 @@ export type {
   HashlineToolPtcPolicy,
   HashlineToolPtcPolicyEntry,
 } from "./src/ptc-tool-policy.js";
-
-const BASH_FILTER_ENABLED = true;
-
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   return `${(bytes / 1024).toFixed(1)} KB`;
@@ -353,34 +349,6 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       const prefix = `${formatDoomLoopMessage(doomLoop)}\n\n---\n`;
       return `${prefix}${body}`;
     };
-    if (!BASH_FILTER_ENABLED) {
-      const stripped = stripAnsi(originalText);
-      const finalText = applyWarning(stripped);
-      const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)
-        ? ensureBashOriginalOutputSnapshot({
-            visibleText: originalText,
-            metadata: originalSelection.metadata,
-            enabled: bashContextGuardConfig.enabled,
-          })
-        : originalSelection.metadata;
-      const guarded = applyBashContextGuard({
-        text: finalText,
-        command,
-        originalMetadata: originalMetadataForGuard,
-        config: bashContextGuardConfig,
-      });
-      const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalSelection.metadata;
-      if (guarded.text === originalText && !bashOriginalOutput) return undefined;
-      return {
-        content: [{ type: "text" as const, text: guarded.text }, ...nonTextContent],
-        details: {
-          ...existingDetails,
-          contextHygiene: contextHygieneForDetails,
-          bashContextGuard: guarded.metadata,
-          ...(bashOriginalOutput ? { bashOriginalOutput } : {}),
-        },
-      };
-    }
     const { output, savedChars, info } = filterBashOutput(command, originalSelection.inputForRtk);
     if (process.env.PI_RTK_SAVINGS === "1") {
       process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);

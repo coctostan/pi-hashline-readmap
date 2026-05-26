@@ -1,8 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { registerEditTool } from "../src/edit.js";
+import { __resetHashlineSettingsPathsForTest, __setHashlineSettingsPathsForTest } from "../src/hashline-settings.js";
+import { join } from "node:path";
+import { randomBytes } from "node:crypto";
 
 function getEditTool(): any {
 	let tool: any;
@@ -21,6 +24,20 @@ const theme = {
 };
 
 describe("edit renderCall pending diff preview", () => {
+	const originalEnv = process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+	beforeEach(() => {
+		delete process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+		const root = join(tmpdir(), `edit-pending-render-${randomBytes(6).toString("hex")}`);
+		__setHashlineSettingsPathsForTest({
+			globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+			projectSettingsPath: join(root, "repo/.pi/hashline-readmap/settings.json"),
+		});
+	});
+	afterEach(() => {
+		if (originalEnv === undefined) delete process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+		else process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY = originalEnv;
+		__resetHashlineSettingsPathsForTest();
+	});
 	it("renders a collapsed pending edit preview by default", async () => {
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-edit-pending-success-"));
 		const filePath = resolve(cwd, "sample.ts");
