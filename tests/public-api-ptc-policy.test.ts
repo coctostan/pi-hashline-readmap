@@ -21,3 +21,32 @@ describe("public API ptc policy export", () => {
     expect(mod.HASHLINE_TOOL_PTC_POLICY.tools.edit.defaultExposure).toBe("not-safe-by-default");
   });
 });
+
+describe("executor map is covered by the exported policy", () => {
+  it("every emitted executor tool (except debug-only) has a policy entry", async () => {
+    const { default: init } = await import("../index.ts");
+    const { HASHLINE_TOOL_PTC_POLICY } = await import("../src/ptc-tool-policy.ts");
+    const emitted: Record<string, any>[] = [];
+    const pi: any = {
+      registeredTools: {} as Record<string, any>,
+      registerTool(def: any) { this.registeredTools[def.name] = def; },
+      on() {},
+      events: { emit(_channel: string, payload: any) { emitted.push(payload); } },
+    };
+    init(pi);
+    const map =
+      (globalThis as any).__hashlineToolExecutors ??
+      emitted[emitted.length - 1] ??
+      {};
+    // context_hygiene_report is a debug-only tool intentionally excluded from
+    // the cross-extension ptc policy contract.
+    const DEBUG_ONLY = new Set(["context_hygiene_report"]);
+    const policyKeys = new Set(Object.keys(HASHLINE_TOOL_PTC_POLICY.tools));
+    const uncovered = Object.keys(map).filter(
+      (name) => !DEBUG_ONLY.has(name) && !policyKeys.has(name),
+    );
+    expect(uncovered).toEqual([]);
+    // write specifically must be covered (the original drift).
+    expect(policyKeys.has("write")).toBe(true);
+  });
+});

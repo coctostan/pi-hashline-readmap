@@ -3,6 +3,7 @@ export type HashlineToolName =
   | "grep"
   | "ast_search"
   | "edit"
+  | "write"
   | "ls"
   | "find"
   | "nu";
@@ -54,6 +55,13 @@ export const HASHLINE_TOOL_PTC_POLICY: HashlineToolPtcPolicy = {
     edit: {
       toolName: "edit",
       helperName: "edit",
+      overridesBuiltin: true,
+      mutability: "mutating",
+      defaultExposure: "not-safe-by-default",
+    },
+    write: {
+      toolName: "write",
+      helperName: "write",
       overridesBuiltin: true,
       mutability: "mutating",
       defaultExposure: "not-safe-by-default",
