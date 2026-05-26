@@ -1,14 +1,31 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { registerEditTool } from "../src/edit.js";
+import { __resetHashlineSettingsPathsForTest, __setHashlineSettingsPathsForTest } from "../src/hashline-settings.js";
+import { join } from "node:path";
+import { randomBytes } from "node:crypto";
 
 const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
 function textOf(component: any, width = 120): string { return component?.text ?? component?.render?.(width)?.join("\n") ?? ""; }
 function tool(): any { let registered: any; registerEditTool({ registerTool(def: any) { registered = def; } } as any, { wasReadInSession: () => true } as any); return registered; }
 
 describe("edit TUI renderer", () => {
+  const originalEnv = process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+  beforeEach(() => {
+    delete process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+    const root = join(tmpdir(), `edit-render-tui-${randomBytes(6).toString("hex")}`);
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath: join(root, "repo/.pi/hashline-readmap/settings.json"),
+    });
+  });
+  afterEach(() => {
+    if (originalEnv === undefined) delete process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
+    else process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY = originalEnv;
+    __resetHashlineSettingsPathsForTest();
+  });
   it("shows edit summary before final diff and preserves model-facing data", () => {
     const result: any = { content: [{ type: "text", text: "1:abc|one\n2:def|TWO" }], details: { diff: "-2 two\n+2 TWO", diffData: { version: 1, stats: { added: 1, removed: 1, context: 0 }, entries: [{ kind: "remove", oldLine: 2, text: "two" }, { kind: "add", newLine: 2, text: "TWO" }] }, ptcValue: { warnings: [], noopEdits: [], semanticSummary: { classification: "semantic" }, diffData: { sentinel: true } } } };
     const before = JSON.stringify(result.details);
