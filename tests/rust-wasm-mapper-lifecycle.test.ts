@@ -35,7 +35,7 @@ describe("Rust WASM mapper lifecycle", () => {
       "../src/readmap/mappers/rust.js"
     );
     const map = await rustMapperFromContent("virtual.rs", "// no symbols\n");
-    expect(MAPPER_VERSION).toBe(2);
+    expect(MAPPER_VERSION).toBe(3);
     expect(map).toBeNull();
     expect(parser.parse).toHaveBeenCalledTimes(1);
     expect(deleteTree).toHaveBeenCalledTimes(1);

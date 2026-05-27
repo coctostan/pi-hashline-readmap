@@ -21,7 +21,7 @@ describe("C++ WASM mapper lifecycle", () => {
     vi.doMock("../src/readmap/parser-loader.js", () => ({ getWasmParser: vi.fn(async () => parser) }));
     const { cppMapper, MAPPER_VERSION } = await import("../src/readmap/mappers/cpp.js");
     const map = await cppMapper(file);
-    expect(MAPPER_VERSION).toBe(2);
+    expect(MAPPER_VERSION).toBe(3);
     expect(map).toBeNull();
     expect(parser.parse).toHaveBeenCalledTimes(1);
     expect(deleteTree).toHaveBeenCalledTimes(1);

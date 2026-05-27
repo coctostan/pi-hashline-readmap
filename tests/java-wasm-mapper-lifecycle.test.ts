@@ -13,7 +13,7 @@ describe("Java WASM mapper lifecycle", () => {
     vi.doMock("../src/readmap/parser-loader.js", () => ({ getWasmParser: vi.fn(async () => parser) }));
     const { javaMapperFromContent, MAPPER_VERSION } = await import("../src/readmap/mappers/java.js");
     const map = await javaMapperFromContent("Empty.java", "// no symbols\n");
-    expect(MAPPER_VERSION).toBe(3);
+    expect(MAPPER_VERSION).toBe(4);
     expect(map).toBeNull();
     expect(parser.parse).toHaveBeenCalledTimes(1);
     expect(deleteTree).toHaveBeenCalledTimes(1);
