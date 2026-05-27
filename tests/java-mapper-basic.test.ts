@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 describe("javaMapper basic tree-sitter extraction", () => {
-  it("exports version 3 and maps a class with package/imports", async () => {
+  it("exports version 4 and maps a class with package/imports", async () => {
     const file = await writeJava("Example.java", [
       "package com.example.demo;",
       "",
@@ -34,7 +34,7 @@ describe("javaMapper basic tree-sitter extraction", () => {
 
     const map = await javaMapper(file);
 
-    expect(MAPPER_VERSION).toBe(3);
+    expect(MAPPER_VERSION).toBe(4);
     expect(map).not.toBeNull();
     expect(map!.language).toBe("Java");
     expect(map!.imports).toEqual([

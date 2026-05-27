@@ -11,7 +11,14 @@ import type { FileMap, FileSymbol } from "../types.js";
 import { DetailLevel, SymbolKind } from "../enums.js";
 import { getWasmParser } from "../parser-loader.js";
 import { reportParserError } from "../parser-errors.js";
-export const MAPPER_VERSION = 2;
+import {
+  normalizeWhitespace,
+  getNodeText,
+  getLineRange,
+  findFirstDescendant,
+  finalizeSignature,
+} from "./tree-sitter-helpers.js";
+export const MAPPER_VERSION = 3;
 
 type ScopeKind = "mod" | "struct" | "enum" | "trait" | "impl";
 
@@ -35,14 +42,6 @@ interface InternalSymbol {
   docstring?: string;
 }
 
-function normalizeWhitespace(value: string): string {
-  return value.replaceAll(/\s+/g, " ").trim();
-}
-
-function getNodeText(node: SyntaxNode, source: string): string {
-  return source.slice(node.startIndex, node.endIndex);
-}
-
 function formatSignature(
   node: SyntaxNode,
   source: string,
@@ -58,38 +57,7 @@ function formatSignature(
       text = text.slice(0, parenIndex);
     }
   }
-  text = text.replace(/;\s*$/, "");
-  return normalizeWhitespace(text);
-}
-
-function getLineRange(node: SyntaxNode): {
-  startLine: number;
-  endLine: number;
-} {
-  return {
-    startLine: node.startPosition.row + 1,
-    endLine: node.endPosition.row + 1,
-  };
-}
-
-function findFirstDescendant(
-  node: SyntaxNode,
-  types: string[]
-): SyntaxNode | null {
-  const stack = [...node.namedChildren];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (!current) {
-      continue;
-    }
-    if (types.includes(current.type)) {
-      return current;
-    }
-    for (const child of current.namedChildren) {
-      stack.push(child);
-    }
-  }
-  return null;
+  return finalizeSignature(text);
 }
 
 function hasVisibilityModifier(node: SyntaxNode): boolean {

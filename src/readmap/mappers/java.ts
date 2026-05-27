@@ -6,8 +6,13 @@ import type { FileMap, FileSymbol } from "../types.js";
 import { DetailLevel, SymbolKind } from "../enums.js";
 import { getWasmParser } from "../parser-loader.js";
 import { reportParserError } from "../parser-errors.js";
+import {
+  normalizeWhitespace,
+  getNodeText,
+  getLineRange,
+} from "./tree-sitter-helpers.js";
 
-export const MAPPER_VERSION = 3;
+export const MAPPER_VERSION = 4;
 
 const TYPE_KINDS: Record<string, SymbolKind> = {
   class_declaration: SymbolKind.Class,
@@ -33,18 +38,6 @@ const MEMBER_METHOD_TYPES = new Set([
   "compact_constructor_declaration",
   "annotation_type_element_declaration",
 ]);
-
-function normalizeWhitespace(value: string): string {
-  return value.replaceAll(/\s+/g, " ").trim();
-}
-
-function getNodeText(node: SyntaxNode, source: string): string {
-  return source.slice(node.startIndex, node.endIndex);
-}
-
-function getLineRange(node: SyntaxNode): { startLine: number; endLine: number } {
-  return { startLine: node.startPosition.row + 1, endLine: node.endPosition.row + 1 };
-}
 
 function extractName(node: SyntaxNode, source: string): string | null {
   const nameNode = node.childForFieldName("name");
