@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.8.16] - 2026-05-28
+
+### Changed
+- Tree-sitter mappers (`rust`, `cpp`, `java`) now share their low-level helpers (`normalizeWhitespace`, `getNodeText`, `getLineRange`, `findFirstDescendant`, `finalizeSignature`) via `src/readmap/mappers/tree-sitter-helpers.ts`. Behavior-preserving refactor; structural-map output shape is unchanged. `MAPPER_VERSION` bumped (rust 2→3, cpp 2→3, java 3→4), which invalidates persistent-map cache entries for the affected languages on first read (#202, PR #135).
+- `write` tool now carries an explicit inline `ptc` policy (mutating, not safe by default) and is registered in `HashlineToolName` and `HASHLINE_TOOL_PTC_POLICY`. The PTC drift guard test was replaced with a mechanical check that cross-references each live tool's inline `ptc` against the exported policy and emitted executor map, so a tool added without a policy entry now fails CI (#201, PR #134).
+
+### Removed
+- Dead `BASH_FILTER_ENABLED = true` constant and its unreachable branch in `index.ts`; the live `filterBashOutput` path is unchanged (#200, PR #133).
+
+### Fixed
+- TUI renderer tests for the collapsed-diff default (`edit-render-tui.test.ts`, `edit-pending-diff-render-success.test.ts`) are now isolated from the user's real `~/.pi/agent/hashline-readmap/settings.json`, so a machine configured with `edit.diffDisplay: "expanded"` no longer produces false test failures (#200, PR #133).
+
+## [0.8.15] - 2026-05-25
+
 ### Changed
 - Release 0.8.13: Rust, C++, Java, and edit syntax validation now use `web-tree-sitter` with packaged `tree-sitter-wasms` grammars instead of native `tree-sitter*` packages. Native grammar dependencies were removed and unsupported Clojure mapper support was dropped (#192).
 ### Fixed
