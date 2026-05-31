@@ -19,6 +19,7 @@ import {
   buildContextHygieneMetadata,
   buildFileResource,
   getContextHygieneTracker,
+  normalizePathForContextHygiene,
   registerContextHygieneDebugTool,
   resetContextHygieneTracker,
   type ContextHygieneAppliedEffects,
@@ -167,14 +168,17 @@ function willBashContextGuardTrim(text: string, config: BashContextGuardConfig):
 }
 
 export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
-  // readTurns maps an absolute path to the tracker event id of the most recent
+  // readTurns maps a normalized absolute path to the tracker event id of the most recent
   // live-anchor tool result for that path (read / grep / ast_search / write).
+  // Paths are normalized through the context-hygiene path normalizer so Windows
+  // backslash paths match the `file:` resource keys used in stale reports.
   // When the provider-context handler masks a prior live-anchor read into a
   // stale placeholder, we expire the corresponding entry so wasReadInSession
   // stops returning true until the agent re-reads the file.
   const readTurns = new Map<string, number>();
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
+  const normalizeReadTurnPath = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
   const noteRead = (absolutePath: string) => {
     // noteRead is invoked synchronously from inside read/grep/ast_search/write
     // BEFORE the tool result is dispatched to the tool_result handler that
@@ -186,9 +190,9 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const tracker = getContextHygieneTracker();
     const report = tracker.generateReport();
     const eventId = report.eventCount + 1;
-    readTurns.set(absolutePath, eventId);
+    readTurns.set(normalizeReadTurnPath(absolutePath), eventId);
   };
-  const wasReadInSession = (absolutePath: string) => readTurns.has(absolutePath);
+  const wasReadInSession = (absolutePath: string) => readTurns.has(normalizeReadTurnPath(absolutePath));
 
   const readTool = registerReadTool(pi, { onSuccessfulRead: noteRead });
   const editTool = registerEditTool(pi, { wasReadInSession });
@@ -240,11 +244,11 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (readTurns.size === 0) return;
     for (const candidate of report.staleCandidates) {
       if (!candidate.resourceKey.startsWith("file:")) continue;
-      const absolutePath = candidate.resourceKey.slice("file:".length);
-      const recordedEventId = readTurns.get(absolutePath);
+      const staleResourcePath = candidate.resourceKey.slice("file:".length);
+      const recordedEventId = readTurns.get(staleResourcePath);
       if (recordedEventId === undefined) continue;
       if (recordedEventId <= candidate.mutationEventId) {
-        readTurns.delete(absolutePath);
+        readTurns.delete(staleResourcePath);
       }
     }
   };

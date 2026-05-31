@@ -5,6 +5,7 @@ import {
   buildFileResource,
   buildSymbolResource,
   normalizeCommandForContextHygiene,
+  normalizePathForContextHygiene,
 } from "../src/context-hygiene.js";
 
 describe("context hygiene resource keys", () => {
@@ -19,6 +20,19 @@ describe("context hygiene resource keys", () => {
     expect(buildFileResource("./src/read.ts")).toEqual(buildFileResource("src/read.ts"));
     expect(buildFileResource("src/../src/read.ts")).toEqual(buildFileResource("src/read.ts"));
     expect(buildFileResource("src//read.ts")).toEqual(buildFileResource("src/read.ts"));
+  });
+
+  it("matches Windows backslash paths against slash-normalized stale resource keys", () => {
+    const backslashPath = "C:\\Users\\Agent\\AppData\\Local\\Temp\\sample.ts";
+    const slashPath = "C:/Users/Agent/AppData/Local/Temp/sample.ts";
+
+    expect(normalizePathForContextHygiene(backslashPath)).toBe(slashPath);
+    expect(buildFileResource(backslashPath)).toEqual({
+      kind: "file",
+      key: `file:${slashPath}`,
+      path: slashPath,
+    });
+    expect(buildFileResource(backslashPath)).toEqual(buildFileResource(slashPath));
   });
 
   it("builds deterministic symbol resources scoped to files", () => {
