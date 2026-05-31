@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pythonMapper } from "../src/readmap/mappers/python.js";
 
-describe("pythonMapper with shell metacharacters in path (GH #116)", () => {
+// Windows forbids `"` in filenames. This runtime fixture is POSIX-specific.
+describe.skipIf(process.platform === "win32")('pythonMapper with `"` in path (GH #116)', () => {
   let dir: string;
   let filePath: string;
 

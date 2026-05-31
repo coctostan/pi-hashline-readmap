@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fallbackMapper } from "../src/readmap/mappers/fallback.js";
 
-describe("fallbackMapper with shell metacharacters in path (GH #116)", () => {
+// Windows forbids `"` in filenames. This runtime fixture is POSIX-specific.
+describe.skipIf(process.platform === "win32")('fallbackMapper with `"` in path (GH #116)', () => {
   let dir: string;
   let filePath: string;
 
