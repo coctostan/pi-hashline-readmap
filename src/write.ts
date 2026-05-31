@@ -14,7 +14,7 @@ import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { buildPendingWritePreviewData, buildWritePreviewKey, resolvePendingDiffPreview, type PendingDiffPreviewResult } from "./pending-diff-preview.js";
 import { generateCompactOrFullDiff, normalizeToLF, hasBareCarriageReturn } from "./edit-diff.js";
 import { buildDiffData, type DiffData } from "./diff-data.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { DiffPreviewComponent } from "./tui-diff-component.js";
 
 const WRITE_PENDING_PREVIEW_STATE_KEY = "hashline-write-pending-preview";
@@ -427,10 +427,14 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
     },
     renderCall(args: any, theme: any, context: any = {}) {
       const { path, content } = args as { path: string; content?: string };
+      const cwd = context.cwd ?? process.cwd();
       const label = renderToolLabel(theme, "write");
       const lineCount = typeof content === "string" ? content.split("\n").length : 0;
       const bytes = typeof content === "string" ? Buffer.byteLength(content, "utf8") : 0;
-      let text = clampLineToWidth(`${label} ${theme.fg("muted", path)}${typeof content === "string" ? ` (${lineCount} ${lineCount === 1 ? "line" : "lines"} • ${bytes} B)` : ""}`, context.width);
+      const renderedPath = typeof path === "string"
+        ? linkToolPath(theme.fg("muted", path), path, cwd)
+        : theme.fg("toolOutput", "...");
+      let text = clampLineToWidth(`${label} ${renderedPath}${typeof content === "string" ? ` (${lineCount} ${lineCount === 1 ? "line" : "lines"} • ${bytes} B)` : ""}`, context.width);
       // Once execution has started, the pending preview's only job is done:
       // renderResult will carry the story ("↳ created" / "↳ overwritten" with
       // expandable content or diff). Showing the "↳ pending…" sub-line and

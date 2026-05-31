@@ -6,6 +6,7 @@ export interface BuildEditOutputInput {
   path: string;
   displayPath: string;
   diff: string;
+  patch?: string;
   diffData?: DiffData;
   firstChangedLine: number | undefined;
   warnings: string[];
@@ -15,6 +16,7 @@ export interface BuildEditOutputInput {
 }
 export interface EditOutputResult {
   text: string;
+  patch: string;
   ptcValue: ReturnType<typeof buildPtcEditResult>;
   contextHygiene: ContextHygieneMetadata;
 }
@@ -85,6 +87,7 @@ export function buildEditOutput(input: BuildEditOutputInput): EditOutputResult {
   if (replaceHint) text += `\n${replaceHint}`;
   return {
     text,
+    patch: input.patch ?? "",
     ptcValue: buildPtcEditResult({
       path: input.path,
       summary,

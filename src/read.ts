@@ -25,7 +25,7 @@ import { buildLocalBundle } from "./read-local-bundle.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { Text } from "@earendil-works/pi-tui";
 import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
 
 const READ_PROMPT_METADATA = defineToolPromptMetadata({
 	promptUrl: new URL("../prompts/read.md", import.meta.url),
@@ -648,12 +648,17 @@ return succeed({
 		},
 		renderCall(args: any, theme: any, ...rest: any[]) {
 			const context = rest[0] ?? {};
+			const cwd = context.cwd ?? process.cwd();
 			const { path: filePath, suffix } = formatReadCallText(args);
 			const rangeSuffix = typeof args?.offset === "number" && typeof args?.limit === "number" && args.offset > 0 && args.limit > 0
 				? `:${args.offset}-${args.offset + args.limit - 1}`
 				: "";
 			let text = renderToolLabel(theme, "read");
-			text += filePath ? ` ${theme.fg("accent", `${filePath}${rangeSuffix}`)}` : ` ${theme.fg("toolOutput", "...")}`;
+			if (filePath) {
+				text += ` ${linkToolPath(theme.fg("accent", `${filePath}${rangeSuffix}`), filePath, cwd)}`;
+			} else {
+				text += ` ${theme.fg("toolOutput", "...")}`;
+			}
 			if (!rangeSuffix && suffix) text += ` ${theme.fg("dim", suffix)}`;
 			return new Text(clampLineToWidth(text, context.width), 0, 0);
 		},

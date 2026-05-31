@@ -17,7 +17,7 @@ import { throwIfAborted } from "./runtime";
 import { Text } from "@earendil-works/pi-tui";
 import { formatGrepCallText, formatGrepResultText } from "./grep-render-helpers.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 
 const GREP_PROMPT_METADATA = defineToolPromptMetadata({
 	promptUrl: new URL("../prompts/grep.md", import.meta.url),
@@ -711,9 +711,20 @@ if (p.scope === "symbol" && !summary) {
 		},
 		renderCall(args: any, theme: any, ...rest: any[]) {
 			const context = rest[0] ?? {};
+			const cwd = context.cwd ?? process.cwd();
 			const { pattern, suffix } = formatGrepCallText(args);
+			const rawPath = typeof args?.path === "string" && args.path !== "." ? args.path : undefined;
+			const glob = typeof args?.glob === "string" ? args.glob : undefined;
 			let text = `${renderToolLabel(theme, "grep")} ${theme.fg("accent", `/${pattern}/`)}`;
-			if (suffix) text += theme.fg("dim", ` in ${suffix}`);
+			if (suffix) {
+				if (rawPath) {
+					text += theme.fg("dim", " in ");
+					text += linkToolPath(theme.fg("dim", rawPath), rawPath, cwd);
+					if (glob) text += theme.fg("dim", ` ${glob}`);
+				} else {
+					text += theme.fg("dim", ` in ${suffix}`);
+				}
+			}
 			return new Text(clampLineToWidth(text, context.width), 0, 0);
 		},
 		renderResult(result: any, options: ToolRenderResultOptions, theme: any, ...rest: any[]) {

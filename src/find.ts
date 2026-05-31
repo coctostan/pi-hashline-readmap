@@ -10,7 +10,7 @@ import * as findStat from "./find-stat.js";
 import { parseRelativeOrIsoDate, parseSize } from "./find-parsers.js";
 import { buildPtcError } from "./ptc-value.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 
 const MAX_BYTES = 50 * 1024; // 50 KB
 const DEFAULT_LIMIT = 1000;
@@ -582,8 +582,12 @@ export function registerFindTool(pi: ExtensionAPI) {
 
     renderCall(args: any, theme: any, context: any = {}) {
       const { pattern, path } = args as { pattern: string; path?: string };
-      const target = path ? `${pattern} in ${path}` : pattern;
-      return new Text(clampLineToWidth(`${renderToolLabel(theme, "find")} ${theme.fg("muted", target)}`, context.width), 0, 0);
+      const cwd = context.cwd ?? process.cwd();
+      const label = renderToolLabel(theme, "find");
+      const target = path
+        ? `${theme.fg("muted", pattern)}${theme.fg("muted", " in ")}${linkToolPath(theme.fg("muted", path), path, cwd)}`
+        : theme.fg("muted", pattern);
+      return new Text(clampLineToWidth(`${label} ${target}`, context.width), 0, 0);
     },
 
     renderResult(result: any, options: any, theme: any, context: any = {}) {

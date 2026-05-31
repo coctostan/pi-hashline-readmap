@@ -3,6 +3,7 @@ import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
+import { createPatch } from "diff";
 import { detectLineEnding, generateCompactOrFullDiff, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff";
 import { HashlineMismatchError, applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline";
 import { resolveToCwd } from "./path-utils";
@@ -18,7 +19,7 @@ import { resolveSyntaxValidateMode, type SyntaxValidateOptions } from "./syntax-
 import { replaceSymbol } from "./replace-symbol.js";
 import { buildEditPreviewKey, buildPendingEditPreviewData, resolvePendingDiffPreview, type PendingDiffPreviewResult } from "./pending-diff-preview.js";
 import { buildDiffData, type DiffBlockRange } from "./diff-data.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, summaryLine } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, summaryLine } from "./tui-render-utils.js";
 import { DiffPreviewComponent } from "./tui-diff-component.js";
 import { buildContextHygieneMetadata, buildFileResource, type ContextHygieneMetadata } from "./context-hygiene.js";
 import { resolveEditDiffDisplay } from "./hashline-settings.js";
@@ -110,6 +111,7 @@ function buildEditError(
 		isError: true,
 		details: {
 			diff: "",
+			patch: "",
 			firstChangedLine: undefined,
 			ptcValue: {
 				tool: "edit",
@@ -155,7 +157,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			const path = rawPath.replace(/^@/, "");
 			const absolutePath = resolveToCwd(path, ctx.cwd);
 			throwIfAborted(signal);
-			return withFileMutationQueue(absolutePath, async () => {
+			try {
+				return await withFileMutationQueue(absolutePath, async () => {
 				throwIfAborted(signal);
 			if (options.wasReadInSession && !options.wasReadInSession(absolutePath)) {
 				const message = [
@@ -538,6 +541,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			}
 
 			const diffResult = generateCompactOrFullDiff(originalNormalized, result);
+			const patch = createPatch(path, originalNormalized, result);
 			const blockRanges: DiffBlockRange[] = rsProbeResults.map((probe) => ({
 				kind: "remove" as const,
 				startLine: probe.range.start,
@@ -579,6 +583,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				path: absolutePath,
 				displayPath: path,
 				diff: diffResult.diff,
+				patch,
 				diffData,
 				firstChangedLine: anchorResult.firstChangedLine ?? diffResult.firstChangedLine,
 				warnings,
@@ -592,6 +597,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				content: [{ type: "text", text: builtOutput.text }],
 				details: {
 					diff: diffResult.diff,
+					patch: builtOutput.patch,
 					diffData,
 					firstChangedLine: anchorResult.firstChangedLine ?? diffResult.firstChangedLine,
 					ptcValue: builtOutput.ptcValue,
@@ -609,17 +615,27 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						warnings: string[];
 						noopEdits: unknown[];
 					};
+					contextHygiene: ContextHygieneMetadata;
 				},
 			};
-			});
+				});
+			} catch (err: any) {
+				const code = err?.code;
+				if (typeof code === "string") {
+					const message = `File not readable: ${path}${err?.message ? ` — ${err.message}` : ""}`;
+					return buildEditError(absolutePath, "fs-error", message, undefined, { fsCode: code, fsMessage: err?.message });
+				}
+				throw err;
+			}
 		},
 		renderCall(args: any, theme: any, ...rest: any[]) {
 			const context: { argsComplete?: boolean; executionStarted?: boolean; lastComponent?: any; cwd?: string; state?: Record<string, any>; invalidate?: () => void; width?: number; expanded?: boolean } = rest[0] ?? {};
+			const cwd = context.cwd ?? process.cwd();
 			const argsComplete = context.argsComplete ?? false;
 			const { path: filePath, suffix } = formatEditCallText(args, argsComplete);
 
 			let text = theme.fg("toolTitle", theme.bold("edit"));
-			if (filePath) text += ` ${theme.fg("accent", filePath)}`;
+			if (filePath) text += ` ${linkToolPath(theme.fg("accent", filePath), filePath, cwd)}`;
 			else text += ` ${theme.fg("toolOutput", "...")}`;
 			const counts = Array.isArray(args?.edits) ? countEditTypes(args.edits) : undefined;
 			if (counts && counts.total > 0) {

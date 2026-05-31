@@ -6,7 +6,7 @@ import { readdir, stat } from "node:fs/promises";
 import { resolveToCwd } from "./path-utils.js";
 import { buildPtcError } from "./ptc-value.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 
 const MAX_BYTES = 50 * 1024; // 50 KB
 const DEFAULT_LIMIT = 500;
@@ -264,7 +264,10 @@ export function registerLsTool(pi: ExtensionAPI) {
 
     renderCall(args: any, theme: any, context: any = {}) {
       const { path } = args as { path?: string };
-      return new Text(clampLineToWidth(`${renderToolLabel(theme, "ls")} ${theme.fg("muted", path ?? ".")}`, context.width), 0, 0);
+      const cwd = context.cwd ?? process.cwd();
+      const displayPath = path ?? ".";
+      const linkedPath = linkToolPath(theme.fg("muted", displayPath), displayPath, cwd);
+      return new Text(clampLineToWidth(`${renderToolLabel(theme, "ls")} ${linkedPath}`, context.width), 0, 0);
     },
 
     renderResult(result: any, options: any, theme: any, context: any = {}) {

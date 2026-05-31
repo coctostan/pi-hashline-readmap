@@ -29,6 +29,13 @@ describe("edit tool diffData", () => {
     });
 
     expect(result.details.diff).toMatch(/^1:[0-9a-f]{3}\|const value = 1; → 1:[0-9a-f]{3}\|const value = 11;$/);
+    expect(result.details.patch).toMatch(/^Index: .*sample\.ts$/m);
+    expect(result.details.patch).toMatch(/^--- .*sample\.ts$/m);
+    expect(result.details.patch).toMatch(/^\+\+\+ .*sample\.ts$/m);
+    expect(result.details.patch).toContain("@@ -1,2 +1,2 @@");
+    expect(result.details.patch).toContain("-const value = 1;");
+    expect(result.details.patch).toContain("+const value = 11;");
+    expect(result.details.diff).toMatch(/^1:[0-9a-f]{3}\|const value = 1; → 1:[0-9a-f]{3}\|const value = 11;$/);
     expect(result.details.firstChangedLine).toBe(1);
     expect(result.details.ptcValue.diff).toBe(result.details.diff);
     expect(result.content[0].text).toContain("Edited");

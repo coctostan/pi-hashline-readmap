@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { setCapabilities } from "@earendil-works/pi-tui";
 import { mkdtempSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -22,6 +23,7 @@ const theme = {
 
 describe("write renderCall preview fallback", () => {
 	it("keeps the summary after a skipped preview", async () => {
+		setCapabilities({ images: null, trueColor: true, hyperlinks: false });
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-write-pending-fallback-"));
 		const tool = getWriteTool();
 		const context: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined };

@@ -85,6 +85,8 @@ Existing syntax errors are tolerated; the warning is for newly introduced parser
 
 Successful `edit` results include `details.diffData` and `details.ptcValue.diffData` in addition to the existing `details.diff` / `ptcValue.diff` string fields. The string fields remain the backward-compatible human-readable fallback.
 
+Successful `edit` results also include `details.patch`: a standard unified diff (`---`/`+++` file headers and `@@` hunk headers) generated from the pre-/post-edit file contents. Use `details.patch` when you need a portable, tool-agnostic patch (e.g. to apply elsewhere); use the compact `details.diff` hashline string for human-readable in-session display. `details.patch` is additive and does not change `details.diff`.
+
 `diffData` is a stable versioned contract:
 
 ```ts

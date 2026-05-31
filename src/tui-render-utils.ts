@@ -1,4 +1,6 @@
-import { truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { getCapabilities, hyperlink, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { pathToFileURL } from "node:url";
+import { resolveToCwd } from "./path-utils.js";
 
 export const SUMMARY_PREFIX = "↳";
 export const EXPAND_HINT = " • Ctrl+O to expand";
@@ -11,6 +13,16 @@ export type RendererTheme = {
 export function renderToolLabel(theme: RendererTheme, label: string): string {
   const boldFn = typeof theme.bold === "function" ? theme.bold.bind(theme) : (text: string) => text;
   return theme.fg("toolTitle", boldFn(label));
+}
+
+export function linkToolPath(styledText: string, rawPath: string, cwd: string): string {
+  try {
+    if (!getCapabilities().hyperlinks) return styledText;
+    const absolutePath = resolveToCwd(rawPath, cwd);
+    return hyperlink(styledText, pathToFileURL(absolutePath).href);
+  } catch {
+    return styledText;
+  }
 }
 
 export function appendExpandHint(text: string, hidden: boolean): string {
