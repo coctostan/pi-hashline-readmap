@@ -4,7 +4,7 @@ import type { Static } from "@sinclair/typebox";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
 import { detectLineEnding, generateCompactOrFullDiff, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff";
-import { HashlineMismatchError, applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline";
+import { HashlineMismatchError, applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline.js";
 import { resolveToCwd } from "./path-utils";
 import { throwIfAborted } from "./runtime";
 import { buildEditOutput } from "./edit-output.js";

@@ -6,7 +6,7 @@ import path from "path";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
 import { looksLikeBinary } from "./binary-detect";
-import { ensureHashInit, formatHashlineDisplay, escapeControlCharsForDisplay } from "./hashline";
+import { ensureHashInit, formatHashlineDisplay, escapeControlCharsForDisplay } from "./hashline.js";
 import { buildPtcError, buildPtcLine } from "./ptc-value.js";
 import { buildGrepOutput } from "./grep-output.js";
 import { buildGrepRehydrateDescriptor } from "./context-hygiene.js";

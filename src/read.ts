@@ -10,7 +10,7 @@ import { Type } from "@sinclair/typebox";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff";
-import { ensureHashInit, formatHashlineDisplay } from "./hashline";
+import { ensureHashInit, formatHashlineDisplay } from "./hashline.js";
 import { buildPtcError, buildPtcWarning, buildPtcLines, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect";
 import { resolveToCwd } from "./path-utils";
