@@ -1,6 +1,6 @@
 {
   "name": "pi-hashline-readmap",
-  "version": "0.8.16",
+  "version": "0.9.0",
   "description": "Unified pi extension: hash-anchored read/edit/grep, structural code maps, AST-grep, file exploration (ls/find), and bash output compression",
   "type": "module",
   "exports": {
@@ -57,9 +57,9 @@
     "@sinclair/typebox": "*"
   },
   "devDependencies": {
-    "@earendil-works/pi-ai": "^0.74.0",
-    "@earendil-works/pi-coding-agent": "^0.74.0",
-    "@earendil-works/pi-tui": "^0.74.0",
+    "@earendil-works/pi-ai": "^0.78.0",
+    "@earendil-works/pi-coding-agent": "^0.78.0",
+    "@earendil-works/pi-tui": "^0.78.0",
     "@sinclair/typebox": "^0.34.48",
     "@types/node": "^25.5.0",
     "typescript": "^5.9.3",

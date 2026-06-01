@@ -1,15 +1,22 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpdir } from "node:os";
+import { resetCapabilitiesCache, setCapabilities } from "@earendil-works/pi-tui";
 import { registerWriteTool } from "../src/write.js";
 
 const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
 function textOf(component: any, width = 120): string { return component?.text ?? component?.render?.(width)?.join("\n") ?? ""; }
 function tool(): any { let registered: any; registerWriteTool({ registerTool(def: any) { registered = def; } } as any, {} as any); return registered; }
 
+afterEach(() => {
+  resetCapabilitiesCache();
+});
+
 describe("write TUI renderer", () => {
   it("shows created and overwritten state before final diff without mutating details", () => {
+    setCapabilities({ images: null, trueColor: true, hyperlinks: false });
     const t = tool();
     expect(textOf(t.renderCall({ path: "tmp/file.txt", content: "one\ntwo\nthree" }, theme, {}))).toBe("write tmp/file.txt (3 lines • 13 B)");
     const baseDiffData = { version: 1, stats: { added: 3, removed: 0, context: 0 }, entries: [{ kind: "add", newLine: 1, text: "one" }, { kind: "add", newLine: 2, text: "two" }, { kind: "add", newLine: 3, text: "three" }] };
@@ -49,6 +56,22 @@ describe("write TUI renderer", () => {
     expect(textOf(t.renderResult(collapsed, {}, theme, {}))).toBe("↳ overwritten • Ctrl+O to expand");
   });
 
+  it("wraps the write path title in an OSC 8 hyperlink when supported", () => {
+    const cwd = process.cwd();
+    const expectedUrl = pathToFileURL(resolve(cwd, "tmp/file.txt")).href;
+    const args = { path: "tmp/file.txt", content: "one\ntwo" };
+
+    setCapabilities({ images: null, trueColor: true, hyperlinks: true });
+    const linked = textOf(tool().renderCall(args, theme, { cwd }));
+    expect(linked).toContain("\u001b]8;;file:///");
+    expect(linked).toContain(`\u001b]8;;${expectedUrl}\u001b\\`);
+    expect(linked).toContain("tmp/file.txt");
+    expect(linked).toContain("(2 lines • 7 B)");
+
+    setCapabilities({ images: null, trueColor: true, hyperlinks: false });
+    expect(textOf(tool().renderCall(args, theme, { cwd }))).toBe("write tmp/file.txt (2 lines • 7 B)");
+  });
+
 
   it("keeps write error summaries visible and expands details", () => {
     const t = tool();
@@ -83,6 +106,7 @@ describe("write TUI renderer", () => {
   });
 
   it("collapses the pending preview to just the call line once execution has started", () => {
+    setCapabilities({ images: null, trueColor: true, hyperlinks: false });
     const cwd = mkdtempSync(resolve(tmpdir(), "pi-write-exec-collapse-"));
     writeFileSync(resolve(cwd, "old.txt"), "old\n", "utf-8");
     const t = tool();

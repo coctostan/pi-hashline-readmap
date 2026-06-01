@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { resetCapabilitiesCache, setCapabilities } from "@earendil-works/pi-tui";
 import { tmpdir } from "node:os";
 import { registerEditTool } from "../src/edit.js";
 import { __resetHashlineSettingsPathsForTest, __setHashlineSettingsPathsForTest } from "../src/hashline-settings.js";
@@ -22,6 +24,7 @@ describe("edit TUI renderer", () => {
     });
   });
   afterEach(() => {
+    resetCapabilitiesCache();
     if (originalEnv === undefined) delete process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
     else process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY = originalEnv;
     __resetHashlineSettingsPathsForTest();
@@ -38,8 +41,25 @@ describe("edit TUI renderer", () => {
 
 
   it("renders compact edit call grammar", () => {
+    setCapabilities({ images: null, trueColor: true, hyperlinks: false });
     const t = tool();
     expect(textOf(t.renderCall({ path: "tmp/file.txt", edits: [{ replace: { old_text: "a", new_text: "b" } }] }, theme, { argsComplete: true }))).toBe("edit tmp/file.txt (1 edit)");
+  });
+
+  it("wraps the edit path title in an OSC 8 hyperlink when supported", () => {
+    const cwd = process.cwd();
+    const expectedUrl = pathToFileURL(resolve(cwd, "tmp/file.txt")).href;
+    const args = { path: "tmp/file.txt", edits: [{ replace: { old_text: "a", new_text: "b" } }] };
+
+    setCapabilities({ images: null, trueColor: true, hyperlinks: true });
+    const linked = textOf(tool().renderCall(args, theme, { argsComplete: true, cwd }));
+    expect(linked).toContain("\u001b]8;;file:///");
+    expect(linked).toContain(`\u001b]8;;${expectedUrl}\u001b\\`);
+    expect(linked).toContain("tmp/file.txt");
+    expect(linked).toContain("(1 edit)");
+
+    setCapabilities({ images: null, trueColor: true, hyperlinks: false });
+    expect(textOf(tool().renderCall(args, theme, { argsComplete: true, cwd }))).toBe("edit tmp/file.txt (1 edit)");
   });
 
   it("keeps no-op and expanded error details visible", () => {

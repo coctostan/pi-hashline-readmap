@@ -1,11 +1,14 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { visibleWidth } from "@earendil-works/pi-tui";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { afterEach, describe, expect, it } from "vitest";
+import { resetCapabilitiesCache, setCapabilities, visibleWidth } from "@earendil-works/pi-tui";
 import {
   EXPAND_HINT,
   appendExpandHint,
   clampLinesToWidth,
   isRendererExpanded,
+  linkToolPath,
   renderToolLabel,
   summaryLine,
   wrapLinesToWidth,
@@ -15,6 +18,10 @@ const theme = {
   fg: (_style: string, text: string) => text,
   bold: (text: string) => `**${text}**`,
 };
+
+afterEach(() => {
+  resetCapabilitiesCache();
+});
 
 describe("shared TUI renderer utilities", () => {
   it("renders plain bold labels and summary hints consistently", () => {
@@ -30,6 +37,22 @@ describe("shared TUI renderer utilities", () => {
     expect(isRendererExpanded({}, { expanded: true })).toBe(true);
     expect(isRendererExpanded({ expanded: false }, { expanded: true })).toBe(true);
     expect(isRendererExpanded(undefined, undefined)).toBe(false);
+  });
+
+  it("wraps tool paths in OSC 8 hyperlinks only when supported", () => {
+    const cwd = resolve("/tmp/pi-hashline-link-root");
+    const rawPath = "src/read.ts";
+    const styledText = "src/read.ts";
+    const expectedUrl = pathToFileURL(resolve(cwd, rawPath)).href;
+
+    setCapabilities({ images: null, trueColor: true, hyperlinks: true });
+    const linked = linkToolPath(styledText, rawPath, cwd);
+    expect(linked).toContain("\u001b]8;;file:///");
+    expect(linked).toContain(`\u001b]8;;${expectedUrl}\u001b\\`);
+    expect(linked).toContain(`src/read.ts\u001b]8;;\u001b\\`);
+
+    setCapabilities({ images: null, trueColor: true, hyperlinks: false });
+    expect(linkToolPath(styledText, rawPath, cwd)).toBe(styledText);
   });
 
   it("clamps and wraps every line using visible terminal width", () => {
