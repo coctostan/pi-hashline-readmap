@@ -19,6 +19,7 @@ import {
   buildContextHygieneMetadata,
   buildFileResource,
   getContextHygieneTracker,
+  normalizePathForContextHygiene,
   registerContextHygieneDebugTool,
   resetContextHygieneTracker,
   type ContextHygieneAppliedEffects,
@@ -175,6 +176,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   const readTurns = new Map<string, number>();
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
+  const readTurnKey = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
   const noteRead = (absolutePath: string) => {
     // noteRead is invoked synchronously from inside read/grep/ast_search/write
     // BEFORE the tool result is dispatched to the tool_result handler that
@@ -186,9 +188,9 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const tracker = getContextHygieneTracker();
     const report = tracker.generateReport();
     const eventId = report.eventCount + 1;
-    readTurns.set(absolutePath, eventId);
+    readTurns.set(readTurnKey(absolutePath), eventId);
   };
-  const wasReadInSession = (absolutePath: string) => readTurns.has(absolutePath);
+  const wasReadInSession = (absolutePath: string) => readTurns.has(readTurnKey(absolutePath));
 
   const readTool = registerReadTool(pi, { onSuccessfulRead: noteRead });
   const editTool = registerEditTool(pi, { wasReadInSession });
@@ -240,7 +242,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (readTurns.size === 0) return;
     for (const candidate of report.staleCandidates) {
       if (!candidate.resourceKey.startsWith("file:")) continue;
-      const absolutePath = candidate.resourceKey.slice("file:".length);
+      const absolutePath = readTurnKey(candidate.resourceKey.slice("file:".length));
       const recordedEventId = readTurns.get(absolutePath);
       if (recordedEventId === undefined) continue;
       if (recordedEventId <= candidate.mutationEventId) {
