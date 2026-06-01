@@ -20,32 +20,34 @@ async function goAvailable(): Promise<boolean> {
 }
 
 describe("goMapper subprocess safety (GH #116)", () => {
-  let dir = "";
-  let filePath = "";
-  let available = false;
-
-  beforeAll(async () => {
-    available = await goAvailable();
-    if (!available) return;
-    dir = await mkdtemp(join(tmpdir(), "gomap-quoting-"));
-    filePath = join(dir, 'has"quote$dollar.go');
-    await writeFile(filePath, "package main\n\nfunc Hello() int {\n\treturn 1\n}\n", "utf8");
-  });
-
-  afterAll(async () => {
-    if (dir) await rm(dir, { recursive: true, force: true });
-  });
-
   it("does not import shell exec", async () => {
     const text = await readFile(resolve(__dirname, "../src/readmap/mappers/go.ts"), "utf8");
     expect(text).not.toMatch(/import\s*\{[^}]*\bexec\b[^}]*\}\s*from\s*["']node:child_process["']/s);
   });
 
-  it("returns a non-null FileMap with the Hello symbol when Go is installed", async () => {
-    if (!available) return;
-    const fileMap = await goMapper(filePath);
-    expect(fileMap).not.toBeNull();
-    const names = (fileMap?.symbols ?? []).map((s) => s.name);
-    expect(names).toContain("Hello");
+  describe.skipIf(process.platform === "win32")("quoted POSIX filename runtime fixture", () => {
+    let dir = "";
+    let filePath = "";
+    let available = false;
+
+    beforeAll(async () => {
+      available = await goAvailable();
+      if (!available) return;
+      dir = await mkdtemp(join(tmpdir(), "gomap-quoting-"));
+      filePath = join(dir, 'has"quote$dollar.go');
+      await writeFile(filePath, "package main\n\nfunc Hello() int {\n\treturn 1\n}\n", "utf8");
+    });
+
+    afterAll(async () => {
+      if (dir) await rm(dir, { recursive: true, force: true });
+    });
+
+    it("returns a non-null FileMap with the Hello symbol when Go is installed", async () => {
+      if (!available) return;
+      const fileMap = await goMapper(filePath);
+      expect(fileMap).not.toBeNull();
+      const names = (fileMap?.symbols ?? []).map((s) => s.name);
+      expect(names).toContain("Hello");
+    });
   });
 });

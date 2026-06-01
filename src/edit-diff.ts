@@ -1,5 +1,5 @@
 import * as Diff from "diff";
-import { computeLineHash } from "./hashline";
+import { computeLineHash } from "./hashline.js";
 
 // ─── Line ending normalization ──────────────────────────────────────────
 

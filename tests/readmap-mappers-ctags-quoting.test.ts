@@ -20,23 +20,6 @@ async function ctagsAvailable(): Promise<boolean> {
 }
 
 describe("ctagsMapper subprocess safety (GH #116)", () => {
-  let dir = "";
-  let filePath = "";
-  let available = false;
-
-  beforeAll(async () => {
-    available = await ctagsAvailable();
-    if (!available) return;
-    dir = await mkdtemp(join(tmpdir(), "ctagsmap-quoting-"));
-    filePath = join(dir, 'has"quote$dollar.ts');
-    await writeFile(filePath, "export function hello() {\n  return 1;\n}\n", "utf8");
-  });
-
-  afterAll(async () => {
-    resetCtagsCache();
-    if (dir) await rm(dir, { recursive: true, force: true });
-  });
-
   it("does not import shell exec", async () => {
     const text = await readFile(resolve(__dirname, "../src/readmap/mappers/ctags.ts"), "utf8");
     expect(text).not.toMatch(/import\s*\{[^}]*\bexec\b[^}]*\}\s*from\s*["']node:child_process["']/s);
@@ -48,12 +31,31 @@ describe("ctagsMapper subprocess safety (GH #116)", () => {
     expect(text).not.toContain("wc -l <");
   });
 
-  it("returns a non-null FileMap for quoted path when ctags is installed", async () => {
-    if (!available) return;
-    resetCtagsCache();
-    const fileMap = await ctagsMapper(filePath);
-    expect(fileMap).not.toBeNull();
-    const names = (fileMap?.symbols ?? []).map((s) => s.name);
-    expect(names).toContain("hello");
+  describe.skipIf(process.platform === "win32")("quoted POSIX filename runtime fixture", () => {
+    let dir = "";
+    let filePath = "";
+    let available = false;
+
+    beforeAll(async () => {
+      available = await ctagsAvailable();
+      if (!available) return;
+      dir = await mkdtemp(join(tmpdir(), "ctagsmap-quoting-"));
+      filePath = join(dir, 'has"quote$dollar.ts');
+      await writeFile(filePath, "export function hello() {\n  return 1;\n}\n", "utf8");
+    });
+
+    afterAll(async () => {
+      resetCtagsCache();
+      if (dir) await rm(dir, { recursive: true, force: true });
+    });
+
+    it("returns a non-null FileMap for quoted path when ctags is installed", async () => {
+      if (!available) return;
+      resetCtagsCache();
+      const fileMap = await ctagsMapper(filePath);
+      expect(fileMap).not.toBeNull();
+      const names = (fileMap?.symbols ?? []).map((s) => s.name);
+      expect(names).toContain("hello");
+    });
   });
 });

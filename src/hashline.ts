@@ -6,7 +6,7 @@
  */
 
 import xxhashWasm from "xxhash-wasm";
-import { throwIfAborted } from "./runtime";
+import { throwIfAborted } from "./runtime.js";
 import type { PtcLine } from "./ptc-value.js";
 
 // ─── Types ──────────────────────────────────────────────────────────────
@@ -66,22 +66,37 @@ const CONFUSABLE_HYPHENS_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D
 const HASH_RELOCATION_WINDOW_BASE = 20;
 const HASH_RELOCATION_WINDOW_CAP = 100;
 
-let h32Fn: ((input: string, seed?: number) => number) | null = null;
-let initPromise: Promise<void> | null = null;
+interface HashlineGlobalState {
+	h32Fn: ((input: string, seed?: number) => number) | null;
+	initPromise: Promise<void> | null;
+}
+
+const HASHLINE_STATE_KEY = Symbol.for("pi-hashline-readmap.hashlineState.v1");
+
+function getHashlineState(): HashlineGlobalState {
+	const globalObject = globalThis as any;
+	globalObject[HASHLINE_STATE_KEY] ??= {
+		h32Fn: null,
+		initPromise: null,
+	} satisfies HashlineGlobalState;
+	return globalObject[HASHLINE_STATE_KEY] as HashlineGlobalState;
+}
 
 export async function ensureHashInit(): Promise<void> {
-	if (h32Fn) return;
-	if (!initPromise) {
-		initPromise = xxhashWasm().then((hasher) => {
-			h32Fn = hasher.h32;
+	const state = getHashlineState();
+	if (state.h32Fn) return;
+	if (!state.initPromise) {
+		state.initPromise = xxhashWasm().then((hasher) => {
+			state.h32Fn = hasher.h32;
 		});
 	}
-	await initPromise;
+	await state.initPromise;
 }
 
 function xxh32(input: string): number {
-	if (!h32Fn) throw new Error("Hash not initialized — call ensureHashInit() first");
-	return h32Fn(input, 0) >>> 0;
+	const state = getHashlineState();
+	if (!state.h32Fn) throw new Error("Hash not initialized — call ensureHashInit() first");
+	return state.h32Fn(input, 0) >>> 0;
 }
 
 export function computeLineHash(_idx: number, line: string): string {

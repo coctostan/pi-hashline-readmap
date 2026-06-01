@@ -15,14 +15,30 @@ interface CacheEntry {
 	map: FileMap | null;
 }
 export const MAP_CACHE_MAX_SIZE = 500;
-const cache = new Map<string, CacheEntry>();
-let maxSize = MAP_CACHE_MAX_SIZE;
+
+interface MapCacheGlobalState {
+	cache: Map<string, CacheEntry>;
+	maxSize: number;
+}
+
+const MAP_CACHE_STATE_KEY = Symbol.for("pi-hashline-readmap.mapCacheState.v1");
+
+function getMapCacheState(): MapCacheGlobalState {
+	const globalObject = globalThis as any;
+	globalObject[MAP_CACHE_STATE_KEY] ??= {
+		cache: new Map<string, CacheEntry>(),
+		maxSize: MAP_CACHE_MAX_SIZE,
+	} satisfies MapCacheGlobalState;
+	return globalObject[MAP_CACHE_STATE_KEY] as MapCacheGlobalState;
+}
+
 function rememberInMemory(absPath: string, entry: CacheEntry): void {
-	if (cache.has(absPath)) cache.delete(absPath);
-	cache.set(absPath, entry);
-	if (cache.size > maxSize) {
-		const oldestKey = cache.keys().next().value;
-		if (oldestKey !== undefined) cache.delete(oldestKey);
+	const state = getMapCacheState();
+	if (state.cache.has(absPath)) state.cache.delete(absPath);
+	state.cache.set(absPath, entry);
+	if (state.cache.size > state.maxSize) {
+		const oldestKey = state.cache.keys().next().value;
+		if (oldestKey !== undefined) state.cache.delete(oldestKey);
 	}
 }
 
@@ -49,12 +65,13 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 		const { mtimeMs } = fileStat;
 		const lang = detectLanguage(absPath);
 		const bypassMapCache = lang?.id === "gdscript";
-		const cached = cache.get(absPath);
+		const state = getMapCacheState();
+		const cached = state.cache.get(absPath);
 		if (!bypassMapCache && cached && cached.mtimeMs === mtimeMs) {
 			const currentHash = await contentHashFor64k(absPath);
 			if (currentHash && currentHash === cached.contentHash) {
-				cache.delete(absPath);
-				cache.set(absPath, cached);
+				state.cache.delete(absPath);
+				state.cache.set(absPath, cached);
 				return cached.map;
 			}
 		}
@@ -132,13 +149,18 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 	}
 }
 export function setMapCacheMaxSize(size: number): void {
-	maxSize = size;
+	getMapCacheState().maxSize = size;
 }
 
 /**
  * Clear the map cache. Exported for testing.
  */
 export function clearMapCache(): void {
-	cache.clear();
-	maxSize = MAP_CACHE_MAX_SIZE;
+	const state = getMapCacheState();
+	state.cache.clear();
+	state.maxSize = MAP_CACHE_MAX_SIZE;
+}
+
+export function __getInMemoryMapCacheSizeForTest(): number {
+	return getMapCacheState().cache.size;
 }
