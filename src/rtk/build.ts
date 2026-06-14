@@ -60,7 +60,9 @@ export function isBuildCommand(command: string | undefined | null): boolean {
 	}
 
 	const cmdLower = command.toLowerCase();
-	return BUILD_COMMANDS.some((bc) => cmdLower.includes(bc.toLowerCase()));
+	const tscMatch = /\btsc\b/.test(cmdLower);
+	return tscMatch || BUILD_COMMANDS.filter((bc) => bc !== "tsc").some(
+	  (bc) => cmdLower.includes(bc.toLowerCase()));
 }
 
 export function filterBuildOutput(

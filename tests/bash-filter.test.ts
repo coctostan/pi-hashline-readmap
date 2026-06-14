@@ -30,6 +30,12 @@ describe("command detection", () => {
 
     expect(isBuildCommand("cargo clippy")).toBe(false);
 
+    expect(isBuildCommand("git diff scenes/player/player.tscn")).toBe(false);
+    expect(isBuildCommand("echo foo.tscn")).toBe(false);
+    expect(isBuildCommand("tsc")).toBe(true);
+    expect(isBuildCommand("tsc --noEmit")).toBe(true);
+    expect(isBuildCommand("npx tsc")).toBe(true);
+
     expect(isLinterCommand("eslint .")).toBe(true);
     expect(isLinterCommand("prettier --check .")).toBe(true);
     expect(isLinterCommand("tsc --noEmit")).toBe(true);

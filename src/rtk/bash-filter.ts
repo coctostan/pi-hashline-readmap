@@ -48,7 +48,7 @@ export function isGitCommand(command: string): boolean {
 
 export function isBuildCommand(command: string): boolean {
   const c = command.toLowerCase();
-  return ["tsc", "cargo build", "cargo check", "cargo test", "npm run build"].some((t) => c.includes(t));
+  return /\btsc\b/.test(c) || ["cargo build", "cargo check", "cargo test", "npm run build"].some((t) => c.includes(t));
 }
 
 export function isLinterCommand(command: string): boolean {
