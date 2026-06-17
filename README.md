@@ -275,6 +275,9 @@ Example project settings:
   },
   "edit": {
     "diffDisplay": "collapsed"
+  },
+  "bash": {
+    "shellPath": "C:/Program Files/Git/bin/bash.exe"
   }
 }
 ```
@@ -294,6 +297,7 @@ JSON fields:
 | `bashContextGuard.tailLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES` | Tightens the guarded preview tail size; default/ceiling `120` |
 | `gdscript.enabled` | `PI_HASHLINE_GDSCRIPT` | Defaults to `false`; exact env value `1` enables the dedicated GDScript mapper and takes precedence over JSON |
 | `edit.diffDisplay` | `PI_HASHLINE_EDIT_DIFF_DISPLAY` | Defaults to `collapsed`; set to `expanded` to render `edit` tool diffs inline without pressing Ctrl+O. Project JSON overrides global JSON. The env override is case-insensitive (`expanded`/`collapsed` in any casing, with surrounding whitespace trimmed); unrecognized env values are ignored and fall through to JSON, then the default. |
+| `bash.shellPath` | `PI_HASHLINE_SHELL_PATH` | Absolute path to the shell the `bash` tool should spawn (e.g. Git Bash on Windows). When set, this is forwarded to pi's built-in bash tool instead of relying on PATH lookup. Precedence: `PI_HASHLINE_SHELL_PATH` env (whitespace-trimmed, empty ignored) → project/global hashline JSON `bash.shellPath` → pi's own configured `shellPath` (from `~/.pi/agent/settings.json`) → upstream default shell resolution. |
 
 Budget fields must be strict positive base-10 integers. Zero, negative, signed, decimal, hexadecimal, exponent notation, separators, empty strings, and whitespace-only values are ignored. Boolean fields must be JSON booleans, and `mapCache.dir` must be a non-empty string. Malformed JSON files and invalid fields degrade safely: valid fields continue to apply where practical, invalid fields are ignored, and the loader emits non-fatal warnings where available.
 

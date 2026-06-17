@@ -14,7 +14,7 @@ describe("bash renderer wrapper", () => {
 
     expect(textOf(registered.renderCall({ command: "npm test" }, theme))).toBe("bash npm test");
     await expect(registered.execute("call-1", { command: "npm test" }, undefined, undefined, { cwd: "/tmp/work" })).resolves.toMatchObject({ details: { delegated: true } });
-    expect(createBuiltIn).toHaveBeenCalledWith("/tmp/work");
+    expect(createBuiltIn).toHaveBeenCalledWith("/tmp/work", { shellPath: undefined });
     expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test" }, undefined, undefined);
     expect(textOf(registered.renderResult({ content: [{ type: "text", text: "ok\n" }] }, {}, theme, {}))).toBe("↳ 1 line returned • Ctrl+O to expand");
     expect(textOf(registered.renderResult({ content: [{ type: "text", text: "" }] }, {}, theme, {}))).toBe("↳ command completed (no output)");
