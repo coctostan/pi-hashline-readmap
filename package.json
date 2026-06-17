@@ -1,6 +1,6 @@
 {
   "name": "pi-hashline-readmap",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Unified pi extension: hash-anchored read/edit/grep, structural code maps, AST-grep, file exploration (ls/find), and bash output compression",
   "type": "module",
   "exports": {
@@ -41,7 +41,6 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@ast-grep/cli": "0.42.2",
     "diff": "^8.0.3",
     "ignore": "^7.0.5",
     "nushell": "0.108.0",
@@ -50,6 +49,9 @@
     "ts-morph": "^27.0.2",
     "web-tree-sitter": "0.25.10",
     "xxhash-wasm": "^1.1.0"
+  },
+  "optionalDependencies": {
+    "@ast-grep/cli": "0.42.2"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

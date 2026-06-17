@@ -58,10 +58,10 @@ Start a new pi session after installation. Running sessions do not hot-reload ex
 
 Normal npm installs of `pi-hashline-readmap` include npm-managed CLI packages for the tools this extension wraps:
 
-- `@ast-grep/cli` provides the `sg` binary used by `ast_search`.
+- `@ast-grep/cli` (an **optional dependency**) provides the `sg` binary used by `ast_search`. It ships prebuilt native binaries for common platforms. On platforms without a prebuilt binary (for example Termux/Android, or musl-based Linux), npm skips this optional package and the rest of the extension (`read`/`edit`/`grep`/`bash`/`ls`/`find`/`nu`) still installs and works normally.
 - `nushell` provides the `nu` binary used by the optional `nu` tool.
 
-The extension resolves those bundled binaries first. If `@ast-grep/cli` cannot be resolved, `ast_search` falls back to `ast-grep` on `PATH` rather than `sg`, avoiding Linux util-linux `sg` collisions. The optional `nu` tool falls back to `nu` on `PATH` when the bundled `nushell` package or bin entry is unavailable. If troubleshooting a broken platform package, a system install can still be useful after repairing/removing the broken npm package or as a fallback in environments without the bundled binary:
+The extension resolves those bundled binaries first. If `@ast-grep/cli` cannot be resolved (for example when npm skipped the optional package on Termux/Android/musl), `ast_search` falls back to `ast-grep` on `PATH` rather than `sg`, avoiding Linux util-linux `sg` collisions. If no `ast-grep` is available at all, `ast_search` returns a clear "ast-grep not available" message instead of crashing, and every other tool is unaffected. The optional `nu` tool falls back to `nu` on `PATH` when the bundled `nushell` package or bin entry is unavailable. To enable `ast_search` on a platform without a prebuilt binary, or when troubleshooting a broken platform package, install `ast-grep` on your `PATH`:
 
 ```bash
 brew install ast-grep          # fallback for ast_search if @ast-grep/cli cannot run
