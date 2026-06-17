@@ -3,7 +3,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 
-type BuiltInFactory = (cwd: string) => any;
+type BuiltInFactory = (cwd: string, options?: { shellPath?: string }) => any;
 
 const BASH_DESCRIPTION = "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write).";
 const BASH_PROMPT_SNIPPET = "Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.";
@@ -17,13 +17,13 @@ const BASH_PARAMETERS = Type.Object({
   timeout: Type.Optional(Type.Number({ description: "Timeout seconds" })),
 });
 
-export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">, options: { cwd?: string; createBuiltInBashTool?: BuiltInFactory } = {}): any {
+export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">, options: { cwd?: string; shellPath?: string; createBuiltInBashTool?: BuiltInFactory } = {}): any {
   const cache = new Map<string, any>();
-  const createBuiltInBashTool = options.createBuiltInBashTool ?? ((cwd: string) => createBashTool(cwd));
+  const createBuiltInBashTool = options.createBuiltInBashTool ?? ((cwd: string, opts?: { shellPath?: string }) => createBashTool(cwd, { shellPath: opts?.shellPath }));
   const getBuiltIn = (cwd: string) => {
     let tool = cache.get(cwd);
     if (!tool) {
-      tool = createBuiltInBashTool(cwd);
+      tool = createBuiltInBashTool(cwd, { shellPath: options.shellPath });
       cache.set(cwd, tool);
     }
     return tool;

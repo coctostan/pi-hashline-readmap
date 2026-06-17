@@ -8,6 +8,7 @@ import { registerWriteTool } from "./src/write.js";
 import { registerLsTool } from "./src/ls.js";
 import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
+import { resolveShellPath } from "./src/hashline-settings.js";
 import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
@@ -205,7 +206,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   const writeTool = registerWriteTool(pi, { onFileAnchored: noteRead });
   const lsTool = registerLsTool(pi);
   const findTool = registerFindTool(pi);
-  registerBashRendererTool(pi, { cwd: process.cwd() });
+  registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath() });
   const contextHygieneDebugTool = registerContextHygieneDebugTool(pi);
   const toolExecutors = {
     read: readTool,

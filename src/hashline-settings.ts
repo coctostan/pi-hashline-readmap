@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { SettingsManager } from "@earendil-works/pi-coding-agent";
 
 export interface HashlineJsonSettings {
   grep?: { maxLines?: number; maxBytes?: number };
@@ -8,12 +9,25 @@ export interface HashlineJsonSettings {
   bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
   gdscript?: { enabled?: boolean };
   edit?: { diffDisplay?: "collapsed" | "expanded" };
+  bash?: { shellPath?: string };
 }
 export interface HashlineSettingsWarning { source: string; message: string; path?: string }
 export interface HashlineSettingsResult { settings: HashlineJsonSettings; warnings: HashlineSettingsWarning[] }
 let pathOverride: { globalSettingsPath?: string; projectSettingsPath?: string } | null = null;
 export function __setHashlineSettingsPathsForTest(paths: { globalSettingsPath?: string; projectSettingsPath?: string }): void { pathOverride = { ...paths }; }
 export function __resetHashlineSettingsPathsForTest(): void { pathOverride = null; }
+type PiShellPathReader = () => string | undefined;
+let piShellPathReaderOverride: PiShellPathReader | null = null;
+export function __setPiShellPathReaderForTest(reader: PiShellPathReader | undefined): void { piShellPathReaderOverride = reader ?? null; }
+function readPiShellPath(): string | undefined {
+  const reader = piShellPathReaderOverride ?? (() => SettingsManager.create(process.cwd()).getShellPath());
+  try {
+    const value = reader();
+    return typeof value === "string" && value.trim().length > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
 function defaultGlobalSettingsPath(): string { return join(homedir(), ".pi/agent/hashline-readmap/settings.json"); }
 function defaultProjectSettingsPath(): string { return join(process.cwd(), ".pi/hashline-readmap/settings.json"); }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
@@ -183,6 +197,14 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
     }
     if (Object.keys(edit).length > 0) settings.edit = edit;
   }
+  if (isRecord(raw.bash)) {
+    const bash: NonNullable<HashlineJsonSettings["bash"]> = {};
+    if ("shellPath" in raw.bash) {
+      if (typeof raw.bash.shellPath === "string" && raw.bash.shellPath.trim().length > 0) bash.shellPath = raw.bash.shellPath;
+      else warnings.push(invalid(source, "bash.shellPath"));
+    }
+    if (Object.keys(bash).length > 0) settings.bash = bash;
+  }
   return { settings, warnings };
 }
 function readSettingsFile(path: string): HashlineSettingsResult {
@@ -206,6 +228,8 @@ function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSetting
   if (Object.keys(gdscript).length > 0) merged.gdscript = gdscript;
   const edit = { ...(base.edit ?? {}), ...(override.edit ?? {}) };
   if (Object.keys(edit).length > 0) merged.edit = edit;
+  const bash = { ...(base.bash ?? {}), ...(override.bash ?? {}) };
+  if (Object.keys(bash).length > 0) merged.bash = bash;
   return merged;
 }
 export function resolveHashlineJsonSettings(): HashlineSettingsResult {
@@ -230,4 +254,15 @@ export function resolveEditDiffDisplay(env: NodeJS.ProcessEnv = process.env): "c
   const json = resolveHashlineJsonSettings().settings.edit?.diffDisplay;
   if (json === "expanded" || json === "collapsed") return json;
   return "collapsed";
+}
+
+export function resolveShellPath(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const raw = env.PI_HASHLINE_SHELL_PATH;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  const json = resolveHashlineJsonSettings().settings.bash?.shellPath;
+  if (typeof json === "string" && json.trim().length > 0) return json;
+  return readPiShellPath();
 }
