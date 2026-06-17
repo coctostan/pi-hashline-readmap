@@ -186,9 +186,26 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						? input.new_text
 						: undefined;
 			const hasLegacyInput = legacyOldText !== undefined || legacyNewText !== undefined;
+
+			// Some models (Opus 4.6, GLM-5.1, qwen3.6) send `edits` as a JSON
+			// string instead of an array. Coerce it back to an array; on parse
+			// failure or non-array result, leave it unchanged so the existing
+			// validation path produces a clear error.
+			if (typeof (parsed as { edits?: unknown }).edits === "string") {
+				try {
+					const reparsed = JSON.parse((parsed as { edits?: unknown }).edits as string);
+					if (Array.isArray(reparsed)) {
+						(parsed as { edits?: unknown }).edits = reparsed;
+						(input as { edits?: unknown }).edits = reparsed;
+					}
+				} catch {
+					// fall through to existing validation error handling
+				}
+			}
+
 			const hasEditsInput = Array.isArray(parsed.edits);
 
-			let edits = parsed.edits ?? [];
+			let edits = Array.isArray(parsed.edits) ? parsed.edits : [];
 			let legacyNormalizationWarning: string | undefined;
 			if (!hasEditsInput && hasLegacyInput) {
 				if (legacyOldText === undefined || legacyNewText === undefined) {

@@ -36,6 +36,15 @@ describe("command detection", () => {
 
     expect(isTestCommand("echo hello")).toBe(false);
   });
+
+  it("excludes .tscn / typescript via word boundary but keeps tsc (#211)", () => {
+    expect(isBuildCommand("git diff scenes/player/player.tscn")).toBe(false);
+    expect(isBuildCommand("cat typescript-notes.md")).toBe(false);
+    expect(isBuildCommand("tsc")).toBe(true);
+    expect(isBuildCommand("tsc --noEmit")).toBe(true);
+    expect(isBuildCommand("npx tsc")).toBe(true);
+    expect(isBuildCommand("./node_modules/.bin/tsc")).toBe(true);
+  });
 });
 
 
@@ -215,5 +224,16 @@ describe("filterBashOutput routing", () => {
     expect(result.savedChars).toBe(input.length - "test output".length);
 
     spy.mockRestore();
+  });
+});
+
+describe("build.ts gate excludes .tscn (#211)", () => {
+  it("isBuildCommand and filterBuildOutput ignore .tscn but keep tsc", () => {
+    const realDiff = "diff --git a/scenes/player/player.tscn b/scenes/player/player.tscn\n@@ -1 +1 @@\n-old\n+new\n";
+    expect(buildModule.isBuildCommand("git diff scenes/player/player.tscn")).toBe(false);
+    expect(buildModule.filterBuildOutput(realDiff, "git diff scenes/player/player.tscn")).toBeNull();
+    expect(buildModule.isBuildCommand("tsc")).toBe(true);
+    expect(buildModule.isBuildCommand("tsc --noEmit")).toBe(true);
+    expect(buildModule.isBuildCommand("npx tsc")).toBe(true);
   });
 });
