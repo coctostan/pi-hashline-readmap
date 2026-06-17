@@ -45,4 +45,29 @@ describe("edit ptcValue.error — validation", () => {
     );
     expect(getPtc(r)?.error?.code).toBe("invalid-edit-variant");
   });
+
+  it("coerces JSON-stringified edits array (#208)", async () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-208-"));
+    const f = resolve(dir, "f.ts"); writeFileSync(f, "const a = 1;\n", "utf-8");
+    const lines = readFileSync(f, "utf-8").split("\n");
+    const anchor = `1:${computeLineHash(1, lines[0])}`;
+    const editsArr = [{ set_line: { anchor, new_text: "const a = 2;" } }];
+    const r = await callEdit(
+      { path: f, edits: JSON.stringify(editsArr) },
+      { wasReadInSession: () => true },
+    );
+    expect(r.isError).toBeFalsy();
+    expect(readFileSync(f, "utf-8")).toBe("const a = 2;\n");
+  });
+
+  it("non-array/invalid edits string still yields clear validation error (#208)", async () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pi-edit-208b-"));
+    const f = resolve(dir, "f.ts"); writeFileSync(f, "const a = 1;\n", "utf-8");
+    const r = await callEdit(
+      { path: f, edits: '{"not":"an array"}' },
+      { wasReadInSession: () => true },
+    );
+    expect(r.isError).toBe(true);
+    expect(getPtc(r)?.error?.code).toBe("invalid-edit-variant");
+  });
 });

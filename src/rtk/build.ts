@@ -11,7 +11,6 @@ const BUILD_COMMANDS = [
 	"npm run build",
 	"yarn build",
 	"pnpm build",
-	"tsc",
 	"go build",
 	"go install",
 	"python setup.py build",
@@ -60,6 +59,7 @@ export function isBuildCommand(command: string | undefined | null): boolean {
 	}
 
 	const cmdLower = command.toLowerCase();
+	if (/\btsc\b/.test(cmdLower)) return true;
 	return BUILD_COMMANDS.some((bc) => cmdLower.includes(bc.toLowerCase()));
 }
 
