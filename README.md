@@ -22,6 +22,7 @@ It also reduces extension conflict risk by replacing several overlapping tool pa
 - Read pending write/edit diffs without color thanks to textual `+`/`-`/space gutter markers.
 - Explore files with agent-oriented `ls`, `find`, and optional `nu` tools.
 - Compress noisy test, build, Git, Docker, linter, package-manager, HTTP, transfer, and generic command output.
+- See a tail preview of collapsed `bash`, `read`, and `grep` results instead of a content-free summary — configurable via `display.previewLines` (default 5, `0` to disable).
 - Use one extension instead of stacking overlapping `read`, `grep`, `edit`, and Bash-output packages.
 
 ## Installation
