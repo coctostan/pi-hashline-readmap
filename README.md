@@ -142,6 +142,8 @@ write({ path: "src/new-module.ts", content: "export const demo = 1;\n" })
 
 `write` creates parent directories automatically and returns hashlined output for immediate refinement.
 
+Both `write` and `edit` write atomically (temp file in the same directory, then `rename` over the target), so a target file is never observed half-written. Symlinked targets are written through to their real target and the symlink is preserved. Hard-linked targets (`nlink > 1`) are the one exception: to keep the shared inode and all links, they are updated in place rather than via temp+rename, so that single case is not torn-write atomic. Existing files keep their permission mode; newly created files use the OS/umask default.
+
 ### Navigate a large file
 
 ```text

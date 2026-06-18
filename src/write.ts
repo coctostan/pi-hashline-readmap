@@ -1,9 +1,10 @@
 import { withFileMutationQueue, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, relative } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { relative } from "node:path";
 import { resolveToCwd } from "./path-utils.js";
+import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
 import { ensureHashInit, formatHashlineDisplay } from "./hashline.js";
 import { buildPtcError, buildPtcLine, buildPtcWarning, type PtcLine, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect.js";
@@ -210,16 +211,9 @@ export async function executeWrite(opts: {
   const previousContent = readPreviousTextForDiff(filePath);
   const existedBeforeWrite = existsSync(filePath);
 
-  // Create parent directories
+  // Atomic write (handles parent-dir creation, symlinks, hard links)
   try {
-    mkdirSync(dirname(filePath), { recursive: true });
-  } catch (err: any) {
-    err.__phase = "mkdir";
-    throw err;
-  }
-  // Write file
-  try {
-    writeFileSync(filePath, content, "utf-8");
+    await writeFileAtomically(filePath, content);
   } catch (err: any) {
     err.__phase = "write";
     throw err;
@@ -337,7 +331,17 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
     async execute(_toolCallId: string, params: { path: string; content: string; map?: boolean }, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<any> {
       const cwd = ctx?.cwd ?? process.cwd();
       const absolutePath = resolveToCwd(params.path, cwd);
-      return withFileMutationQueue(absolutePath, async () => {
+      // Best-effort: resolve the symlink/hard-link target so aliases serialize on
+      // one queue key. If resolution itself fails (e.g. ELOOP), fall back to the
+      // literal path; writeFileAtomically re-resolves and surfaces the error
+      // through the structured fs-error envelope in the catch below.
+      let queueKey = absolutePath;
+      try {
+        queueKey = await resolveMutationTargetPath(absolutePath);
+      } catch {
+        // keep queueKey = absolutePath
+      }
+      return withFileMutationQueue(queueKey, async () => {
       let result: WriteResult;
       try {
         result = await executeWrite({

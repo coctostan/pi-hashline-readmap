@@ -3,12 +3,25 @@ import { computeLineHash, ensureHashInit } from "../src/hashline.js";
 
 const fsMock = vi.hoisted(() => ({
   readFile: vi.fn(),
-  writeFile: vi.fn(),
+}));
+
+const atomicMock = vi.hoisted(() => ({
+  writeFileAtomically: vi.fn(),
+  resolveMutationTargetPath: vi.fn(async (p: string) => p),
 }));
 
 vi.mock("fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs/promises")>();
-  return { ...actual, readFile: fsMock.readFile, writeFile: fsMock.writeFile };
+  return { ...actual, readFile: fsMock.readFile };
+});
+
+vi.mock("../src/fs-write.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/fs-write.js")>();
+  return {
+    ...actual,
+    writeFileAtomically: atomicMock.writeFileAtomically,
+    resolveMutationTargetPath: atomicMock.resolveMutationTargetPath,
+  };
 });
 
 import { registerEditTool } from "../src/edit.js";
@@ -24,13 +37,14 @@ describe("edit postEditVerify pre-write guards", () => {
   beforeEach(async () => {
     await ensureHashInit();
     fsMock.readFile.mockReset();
-    fsMock.writeFile.mockReset();
+    atomicMock.writeFileAtomically.mockReset();
+    atomicMock.writeFileAtomically.mockResolvedValue(undefined);
+    atomicMock.resolveMutationTargetPath.mockImplementation(async (p: string) => p);
   });
 
   it("does not write or read back when a pre-write no-op guard rejects the edit", async () => {
     const tool = captureEditTool();
     fsMock.readFile.mockResolvedValue(Buffer.from("alpha\nbeta", "utf8"));
-    fsMock.writeFile.mockResolvedValue(undefined);
     const anchor = `1:${computeLineHash(1, "alpha")}`;
 
     const result = await tool.execute(
@@ -43,7 +57,22 @@ describe("edit postEditVerify pre-write guards", () => {
 
     expect(result.isError).toBe(true);
     expect(result.details.ptcValue.error.code).toBe("no-op");
-    expect(fsMock.writeFile).not.toHaveBeenCalled();
+    expect(atomicMock.writeFileAtomically).not.toHaveBeenCalled();
     expect(fsMock.readFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("routes a real edit through writeFileAtomically", async () => {
+    const tool = captureEditTool();
+    fsMock.readFile.mockResolvedValue(Buffer.from("alpha\nbeta", "utf8"));
+    const anchor = `1:${computeLineHash(1, "alpha")}`;
+    const result = await tool.execute(
+      "edit-call",
+      { path: "/virtual/x.txt", edits: [{ set_line: { anchor, new_text: "ALPHA" } }] },
+      new AbortController().signal,
+      () => {},
+      { cwd: "/" },
+    );
+    expect(result.isError).toBeFalsy();
+    expect(atomicMock.writeFileAtomically).toHaveBeenCalledWith("/virtual/x.txt", expect.stringContaining("ALPHA"));
   });
 });

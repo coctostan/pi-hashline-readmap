@@ -7,6 +7,7 @@ function tick(): Promise<void> {
 describe("repro 160 — Pi file mutation queue integration", () => {
   afterEach(() => {
     vi.doUnmock("fs/promises");
+    vi.doUnmock("../src/fs-write.js");
     vi.resetModules();
   });
 
@@ -21,11 +22,19 @@ describe("repro 160 — Pi file mutation queue integration", () => {
         await tick();
         return Buffer.from(fileContent, "utf-8");
       }),
-      writeFile: vi.fn(async (_path: string, content: string | Buffer) => {
-        await tick();
-        fileContent = content.toString();
-      }),
     }));
+
+    vi.doMock("../src/fs-write.js", async () => {
+      const actual = await vi.importActual<any>("../src/fs-write.js");
+      return {
+        ...actual,
+        resolveMutationTargetPath: vi.fn(async (p: string) => p),
+        writeFileAtomically: vi.fn(async (_path: string, content: string | Buffer) => {
+          await tick();
+          fileContent = content.toString();
+        }),
+      };
+    });
 
     const { registerEditTool } = await import("../src/edit.js");
     let tool: any;

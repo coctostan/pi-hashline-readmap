@@ -1,16 +1,19 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 
-async function getWriteTool(fsOverrides?: Partial<typeof import("node:fs")>) {
+async function getWriteTool(behavior?: { throwOnWrite?: NodeJS.ErrnoException }) {
   vi.resetModules();
-  if (fsOverrides) {
-    vi.doMock("node:fs", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("node:fs")>();
-      return { ...actual, ...fsOverrides };
+  if (behavior?.throwOnWrite) {
+    vi.doMock("../src/fs-write.js", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/fs-write.js")>();
+      return {
+        ...actual,
+        resolveMutationTargetPath: async (p: string) => p,
+        writeFileAtomically: async () => { throw behavior.throwOnWrite; },
+      };
     });
   } else {
-    vi.doUnmock("node:fs");
+    vi.doUnmock("../src/fs-write.js");
   }
-
   const { registerWriteTool } = await import("../src/write.js");
   let captured: any = null;
   registerWriteTool({ registerTool(def: any) { captured = def; } } as any);
@@ -30,18 +33,13 @@ function fsErr(code: string, msg: string): NodeJS.ErrnoException {
 
 describe("write fs-error mapping", () => {
   afterEach(() => {
-    vi.doUnmock("node:fs");
+    vi.doUnmock("../src/fs-write.js");
     vi.resetModules();
     vi.restoreAllMocks();
   });
 
-  it("EACCES on writeFile -> 'Permission denied — cannot write: <path>'", async () => {
-    const tool = await getWriteTool({
-      mkdirSync: (() => undefined) as any,
-      writeFileSync: (() => {
-        throw fsErr("EACCES", "EACCES: permission denied, open '/root/locked.txt'");
-      }) as any,
-    });
+  it("EACCES on write -> 'Permission denied — cannot write: <path>'", async () => {
+    const tool = await getWriteTool({ throwOnWrite: fsErr("EACCES", "EACCES: permission denied") });
     const result = await tool.execute(
       "tc", { path: "/root/locked.txt", content: "hi" },
       new AbortController().signal, undefined, { cwd: process.cwd() },
@@ -51,13 +49,8 @@ describe("write fs-error mapping", () => {
     expect(result.details?.ptcValue?.error?.code).toBe("permission-denied");
   });
 
-  it("EPERM on writeFile -> same permission-denied mapping", async () => {
-    const tool = await getWriteTool({
-      mkdirSync: (() => undefined) as any,
-      writeFileSync: (() => {
-        throw fsErr("EPERM", "EPERM: operation not permitted");
-      }) as any,
-    });
+  it("EPERM on write -> same permission-denied mapping", async () => {
+    const tool = await getWriteTool({ throwOnWrite: fsErr("EPERM", "EPERM: operation not permitted") });
     const result = await tool.execute(
       "tc", { path: "/root/locked2.txt", content: "hi" },
       new AbortController().signal, undefined, { cwd: process.cwd() },
@@ -66,13 +59,8 @@ describe("write fs-error mapping", () => {
     expect(result.details?.ptcValue?.error?.code).toBe("permission-denied");
   });
 
-  it("EISDIR on writeFile -> 'Path is a directory — cannot overwrite: <path>'", async () => {
-    const tool = await getWriteTool({
-      mkdirSync: (() => undefined) as any,
-      writeFileSync: (() => {
-        throw fsErr("EISDIR", "EISDIR: illegal operation on a directory");
-      }) as any,
-    });
+  it("EISDIR on write -> 'Path is a directory — cannot overwrite: <path>'", async () => {
+    const tool = await getWriteTool({ throwOnWrite: fsErr("EISDIR", "EISDIR: illegal operation on a directory") });
     const result = await tool.execute(
       "tc", { path: "/tmp/somedir", content: "hi" },
       new AbortController().signal, undefined, { cwd: process.cwd() },
@@ -81,28 +69,8 @@ describe("write fs-error mapping", () => {
     expect(result.details?.ptcValue?.error?.code).toBe("path-is-directory");
   });
 
-  it("ENOENT on mkdirSync -> 'Cannot create parent directories for <path>: <reason>'", async () => {
-    const tool = await getWriteTool({
-      mkdirSync: (() => {
-        throw fsErr("ENOENT", "ENOENT: parent does not exist");
-      }) as any,
-    });
-    const result = await tool.execute(
-      "tc", { path: "/no/such/parent/file.txt", content: "hi" },
-      new AbortController().signal, undefined, { cwd: process.cwd() },
-    );
-    expect(text(result)).toContain("Cannot create parent directories for /no/such/parent/file.txt");
-    expect(text(result)).toContain("ENOENT: parent does not exist");
-    expect(result.details?.ptcValue?.error?.code).toBe("fs-error");
-  });
-
-  it("ENOSPC on writeFile -> 'No space left on device — cannot write: <path>'", async () => {
-    const tool = await getWriteTool({
-      mkdirSync: (() => undefined) as any,
-      writeFileSync: (() => {
-        throw fsErr("ENOSPC", "ENOSPC: no space left");
-      }) as any,
-    });
+  it("ENOSPC on write -> fs-error with No space message", async () => {
+    const tool = await getWriteTool({ throwOnWrite: fsErr("ENOSPC", "ENOSPC: no space left") });
     const result = await tool.execute(
       "tc", { path: "/tmp/full.txt", content: "hi" },
       new AbortController().signal, undefined, { cwd: process.cwd() },
@@ -111,19 +79,24 @@ describe("write fs-error mapping", () => {
     expect(result.details?.ptcValue?.error?.code).toBe("fs-error");
   });
 
-  it("EROFS on writeFile -> 'Read-only filesystem — cannot write: <path>'", async () => {
-    const tool = await getWriteTool({
-      mkdirSync: (() => undefined) as any,
-      writeFileSync: (() => {
-        throw fsErr("EROFS", "EROFS: read-only file system");
-      }) as any,
-    });
+  it("EROFS on write -> 'Read-only filesystem — cannot write: <path>'", async () => {
+    const tool = await getWriteTool({ throwOnWrite: fsErr("EROFS", "EROFS: read-only file system") });
     const result = await tool.execute(
       "tc", { path: "/readonly/file.txt", content: "hi" },
       new AbortController().signal, undefined, { cwd: process.cwd() },
     );
     expect(text(result)).toBe("Read-only filesystem — cannot write: /readonly/file.txt");
     expect(result.details?.ptcValue?.error?.code).toBe("fs-error");
+  });
+
+  it("EXDEV on write -> fs-error with fsCode meta", async () => {
+    const tool = await getWriteTool({ throwOnWrite: fsErr("EXDEV", "EXDEV: cross-device link") });
+    const result = await tool.execute(
+      "tc", { path: "/tmp/x.txt", content: "hi" },
+      new AbortController().signal, undefined, { cwd: process.cwd() },
+    );
+    expect(result.details?.ptcValue?.error?.code).toBe("fs-error");
+    expect(result.details?.ptcValue?.error?.details?.fsCode).toBe("EXDEV");
   });
 
   it("regression: successful write still returns hashlined output", async () => {
