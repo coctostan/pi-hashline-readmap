@@ -25,7 +25,8 @@ import { buildLocalBundle } from "./read-local-bundle.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { Text } from "@earendil-works/pi-tui";
 import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
+import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
+import { resolvePreviewLines } from "./hashline-settings.js";
 
 const READ_PROMPT_METADATA = defineToolPromptMetadata({
 	promptUrl: new URL("../prompts/read.md", import.meta.url),
@@ -691,9 +692,14 @@ return succeed({
 			if (info.symbolBadge) summaryParts.push(info.symbolBadge);
 			for (const badge of info.badges) summaryParts.push(badge);
 			const summary = summaryParts.join(" • ");
-			let text = summaryLine(summary, { hidden: !!textContent && !expanded });
-			if (expanded && textContent) text += "\n" + wrapReadHashlinesForWidth(textContent, width);
-			return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
+			if (expanded && textContent) {
+				const text = summaryLine(summary) + "\n" + wrapReadHashlinesForWidth(textContent, width);
+				return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
+			}
+			const preview = buildCollapsedPreview(textContent, resolvePreviewLines(), width, { hashlines: true });
+			const summaryRow = summaryLine(summary, { hidden: !!textContent && preview.lines.length === 0 });
+			const out = [summaryRow, ...(preview.hint ? [preview.hint] : []), ...preview.lines];
+			return new Text(clampLinesToWidth(out, width).join("\n"), 0, 0);
 		},
 	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
 

@@ -1,7 +1,8 @@
 import { createBashTool, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { resolvePreviewLines } from "./hashline-settings.js";
 
 type BuiltInFactory = (cwd: string, options?: { shellPath?: string }) => any;
 
@@ -55,9 +56,14 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
       }
       if (!text.trim()) return new Text(summaryLine("command completed (no output)"), 0, 0);
       const lineCount = text.split("\n").filter(Boolean).length;
-      let rendered = summaryLine(`${lineCount} ${lineCount === 1 ? "line" : "lines"} returned`, { hidden: !expanded });
-      if (expanded) rendered += `\n${text}`;
-      return new Text(clampLinesToWidth(rendered.split("\n"), width).join("\n"), 0, 0);
+      if (expanded) {
+        const rendered = `${summaryLine(`${lineCount} ${lineCount === 1 ? "line" : "lines"} returned`)}\n${text}`;
+        return new Text(clampLinesToWidth(rendered.split("\n"), width).join("\n"), 0, 0);
+      }
+      const preview = buildCollapsedPreview(text, resolvePreviewLines(), width);
+      const summary = summaryLine(`${lineCount} ${lineCount === 1 ? "line" : "lines"} returned`, { hidden: preview.lines.length === 0 });
+      const out = [summary, ...(preview.hint ? [preview.hint] : []), ...preview.lines];
+      return new Text(clampLinesToWidth(out, width).join("\n"), 0, 0);
     },
   };
   pi.registerTool(tool as any);

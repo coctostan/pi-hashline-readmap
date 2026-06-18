@@ -17,7 +17,7 @@ describe("read TUI renderer", () => {
   it("uses compact call and collapsed summary by default", () => {
     setCapabilities({ images: null, trueColor: true, hyperlinks: false });
     expect(textOf(tool().renderCall({ path: "src/edit.ts", offset: 120, limit: 61 }, theme))).toBe("read src/edit.ts:120-180");
-    expect(textOf(tool().renderResult(result, {}, theme, {}))).toBe("↳ loaded 1 line • Ctrl+O to expand");
+    expect(textOf(tool().renderResult(result, {}, theme, {}))).toBe("↳ loaded 1 line\n1:abc|export function veryLongName(argumentOne: string, argumentTwo: string): void {}");
   });
 
   it("wraps the read path title in an OSC 8 hyperlink when supported", () => {

@@ -17,7 +17,8 @@ import { throwIfAborted } from "./runtime.js";
 import { Text } from "@earendil-works/pi-tui";
 import { formatGrepCallText, formatGrepResultText } from "./grep-render-helpers.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
-import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { resolvePreviewLines } from "./hashline-settings.js";
 
 const GREP_PROMPT_METADATA = defineToolPromptMetadata({
 	promptUrl: new URL("../prompts/grep.md", import.meta.url),
@@ -772,8 +773,17 @@ if (p.scope === "symbol" && !summary) {
 			if (info.noMatches && !hasBinaryWarning) return new Text(summaryLine("no matches"), 0, 0);
 			const matchCount = ptcValue?.totalMatches ?? 0;
 			const matchWord = matchCount === 1 ? "match" : "matches";
-			let text = summaryLine(`${matchCount} ${matchWord} returned`, { hidden: !!textContent && !expanded });
+			const collapsedPreview = expanded ? { hint: null, lines: [] } : buildCollapsedPreview(textContent, resolvePreviewLines(), width);
+			// Grep's expanded view reveals a per-file count list (distinct from the collapsed match preview), so keep the
+			// expand affordance discoverable whenever that detail exists and the earlier-lines hint isn't already carrying it.
+			const hasExpandableDetail = !!ptcValue?.records?.some((r) => r.path && r.kind === "match");
+			const showExpandAffordance = !!textContent && !expanded && (collapsedPreview.lines.length === 0 || (hasExpandableDetail && !collapsedPreview.hint));
+			let text = summaryLine(`${matchCount} ${matchWord} returned`, { hidden: showExpandAffordance });
 			for (const badge of info.badges) text += theme.fg(badge.startsWith("⚠") ? "warning" : "dim", `  ${badge}`);
+			if (!expanded) {
+				if (collapsedPreview.hint) text += "\n" + collapsedPreview.hint;
+				for (const line of collapsedPreview.lines) text += "\n" + line;
+			}
 			if (expanded && ptcValue?.records) {
 				const fileCounts = new Map<string, number>();
 				for (const r of ptcValue.records) if (r.path && r.kind === "match") fileCounts.set(r.path, (fileCounts.get(r.path) ?? 0) + 1);

@@ -127,3 +127,30 @@ export function wrapReadHashlinesForWidth(text: string, width: number | undefine
   }
   return output.join("\n");
 }
+
+export interface CollapsedPreview {
+  hint: string | null;
+  lines: string[];
+}
+
+export function buildCollapsedPreview(
+  body: string,
+  previewLines: number,
+  width: number | undefined,
+  options: { hashlines?: boolean } = {},
+): CollapsedPreview {
+  if (previewLines <= 0) return { hint: null, lines: [] };
+  const trimmed = body.replace(/\n+$/, "");
+  if (trimmed.length === 0) return { hint: null, lines: [] };
+  const rawLines = trimmed.split("\n");
+  const total = rawLines.length;
+  const tail = rawLines.slice(Math.max(0, total - previewLines));
+  const hiddenCount = total - tail.length;
+  const lines = options.hashlines
+    ? wrapReadHashlinesForWidth(tail.join("\n"), width).split("\n")
+    : clampLinesToWidth(tail, width);
+  const hint = hiddenCount > 0
+    ? `… (${hiddenCount} earlier ${hiddenCount === 1 ? "line" : "lines"}${EXPAND_HINT})`
+    : null;
+  return { hint, lines };
+}
