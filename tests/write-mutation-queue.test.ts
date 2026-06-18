@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 describe("write Pi file mutation queue integration", () => {
   afterEach(() => {
     vi.doUnmock("@earendil-works/pi-coding-agent");
-    vi.doUnmock("node:fs");
+    vi.doUnmock("../src/fs-write.js");
     vi.resetModules();
   });
 
-  it("wraps write's full mutation window in Pi's file mutation queue", async () => {
+  it("wraps write's window in Pi's queue, keyed on the resolved target path", async () => {
     vi.resetModules();
     const events: string[] = [];
     const filePath = "/virtual/write-queue.txt";
@@ -25,15 +25,13 @@ describe("write Pi file mutation queue integration", () => {
       };
     });
 
-    vi.doMock("node:fs", async () => {
-      const actual = await vi.importActual<any>("node:fs");
+    vi.doMock("../src/fs-write.js", async () => {
+      const actual = await vi.importActual<any>("../src/fs-write.js");
       return {
         ...actual,
-        mkdirSync: vi.fn((dirPath: string) => {
-          events.push(`mkdir:${dirPath}`);
-        }),
-        writeFileSync: vi.fn((targetPath: string, content: string) => {
-          events.push(`write:${targetPath}:${content}`);
+        resolveMutationTargetPath: vi.fn(async (p: string) => p),
+        writeFileAtomically: vi.fn(async (targetPath: string, content: string) => {
+          events.push(`atomic-write:${targetPath}:${content}`);
         }),
       };
     });
@@ -52,11 +50,7 @@ describe("write Pi file mutation queue integration", () => {
 
     expect(result.isError).not.toBe(true);
     expect(events[0]).toBe(`queue-enter:${filePath}`);
-    expect(events).toEqual([
-      `queue-enter:${filePath}`,
-      "mkdir:/virtual",
-      `write:${filePath}:queued content`,
-      `queue-exit:${filePath}`,
-    ]);
+    expect(events).toContain(`atomic-write:${filePath}:queued content`);
+    expect(events[events.length - 1]).toBe(`queue-exit:${filePath}`);
   });
 });

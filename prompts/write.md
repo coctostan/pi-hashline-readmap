@@ -6,6 +6,8 @@ Use `write` to create a file or intentionally replace a whole file. For small ch
 
 Existing files are overwritten without confirmation. Binary-looking content is written, but hashlines are not generated, so there are no anchors to feed into `edit`.
 
+Writes are atomic: content is written to a temporary file in the same directory and renamed over the target, so the file is never left partially written. Symlinked targets are written through to their real target (the symlink is preserved). Hard-linked targets (`nlink > 1`) are the exception — they are updated in place to preserve the shared inode and all links, so that case is not temp+rename atomic. Existing files keep their permission mode; new files use the OS/umask default.
+
 ## Parameters
 
 - `path` — relative or absolute file path.

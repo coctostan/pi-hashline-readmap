@@ -71,6 +71,7 @@ If `edit` auto-relocates an anchor, check the warning and verify the edit landed
 - `no-op` means the requested edit matched the current file already or produced identical content.
 - A whitespace-only warning means formatting changed but behavior probably did not.
 - A `replace`-only success may include a reminder to prefer anchored edits next time.
+- Edits are written atomically (temp file + rename); symlinks are written through to their real target and preserved, and hard links are updated in place.
 
 Syntax validation runs before writing when supported:
 - Supported: Rust, C++, C headers, Java.

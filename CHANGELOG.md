@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-18
+
+### Changed
+- `write` and `edit` now write files atomically via a shared `src/fs-write.ts` helper (`resolveMutationTargetPath` + `writeFileAtomically`): content is written to a same-directory temp file (`open` with `wx`/`0o600`) and `rename`d over the target, so a target is never left partially written. Symlinked targets are written through to their real target and the symlink is preserved; hard-linked targets (`nlink > 1`) are updated in place so the inode and all links are kept. Existing files preserve their prior permission mode; newly created files keep the OS/umask default. The file-mutation queue is now keyed on the resolved target path so symlink/target aliases serialize. Atomic-write/rename failures (including `EXDEV`) surface through the existing `fs-error` envelope with `fsCode`/`fsMessage` — no new error codes (#215).
+- Behavior change: because edits/writes now land via a directory-level `rename`, editing or overwriting a read-only file (`0o444`) that lives in a writable directory now succeeds (previously this failed with `permission-denied`). A write is only refused when the **containing directory** is not writable (#215).
+
 ## [0.10.0] - 2026-06-18
 
 ### Added

@@ -3,12 +3,25 @@ import { computeLineHash, ensureHashInit } from "../src/hashline.js";
 
 const fsMock = vi.hoisted(() => ({
   readFile: vi.fn(),
-  writeFile: vi.fn(),
+}));
+
+const atomicMock = vi.hoisted(() => ({
+  writeFileAtomically: vi.fn(),
+  resolveMutationTargetPath: vi.fn(async (p: string) => p),
 }));
 
 vi.mock("fs/promises", async (importOriginal) => {
   const actual = await importOriginal<typeof import("fs/promises")>();
-  return { ...actual, readFile: fsMock.readFile, writeFile: fsMock.writeFile };
+  return { ...actual, readFile: fsMock.readFile };
+});
+
+vi.mock("../src/fs-write.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/fs-write.js")>();
+  return {
+    ...actual,
+    writeFileAtomically: atomicMock.writeFileAtomically,
+    resolveMutationTargetPath: atomicMock.resolveMutationTargetPath,
+  };
 });
 
 import { registerEditTool } from "../src/edit.js";
@@ -24,7 +37,9 @@ describe("edit postEditVerify read failure", () => {
   beforeEach(async () => {
     await ensureHashInit();
     fsMock.readFile.mockReset();
-    fsMock.writeFile.mockReset();
+    atomicMock.writeFileAtomically.mockReset();
+    atomicMock.writeFileAtomically.mockResolvedValue(undefined);
+    atomicMock.resolveMutationTargetPath.mockImplementation(async (p: string) => p);
   });
 
   it("returns a structured error when read-back fails after the write completed", async () => {
@@ -33,7 +48,6 @@ describe("edit postEditVerify read failure", () => {
     fsMock.readFile
       .mockResolvedValueOnce(Buffer.from("alpha\nbeta", "utf8"))
       .mockRejectedValueOnce(readError);
-    fsMock.writeFile.mockResolvedValue(undefined);
     const anchor = `1:${computeLineHash(1, "alpha")}`;
 
     const result = await tool.execute(
@@ -44,7 +58,7 @@ describe("edit postEditVerify read failure", () => {
       { cwd: process.cwd() },
     );
 
-    expect(fsMock.writeFile).toHaveBeenCalledTimes(1);
+    expect(atomicMock.writeFileAtomically).toHaveBeenCalledTimes(1);
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("write completed but post-edit verification failed");
     expect(result.details.ptcValue.ok).toBe(false);
