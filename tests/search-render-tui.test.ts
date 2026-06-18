@@ -19,7 +19,7 @@ describe("search TUI renderers", () => {
     const grep = capture(registerGrepTool as any);
     expect(textOf(grep.renderCall({ pattern: "diffData", path: "src" }, theme))).toBe("grep /diffData/ in src");
     const result = { content: [{ type: "text", text: "src/a.ts:1:abc|diffData" }], details: { ptcValue: { tool: "grep", summary: false, totalMatches: 1, records: [{ path: `${process.cwd()}/src/a.ts`, kind: "match" }] } } };
-    expect(textOf(grep.renderResult(result, {}, theme, { cwd: process.cwd() }))).toBe("↳ 1 match returned • Ctrl+O to expand");
+    expect(textOf(grep.renderResult(result, {}, theme, { cwd: process.cwd() }))).toBe("↳ 1 match returned • Ctrl+O to expand\nsrc/a.ts:1:abc|diffData");
     expect(textOf(grep.renderResult(result, { expanded: true }, theme, { expanded: true, cwd: process.cwd() }))).toContain("src/a.ts (1)");
   });
 

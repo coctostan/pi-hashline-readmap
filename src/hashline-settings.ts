@@ -9,6 +9,7 @@ export interface HashlineJsonSettings {
   bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
   gdscript?: { enabled?: boolean };
   edit?: { diffDisplay?: "collapsed" | "expanded" };
+  display?: { previewLines?: number };
   bash?: { shellPath?: string };
 }
 export interface HashlineSettingsWarning { source: string; message: string; path?: string }
@@ -143,6 +144,16 @@ function readPositive(raw: Record<string, unknown>, key: string, path: string, s
   warnings.push(invalid(source, path));
   return undefined;
 }
+function isStrictJsonNonNegativeInteger(rawText: string, path: string, value: unknown): value is number {
+  const tokens = rawFieldTokens(rawText, path);
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && tokens.length === 1 && /^(0|[1-9][0-9]*)$/.test(tokens[0]);
+}
+function readNonNegative(raw: Record<string, unknown>, key: string, path: string, source: string, rawText: string, warnings: HashlineSettingsWarning[]): number | undefined {
+  if (!(key in raw)) return undefined;
+  if (isStrictJsonNonNegativeInteger(rawText, path, raw[key])) return raw[key];
+  warnings.push(invalid(source, path));
+  return undefined;
+}
 function readBoolean(raw: Record<string, unknown>, key: string, path: string, source: string, warnings: HashlineSettingsWarning[]): boolean | undefined {
   if (!(key in raw)) return undefined;
   if (typeof raw[key] === "boolean") return raw[key];
@@ -205,6 +216,12 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
     }
     if (Object.keys(bash).length > 0) settings.bash = bash;
   }
+  if (isRecord(raw.display)) {
+    const display: NonNullable<HashlineJsonSettings["display"]> = {};
+    const previewLines = readNonNegative(raw.display, "previewLines", "display.previewLines", source, rawText, warnings);
+    if (previewLines !== undefined) display.previewLines = previewLines;
+    if (Object.keys(display).length > 0) settings.display = display;
+  }
   return { settings, warnings };
 }
 function readSettingsFile(path: string): HashlineSettingsResult {
@@ -228,6 +245,8 @@ function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSetting
   if (Object.keys(gdscript).length > 0) merged.gdscript = gdscript;
   const edit = { ...(base.edit ?? {}), ...(override.edit ?? {}) };
   if (Object.keys(edit).length > 0) merged.edit = edit;
+  const display = { ...(base.display ?? {}), ...(override.display ?? {}) };
+  if (Object.keys(display).length > 0) merged.display = display;
   const bash = { ...(base.bash ?? {}), ...(override.bash ?? {}) };
   if (Object.keys(bash).length > 0) merged.bash = bash;
   return merged;
@@ -254,6 +273,21 @@ export function resolveEditDiffDisplay(env: NodeJS.ProcessEnv = process.env): "c
   const json = resolveHashlineJsonSettings().settings.edit?.diffDisplay;
   if (json === "expanded" || json === "collapsed") return json;
   return "collapsed";
+}
+
+const DEFAULT_PREVIEW_LINES = 5;
+export function resolvePreviewLines(env: NodeJS.ProcessEnv = process.env): number {
+  const raw = env.PI_HASHLINE_PREVIEW_LINES;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (/^(0|[1-9][0-9]*)$/.test(trimmed)) {
+      const parsed = Number.parseInt(trimmed, 10);
+      if (Number.isSafeInteger(parsed) && parsed >= 0) return parsed;
+    }
+  }
+  const json = resolveHashlineJsonSettings().settings.display?.previewLines;
+  if (typeof json === "number" && Number.isSafeInteger(json) && json >= 0) return json;
+  return DEFAULT_PREVIEW_LINES;
 }
 
 export function resolveShellPath(env: NodeJS.ProcessEnv = process.env): string | undefined {

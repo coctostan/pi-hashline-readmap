@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-18
+
+### Added
+- Collapsed `bash`, `read`, and `grep` TUI results now show a tail preview instead of being content-free: the existing summary line is followed by the last N visual lines of output (default 5), with a muted `… (K earlier line(s) • Ctrl+O to expand)` hint when earlier lines are hidden. Controlled by the new `display.previewLines` setting (env `PI_HASHLINE_PREVIEW_LINES`; precedence env → JSON → default 5); set to `0` to restore the previous content-free collapsed summaries. The change is display-only — model-facing tool text, `details.ptcValue`, RTK bash compression, and the Bash context guard are unchanged. `grep` keeps its expand affordance when the expanded per-file count list adds detail beyond the preview (#214, PR #152).
+
 ## [0.8.16] - 2026-05-28
 
 ### Changed
