@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-19
+
+### Fixed
+- `find` no longer fails silently for slash-containing globs. `find` matches basenames, not paths, so a pattern like `src/*.ts` or `src/**/*.ts` never matched and returned a bare "No files found" with no explanation. When the pattern contains a `/` and produces no results, the output now appends a hint: `find matches basenames, not paths — drop the directory segment or pass it via path: (e.g. find("*.ts", path: "src/readmap")).` The hint covers both the `fd` and node-fallback backends; matching behavior is unchanged (#220).
 ## [0.11.0] - 2026-06-18
 
 ### Changed

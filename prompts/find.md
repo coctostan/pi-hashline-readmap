@@ -16,4 +16,4 @@ Find files recursively by name. Uses glob patterns by default, respects nested `
 One relative path per line. Directories end with `/`. If results exceed `limit` or 50 KB, output says it was truncated.
 Filtering and sorting happen before `limit`, so queries like largest/newest files work as expected.
 
-Use `find` for recursive file-name discovery, `ls` for one directory, and `grep` for file contents. Remember: `pattern` matches basenames, not full paths.
+Use `find` for recursive file-name discovery, `ls` for one directory, and `grep` for file contents. Remember: `pattern` matches basenames, not full paths. A pattern containing `/` (e.g. `src/*.ts`) will not match — scope the directory via `path:` instead (e.g. `find("*.ts", path: "src/readmap")`). When a slash-containing glob returns nothing, the result includes a hint to this effect.
