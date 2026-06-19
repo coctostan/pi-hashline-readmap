@@ -551,3 +551,69 @@ describe("find path resolution", () => {
   });
 });
 
+describe("find slash-glob hint", () => {
+  afterEach(() => { vi.restoreAllMocks(); _testable.isFdAvailable = _originalIsFdAvailable; });
+
+  const SLASH_HINT = "find matches basenames";
+
+  it("hints about basename matching for slash globs (node fallback)", async () => {
+    _testable.isFdAvailable = () => false;
+    const tool = await getFindTool();
+    const result = await tool.execute(
+      "tc",
+      { pattern: "src/*.ts" },
+      new AbortController().signal,
+      undefined,
+      { cwd: fixturesDir },
+    );
+    const output = text(result);
+    expect(output).toContain("No files found matching pattern: src/*.ts");
+    expect(output).toContain(SLASH_HINT);
+  });
+
+  it("hints about basename matching for slash globs (fd path)", async () => {
+    if (!_originalIsFdAvailable()) return; // skip when fd is unavailable
+    _testable.isFdAvailable = _originalIsFdAvailable;
+    const tool = await getFindTool();
+    const result = await tool.execute(
+      "tc",
+      { pattern: "src/*.ts" },
+      new AbortController().signal,
+      undefined,
+      { cwd: fixturesDir },
+    );
+    const output = text(result);
+    expect(output).toContain(SLASH_HINT);
+  });
+
+  it("does NOT hint for a normal basename glob with no matches", async () => {
+    _testable.isFdAvailable = () => false;
+    const tool = await getFindTool();
+    const result = await tool.execute(
+      "tc",
+      { pattern: "nope-*.xyz" },
+      new AbortController().signal,
+      undefined,
+      { cwd: fixturesDir },
+    );
+    const output = text(result);
+    expect(output).toContain("No files found matching pattern: nope-*.xyz");
+    expect(output).not.toContain(SLASH_HINT);
+  });
+
+  it("does NOT hint when the path-scoped equivalent returns results", async () => {
+    _testable.isFdAvailable = () => false;
+    const tool = await getFindTool();
+    const result = await tool.execute(
+      "tc",
+      { pattern: "*.ts", path: "src" },
+      new AbortController().signal,
+      undefined,
+      { cwd: fixturesDir },
+    );
+    const output = text(result);
+    expect(output).toContain("app.ts");
+    expect(output).not.toContain(SLASH_HINT);
+  });
+});
+

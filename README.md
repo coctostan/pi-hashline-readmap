@@ -228,7 +228,7 @@ find({ pattern: "*.ts", path: "src", maxDepth: 2 })
 nu({ command: "open package.json | get scripts" })
 ```
 
-`ls` shows one directory with directories first and dotfiles included. `find` performs recursive discovery, respects `.gitignore`, includes hidden files, and supports depth, regex, sort, mtime, and size filters. `nu` registers only when Nushell is installed and is useful for structured JSON, CSV, TOML, YAML, and filesystem inspection.
+`ls` shows one directory with directories first and dotfiles included. `find` performs recursive discovery, respects `.gitignore`, includes hidden files, and supports depth, regex, sort, mtime, and size filters. `find` matches basenames, not paths — pass directories via `path:` (e.g. `find({ pattern: "*.ts", path: "src" })`) rather than embedding them in the glob; a slash-containing glob that matches nothing returns a hint explaining this. `nu` registers only when Nushell is installed and is useful for structured JSON, CSV, TOML, YAML, and filesystem inspection.
 
 ### Handle noisy command output
 

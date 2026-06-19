@@ -269,8 +269,14 @@ function formatOutput(
   showFdHint: boolean,
 ): string {
   if (entries.length === 0 && !truncated) {
-    const text = `No files found matching pattern: ${pattern}`;
-    return showFdHint ? text + "\nHint: Install fd for faster file discovery: brew install fd" : text;
+    let text = `No files found matching pattern: ${pattern}`;
+    if (pattern.includes("/")) {
+      text += `\nHint: find matches basenames, not paths \u2014 drop the directory segment or pass it via path: (e.g. find("*.ts", path: "src/readmap")).`;
+    }
+    if (showFdHint) {
+      text += "\nHint: Install fd for faster file discovery: brew install fd";
+    }
+    return text;
   }
 
   const lines: string[] = [];
