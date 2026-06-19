@@ -9,6 +9,8 @@ Read text files with `LINE:HASH|content` anchors usable by `edit`. Default cap: 
 
 When a full-file read is truncated, a structural map is appended automatically when available. Use that map's line ranges for follow-up `read({ offset, limit })`. Structural maps support many common code/data formats and may fall back to ctags/heuristics.
 
+Very long single lines are truncated in the displayed output at 500 characters, the same threshold `grep` uses, with a `... [truncated, N chars total]` marker showing the original length. Truncation is display-only: the `LINE:HASH` anchor is computed from the full line, so `edit` still operates on the complete content and the hash is unchanged.
+
 ## Symbol examples
 
 | Query | Reads |
