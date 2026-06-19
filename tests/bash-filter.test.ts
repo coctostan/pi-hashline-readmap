@@ -45,6 +45,15 @@ describe("command detection", () => {
     expect(isBuildCommand("npx tsc")).toBe(true);
     expect(isBuildCommand("./node_modules/.bin/tsc")).toBe(true);
   });
+
+  it("#219 reconcile: .tscn false-positive stays fixed for the reporter's exact command (GH PR #148)", () => {
+    // Reporter scenario from GH PR #148 / issue #211: a Godot scene diff must not
+    // be swallowed by the build-output filter, while real tsc invocations still are.
+    expect(isBuildCommand("git diff scenes/player/player.tscn")).toBe(false);
+    expect(isBuildCommand("cat ui/main_menu.tscn")).toBe(false);
+    expect(isBuildCommand("tsc")).toBe(true);
+    expect(isBuildCommand("npx tsc --noEmit")).toBe(true);
+  });
 });
 
 

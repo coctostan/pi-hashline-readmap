@@ -1,5 +1,6 @@
 import { computeLineHash, escapeControlCharsForDisplay } from "./hashline.js";
 import type { DiffData } from "./diff-data.js";
+import { truncateLine } from "@earendil-works/pi-coding-agent";
 
 export interface PtcLine {
   line: number;
@@ -76,8 +77,24 @@ export function buildPtcLines(startLine: number, rawLines: string[]): PtcLine[] 
   return rawLines.map((raw, index) => buildPtcLine(startLine + index, raw));
 }
 
+/**
+ * Cap an already-rendered display string at grep's per-line threshold (500 chars),
+ * appending a marker that includes the original character count. Display-only:
+ * callers must keep the untruncated content for hashing/editing, so anchors and
+ * edits still operate on full content. Threshold matches grep's `truncateLine`
+ * (500). See issue #217.
+ */
+export function truncateDisplayLine(display: string): string {
+  const { text, wasTruncated } = truncateLine(display);
+  if (!wasTruncated) return display;
+  // truncateLine returns `<first 500 chars>... [truncated]`; replace grep's bare
+  // marker with one that also reports the original length for read's contract.
+  const sliced = text.slice(0, text.length - "... [truncated]".length);
+  return `${sliced}... [truncated, ${display.length} chars total]`;
+}
+
 export function renderPtcLine(line: PtcLine): string {
-  return `${line.anchor}|${line.display}`;
+  return `${line.anchor}|${truncateDisplayLine(line.display)}`;
 }
 
 export function renderPtcLines(lines: PtcLine[]): string {

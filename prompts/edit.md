@@ -70,6 +70,7 @@ If `edit` auto-relocates an anchor, check the warning and verify the edit landed
 - Anchored edits are applied bottom-up so line numbers stay stable.
 - `no-op` means the requested edit matched the current file already or produced identical content.
 - A whitespace-only warning means formatting changed but behavior probably did not.
+- Anchored edits honor your `new_text` indentation. If your replacement adds its own leading whitespace, that is used verbatim. As a convenience for replacements that collapse a wrapped/split line back to one line, the original line's indentation is restored only when no indentation was supplied; a plain 1:1 single-line replacement (`set_line`, or `replace_lines` with one target line) that starts at column 0 is honored as-is, so you can dedent a line to the left margin by setting `new_text` to column-0 content.
 - A `replace`-only success may include a reminder to prefer anchored edits next time.
 - Edits are written atomically (temp file + rename); symlinks are written through to their real target and preserved, and hard links are updated in place.
 

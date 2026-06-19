@@ -40,7 +40,7 @@ describe("context hygiene context application", () => {
     expect(applied).not.toBe(messages);
     expect(applied[0]).not.toBe(staleRead);
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
     ]);
     expect(applied[0].details).toMatchObject({
       ptcValue: { tool: "read" },
@@ -82,7 +82,7 @@ describe("context hygiene context application", () => {
     );
 
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
     ]);
     expect(applied[1]).toBe(liveWrite);
     expect(applied[2]).toBe(freshRead);
@@ -105,7 +105,7 @@ describe("context hygiene context application", () => {
     const applied = applyContextHygieneStaleContext([staleGrep, liveEdit], tracker.generateReport());
 
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Run grep again for current matches.]" },
+      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run grep for current matches.]" },
     ]);
     expect(applied[0].details).toMatchObject({
       contextHygieneStale: {
@@ -136,7 +136,7 @@ describe("context hygiene context application", () => {
     const applied = applyContextHygieneStaleContext([staleGrep, liveWrite], tracker.generateReport());
 
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Run grep again for current matches.]" },
+      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run grep for current matches.]" },
     ]);
     expect(applied[1]).toBe(liveWrite);
   });
@@ -164,10 +164,10 @@ describe("context hygiene context application", () => {
     ], tracker.generateReport());
 
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Run grep again for current matches.]" },
+      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run grep for current matches.]" },
     ]);
     expect(applied[1].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
     ]);
     expect(applied[2].content).toEqual([{ type: "text", text: "chain edit output" }]);
   });
@@ -189,7 +189,7 @@ describe("context hygiene context application", () => {
     const applied = applyContextHygieneStaleContext([staleAst, liveEdit], tracker.generateReport());
 
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Run ast_search again for current matches.]" },
+      { type: "text", text: "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run ast_search for current matches.]" },
     ]);
     expect(applied[0].details).toMatchObject({
       contextHygieneStale: {
@@ -220,7 +220,7 @@ describe("context hygiene context application", () => {
     const applied = applyContextHygieneStaleContext([staleAst, liveWrite], tracker.generateReport());
 
     expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Run ast_search again for current matches.]" },
+      { type: "text", text: "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run ast_search for current matches.]" },
     ]);
     expect(applied[1]).toBe(liveWrite);
   });
@@ -248,7 +248,7 @@ describe("context hygiene context application", () => {
     const staleRead = toolResult("read-before-edit", "read", "old read output");
     const staleApplied = applyContextHygieneStaleContext([staleRead], tracker.generateReport());
     expect(staleApplied[0].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Run read again for current content.]" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
     ]);
     expect(staleApplied[0].content[0].text.toLowerCase()).toContain("stale");
     expect(staleApplied[0].content[0].text.toLowerCase()).not.toContain("retired");

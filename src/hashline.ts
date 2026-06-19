@@ -686,8 +686,12 @@ export function applyHashlineEdits(
 
 			const orig = origLines.slice(spec.ref.line - 1, spec.ref.line);
 			let stripped = stripRangeBoundaryEcho(origLines, spec.ref.line, spec.ref.line, dstLines);
+			const beforeWrap = stripped;
 			stripped = restoreOldWrappedLines(orig, stripped);
-			let newL = restoreIndentPaired(orig, stripped);
+			// Only auto-restore indentation when a wrapped/split span was actually collapsed
+			// back to one line. For a genuine 1:1 anchored replacement, honor the requested
+			// column (e.g. an intentional dedent to column 0). See issue #216.
+			let newL = stripped !== beforeWrap ? restoreIndentPaired(orig, stripped) : stripped;
 			if (orig.join("\n") === newL.join("\n") && orig.some((line) => CONFUSABLE_HYPHENS_RE.test(line))) {
 				newL = normalizeConfusableHyphensInLines(newL);
 			}
@@ -701,8 +705,10 @@ export function applyHashlineEdits(
 			const count = spec.end.line - spec.start.line + 1;
 			const orig = origLines.slice(spec.start.line - 1, spec.start.line - 1 + count);
 			let stripped = stripRangeBoundaryEcho(origLines, spec.start.line, spec.end.line, dstLines);
+			const beforeWrap = stripped;
 			stripped = restoreOldWrappedLines(orig, stripped);
-			let newL = restoreIndentPaired(orig, stripped);
+			// See issue #216 — only restore indent after a real wrap collapse.
+			let newL = stripped !== beforeWrap ? restoreIndentPaired(orig, stripped) : stripped;
 			if (orig.join("\n") === newL.join("\n") && orig.some((line) => CONFUSABLE_HYPHENS_RE.test(line))) {
 				newL = normalizeConfusableHyphensInLines(newL);
 			}
