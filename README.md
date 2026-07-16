@@ -233,6 +233,7 @@ nu({ command: "open package.json | get scripts" })
 ### Handle noisy command output
 
 The extension post-processes `bash` results to reduce noise while preserving useful output. Route-specific compression covers test runners, builds, compilers, Git, linters, Docker, package managers, HTTP clients, transfer tools, file-listing output, and oversized generic output.
+Failed command results skip route-specific reducers, and build success is synthesized only when output contains recognized compilation progress; ambiguous output is preserved instead.
 
 Use `PI_RTK_BYPASS=1` when route-specific compression hides something you need:
 

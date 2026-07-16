@@ -69,7 +69,7 @@ function makeInfo(
   return { originalBytes, outputBytes, compressionRatio, technique, ...extra };
 }
 
-export function filterBashOutput(command: string, output: string): FilterResult {
+export function filterBashOutput(command: string, output: string, isError = false): FilterResult {
   if (output === "") {
     return { output: "", savedChars: 0, info: makeInfo("", "", "none") };
   }
@@ -122,7 +122,7 @@ export function filterBashOutput(command: string, output: string): FilterResult 
       { matches: transfer.isTransferCommand(command), technique: "transfer", apply: () => transfer.compressTransferOutput(stripped) },
     ];
     for (const route of routes) {
-      if (!route.matches) continue;
+      if (isError || !route.matches) continue;
       technique = route.technique;
       const next = route.apply();
       if (next !== null) {

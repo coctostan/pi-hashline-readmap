@@ -28,6 +28,8 @@ The extension routes common command output through specialized compressors, incl
 
 When compression is effective, the visible result may include an RTK notice with the original and compressed sizes and a command showing how to bypass compression.
 
+Results that Pi marks as failed skip the specialized reducers so their ANSI-stripped diagnostic output remains visible. The build reducer also falls back to the original output when it finds no errors, warnings, or compilation-progress lines; absence of a recognized diagnostic is not treated as proof of success.
+
 ## Bypass route compression
 
 Prefix a command with `PI_RTK_BYPASS=1` to skip route-specific compression for that invocation:
