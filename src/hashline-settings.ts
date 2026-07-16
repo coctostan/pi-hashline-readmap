@@ -273,7 +273,9 @@ export function resolveHashlineJsonSettings(): HashlineSettingsResult {
   return { settings: mergeSettings(globalResult.settings, projectResult.settings), warnings: [...globalResult.warnings, ...projectResult.warnings] };
 }
 
-export function resolveContextHygieneStaleResults(): ContextHygieneStaleResultsMode {
+export function resolveContextHygieneStaleResults(env: NodeJS.ProcessEnv = process.env): ContextHygieneStaleResultsMode {
+  const value = env.PI_HASHLINE_CONTEXT_HYGIENE_STALE_RESULTS;
+  if (value === "append-only" || value === "replace" || value === "disabled") return value;
   return resolveHashlineJsonSettings().settings.contextHygiene?.staleResults ?? "replace";
 }
 

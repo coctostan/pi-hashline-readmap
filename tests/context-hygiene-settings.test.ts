@@ -30,7 +30,7 @@ describe("contextHygiene.staleResults", () => {
       projectSettingsPath: join(root, "missing-project.json"),
     });
 
-    expect(resolveContextHygieneStaleResults()).toBe("replace");
+    expect(resolveContextHygieneStaleResults({})).toBe("replace");
   });
 
   it("resolves append-only from project JSON", async () => {
@@ -44,7 +44,7 @@ describe("contextHygiene.staleResults", () => {
       projectSettingsPath,
     });
 
-    expect(resolveContextHygieneStaleResults()).toBe("append-only");
+    expect(resolveContextHygieneStaleResults({})).toBe("append-only");
   });
 
   it.each(["replace", "disabled"] as const)("resolves %s from project JSON", async (mode) => {
@@ -58,7 +58,22 @@ describe("contextHygiene.staleResults", () => {
       projectSettingsPath,
     });
 
-    expect(resolveContextHygieneStaleResults()).toBe(mode);
+    expect(resolveContextHygieneStaleResults({})).toBe(mode);
+  });
+
+  it("lets PI_HASHLINE_CONTEXT_HYGIENE_STALE_RESULTS override JSON and ignores invalid values", async () => {
+    const root = tempRoot();
+    cleanup.push(root);
+    const projectSettingsPath = join(root, ".pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ contextHygiene: { staleResults: "disabled" } }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "missing-global.json"),
+      projectSettingsPath,
+    });
+
+    expect(resolveContextHygieneStaleResults({ PI_HASHLINE_CONTEXT_HYGIENE_STALE_RESULTS: "append-only" })).toBe("append-only");
+    expect(resolveContextHygieneStaleResults({ PI_HASHLINE_CONTEXT_HYGIENE_STALE_RESULTS: "automatic" })).toBe("disabled");
   });
 
   it("drops invalid modes with a field-specific warning", async () => {
@@ -90,6 +105,6 @@ describe("contextHygiene.staleResults", () => {
     await writeFile(projectSettingsPath, JSON.stringify({ contextHygiene: { staleResults: "append-only" } }));
     __setHashlineSettingsPathsForTest({ globalSettingsPath, projectSettingsPath });
 
-    expect(resolveContextHygieneStaleResults()).toBe("append-only");
+    expect(resolveContextHygieneStaleResults({})).toBe("append-only");
   });
 });

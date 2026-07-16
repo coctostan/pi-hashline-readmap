@@ -61,6 +61,14 @@ describe("README.md content (AC-1, AC-2)", () => {
     expect(readme).toMatch(/case-insensitive/i);
   });
 
+  it("documents the contextHygiene.staleResults env override", () => {
+    expect(readme).toContain("contextHygiene.staleResults");
+    expect(readme).toContain("PI_HASHLINE_CONTEXT_HYGIENE_STALE_RESULTS");
+    expect(readme).toContain("`append-only`");
+    expect(readme).toContain("`replace`");
+    expect(readme).toContain("`disabled`");
+  });
+
   it("documents edit new_text safety, deletion, and fuzzy semantics", () => {
     expect(readme).toContain("never include `LINE:HASH|`");
     expect(readme).toContain('Set `new_text` to `""` to delete');
