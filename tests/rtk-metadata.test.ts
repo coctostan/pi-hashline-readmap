@@ -30,6 +30,29 @@ async function loadHandlers(tag: string) {
   return handlers;
 }
 
+describe("bash tool_result failure safety", () => {
+  it("preserves failed build output instead of synthesizing success", async () => {
+    const handlers = await loadHandlers("failed-build-output");
+    const output = [
+      "Compiling core",
+      "error TS5023: Unknown compiler option '--nonexistentflag'.",
+      "",
+      "Command exited with code 1",
+    ].join("\n");
+
+    const result = await handlers.tool_result({
+      type: "tool_result",
+      toolName: "bash",
+      toolCallId: "failed-build",
+      input: { command: "tsc --nonexistentflag" },
+      content: [{ type: "text", text: output }],
+      isError: true,
+    });
+
+    expect(result.content[0].text).toBe(output);
+  });
+});
+
 describe("filterBashOutput info (empty-input fast path)", () => {
   it("returns info with technique 'none', zero bytes, and ratio 1 on empty input", () => {
     const result = filterBashOutput("echo hello", "");

@@ -46,6 +46,7 @@ pipeline had the opportunity to inspect output. That includes:
 
 - routed RTK compression (the normal case)
 - the test-output short-circuit (`npm test`, `vitest`, etc.)
+- failed command output (specialized route reducers are skipped; test-output normalization can still apply)
 - the `PI_RTK_BYPASS=1` bypass path
 - the empty-input fast path
 

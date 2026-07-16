@@ -77,6 +77,39 @@ describe("filterBashOutput core behavior", () => {
     expect(result.output).toBe("hello");
     expect(result.savedChars).toBe(input.length - "hello".length);
   });
+
+  it.each([
+    ['echo "just the word tsc"', "just the word tsc\n"],
+    ['echo "npm run build"', "npm run build\n"],
+    ['grep -rF "tsc" .', './package.json:    "typecheck": "tsc --noEmit"\n'],
+    ["tsc --version", "Version 5.9.3\n"],
+  ])("preserves output without positive build evidence: %s", (command, output) => {
+    const result = filterBashOutput(command, output).output;
+
+    expect(result.startsWith(output)).toBe(true);
+    expect(result).not.toContain("Build successful");
+  });
+
+  it("summarizes successful builds when compilation progress is present", () => {
+    const output = "Compiling core\nChecking cli\nFinished release build\n";
+
+    expect(filterBashOutput("cargo build", output).output).toBe("✓ Build successful (2 units compiled)");
+  });
+
+  it.each([
+    [
+      "tsc --nonexistentflag",
+      [
+        "Compiling core",
+        "error TS5023: Unknown compiler option '--nonexistentflag'.",
+        "",
+        "Command exited with code 1",
+      ].join("\n"),
+    ],
+    ["eslint .", "Oops! Something went wrong!\n\nCommand exited with code 2"],
+  ])("preserves failed routed output: %s", (command, output) => {
+    expect(filterBashOutput(command, output, true).output).toBe(output);
+  });
 });
 
 describe("filterBashOutput routing", () => {

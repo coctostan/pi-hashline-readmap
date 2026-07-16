@@ -140,8 +140,9 @@ export function filterBuildOutput(
 		stats.errors.push(currentError);
 	}
 
-	// Format output
+	// Only synthesize success when the output proves build work occurred.
 	if (stats.errors.length === 0 && stats.warnings.length === 0) {
+		if (stats.compiled === 0) return null;
 		return `✓ Build successful (${stats.compiled} units compiled)`;
 	}
 

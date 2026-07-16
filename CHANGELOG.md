@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Bash filtering no longer fabricates successful builds from failed commands or arbitrary output that merely contains `tsc`/`npm run build`: failed results bypass route reducers, and the build summarizer now requires observed compilation progress before synthesizing success (#156).
+
 ## [0.11.1] - 2026-06-19
 
 ### Fixed
