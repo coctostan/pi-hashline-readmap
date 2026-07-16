@@ -149,7 +149,7 @@ interface StatusStats {
 	untrackedFiles: string[];
 }
 
-export function compactStatus(output: string): string {
+export function compactStatus(output: string): string | null {
 	const lines = output.split("\n");
 
 	if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === "")) {
@@ -207,6 +207,10 @@ export function compactStatus(output: string): string {
 			stats.untracked++;
 			stats.untrackedFiles.push(filename);
 		}
+	}
+
+	if (!branchName) {
+		return null;
 	}
 
 	// Build summary
