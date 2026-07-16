@@ -15,6 +15,8 @@ import type { BashCommandState } from "./bash-command-state.js";
 export const CONTEXT_HYGIENE_SCHEMA_VERSION = 1 as const;
 export const DEFAULT_CONTEXT_HYGIENE_MAX_EVENTS = 1000;
 
+export type ContextHygieneStaleResultsMode = "append-only" | "replace" | "disabled";
+
 export type ContextHygieneClassification =
   | "read-context"
   | "search-context"
@@ -312,9 +314,15 @@ export interface ContextHygieneAppliedEffectsBucket {
   reasons: string[];
 }
 
+export interface ContextHygieneAppliedEffectNotice {
+  resultId: string;
+  text: string;
+}
+
 export interface ContextHygieneAppliedEffects {
   retired: ContextHygieneAppliedEffectsBucket;
   stale: ContextHygieneAppliedEffectsBucket;
+  notices: ContextHygieneAppliedEffectNotice[];
 }
 export interface ContextHygieneMetadata {
   schemaVersion: typeof CONTEXT_HYGIENE_SCHEMA_VERSION;
@@ -527,9 +535,60 @@ export interface ContextHygieneReport {
   };
 }
 
+function buildAppliedEffectsBucket(resultIds: Set<string>, reasons: Set<string>): ContextHygieneAppliedEffectsBucket {
+  return {
+    count: resultIds.size,
+    resultIds: [...resultIds].sort(),
+    reasons: [...reasons].sort(),
+  };
+}
+
+function appliedEffectsForEvent(
+  report: ContextHygieneReport,
+  eventId: number,
+): ContextHygieneAppliedEffects | undefined {
+  const retiredResultIds = new Set<string>();
+  const retiredReasons = new Set<string>();
+  const staleResultIds = new Set<string>();
+  const staleReasons = new Set<string>();
+  const notices = new Map<string, ContextHygieneAppliedEffectNotice>();
+
+  for (const candidate of report.retirementCandidates) {
+    if (candidate.supersededByEventId !== eventId) continue;
+    for (const record of candidate.retiredResults ?? []) {
+      if (!record.originalResultId) continue;
+      retiredResultIds.add(record.originalResultId);
+      retiredReasons.add(record.reason);
+      const text = renderRetiredContextPlaceholder(record);
+      notices.set(`${record.originalResultId}\u0000${text}`, { resultId: record.originalResultId, text });
+    }
+  }
+
+  for (const candidate of report.staleCandidates) {
+    if (candidate.mutationEventId !== eventId) continue;
+    for (const record of candidate.staleResults) {
+      if (!record.originalResultId) continue;
+      staleResultIds.add(record.originalResultId);
+      staleReasons.add(record.reason);
+      const text = renderStaleContextPlaceholder(record);
+      notices.set(`${record.originalResultId}\u0000${text}`, { resultId: record.originalResultId, text });
+    }
+  }
+
+  if (retiredResultIds.size === 0 && staleResultIds.size === 0) return undefined;
+  return {
+    retired: buildAppliedEffectsBucket(retiredResultIds, retiredReasons),
+    stale: buildAppliedEffectsBucket(staleResultIds, staleReasons),
+    notices: [...notices.values()].sort(
+      (left, right) => left.resultId.localeCompare(right.resultId) || left.text.localeCompare(right.text),
+    ),
+  };
+}
+
 export interface ContextHygieneTracker {
   record(metadata: ContextHygieneMetadata, options?: ContextHygieneRecordOptions): ContextHygieneEvent;
   generateReport(): ContextHygieneReport;
+  getAppliedEffects(eventId: number): ContextHygieneAppliedEffects | undefined;
 }
 
 export interface CreateContextHygieneTrackerOptions {
@@ -635,6 +694,10 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
     this.events.push(event);
     if (this.events.length > this.maxEvents) this.events.splice(0, this.events.length - this.maxEvents);
     return cloneContextHygieneEvent(event);
+  }
+
+  getAppliedEffects(eventId: number): ContextHygieneAppliedEffects | undefined {
+    return appliedEffectsForEvent(this.generateReport(), eventId);
   }
 
   generateReport(): ContextHygieneReport {

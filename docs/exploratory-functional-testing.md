@@ -33,7 +33,7 @@ Expected behavior:
 - reads project settings from `<repo>/.pi/hashline-readmap/settings.json`
 - does not read unsupported paths such as `~/.pi/agent/settings.json`, `<repo>/.pi/settings.json`, `~/.pi/hashline-readmap/settings.json`, or `<repo>/.pi/hashline-readmap.json`
 - applies precedence as env vars > project JSON > global JSON > built-in defaults
-- supports JSON fields for grep budgets, map-cache directory/enabled state, and Bash context guard settings
+- supports JSON fields for grep budgets, map-cache directory/enabled state, Bash context guard settings, and `contextHygiene.staleResults`
 - preserves existing env-only behavior for all supported `PI_HASHLINE_*` variables
 - ignores malformed JSON files safely and reports non-fatal warnings where available
 - ignores invalid field values field-by-field where practical
@@ -51,6 +51,7 @@ JSON settings verification procedure:
 - set both JSON and env values for the same field, then confirm the env value wins; include `PI_HASHLINE_MAP_CACHE_DIR`, `PI_HASHLINE_NO_PERSIST_MAPS=1`, and `PI_HASHLINE_BASH_CONTEXT_GUARD=0` in this override check
 - put settings in unsupported paths such as `~/.pi/agent/settings.json`, `<repo>/.pi/settings.json`, `~/.pi/hashline-readmap/settings.json`, or `<repo>/.pi/hashline-readmap.json`, with canonical files absent, and confirm those files have no effect
 - introduce malformed JSON and invalid budget values, then confirm public tool resolvers continue without throwing and fall back to valid env, valid other JSON fields, or defaults
+- set `contextHygiene.staleResults` to each supported mode, restart pi, then exercise `read` → same-file `edit`: `replace` should substitute the earlier provider-context result, `append-only` should retain it and append the stale notice after the edit result, and `disabled` should retain it without a notice
 
 ### `read`
 
@@ -139,6 +140,8 @@ Expected behavior:
 - read/search/command/mutation tool results expose additive `details.contextHygiene` metadata
 - `context_hygiene_report` registers only when `PI_CONTEXT_HYGIENE_DEBUG=1`
 - debug reports are read-only and do not mutate tracker state
+- `contextHygiene.staleResults` defaults to `replace`; `append-only` preserves historical provider-input content and appends deterministic stale/retired notices to the invalidating result; `disabled` preserves history without notices
+- append-only applied effects remain stable after live tracker history is reset, while `LINE:HASH` and read-before-edit safety remain active in all modes
 
 ## Areas covered by the current automated suite
 

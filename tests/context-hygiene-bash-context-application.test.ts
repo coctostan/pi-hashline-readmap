@@ -93,4 +93,63 @@ describe("Bash context hygiene context application", () => {
     expect(applied[1]).toBe(newLog);
     expect(applied[1].content).toEqual([{ type: "text", text: "new history" }]);
   });
+
+
+  it("preserves retired Bash history and appends its notice to the superseding result in append-only mode", () => {
+    const tracker = createContextHygieneTracker();
+    tracker.record(bashMetadata("git log --oneline -5", "old history"), { resultId: "append-log-old" });
+    tracker.record(bashMetadata("git log --oneline -5", "new history"), { resultId: "append-log-new" });
+
+    const oldLog = toolResult("append-log-old", "bash", "old history");
+    const newLog = toolResult("append-log-new", "bash", "new history");
+    const applied = applyContextHygieneStaleContext(
+      [oldLog, newLog],
+      tracker.generateReport(),
+      "append-only",
+    );
+
+    expect(applied[0]).toBe(oldLog);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old history" }]);
+    expect(applied[1].content).toEqual([
+      { type: "text", text: "new history" },
+      { type: "text", text: "[Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: git log --oneline -5]" },
+    ]);
+  });
+
+
+  it("renders frozen retirement notices after tracker history is unavailable", () => {
+    const command = "git log --oneline -5";
+    const oldLog = toolResult("frozen-log-old", "bash", "old history", {
+      contextHygiene: bashMetadata(command, "old history"),
+    });
+    const newLog = toolResult("frozen-log-new", "bash", "new history", {
+      contextHygiene: {
+        ...bashMetadata(command, "new history"),
+        appliedEffects: {
+          retired: {
+            count: 1,
+            resultIds: ["frozen-log-old"],
+            reasons: ["same-command-success-rerun"],
+          },
+          stale: { count: 0, resultIds: [], reasons: [] },
+          notices: [{
+            resultId: "frozen-log-old",
+            text: "[Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: git log --oneline -5]",
+          }],
+        },
+      },
+    });
+
+    const applied = applyContextHygieneStaleContext(
+      [oldLog, newLog],
+      createContextHygieneTracker().generateReport(),
+      "append-only",
+    );
+
+    expect(applied[0]).toBe(oldLog);
+    expect(applied[1].content).toEqual([
+      { type: "text", text: "new history" },
+      { type: "text", text: "[Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: git log --oneline -5]" },
+    ]);
+  });
 });

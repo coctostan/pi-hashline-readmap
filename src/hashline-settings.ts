@@ -2,12 +2,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { SettingsManager } from "@earendil-works/pi-coding-agent";
+import type { ContextHygieneStaleResultsMode } from "./context-hygiene.js";
 
 export interface HashlineJsonSettings {
   grep?: { maxLines?: number; maxBytes?: number };
   mapCache?: { dir?: string; enabled?: boolean };
   bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
   gdscript?: { enabled?: boolean };
+  contextHygiene?: { staleResults?: ContextHygieneStaleResultsMode };
   edit?: { diffDisplay?: "collapsed" | "expanded" };
   display?: { previewLines?: number };
   bash?: { shellPath?: string };
@@ -198,6 +200,18 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
     if (enabled !== undefined) gdscript.enabled = enabled;
     if (Object.keys(gdscript).length > 0) settings.gdscript = gdscript;
   }
+  if (isRecord(raw.contextHygiene)) {
+    const contextHygiene: NonNullable<HashlineJsonSettings["contextHygiene"]> = {};
+    if ("staleResults" in raw.contextHygiene) {
+      const value = raw.contextHygiene.staleResults;
+      if (value === "append-only" || value === "replace" || value === "disabled") {
+        contextHygiene.staleResults = value;
+      } else {
+        warnings.push(invalid(source, "contextHygiene.staleResults"));
+      }
+    }
+    if (Object.keys(contextHygiene).length > 0) settings.contextHygiene = contextHygiene;
+  }
   if (isRecord(raw.edit)) {
     const edit: NonNullable<HashlineJsonSettings["edit"]> = {};
     if ("diffDisplay" in raw.edit) {
@@ -243,6 +257,8 @@ function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSetting
   if (Object.keys(bashContextGuard).length > 0) merged.bashContextGuard = bashContextGuard;
   const gdscript = { ...(base.gdscript ?? {}), ...(override.gdscript ?? {}) };
   if (Object.keys(gdscript).length > 0) merged.gdscript = gdscript;
+  const contextHygiene = { ...(base.contextHygiene ?? {}), ...(override.contextHygiene ?? {}) };
+  if (Object.keys(contextHygiene).length > 0) merged.contextHygiene = contextHygiene;
   const edit = { ...(base.edit ?? {}), ...(override.edit ?? {}) };
   if (Object.keys(edit).length > 0) merged.edit = edit;
   const display = { ...(base.display ?? {}), ...(override.display ?? {}) };
@@ -255,6 +271,12 @@ export function resolveHashlineJsonSettings(): HashlineSettingsResult {
   const globalResult = readSettingsFile(pathOverride?.globalSettingsPath ?? defaultGlobalSettingsPath());
   const projectResult = readSettingsFile(pathOverride?.projectSettingsPath ?? defaultProjectSettingsPath());
   return { settings: mergeSettings(globalResult.settings, projectResult.settings), warnings: [...globalResult.warnings, ...projectResult.warnings] };
+}
+
+export function resolveContextHygieneStaleResults(env: NodeJS.ProcessEnv = process.env): ContextHygieneStaleResultsMode {
+  const value = env.PI_HASHLINE_CONTEXT_HYGIENE_STALE_RESULTS;
+  if (value === "append-only" || value === "replace" || value === "disabled") return value;
+  return resolveHashlineJsonSettings().settings.contextHygiene?.staleResults ?? "replace";
 }
 
 export function isGdscriptMappingEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
