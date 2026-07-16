@@ -8,7 +8,7 @@ import { registerWriteTool } from "./src/write.js";
 import { registerLsTool } from "./src/ls.js";
 import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
-import { resolveShellPath } from "./src/hashline-settings.js";
+import { resolveContextHygieneStaleResults, resolveShellPath } from "./src/hashline-settings.js";
 import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
@@ -23,7 +23,6 @@ import {
   normalizePathForContextHygiene,
   registerContextHygieneDebugTool,
   resetContextHygieneTracker,
-  type ContextHygieneAppliedEffects,
   type ContextHygieneEvent,
   type ContextHygieneMetadata,
   type ContextHygieneResource,
@@ -82,53 +81,6 @@ function recordContextHygiene(metadata: ContextHygieneMetadata, toolCallId: unkn
   });
 }
 
-function buildAppliedEffectsBucket(resultIds: Set<string>, reasons: Set<string>) {
-  return {
-    count: resultIds.size,
-    resultIds: [...resultIds].sort(),
-    reasons: [...reasons].sort(),
-  };
-}
-
-const BASH_CURRENT_TURN_STALE_REASONS = new Set([
-  "bash-repo-state-after-mutation",
-  "bash-verification-success-rerun",
-]);
-function summarizeBashAppliedEffects(eventId: number): ContextHygieneAppliedEffects {
-  const report = getContextHygieneTracker().generateReport();
-  const retiredResultIds = new Set<string>();
-  const retiredReasons = new Set<string>();
-  const staleResultIds = new Set<string>();
-  const staleReasons = new Set<string>();
-
-  for (const candidate of report.retirementCandidates) {
-    if (candidate.supersededByEventId !== eventId) continue;
-    for (const record of candidate.retiredResults ?? []) {
-      if (record.originalTool !== "bash" || !record.originalResultId) continue;
-      retiredResultIds.add(record.originalResultId);
-      retiredReasons.add(record.reason);
-    }
-  }
-
-  for (const candidate of report.staleCandidates) {
-    if (candidate.mutationEventId !== eventId || !BASH_CURRENT_TURN_STALE_REASONS.has(candidate.reason)) continue;
-    for (const record of candidate.staleResults) {
-      if (record.originalTool !== "bash" || !record.originalResultId) continue;
-      staleResultIds.add(record.originalResultId);
-      staleReasons.add(record.reason);
-    }
-  }
-
-  return {
-    retired: buildAppliedEffectsBucket(retiredResultIds, retiredReasons),
-    stale: buildAppliedEffectsBucket(staleResultIds, staleReasons),
-  };
-}
-
-function hasAppliedEffects(effects: ContextHygieneAppliedEffects): boolean {
-  return effects.retired.count > 0 || effects.stale.count > 0;
-}
-
 export {
   HASHLINE_TOOL_PTC_POLICY,
   getHashlineToolPtcPolicy,
@@ -177,6 +129,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   const readTurns = new Map<string, number>();
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
+  const staleResultsMode = resolveContextHygieneStaleResults();
   const readTurnKey = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
   const noteRead = (absolutePath: string) => {
     // noteRead is invoked synchronously from inside read/grep/ast_search/write
@@ -255,7 +208,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   pi.on("context", (event: any): any => {
     if (!Array.isArray(event.messages)) return undefined;
     const report = getContextHygieneTracker().generateReport();
-    const messages = applyContextHygieneStaleContext(event.messages, report);
+    const messages = applyContextHygieneStaleContext(event.messages, report, staleResultsMode);
     expireStaleReadTurns(report);
     if (messages === event.messages) return undefined;
     return { messages };
@@ -265,9 +218,20 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const doomLoop = consumeDoomLoopWarning(doomLoopState, event.toolCallId);
     if (!isBashToolResult(event)) {
       const contextHygiene = contextHygieneFromDetails(event.details);
-      if (contextHygiene) recordContextHygiene(contextHygiene, event.toolCallId);
+      let details = event.details;
+      if (contextHygiene) {
+        const tracker = getContextHygieneTracker();
+        const recordedEvent = recordContextHygiene(contextHygiene, event.toolCallId);
+        const appliedEffects = tracker.getAppliedEffects(recordedEvent.id);
+        if (appliedEffects) {
+          details = {
+            ...event.details,
+            contextHygiene: { ...contextHygiene, appliedEffects },
+          };
+        }
+      }
       if (!doomLoop || !Array.isArray(event.content)) {
-        return undefined;
+        return details === event.details ? undefined : { details };
       }
       const content = [...event.content];
       const prefix = `${formatDoomLoopMessage(doomLoop)}\n\n---\n`;
@@ -287,7 +251,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       }
       return {
         content,
-        details: event.details,
+        details,
         isError: event.isError,
       };
     }
@@ -335,16 +299,17 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       resources: contextHygieneResources,
       commandState,
     });
+    const tracker = getContextHygieneTracker();
     const recordedContextHygieneEvent = recordContextHygiene(contextHygiene, event.toolCallId);
     if (
       event.isError !== true &&
       commandState?.stateKind === "shell-file-mutation" &&
       (commandState.fileTargets?.length ?? 0) > 0
     ) {
-      expireStaleReadTurns(getContextHygieneTracker().generateReport());
+      expireStaleReadTurns(tracker.generateReport());
     }
-    const appliedEffects = summarizeBashAppliedEffects(recordedContextHygieneEvent.id);
-    const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
+    const appliedEffects = tracker.getAppliedEffects(recordedContextHygieneEvent.id);
+    const contextHygieneForDetails: ContextHygieneMetadata = appliedEffects
       ? { ...contextHygiene, appliedEffects }
       : contextHygiene;
     const applyWarning = (body: string): string => {

@@ -33,16 +33,17 @@ Read-like outputs can also carry a rehydrate descriptor that tells the agent how
 
 The tracker keeps a bounded in-memory event history. The current default maximum is `1000` events.
 
-## Stale context replacement
+## Stale context handling
 
-The extension listens to pi context events and replaces some old tool-result messages when they are known to be stale. This prevents agents from accidentally relying on obsolete file contents or command output.
+The extension listens to pi context events and handles old tool-result messages when they are known to be stale. This prevents agents from accidentally treating obsolete file contents or command output as current while allowing users to choose how provider history is managed.
 
-Maskable stale tools are:
+Configure `contextHygiene.staleResults` in the global or project Hashline JSON settings:
 
-- `read`
-- `grep`
-- `ast_search`
-- `bash`
+- `"replace"` (default) replaces historical `read`, `grep`, `ast_search`, and `bash` results with compact placeholders. This is the strongest stale-context and context-window-reclamation mode, but changing an earlier provider-input prefix invalidates prompt-cache reuse after that point.
+- `"append-only"` leaves historical results byte-identical and appends deterministic notices to the mutation or command result that made them stale or retired. Applied effects are frozen in `details.contextHygiene` when that result is recorded, so later context builds do not move or rewrite earlier notices. This preserves exact-prefix prompt caching while retaining the safety signal.
+- `"disabled"` leaves historical results unchanged and adds no provider-context notice. Tracking, current-disk `LINE:HASH` validation, and read-before-edit expiration remain active.
+
+The setting is resolved when the extension loads; restart the pi session after changing it. Global and project files use the paths and project-over-global precedence documented in the README.
 
 Rendered placeholders include:
 
@@ -58,6 +59,8 @@ When a later successful Bash command supersedes an older Bash result, the older 
 ```text
 [Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: npm test]
 ```
+
+In `append-only` mode the same notice text appears after the invalidating or superseding result rather than replacing the historical output.
 
 ## Reasons
 
@@ -85,6 +88,7 @@ When enabled, the extension registers `context_hygiene_report`, a read-only debu
 ## Integration guidance
 
 - Treat `details.contextHygiene` as metadata for state tracking, not as display text.
+- Treat `details.contextHygiene.appliedEffects` as frozen facts about the result that caused invalidation or retirement. Its aggregate `stale` / `retired` buckets support telemetry, while its `notices` entries bind each affected result ID to the deterministic append-only notice. Do not recompute or move an earlier notice.
 - Use rehydrate descriptors when refreshing stale file/search context.
 - Do not assume stale placeholders contain enough information to reconstruct the original result.
 - Restart the pi session if you change extension code; the in-memory tracker is reset when the extension is loaded.

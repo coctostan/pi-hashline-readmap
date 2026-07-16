@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `contextHygiene.staleResults` JSON setting with `replace` (backward-compatible default), `append-only`, and `disabled` modes. `append-only` preserves historical provider-input bytes for exact-prefix prompt-cache reuse and appends deterministic stale/retired notices to the invalidating result instead.
+
+### Fixed
+- Context-hygiene applied effects are now frozen on non-Bash mutation results as well as Bash results, so append-only notices remain stable across later context builds and tracker resets (#159).
+
 ## [0.11.1] - 2026-06-19
 
 ### Fixed

@@ -56,6 +56,95 @@ describe("context hygiene context application", () => {
     expect(staleRead.content).toEqual([{ type: "text", text: "old read output" }]);
   });
 
+
+  it("keeps the historical read byte-identical and appends its stale notice after the edit in append-only mode", () => {
+    const tracker = createContextHygieneTracker();
+    const file = buildFileResource("src/read.ts");
+    tracker.record(
+      buildContextHygieneMetadata({ tool: "read", classification: "read-context", resources: [file] }),
+      { resultId: "read-before-edit" },
+    );
+    tracker.record(
+      buildContextHygieneMetadata({ tool: "edit", classification: "mutation", resources: [file] }),
+      { resultId: "edit-file" },
+    );
+
+    const historicalRead = toolResult("read-before-edit", "read", "old read output");
+    const editResult = toolResult("edit-file", "edit", "edit succeeded");
+    const messages = [historicalRead, editResult];
+
+    const applied = applyContextHygieneStaleContext(messages, tracker.generateReport(), "append-only");
+
+    expect(applied[0]).toBe(historicalRead);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old read output" }]);
+    expect(applied[1]).not.toBe(editResult);
+    expect(applied[1].content).toEqual([
+      { type: "text", text: "edit succeeded" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
+    ]);
+    expect(messages[1]).toBe(editResult);
+  });
+
+
+  it("leaves stale history and mutation output unchanged in disabled mode", () => {
+    const tracker = createContextHygieneTracker();
+    const file = buildFileResource("src/read.ts");
+    tracker.record(
+      buildContextHygieneMetadata({ tool: "read", classification: "read-context", resources: [file] }),
+      { resultId: "disabled-read" },
+    );
+    tracker.record(
+      buildContextHygieneMetadata({ tool: "edit", classification: "mutation", resources: [file] }),
+      { resultId: "disabled-edit" },
+    );
+    const messages = [
+      toolResult("disabled-read", "read", "old read output"),
+      toolResult("disabled-edit", "edit", "edit succeeded"),
+    ];
+
+    const applied = applyContextHygieneStaleContext(messages, tracker.generateReport(), "disabled");
+
+    expect(applied).toBe(messages);
+    expect(applied.map((message) => message.content)).toEqual([
+      [{ type: "text", text: "old read output" }],
+      [{ type: "text", text: "edit succeeded" }],
+    ]);
+  });
+
+
+  it("renders append-only notices from frozen mutation effects without live tracker history", () => {
+    const file = buildFileResource("src/read.ts");
+    const historicalRead = toolResult("frozen-read", "read", "old read output");
+    const editResult = {
+      ...toolResult("frozen-edit", "edit", "edit succeeded"),
+      details: {
+        contextHygiene: {
+          ...buildContextHygieneMetadata({ tool: "edit", classification: "mutation", resources: [file] }),
+          appliedEffects: {
+            retired: { count: 0, resultIds: [], reasons: [] },
+            stale: { count: 1, resultIds: ["frozen-read"], reasons: ["mutation-after-read"] },
+            notices: [{
+              resultId: "frozen-read",
+              text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]",
+            }],
+          },
+        },
+      },
+    };
+
+    const applied = applyContextHygieneStaleContext(
+      [historicalRead, editResult],
+      createContextHygieneTracker().generateReport(),
+      "append-only",
+    );
+
+    expect(applied[0]).toBe(historicalRead);
+    expect(applied[1].content).toEqual([
+      { type: "text", text: "edit succeeded" },
+      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
+    ]);
+  });
+
   it("masks only pre-write read context and preserves a fresh read after the mutation", () => {
     const tracker = createContextHygieneTracker();
     const file = buildFileResource("src/write.ts");

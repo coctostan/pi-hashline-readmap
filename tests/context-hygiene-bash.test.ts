@@ -83,6 +83,10 @@ describe("bash contextHygiene metadata", () => {
         resultIds: [],
         reasons: [],
       },
+      notices: [{
+        resultId: "bash-hygiene-1",
+        text: "[Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: npm test -- --context-hygiene-bash-task8]",
+      }],
     });
 
     const commandRerun = getContextHygieneTracker()
@@ -137,6 +141,10 @@ describe("bash contextHygiene metadata", () => {
         resultIds: ["status-before-mutation"],
         reasons: ["bash-repo-state-after-mutation"],
       },
+      notices: [{
+        resultId: "status-before-mutation",
+        text: "[Stale bash context: bash-repo-state-after-mutation. Re-run the Bash command to refresh. Command: git status --short]",
+      }],
     });
 
     const report = getContextHygieneTracker().generateReport();
@@ -198,6 +206,10 @@ describe("bash contextHygiene metadata", () => {
         resultIds: ["verification-failure-before-success"],
         reasons: ["bash-verification-success-rerun"],
       },
+      notices: [{
+        resultId: "verification-failure-before-success",
+        text: "[Stale bash context: bash-verification-success-rerun. Re-run the Bash command to refresh. Command: npm test -- --context-hygiene-current-turn]",
+      }],
     });
 
     const report = getContextHygieneTracker().generateReport();

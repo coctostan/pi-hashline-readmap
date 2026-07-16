@@ -20,6 +20,16 @@ invalidates cache from that point forward.
 That makes "what bytes does each tool result emit, and how stable are
 they?" the right lens for evaluating hygiene's caching impact.
 
+## Stale-result policy
+
+`contextHygiene.staleResults` makes the cache-versus-context trade-off explicit:
+
+- `replace` (default) substitutes historical stale/retired tool output at the provider-context seam. It immediately reclaims context but invalidates exact-prefix cache reuse from the first replacement.
+- `append-only` preserves every historical provider-input byte and appends deterministic notices to the invalidating or superseding result. This preserves prefix-cache reuse; the original stale tokens still count toward the model's context window until normal compaction.
+- `disabled` preserves history without adding notices.
+
+There is no mode that can delete bytes from the middle of provider input while retaining cache reuse after those bytes. Compaction is the natural explicit cache-reset point for reclaiming append-only history.
+
 ## What this hygiene system puts into the transcript
 
 Every tool result the agent sees carries:
@@ -66,6 +76,7 @@ Every tool result the agent sees carries:
   too. Any later turn that re-reads the file produces a different byte
   stream, cache-missing from the first changed line onward. Unavoidable
   given positional hashes.
+- **Default stale-result replacement rewrites an earlier prefix.** After a same-file mutation, `replace` substitutes the full historical result with a placeholder. Providers that cache exact prefixes cannot reuse the cached suffix after that result. When the common prefix before it is below the provider's cache threshold, usage can report `cacheRead: 0`. Use `contextHygiene.staleResults: "append-only"` when preserving that cache is more important than immediately reclaiming stale tokens.
 - **Verbose error paths are cache poison if they recur.** The stale-read
   guard message and the `>>>` auto-relocation block are 200–600 bytes
   each. If the agent loops on them (try → fix → try again), each
@@ -95,54 +106,32 @@ Every tool result the agent sees carries:
 
 ## Quantitative intuition
 
-A typical edit cycle on one file:
+A typical edit cycle on one file differs by policy:
 
-1. `read foo.ts` → big payload, cached after the first turn. ✅
-2. `edit foo.ts` (success) → small diff result, cheap, cache survives. ✅
-3. `read foo.ts` again → **cache miss starting at the first changed
-   line's hashline**, because every following line's anchor shifted.
-   The pre-edit prefix (header, metadata, lines before the edit) still
-   hits cache.
-4. Repeat #3 after another edit → another partial invalidation at the
-   new edit point.
+1. `read foo.ts` → big payload, cached after the first turn.
+2. `edit foo.ts` succeeds.
+   - `replace`: the earlier read is substituted, so cache reuse stops at the replacement point.
+   - `append-only`: the earlier read stays byte-identical and the edit result gains a deterministic stale notice, so the existing prefix remains reusable.
+3. `read foo.ts` again → this new read differs starting at the first changed hashline. That affects caching of the newly appended read, but `append-only` still preserves the older cached conversation prefix.
+4. Normal pi compaction eventually summarizes old history and starts a deliberate new cache epoch.
 
-So hygiene is **prefix-cache-friendly up to the first edit**, then
-progressively erodes the cached suffix as edits accumulate. The system
-implicitly rewards:
+Narrow `symbol` / `offset` / `limit` reads remain useful in either mode because they reduce both context-window use and the amount of new content that must be cached.
 
-- reading once and editing many times before re-reading,
-- using `symbol`, `offset`, `limit` to keep the cached read window
-  small,
-- editing top-down so cache-miss regions are contiguous.
+## Further possible improvements
 
-## Possible improvements (if caching cost mattered enough to optimize)
-
-1. **Stabilize auto-relocation output.** Instead of inlining a live
-   anchor block on mismatch, print a fixed "re-read the file to refresh
-   anchors" line. Trades agent ergonomics for cache stability.
-2. **Surface hygiene success badges in a fixed template.**
-   `[anchors fresh]` is cache-friendly; `[anchors fresh, last read
-   3 turns ago]` is not.
-3. **Optional content-only re-read mode.** Re-reads that don't intend to
-   edit could omit hashes, so unchanged-line bytes match across edits to
-   other lines.
-4. **Suppress the `>>>` table when the same mismatch fires twice in a
-   row.** Show it once, then a stable "still stale; re-read" line.
+1. **Stabilize auto-relocation output.** Instead of inlining a live anchor block on mismatch, print a fixed "re-read the file to refresh anchors" line. Trades agent ergonomics for cache stability.
+2. **Surface hygiene success badges in a fixed template.** `[anchors fresh]` is cache-friendly; `[anchors fresh, last read 3 turns ago]` is not.
+3. **Optional content-only re-read mode.** Re-reads that don't intend to edit could omit hashes, so unchanged-line bytes match across edits to other lines.
+4. **Suppress the `>>>` table when the same mismatch fires twice in a row.** Show it once, then a stable "still stale; re-read" line.
 
 ## Bottom line
 
-The hygiene system is **net cache-positive on read-heavy workflows**
-(deterministic hashlines, small narrowing windows, structural maps) and
-**net cache-negative on edit-heavy workflows on the same file**
-(positional hashes invalidate suffixes; verbose error paths invalidate
-retries).
+The hygiene system offers two legitimate priorities:
 
-The design explicitly trades some cache stability for agent correctness
-— making sure the agent edits the right line is worth more than saving
-prefix-cache tokens on a retry. That's the right trade, but worth being
-aware of when planning long edit sequences:
+- `replace` maximizes immediate stale-context removal and context-window reclamation, at the cost of rewriting the cached provider prefix.
+- `append-only` preserves exact-prefix cache reuse while still giving the model a stale-result safety signal, at the cost of retaining the historical payload until compaction.
 
-> Read once, batch edits, prefer `symbol` / `offset`-narrowed re-reads.
+Hash validation and read-before-edit expiration remain active in every mode; the setting changes provider-context presentation, not edit safety.
 
 ## Appendix: how this was verified
 
