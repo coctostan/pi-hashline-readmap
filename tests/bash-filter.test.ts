@@ -102,6 +102,20 @@ describe("filterBashOutput routing", () => {
     spy.mockRestore();
   });
 
+  it("preserves long-form git status output when it cannot be compacted (#157)", () => {
+    const input = [
+      "On branch main",
+      "",
+      "Changes not staged for commit:",
+      "\tmodified:   src/rtk/git.ts",
+    ].join("\n");
+
+    const result = filterBashOutput("git status", input);
+
+    expect(result.output).toBe(input);
+    expect(result.info.technique).toBe("none");
+  });
+
   it("routes linter commands to aggregateLinterOutput and falls back when null", () => {
     const spy = vi.spyOn(linterModule, "aggregateLinterOutput").mockReturnValue("compressed linter output");
 
