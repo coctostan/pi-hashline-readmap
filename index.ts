@@ -9,8 +9,8 @@ import { registerLsTool } from "./src/ls.js";
 import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
 import { resolveShellPath } from "./src/hashline-settings.js";
-import { filterBashOutput } from "./src/rtk/bash-filter.js";
-import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
+import { stripAnsi } from "./src/rtk/ansi.js";
+import { getBashAntiPatternHint } from "./src/rtk/bash-anti-pattern-hints.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
 import { applyBashContextGuard, resolveBashContextGuardConfig, type BashContextGuardConfig } from "./src/rtk/bash-context-guard.js";
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
@@ -140,29 +140,6 @@ export type {
   HashlineToolPtcPolicy,
   HashlineToolPtcPolicyEntry,
 } from "./src/ptc-tool-policy.js";
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
-}
-
-function buildRtkNotice(
-  info: {
-    originalBytes: number;
-    outputBytes: number;
-    compressionRatio: number;
-    technique: string;
-    bypassedBy?: string;
-  },
-  command: string,
-  outputIsEmpty: boolean,
-): string | null {
-  if (info.bypassedBy !== undefined) return null;
-  if (outputIsEmpty) return null;
-  if (info.originalBytes <= 2000) return null;
-  if (info.compressionRatio >= 0.5) return null;
-  const pct = Math.round((1 - info.compressionRatio) * 100);
-  return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved). Use \`PI_RTK_BYPASS=1 ${command}\` to see full output.]`;
-}
 
 function willBashContextGuardTrim(text: string, config: BashContextGuardConfig): boolean {
   return config.enabled && text !== "" && (text.split("\n").length > config.maxLines || Buffer.byteLength(text, "utf8") > config.maxBytes);
@@ -352,13 +329,10 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       const prefix = `${formatDoomLoopMessage(doomLoop)}\n\n---\n`;
       return `${prefix}${body}`;
     };
-    const { output, savedChars, info } = filterBashOutput(command, originalSelection.inputForRtk);
-    if (process.env.PI_RTK_SAVINGS === "1") {
-      process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
-    }
-    const notice = buildRtkNotice(info, command, output === "");
-    const body = notice ? `${notice}\n${output}` : output;
-    const finalText = applyWarning(body);
+    let output = stripAnsi(originalSelection.inputForRtk);
+    const antiPatternHint = output === "" ? null : getBashAntiPatternHint(command);
+    if (antiPatternHint) output = `${output}\n\n${antiPatternHint}`;
+    const finalText = applyWarning(output);
     const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)
       ? ensureBashOriginalOutputSnapshot({
           visibleText: originalText,
@@ -373,25 +347,13 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       config: bashContextGuardConfig,
     });
     const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalSelection.metadata;
-    const rtkCompaction = buildRtkCompaction({
-      rawInput: originalSelection.inputForRtk,
-      output,
-      info,
-    });
-    const existingPtcValue =
-      existingDetails.ptcValue && typeof existingDetails.ptcValue === "object"
-        ? (existingDetails.ptcValue as Record<string, unknown>)
-        : {};
     return {
       content: [{ type: "text" as const, text: guarded.text }, ...nonTextContent],
       details: {
         ...existingDetails,
-        compressionInfo: info,
         contextHygiene: contextHygieneForDetails,
         bashContextGuard: guarded.metadata,
         ...(bashOriginalOutput ? { bashOriginalOutput } : {}),
-        rtkCompaction,
-        ptcValue: { ...existingPtcValue, rtkCompaction },
       },
     };
   });

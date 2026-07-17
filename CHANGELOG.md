@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed
+- Command-aware Bash output reducers for Git, tests, builds, linters, Docker, package managers, HTTP clients, transfers, and file listings. Bash output is no longer semantically summarized or rewritten.
+- RTK routing, notices, bypass/savings environment handling, reducer modules, and the `details.rtkCompaction`, `details.ptcValue.rtkCompaction`, and `details.compressionInfo` result fields.
+
+### Changed
+- Bash result processing now strips ANSI escapes, appends independent agent-guidance hints when applicable, and relies on the recoverable Bash context guard for oversized output.
+
 ## [0.11.1] - 2026-06-19
 
 ### Fixed

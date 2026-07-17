@@ -10,7 +10,7 @@ Repo-local guide for working on `pi-hashline-readmap`.
 - `edit` — hash-anchored edits with semantic diff summaries
 - `grep` — hashlined search results
 - `ast_search` — ast-grep wrapper with hashlined output
-- `bash` filtering — command-aware output compression
+- `bash` normalization — ANSI stripping, agent guidance, and recoverable oversized-output previews
 
 The extension is loaded via an absolute path entry in `~/.pi/agent/settings.json`'s `extensions` array (pointing at this workspace's `index.ts`), so **new agent sessions** pick up local edits automatically. Running sessions do **not** hot-reload the module graph — restart any in-flight agent session to see changes take effect.
 
@@ -59,7 +59,6 @@ Useful optional tools:
 ```bash
 brew install ast-grep
 brew install difftastic
-brew install shellcheck yq scc
 ```
 
 Validation:
@@ -75,7 +74,7 @@ npm run typecheck
 - `src/read.ts`, `src/edit.ts`, `src/grep.ts`, `src/sg.ts`, `src/nu.ts` — core tool implementations
 - `src/*-output.ts`, `src/*-render-helpers.ts` — tool result shaping / rendering
 - `src/readmap/` — structural mapping, symbol lookup, language detection, per-language mappers
-- `src/rtk/` — bash output routing and compression techniques
+- `src/rtk/` — ANSI normalization, Bash anti-pattern hints, and recoverable output guarding
 - `prompts/` — tool prompt/schema docs
 - `scripts/` — helper scripts used by readmap internals
 - `tests/` — feature-focused tests and fixtures
@@ -90,16 +89,13 @@ npm run typecheck
 4. Add tests in `tests/readmap-mappers-files.test.ts` and any focused integration tests needed
 5. Set `export const MAPPER_VERSION = 1` in the new mapper file. Bump it any time the mapper's output shape changes so the persistent map cache (`src/persistent-map-cache.ts`) invalidates stale entries.
 
-### New bash compression technique
+### Bash output processing
 
-1. Add implementation under `src/rtk/`
-2. Register it in `src/rtk/index.ts`
-3. Add/update focused `tests/rtk-*.test.ts`
-4. Verify `tests/bash-filter.test.ts` still covers the routing correctly
+Bash output must not be summarized or semantically rewritten based on command names. Keep processing limited to ANSI stripping, additive anti-pattern hints, and the recoverable context guard. Update the Bash integration and guard tests when this pipeline changes.
 
 ### Tool output contract change
 
-When changing `read`, `edit`, `grep`, or `ast_search` output:
+When changing `read`, `edit`, `grep`, `ast_search`, or `bash` output:
 
 1. Update the relevant `*-output.ts` / render helper modules
 2. Update `prompts/` docs if the contract changed

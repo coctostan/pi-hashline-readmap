@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyBashContextGuard } from "../src/rtk/bash-context-guard.js";
 
 describe("applyBashContextGuard trimming", () => {
-  it("writes full post-RTK text before replacing line-over-limit output with a recoverable preview", () => {
+  it("writes full Bash output before replacing line-over-limit output with a recoverable preview", () => {
     const text = ["line-1", "line-2", "line-3", "line-4", "line-5", "line-6"].join("\n");
     const writes: Array<{ path: string; content: string; options: { mode: number; flag: string } }> = [];
 
@@ -33,17 +33,17 @@ describe("applyBashContextGuard trimming", () => {
 
     expect(writes).toEqual([
       {
-        path: "/tmp/hashline-bash-post-rtk-fixed-id.txt",
+        path: "/tmp/hashline-bash-output-fixed-id.txt",
         content: text,
         options: { mode: 0o600, flag: "wx" },
       },
     ]);
     expect(result.text).not.toBe(text);
     expect(result.text).toContain("[Bash context guard: preview]");
-    expect(result.text).toContain("Full post-RTK output: /tmp/hashline-bash-post-rtk-fixed-id.txt");
-    expect(result.text).toContain("Original/pre-RTK output: /tmp/original-output.txt");
-    expect(result.text).toContain("Original/pre-RTK: 10 lines, 300 bytes");
-    expect(result.text).toContain(`Post-RTK: 6 lines, ${Buffer.byteLength(text, "utf8")} bytes`);
+    expect(result.text).toContain("Full Bash output: /tmp/hashline-bash-output-fixed-id.txt");
+    expect(result.text).toContain("Original Bash output: /tmp/original-output.txt");
+    expect(result.text).toContain("Original: 10 lines, 300 bytes");
+    expect(result.text).toContain(`Guard input: 6 lines, ${Buffer.byteLength(text, "utf8")} bytes`);
     expect(result.text).toContain("Trigger thresholds: 5 lines, 1024 bytes");
     expect(result.text).not.toContain("Limits: 5 lines, 1024 bytes");
     expect(result.text).toContain("Command: npm test -- --runInBand");
@@ -63,7 +63,7 @@ describe("applyBashContextGuard trimming", () => {
       maxBytes: 1024,
       headLines: 2,
       tailLines: 2,
-      postRtkOutputPath: "/tmp/hashline-bash-post-rtk-fixed-id.txt",
+      postRtkOutputPath: "/tmp/hashline-bash-output-fixed-id.txt",
       preservedNoticeCount: 0,
     });
   });
@@ -118,7 +118,7 @@ describe("applyBashContextGuard trimming", () => {
 
     expect(writes).toEqual([
       {
-        path: "/tmp/hashline-bash-post-rtk-long-line-id.txt",
+        path: "/tmp/hashline-bash-output-long-line-id.txt",
         content: text,
         options: { mode: 0o600, flag: "wx" },
       },

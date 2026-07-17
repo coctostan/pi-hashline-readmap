@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyBashContextGuard } from "../src/rtk/bash-context-guard.js";
 
 describe("applyBashContextGuard", () => {
-  it("leaves within-limit post-RTK text byte-for-byte unchanged while attaching metadata", () => {
+  it("leaves within-limit Bash output byte-for-byte unchanged while attaching metadata", () => {
     const text = "alpha\nbeta";
 
     const result = applyBashContextGuard({

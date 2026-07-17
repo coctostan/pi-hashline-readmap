@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import * as gitModule from "../src/rtk/git.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -39,7 +38,6 @@ describe("bash context guard integration", () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
     if (saved.enabled === undefined) delete process.env.PI_HASHLINE_BASH_CONTEXT_GUARD;
     else process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = saved.enabled;
     if (saved.maxLines === undefined) delete process.env.PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES;
@@ -67,35 +65,36 @@ describe("bash context guard integration", () => {
     expect(result).toBeUndefined();
   });
 
-  it("guards after RTK notices and doom-loop warnings are assembled while preserving non-text content", async () => {
-    vi.spyOn(gitModule, "compactGitOutput").mockReturnValue(["post-1", "post-2", "post-3", "post-4"].join("\n"));
-    const handlers = await loadHandlers("after-rtk-doom");
+  it("guards normalized output after hints and doom-loop warnings while preserving non-text content", async () => {
+    const handlers = await loadHandlers("normalized-doom");
     const nonText = { type: "image", data: "opaque" };
-    const input = { command: "git diff" };
+    const input = { command: "cat README.md" };
 
     handlers.tool_call({ toolName: "bash", toolCallId: "loop-1", input });
     handlers.tool_call({ toolName: "bash", toolCallId: "loop-2", input });
-    handlers.tool_call({ toolName: "bash", toolCallId: "bash-guard-after-rtk", input });
+    handlers.tool_call({ toolName: "bash", toolCallId: "bash-guard-normalized", input });
 
     const result = await handlers.tool_result({
       type: "tool_result",
       toolName: "bash",
-      toolCallId: "bash-guard-after-rtk",
+      toolCallId: "bash-guard-normalized",
       input,
-      content: [{ type: "text", text: "raw git diff\n" + "x".repeat(3000) }, nonText],
+      content: [{ type: "text", text: "\x1b[32mraw-1\x1b[0m\nraw-2\nraw-3\nraw-4" }, nonText],
       details: { existing: "kept" },
       isError: false,
     });
 
     expect(result.content[0].text).toContain("[Bash context guard: preview]");
     expect(result.content[0].text).toContain("Preserved notices:");
-    expect(result.content[0].text).toContain("[RTK: compressed git output");
+    expect(result.content[0].text).toContain("[Hint: Prefer the read tool for file contents.]");
     expect(result.content[0].text).toContain("⚠ REPEATED-CALL WARNING: This is the 3rd identical tool call.");
-    expect(result.content[0].text).toContain("post-4");
-    expect(result.content[0].text).not.toContain("raw git diff");
+    const fullOutput = readFileSync(result.details.bashContextGuard.postRtkOutputPath, "utf8");
+    expect(fullOutput).toContain("raw-1");
+    expect(fullOutput).not.toContain("\x1b");
     expect(result.content.slice(1)).toEqual([nonText]);
     expect(result.details.existing).toBe("kept");
-    expect(result.details.compressionInfo.technique).toBe("git");
+    expect(result.details).not.toHaveProperty("compressionInfo");
+    expect(result.details).not.toHaveProperty("rtkCompaction");
     expect(result.details.bashContextGuard).toMatchObject({
       enabled: true,
       trimmed: true,
@@ -104,54 +103,32 @@ describe("bash context guard integration", () => {
       headLines: 1,
       tailLines: 1,
     });
-    expect(result.details.bashContextGuard.postRtkLineCount).toBeGreaterThan(4);
     expect(result.details.bashOriginalOutput).toMatchObject({ source: "pi-visible" });
+    rmSync(result.details.bashContextGuard.postRtkOutputPath, { force: true });
+    rmSync(result.details.bashOriginalOutput.originalPath, { force: true });
   });
 
-  it("still guards PI_RTK_BYPASS output", async () => {
-    const handlers = await loadHandlers("rtk-bypass");
-
-    const result = await handlers.tool_result({
-      type: "tool_result",
-      toolName: "bash",
-      toolCallId: "bash-guard-bypass",
-      input: { command: "PI_RTK_BYPASS=1 echo hello" },
-      content: [{ type: "text", text: ["a", "b", "c", "d"].join("\n") }],
-      isError: false,
-    });
-
-    expect(result.details.compressionInfo).toMatchObject({ technique: "none", bypassedBy: "env-var" });
-    expect(result.details.bashContextGuard).toMatchObject({ enabled: true, trimmed: true, trimWanted: true });
-    expect(result.content[0].text).toContain("[Bash context guard: preview]");
-  });
-
-  it("feature flag disables original restoration and final guard trimming while preserving RTK", async () => {
+  it("does not restore a Pi full-output file or trim when the guard is disabled", async () => {
     process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = "0";
     const dir = mkdtempSync(join(tmpdir(), "hashline-guard-disabled-"));
     const fullPath = join(dir, "full.txt");
     writeFileSync(fullPath, "FULL\nFULL\nFULL\nFULL\n", "utf8");
-    let seenByRtk = "";
-    vi.spyOn(gitModule, "compactGitOutput").mockImplementation((output) => {
-      seenByRtk = output;
-      return output.includes("FULL") ? "compressed full" : "compressed visible";
-    });
 
     try {
       const handlers = await loadHandlers("disabled");
+      const visible = `\x1b[32mVISIBLE\x1b[0m\n[Showing lines 1-1 of 4. Full output: ${fullPath}]`;
       const result = await handlers.tool_result({
         type: "tool_result",
         toolName: "bash",
         toolCallId: "bash-guard-disabled",
-        input: { command: "git diff" },
-        content: [{ type: "text", text: `VISIBLE\n[Showing lines 1-1 of 4. Full output: ${fullPath}]` }],
+        input: { command: "echo visible" },
+        content: [{ type: "text", text: visible }],
         details: { fullOutputPath: fullPath },
         isError: false,
       });
 
-      expect(seenByRtk).toContain("VISIBLE");
-      expect(seenByRtk).not.toContain("FULL\nFULL");
-      expect(result.content[0].text).toBe("compressed visible");
-      expect(result.details.compressionInfo.technique).toBe("git");
+      expect(result.content[0].text).toBe(`VISIBLE\n[Showing lines 1-1 of 4. Full output: ${fullPath}]`);
+      expect(result.content[0].text).not.toContain("FULL\nFULL");
       expect(result.details.bashOriginalOutput).toBeUndefined();
       expect(result.details.bashContextGuard).toMatchObject({ enabled: false, trimmed: false, trimWanted: false });
     } finally {
@@ -159,17 +136,15 @@ describe("bash context guard integration", () => {
     }
   });
 
-
-  it("writes an original/pre-RTK snapshot when stricter guard env trims without a Pi full-output path", async () => {
-    vi.spyOn(gitModule, "compactGitOutput").mockReturnValue(["post-1", "post-2", "post-3", "post-4"].join("\n"));
+  it("writes an original-output snapshot when a stricter guard trims without a Pi full-output path", async () => {
     const handlers = await loadHandlers("trim-snapshot");
 
     const result = await handlers.tool_result({
       type: "tool_result",
       toolName: "bash",
       toolCallId: "bash-guard-trim-snapshot",
-      input: { command: "git diff" },
-      content: [{ type: "text", text: "VISIBLE ORIGINAL" }],
+      input: { command: "echo output" },
+      content: [{ type: "text", text: ["VISIBLE-1", "VISIBLE-2", "VISIBLE-3", "VISIBLE-4"].join("\n") }],
       isError: false,
     });
 
@@ -182,6 +157,6 @@ describe("bash context guard integration", () => {
     });
     expect(result.details.bashOriginalOutput.originalPath).toEqual(expect.any(String));
     expect(result.details.bashOriginalOutput.snapshotPath).toEqual(expect.any(String));
-    expect(result.content[0].text).toContain("Original/pre-RTK output:");
+    expect(result.content[0].text).toContain("Original Bash output:");
   });
 });
