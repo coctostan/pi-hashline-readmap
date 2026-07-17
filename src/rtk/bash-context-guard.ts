@@ -114,8 +114,8 @@ function formatPreviewLine(line: string): string {
   return `${truncated.text}\n[truncated preview line: ${totalBytes} bytes total, showing ${truncated.byteCount} bytes]`;
 }
 
-function writePostRtkOutput(fs: BashContextGuardFs, text: string): string {
-  const path = join(fs.tempDir(), `hashline-bash-post-rtk-${fs.randomId()}.txt`);
+function writeGuardedOutput(fs: BashContextGuardFs, text: string): string {
+  const path = join(fs.tempDir(), `hashline-bash-output-${fs.randomId()}.txt`);
   fs.writeFile(path, text, { mode: 0o600, flag: "wx" });
   return path;
 }
@@ -133,14 +133,12 @@ function isRawCommandWrapper(line: string): boolean {
 function isProtectedNotice(line: string): boolean {
   const trimmed = line.trim();
   return (
-    trimmed.startsWith("[RTK:") ||
     trimmed.startsWith("[Hint:") ||
-    trimmed.includes("PI_RTK_BYPASS=1") ||
     trimmed.includes("Full output:") ||
     /^Full output:\s*\S+/.test(trimmed) ||
     /^Command exited with code \d+/.test(trimmed) ||
     trimmed.startsWith("[Bash context guard:") ||
-    trimmed.startsWith("Full post-RTK output:") ||
+    trimmed.startsWith("Full Bash output:") ||
     trimmed.startsWith("⚠ REPEATED-CALL WARNING:") ||
     trimmed.startsWith("⚠ ALTERNATING-CALL WARNING:")
   );
@@ -184,14 +182,14 @@ function renderPreview(options: {
   const command = compactCommand(options.command);
   const rendered: string[] = [
     "[Bash context guard: preview]",
-    `Full post-RTK output: ${options.outputPath}`,
+    `Full Bash output: ${options.outputPath}`,
   ];
 
-  if (options.originalMetadata?.originalPath) rendered.push(`Original/pre-RTK output: ${options.originalMetadata.originalPath}`);
+  if (options.originalMetadata?.originalPath) rendered.push(`Original Bash output: ${options.originalMetadata.originalPath}`);
   if (options.originalMetadata) {
-    rendered.push(`Original/pre-RTK: ${options.originalMetadata.originalLineCount} lines, ${options.originalMetadata.originalByteCount} bytes`);
+    rendered.push(`Original: ${options.originalMetadata.originalLineCount} lines, ${options.originalMetadata.originalByteCount} bytes`);
   }
-  rendered.push(`Post-RTK: ${options.metadata.postRtkLineCount} lines, ${options.metadata.postRtkByteCount} bytes`);
+  rendered.push(`Guard input: ${options.metadata.postRtkLineCount} lines, ${options.metadata.postRtkByteCount} bytes`);
   rendered.push(`Trigger thresholds: ${options.metadata.maxLines} lines, ${options.metadata.maxBytes} bytes`);
   if (command) rendered.push(`Command: ${command}`);
   if (preservedNotices.length > 0) rendered.push("", "Preserved notices:", ...preservedNotices);
@@ -239,7 +237,7 @@ export function applyBashContextGuard(options: ApplyBashContextGuardOptions): Ba
   if (!trimWanted) return { text: options.text, metadata: baseMetadata };
 
   try {
-    const outputPath = writePostRtkOutput(mergeFs(options.fs), options.text);
+    const outputPath = writeGuardedOutput(mergeFs(options.fs), options.text);
     const metadata: BashContextGuardMetadata = {
       ...baseMetadata,
       trimmed: true,

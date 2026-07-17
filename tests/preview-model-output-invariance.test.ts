@@ -23,7 +23,7 @@ describe("collapsed preview does not mutate model-facing output", () => {
   it("leaves bash result content and details untouched", () => {
     delete process.env.PI_HASHLINE_PREVIEW_LINES;
     const text = ["l1", "l2", "l3", "l4", "l5", "l6", "l7"].join("\n");
-    const result: any = { content: [{ type: "text", text }], details: { bashOriginalOutput: { path: "/tmp/x" }, rtkCompaction: { applied: true } } };
+    const result: any = { content: [{ type: "text", text }], details: { bashOriginalOutput: { path: "/tmp/x" }, bashContextGuard: { trimmed: true } } };
     const beforeContent = JSON.stringify(result.content);
     const beforeDetails = JSON.stringify(result.details);
     textOf(bashTool().renderResult(result, {}, theme, {}));
@@ -43,12 +43,11 @@ describe("collapsed preview does not mutate model-facing output", () => {
     expect(JSON.stringify(result.details)).toBe(beforeDetails);
   });
 
-  it("keeps RTK compression and Bash context guard out of the renderResult paths", () => {
+  it("keeps the Bash context guard out of the renderResult paths", () => {
     const bashSrc = readFileSync(new URL("../src/bash-renderer.ts", import.meta.url), "utf8");
     const grepSrc = readFileSync(new URL("../src/grep.ts", import.meta.url), "utf8");
     for (const src of [bashSrc, grepSrc]) {
       expect(src).not.toContain("applyBashContextGuard");
-      expect(src).not.toContain("runRtk");
     }
   });
 });

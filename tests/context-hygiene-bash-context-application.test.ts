@@ -38,7 +38,7 @@ describe("Bash context hygiene context application", () => {
     tracker.record(buildContextHygieneMetadata({ tool: "edit", classification: "mutation", resources: [file] }), { resultId: "edit-file" });
 
     const staleStatus = toolResult("status-before", "bash", " M src/example.ts", {
-      compressionInfo: { technique: "git" },
+      existing: { source: "kept" },
       contextHygiene: { tool: "bash" },
       bashContextGuard: { trimmed: false },
       bashOriginalOutput: { source: "pi-visible" },
@@ -51,7 +51,7 @@ describe("Bash context hygiene context application", () => {
       { type: "text", text: "[Stale bash context: bash-repo-state-after-mutation. Re-run the Bash command to refresh. Command: git status --short]" },
     ]);
     expect(applied[0].details).toMatchObject({
-      compressionInfo: { technique: "git" },
+      existing: { source: "kept" },
       contextHygiene: { tool: "bash" },
       bashContextGuard: { trimmed: false },
       bashOriginalOutput: { source: "pi-visible" },
@@ -72,7 +72,7 @@ describe("Bash context hygiene context application", () => {
     tracker.record(bashMetadata("git log --oneline -5", "old history"), { resultId: "log-old" });
     tracker.record(bashMetadata("git log --oneline -5", "new history"), { resultId: "log-new" });
 
-    const oldLog = toolResult("log-old", "bash", "old history", { compressionInfo: { technique: "git" } });
+    const oldLog = toolResult("log-old", "bash", "old history", { existing: { source: "kept" } });
     const newLog = toolResult("log-new", "bash", "new history");
 
     const applied = applyContextHygieneStaleContext([oldLog, newLog], tracker.generateReport());
@@ -81,7 +81,7 @@ describe("Bash context hygiene context application", () => {
       { type: "text", text: "[Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: git log --oneline -5]" },
     ]);
     expect(applied[0].details).toMatchObject({
-      compressionInfo: { technique: "git" },
+      existing: { source: "kept" },
       contextHygieneRetired: {
         status: "retired",
         originalTool: "bash",

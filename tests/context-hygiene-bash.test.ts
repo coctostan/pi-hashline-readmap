@@ -25,7 +25,7 @@ function createHarness() {
 }
 
 describe("bash contextHygiene metadata", () => {
-  it("attaches command-output metadata, records reruns, and preserves rendered output plus compressionInfo", async () => {
+  it("attaches command-output metadata, records reruns, and preserves rendered output plus existing details", async () => {
     const handlers = createHarness();
     const command = "npm test -- --context-hygiene-bash-task8";
     const expectedContextHygiene = {
@@ -62,10 +62,8 @@ describe("bash contextHygiene metadata", () => {
 
     expect(first).toBeDefined();
     expect(first.content).toEqual([{ type: "text", text: "PASS" }]);
-    expect(first.details).toMatchObject({
-      existing: "kept",
-      compressionInfo: { technique: "test-output" },
-    });
+    expect(first.details).toMatchObject({ existing: "kept" });
+    expect(first.details).not.toHaveProperty("compressionInfo");
     expect(first.details.contextHygiene).toEqual(expectedContextHygiene);
     expect((first.details.ptcValue as any)?.contextHygiene).toBeUndefined();
 

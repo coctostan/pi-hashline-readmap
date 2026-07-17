@@ -5,9 +5,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![npm](https://img.shields.io/npm/v/pi-hashline-readmap)](https://www.npmjs.com/package/pi-hashline-readmap)
 
-Upgrade pi's local coding workflow with hash-anchored text reads and edits, stock-pi-compatible image reads, structural file maps, symbol-aware navigation, structural search, agent-friendly file exploration, and compressed `bash` output.
+Upgrade pi's local coding workflow with hash-anchored text reads and edits, stock-pi-compatible image reads, structural file maps, symbol-aware navigation, structural search, agent-friendly file exploration, and recoverable `bash` output limits.
 
-`pi-hashline-readmap` is a drop-in [pi](https://github.com/mariozechner/pi-coding-agent) extension. It replaces the stock `read`, `edit`, `grep`, `ls`, and `find` tools, provides an enhanced `ast_search` tool, registers `write`, adds an optional `nu` tool for structured exploration via Nushell, and post-processes `bash` output so more context budget goes to signal instead of noise.
+`pi-hashline-readmap` is a drop-in [pi](https://github.com/mariozechner/pi-coding-agent) extension. It replaces the stock `read`, `edit`, `grep`, `ls`, and `find` tools, provides an enhanced `ast_search` tool, registers `write`, adds an optional `nu` tool for structured exploration via Nushell, and keeps oversized `bash` output recoverable without semantically rewriting it.
 
 It also reduces extension conflict risk by replacing several overlapping tool packages with one coordinated implementation.
 
@@ -21,9 +21,9 @@ It also reduces extension conflict risk by replacing several overlapping tool pa
 - Keep readmap subprocesses safe for paths containing shell metacharacters such as `"` and `$`.
 - Read pending write/edit diffs without color thanks to textual `+`/`-`/space gutter markers.
 - Explore files with agent-oriented `ls`, `find`, and optional `nu` tools.
-- Compress noisy test, build, Git, Docker, linter, package-manager, HTTP, transfer, and generic command output.
+- Strip terminal escape noise and replace oversized `bash` output with a recoverable head/tail preview.
 - See a tail preview of collapsed `bash`, `read`, and `grep` results instead of a content-free summary — configurable via `display.previewLines` (default 5, `0` to disable).
-- Use one extension instead of stacking overlapping `read`, `grep`, `edit`, and Bash-output packages.
+- Use one coordinated extension for anchored reading, editing, search, exploration, and Bash output safety.
 
 ## Installation
 
@@ -70,18 +70,13 @@ brew install nushell           # fallback for the nu tool if the npm nushell pac
 brew install fd                # optional, speeds up find
 brew install universal-ctags   # optional, symbol maps for languages without a dedicated mapper
 brew install difftastic        # optional, improves semantic edit summaries
-brew install shellcheck yq scc # optional, improves some bash-output compression paths
 ```
 
 Dedicated readmap mappers handle TypeScript, JavaScript, Python, Rust, Go, Java, C, C++, Swift, shell, SQL, Markdown, JSON/JSONL, YAML, TOML, CSV/TSV, and opt-in GDScript with the highest-quality structural maps. Rust, C++, and Java structural maps use `web-tree-sitter` with packaged `tree-sitter-wasms` grammars; C/C++ headers share the C++ mapper, and no native tree-sitter packages are installed for those mappers. For files outside that set, the read tool's structural map falls back to universal-ctags when it is installed, and to a generic regex-based extractor when it is not. Installing universal-ctags is therefore only worthwhile if you regularly read files in languages without a dedicated mapper (for example Ruby, PHP, Lua, Kotlin) and want symbol-aware maps for them.
 
-### Bash output contract
+### Bash output behavior
 
-The `bash` tool exposes a stable, documented public contract on its result
-`details` (notably `details.rtkCompaction` for RTK compaction metadata,
-mirrored under `details.ptcValue.rtkCompaction`). Display extensions and
-downstream consumers should rely on that contract rather than on internal
-fields. See [`prompts/bash.md`](prompts/bash.md) for the full schema.
+The `bash` tool strips ANSI escapes but does not summarize or reinterpret command output. Optional anti-pattern hints remain additive, and oversized results use a recoverable context-guard preview. See [`docs/bash-output.md`](docs/bash-output.md) for recovery and configuration details and [`prompts/bash.md`](prompts/bash.md) for the result-details contract.
 
 ## 30-second example
 
@@ -232,16 +227,9 @@ nu({ command: "open package.json | get scripts" })
 
 ### Handle noisy command output
 
-The extension post-processes `bash` results to reduce noise while preserving useful output. Route-specific compression covers test runners, builds, compilers, Git, linters, Docker, package managers, HTTP clients, transfer tools, file-listing output, and oversized generic output.
+The extension preserves command output after stripping ANSI escape sequences. It does not apply command-aware Git, test, build, linter, Docker, package-manager, HTTP, transfer, or file-listing reducers.
 
-Use `PI_RTK_BYPASS=1` when route-specific compression hides something you need:
-
-```bash
-PI_RTK_BYPASS=1 npm test
-PI_RTK_BYPASS=1 git log --stat
-```
-
-`PI_RTK_BYPASS=1` does not disable the Bash context guard; very large raw output can still be replaced with a recoverable preview unless `PI_HASHLINE_BASH_CONTEXT_GUARD=0` is also set. See [docs/bash-output.md](docs/bash-output.md) for the full layered behavior and recovery details.
+When normalized output exceeds the configured line or byte budget, the Bash context guard writes the complete output to a private temporary file and returns a recoverable head/tail preview. Set `PI_HASHLINE_BASH_CONTEXT_GUARD=0` only when full output should enter the conversation directly. See [docs/bash-output.md](docs/bash-output.md) for details.
 
 ## Configuration
 
@@ -297,8 +285,8 @@ JSON fields:
 | `mapCache.dir` | `PI_HASHLINE_MAP_CACHE_DIR` | Overrides the persistent structural-map cache directory; otherwise falls back to `$XDG_CACHE_HOME/pi-hashline-readmap/maps`, then `~/.cache/pi-hashline-readmap/maps` |
 | `mapCache.enabled` | `PI_HASHLINE_NO_PERSIST_MAPS=1` | Defaults to `true`; the env var disables on-disk map caching regardless of JSON |
 | `bashContextGuard.enabled` | `PI_HASHLINE_BASH_CONTEXT_GUARD` | Defaults to `true`; exact env value `0` disables the guard, any other set value enables it |
-| `bashContextGuard.maxLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES` | Tightens the post-RTK Bash guard line budget; default/ceiling `2000` |
-| `bashContextGuard.maxBytes` | `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES` | Tightens the post-RTK Bash guard byte budget; default/ceiling `51200` raw bytes |
+| `bashContextGuard.maxLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES` | Tightens the normalized Bash output line budget; default/ceiling `2000` |
+| `bashContextGuard.maxBytes` | `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES` | Tightens the normalized Bash output byte budget; default/ceiling `51200` raw bytes |
 | `bashContextGuard.headLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES` | Tightens the guarded preview head size; default/ceiling `80` |
 | `bashContextGuard.tailLines` | `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES` | Tightens the guarded preview tail size; default/ceiling `120` |
 | `gdscript.enabled` | `PI_HASHLINE_GDSCRIPT` | Defaults to `false`; exact env value `1` enables the dedicated GDScript mapper and takes precedence over JSON |
@@ -336,7 +324,6 @@ Other environment-only options:
 |---|---|---|
 | `XDG_CACHE_HOME` | Base directory for the persistent map cache when no explicit cache dir is set | Cache lives under `$XDG_CACHE_HOME/pi-hashline-readmap/maps` |
 | `PI_NUSHELL_CONFIG` | Override the Nushell config path used by `nu` | Otherwise prefers `~/.config/pi/nushell/config.nu`, then `--no-config-file` |
-| `PI_RTK_BYPASS=1` | Disable route-specific `bash` compression for one command invocation | ANSI is still stripped; anti-pattern hints still apply; the Bash context guard can still trim oversized output |
 | `PI_CONTEXT_HYGIENE_DEBUG=1` | Register the debug-only `context_hygiene_report` read-only tool | Disabled unless explicitly set to `1` |
 
 Migration example:
@@ -361,7 +348,7 @@ After, in `<repo>/.pi/hashline-readmap/settings.json`:
 
 ## Advanced documentation
 
-- [docs/bash-output.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/bash-output.md) — Bash compression, original-output restoration, context-guard trimming, and bypass behavior.
+- [docs/bash-output.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/bash-output.md) — Bash normalization, original-output restoration, and context-guard recovery.
 - [docs/structured-output.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/structured-output.md) — `details.ptcValue`, structured error envelopes, and the exported PTC policy contract.
 - [docs/context-hygiene.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/context-hygiene.md) — context-hygiene metadata, stale-context placeholders, and the debug report tool.
 - [docs/integrations.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/integrations.md) — EventBus/global executor exposure for downstream integrations.
@@ -391,7 +378,7 @@ src/
   find.ts                 # recursive discovery
   nu.ts                   # Nushell integration
   readmap/                # structural mapping and symbol lookup engine
-  rtk/                    # bash output compression pipeline
+  rtk/                    # ANSI normalization, Bash hints, and recoverable output guard
 prompts/                  # tool prompt/schema docs
 tests/                    # Vitest suite
 docs/                     # project notes and reference docs
@@ -441,7 +428,7 @@ Combines and adapts ideas from:
 - [pi-hashline-edit](https://github.com/nicholasgasior/pi-hashline-edit) — hash-anchored editing
 - [pi-read-map](https://github.com/nicholasgasior/pi-read-map) — structural file maps
 - [pi-repo-map](https://github.com/PurpleMyst/pi-repo-map) — inspiration for repository mapping and tree-sitter-based structure extraction
-- [pi-rtk](https://github.com/mcowger/pi-rtk) — bash output compression
+- [pi-rtk](https://github.com/mcowger/pi-rtk) — initial Bash ANSI-stripping groundwork
 
 ## License
 

@@ -50,7 +50,7 @@ read → edit using a `LINE:HASH` anchor.
 - Safe anchored edits
 - Large-file navigation
 - Search-to-edit
-- Bash output compression and recovery
+- Bash output normalization and recovery
 - Optional Nushell exploration
 
 ## Configuration
@@ -121,7 +121,7 @@ The current `Usage` section is a list of tool examples. It would be easier to sc
 - **Search and patch** — `grep` → `edit`
 - **Search code structurally** — `ast_search`
 - **Explore files** — `ls`, `find`, `nu`
-- **Handle noisy command output** — Bash compression and guard recovery
+- **Handle noisy command output** — Bash normalization and guard recovery
 
 This makes the README more user-centered.
 
@@ -161,12 +161,12 @@ Then keep the table. This helps readers understand why the knobs exist before pa
 
 ### 6. Keep Bash guard docs, but shorten the first-read path
 
-The Bash context guard documentation is important, especially because `PI_RTK_BYPASS=1` does not disable the guard. Keep that behavior in README, but place detailed recoverability semantics under configuration or a linked Bash docs page.
+The Bash context guard documentation is important because oversized output is replaced by a recoverable preview. Keep that behavior in README, but place detailed recovery semantics under configuration or a linked Bash docs page.
 
 Suggested split:
 
 - README: short explanation and env-var table.
-- `docs/bash-output.md`: full layered behavior, recovery paths, guard metadata, and examples.
+- `docs/bash-output.md`: full normalization pipeline, recovery paths, guard metadata, and examples.
 
 ## What should stay in README
 
@@ -203,5 +203,5 @@ Acceptance criteria:
 2. README includes a short read/edit anchor example near the top.
 3. Tool examples are grouped by common workflows rather than raw tool order.
 4. Advanced `ptcValue`, context hygiene, and EventBus details are moved to docs or substantially shortened with links.
-5. Configuration remains complete, including Bash guard variables and `PI_RTK_BYPASS=1` interaction.
+5. Configuration remains complete, including all Bash context-guard variables.
 6. README remains accurate against `package.json`, source behavior, and current tests.

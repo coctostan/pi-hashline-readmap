@@ -2,7 +2,7 @@
 
 Current repo snapshot note for `pi-hashline-readmap`.
 
-- Date: 2026-04-28
+- Date: 2026-07-17
 - Repo: `pi-hashline-readmap`
 - Scope: current expected behavior of the package, based on the present codebase and passing automated suite
 
@@ -15,11 +15,10 @@ npm run typecheck
 npm test
 ```
 
-Observed result:
+Expected result:
 
 - `npm run typecheck` — passes
 - `npm test` — passes
-- Vitest suite: **234 test files / 1146 tests** passing
 
 This document is not a bug diary. It is the current testing reference for what the package is expected to do.
 
@@ -113,24 +112,22 @@ Prerequisite:
 
 - `ast-grep` must be installed locally for real execution
 
-### `bash` output filtering
+### `bash` output normalization and recovery
 
 Expected behavior:
 
-- reduces noisy output while preserving useful signal for common command classes
-- includes targeted compression for tests, build tools, git, linters, docker, package managers, HTTP clients, transfer tools, and file-listing commands
-- strips ANSI noise
-- leaves truly useful output intact enough that the command result remains actionable
+- preserves command output without command-aware summarization or semantic rewriting
+- strips ANSI escape sequences
+- appends additive anti-pattern hints without replacing command output
 - validates Pi-provided Bash `fullOutputPath` values before reading them and only restores from valid temporary full-output files
-- writes recoverable full post-RTK output when the Bash context guard trims final output
-- writes an original/pre-RTK snapshot when the guard trims and Pi did not provide a valid original full-output path
+- writes recoverable full normalized output when the Bash context guard trims the visible result
+- writes an original-output snapshot when the guard trims and Pi did not provide a valid original full-output path
 - exposes stricter-only guard controls through `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES`, `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES`, `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES`, and `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES`
 - disables the guard/original-restoration layer only when `PI_HASHLINE_BASH_CONTEXT_GUARD=0`
-- keeps `PI_RTK_BYPASS=1` scoped to RTK compression; bypassed raw output is still eligible for context-guard trimming
 
 Practical expectation:
 
-- common local development commands should consume less context than raw terminal output
+- local development commands should remain semantically faithful while oversized results stay recoverable outside the model context
 
 ### Context hygiene metadata
 
@@ -152,7 +149,7 @@ The present test suite covers, at minimum:
 - `ast_search` formatting, schema handling, execution behavior, no-match behavior, and path handling
 - binary / control-character handling regressions
 - map cache behavior
-- RTK / bash filter routing, Bash context guard recoverability, guard configuration, and compressor-specific behavior
+- Bash ANSI normalization, semantic-output preservation, context-guard recoverability, and guard configuration
 - public PTC policy/value contracts
 - context-hygiene metadata and debug-tool registration
 - configurable grep output budgets
@@ -167,7 +164,7 @@ When doing manual validation beyond the automated suite, the highest-value check
 3. `grep(..., scope: "symbol")` on a mapped TypeScript or Python file
 4. `ast_search(...)` with both a match and a deliberate no-match query
 5. `edit` using a fresh anchor, then repeating with a stale anchor to confirm mismatch handling
-6. representative `bash` commands such as `npm test`, `tsc --noEmit`, `git diff`, `docker build`, `curl`, and `find`
+6. representative `bash` commands such as `npm test`, `tsc --noEmit`, `git diff --stat`, `eslint --version`, `docker build`, and `curl`, confirming their output is preserved
 
 ## Non-goals of this note
 

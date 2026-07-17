@@ -1,7 +1,7 @@
 {
   "name": "pi-hashline-readmap",
   "version": "0.11.1",
-  "description": "Unified pi extension: hash-anchored read/edit/grep, structural code maps, AST-grep, file exploration (ls/find), and bash output compression",
+  "description": "Unified pi extension: hash-anchored read/edit/grep, structural code maps, AST-grep, file exploration (ls/find), and recoverable Bash output guards",
   "type": "module",
   "exports": {
     ".": "./index.ts"

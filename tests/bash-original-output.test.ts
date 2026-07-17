@@ -31,7 +31,7 @@ describe("selectBashOriginalOutput", () => {
     expect(writeFile).not.toHaveBeenCalled();
   });
 
-  it("uses a readable metadata full-output path as RTK input without snapshotting", () => {
+  it("uses a readable metadata full-output path as selected output without snapshotting", () => {
     const readFile = vi.fn().mockReturnValue("full\nbody\n");
     const writeFile = vi.fn();
 

@@ -1,9 +1,8 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import * as gitModule from "../src/rtk/git.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -22,73 +21,42 @@ async function loadHandlers(tag: string) {
 }
 
 describe("bash original output integration", () => {
-  it("passes readable full-output file contents to RTK and preserves existing details", async () => {
+  it("restores and ANSI-strips readable full-output contents while preserving existing details", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hashline-full-"));
     const fullPath = join(dir, "output.txt");
-    writeFileSync(fullPath, "FULL git output\n", "utf8");
-    let seenByRtk = "";
-    const spy = vi.spyOn(gitModule, "compactGitOutput").mockImplementation((output) => {
-      seenByRtk = output;
-      return "compressed full output";
-    });
+    writeFileSync(fullPath, "\x1b[32mFULL output\x1b[0m\n", "utf8");
 
     try {
       const handlers = await loadHandlers("restored-full");
-      const result = await handlers["tool_result"]({
+      const result = await handlers.tool_result({
         type: "tool_result",
         toolName: "bash",
         toolCallId: "bash-full-1",
-        input: { command: "git diff" },
-        content: [{ type: "text", text: "VISIBLE TAIL\n[Showing lines 10-20 of 20. Full output: " + fullPath + "]" }],
+        input: { command: "echo output" },
+        content: [{ type: "text", text: `VISIBLE TAIL\n[Showing lines 10-20 of 20. Full output: ${fullPath}]` }],
         details: { fullOutputPath: fullPath, existing: "keep" },
         isError: false,
       });
 
-      expect(seenByRtk).toBe("FULL git output\n");
-      expect(result.content[0].text).toBe("compressed full output");
+      expect(result.content[0].text).toBe("FULL output\n");
       expect(result.details.existing).toBe("keep");
-      expect(result.details.compressionInfo.technique).toBe("git");
       expect(result.details.contextHygiene.classification).toBe("command-output");
       expect(result.details.bashOriginalOutput).toMatchObject({
         source: "pi-full-output-path",
         restoredContentForRtk: true,
         originalPath: fullPath,
       });
+      expect(result.details).not.toHaveProperty("compressionInfo");
+      expect(result.details).not.toHaveProperty("rtkCompaction");
     } finally {
-      spy.mockRestore();
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it("keeps source-selection metadata when PI_RTK_BYPASS skips compression", async () => {
-    const handlers = await loadHandlers("bypass-source");
-    const result = await handlers["tool_result"]({
-      type: "tool_result",
-      toolName: "bash",
-      toolCallId: "bash-bypass-1",
-      input: { command: "PI_RTK_BYPASS=1 echo hello" },
-      content: [{ type: "text", text: "\u001b[32mhello\u001b[0m\n" }],
-      details: undefined,
-      isError: false,
-    });
-
-    expect(result.content[0].text).toBe("hello\n");
-    expect(result.details.compressionInfo).toMatchObject({
-      technique: "none",
-      bypassedBy: "env-var",
-    });
-    expect(result.details.bashOriginalOutput).toMatchObject({
-      source: "pi-visible",
-      restoredContentForRtk: false,
-      visibleLineCount: 2,
-    });
-  });
-
-
   it("joins multiple text chunks and preserves non-text chunks for ordinary output", async () => {
     const handlers = await loadHandlers("chunks");
     const nonText = { type: "image", data: "opaque-test-data" };
-    const result = await handlers["tool_result"]({
+    const result = await handlers.tool_result({
       type: "tool_result",
       toolName: "bash",
       toolCallId: "bash-chunks-1",
