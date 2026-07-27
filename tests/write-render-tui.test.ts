@@ -6,6 +6,31 @@ import { tmpdir } from "node:os";
 import { resetCapabilitiesCache, setCapabilities } from "@earendil-works/pi-tui";
 import { registerWriteTool } from "../src/write.js";
 
+const buildPendingWritePreviewDataSpy = vi.hoisted(() => vi.fn());
+const buildPendingWriteDiffDataSpy = vi.hoisted(() => vi.fn());
+
+vi.mock("../src/pending-diff-preview.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/pending-diff-preview.js")>();
+  return {
+    ...actual,
+    buildPendingWritePreviewData: (...args: Parameters<typeof actual.buildPendingWritePreviewData>) => {
+      buildPendingWritePreviewDataSpy();
+      return actual.buildPendingWritePreviewData(...args);
+    },
+  };
+});
+
+vi.mock("../src/diff-data.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/diff-data.js")>();
+  return {
+    ...actual,
+    buildDiffData: (...args: Parameters<typeof actual.buildDiffData>) => {
+      buildPendingWriteDiffDataSpy();
+      return actual.buildDiffData(...args);
+    },
+  };
+});
+
 const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
 function textOf(component: any, width = 120): string { return component?.text ?? component?.render?.(width)?.join("\n") ?? ""; }
 function tool(): any { let registered: any; registerWriteTool({ registerTool(def: any) { registered = def; } } as any, {} as any); return registered; }
@@ -80,29 +105,23 @@ describe("write TUI renderer", () => {
     expect(textOf(t.renderResult(failed, { expanded: true }, theme, { expanded: true }))).toContain("full detail");
   });
 
-  it("uses the same visual grammar for pending write previews", () => {
-    const cwd = mkdtempSync(resolve(tmpdir(), "pi-write-render-"));
+  it("keeps a complete collapsed write preview lightweight", () => {
+    const cwd = mkdtempSync(resolve(tmpdir(), "pi-write-collapsed-"));
     writeFileSync(resolve(cwd, "old.txt"), "old\n", "utf-8");
     const t = tool();
+    const context: any = { argsComplete: true, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), expanded: false };
 
-    // Pending create: no diff UI — expanded shows the new content indented.
-    const createContext: any = { cwd, state: {}, invalidate: vi.fn(), expanded: true };
-    const first = t.renderCall({ path: "new.txt", content: "one\ntwo" }, theme, createContext);
-    const second = t.renderCall({ path: "new.txt", content: "one\ntwo" }, theme, { ...createContext, lastComponent: first });
-    const createdText = textOf(second);
-    expect(createdText).toContain("↳ pending create");
-    expect(createdText).toContain("  1 │ one");
-    expect(createdText).toContain("  2 │ two");
-    expect(createdText).not.toContain("diff +");
-    expect(createdText).not.toContain("▌+");
+    buildPendingWritePreviewDataSpy.mockClear();
+    buildPendingWriteDiffDataSpy.mockClear();
+    const rendered = textOf(t.renderCall({ path: "old.txt", content: "new\n" }, theme, context));
 
-    // Pending overwrite: diff UI is preserved — old vs new still carries signal.
-    const overwriteContext: any = { cwd, state: {}, invalidate: vi.fn(), expanded: true };
-    const third = t.renderCall({ path: "old.txt", content: "old\nnew" }, theme, overwriteContext);
-    const fourth = t.renderCall({ path: "old.txt", content: "old\nnew" }, theme, { ...overwriteContext, lastComponent: third });
-    const overwriteText = textOf(fourth);
-    expect(overwriteText).toContain("↳ pending overwrite");
-    expect(overwriteText).toContain("↳ diff +1 -0");
+    expect(buildPendingWritePreviewDataSpy).not.toHaveBeenCalled();
+    expect(buildPendingWriteDiffDataSpy).not.toHaveBeenCalled();
+    expect(rendered).toContain("write ");
+    expect(rendered).toContain("old.txt");
+    expect(rendered).toContain("↳ pending overwrite");
+    expect(rendered).toContain("Ctrl+O to expand");
+    expect(rendered).not.toContain("↳ diff");
   });
 
   it("collapses the pending preview to just the call line once execution has started", () => {

@@ -1,4 +1,31 @@
 import { afterEach, describe, expect, it } from "vitest";
+const pendingPreviewHarness = vi.hoisted(() => ({
+  projections: new Map<string, { promise: Promise<any>; resolve: (value: any) => void }>(),
+  buildSpy: vi.fn(),
+}));
+
+function deferredPreview(): { promise: Promise<any>; resolve: (value: any) => void } {
+  let resolvePromise!: (value: any) => void;
+  const promise = new Promise<any>((resolve) => {
+    resolvePromise = resolve;
+  });
+  return { promise, resolve: resolvePromise };
+}
+
+vi.mock("../src/pending-diff-preview.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/pending-diff-preview.js")>();
+  return {
+    ...actual,
+    buildPendingEditPreviewData: (input: any) => {
+      pendingPreviewHarness.buildSpy(input);
+      const token = input?.edits?.[0]?.replace?.new_text;
+      const deferred = pendingPreviewHarness.projections.get(token);
+      if (!deferred) throw new Error(`missing deferred preview for ${String(token)}`);
+      return deferred.promise;
+    },
+  };
+});
+
 import { registerEditTool } from "../src/edit.js";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -60,24 +87,75 @@ describe("edit pending-preview renderer with edit.diffDisplay = expanded", () =>
     else process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY = originalEnv;
   });
 
-  it("renders pending preview diff inline when context.expanded is false but the env says expanded", async () => {
+  it("gates configured expansion and rejects an older completed preview", async () => {
     process.env.PI_HASHLINE_EDIT_DIFF_DISPLAY = "expanded";
+    pendingPreviewHarness.projections.clear();
+    pendingPreviewHarness.buildSpy.mockClear();
+    const streaming = deferredPreview();
+    const older = deferredPreview();
+    const newer = deferredPreview();
+    pendingPreviewHarness.projections.set("streaming", streaming);
+    pendingPreviewHarness.projections.set("older", older);
+    pendingPreviewHarness.projections.set("newer", newer);
+
     const cwd = mkdtempSync(resolve(tmpdir(), "pi-edit-pending-setting-"));
     const filePath = resolve(cwd, "sample.ts");
     writeFileSync(filePath, "const unique = 1;\n", "utf-8");
     const tool = getEditTool();
-    const context: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: false };
-    const args = { path: filePath, edits: [{ replace: { old_text: "const unique = 1;", new_text: "const unique = 2;" } }] };
+    const makeArgs = (newText: string) => ({
+      path: filePath,
+      edits: [{ replace: { old_text: "const unique = 1;", new_text: newText } }],
+    });
+    const state: Record<string, any> = {};
+    const invalidate = vi.fn();
 
-    const first = tool.renderCall(args, theme, context);
+    tool.renderCall(makeArgs("streaming"), theme, {
+      argsComplete: false,
+      executionStarted: false,
+      cwd,
+      state,
+      invalidate,
+      expanded: false,
+    });
+    expect(pendingPreviewHarness.buildSpy).not.toHaveBeenCalled();
+
+    const completeContext = {
+      argsComplete: true,
+      executionStarted: false,
+      cwd,
+      state,
+      invalidate,
+      expanded: false,
+    };
+    tool.renderCall(makeArgs("older"), theme, completeContext);
+    tool.renderCall(makeArgs("newer"), theme, completeContext);
+    expect(pendingPreviewHarness.buildSpy).toHaveBeenCalledTimes(2);
+
+    const newerResult = {
+      type: "ok" as const,
+      data: {
+        filePath,
+        previousContent: "const unique = 1;\n",
+        nextContent: "newer\n",
+        fileExistedBeforeWrite: true,
+        headerLabel: "pending edit" as const,
+        diff: "-1 const unique = 1;\n+1 newer",
+      },
+    };
+    newer.resolve(newerResult);
     await Promise.resolve();
-    const second = tool.renderCall(args, theme, { ...context, lastComponent: first });
-    const rendered = textOf(second);
+    await Promise.resolve();
+    older.resolve({ type: "skip", reason: "older result" });
+    await Promise.resolve();
+    await Promise.resolve();
 
+    expect(state["hashline-edit-pending-preview"].data).toEqual(newerResult);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    const rendered = textOf(tool.renderCall(makeArgs("newer"), theme, completeContext));
     expect(rendered).toContain("pending edit");
     expect(rendered).toContain("↳ diff +1 -1");
-    expect(rendered).toContain("▌+ 1 │ const unique = 2;");
-  });
+    expect(rendered).toContain("▌+ 1 │ newer");
+});
 });
 
 describe("edit renderer default behavior is unchanged with no setting and no env", () => {

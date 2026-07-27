@@ -43,7 +43,7 @@ describe("edit TUI renderer", () => {
   it("renders compact edit call grammar", () => {
     setCapabilities({ images: null, trueColor: true, hyperlinks: false });
     const t = tool();
-    expect(textOf(t.renderCall({ path: "tmp/file.txt", edits: [{ replace: { old_text: "a", new_text: "b" } }] }, theme, { argsComplete: true }))).toBe("edit tmp/file.txt (1 edit)");
+    expect(textOf(t.renderCall({ path: "tmp/file.txt", edits: [{ replace: { old_text: "a", new_text: "b" } }] }, theme, { argsComplete: false }))).toBe("edit tmp/file.txt (1 edit)");
   });
 
   it("wraps the edit path title in an OSC 8 hyperlink when supported", () => {
@@ -52,14 +52,14 @@ describe("edit TUI renderer", () => {
     const args = { path: "tmp/file.txt", edits: [{ replace: { old_text: "a", new_text: "b" } }] };
 
     setCapabilities({ images: null, trueColor: true, hyperlinks: true });
-    const linked = textOf(tool().renderCall(args, theme, { argsComplete: true, cwd }));
+    const linked = textOf(tool().renderCall(args, theme, { argsComplete: false, cwd }));
     expect(linked).toContain("\u001b]8;;file:///");
     expect(linked).toContain(`\u001b]8;;${expectedUrl}\u001b\\`);
     expect(linked).toContain("tmp/file.txt");
     expect(linked).toContain("(1 edit)");
 
     setCapabilities({ images: null, trueColor: true, hyperlinks: false });
-    expect(textOf(tool().renderCall(args, theme, { argsComplete: true, cwd }))).toBe("edit tmp/file.txt (1 edit)");
+    expect(textOf(tool().renderCall(args, theme, { argsComplete: false, cwd }))).toBe("edit tmp/file.txt (1 edit)");
   });
 
   it("keeps no-op and expanded error details visible", () => {
@@ -76,18 +76,28 @@ describe("edit TUI renderer", () => {
     expect(textOf(tool().renderResult({ content: [] }, {}, theme, { isPartial: true }))).toBe("↳ pending edit");
   });
 
-  it("uses the same visual grammar for pending edit previews", async () => {
+  it("waits for complete arguments before rendering an explicitly expanded preview", async () => {
     const cwd = mkdtempSync(resolve(tmpdir(), "pi-edit-render-"));
     const filePath = resolve(cwd, "sample.ts");
     writeFileSync(filePath, "const value = 1;\n", "utf-8");
     const t = tool();
     const args = { path: filePath, edits: [{ replace: { old_text: "const value = 1;", new_text: "const value = 2;" } }] };
-    const context: any = { argsComplete: false, cwd, state: {}, invalidate: vi.fn(), expanded: true };
-    const first = t.renderCall(args, theme, context);
+
+    const incomplete: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), expanded: true };
+    const incompleteFirst = t.renderCall(args, theme, incomplete);
     await Promise.resolve();
-    const second = t.renderCall(args, theme, { ...context, lastComponent: first });
+    const streamed = textOf(t.renderCall(args, theme, { ...incomplete, lastComponent: incompleteFirst }));
+    expect(streamed).toContain("edit");
+    expect(streamed.includes("pending edit")).toBe(false);
+    expect(streamed).not.toContain("↳ diff");
+
+    const complete: any = { argsComplete: true, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), expanded: true };
+    const first = t.renderCall(args, theme, complete);
+    await Promise.resolve();
+    const second = t.renderCall(args, theme, { ...complete, lastComponent: first });
     const rendered = textOf(second);
     expect(rendered).toContain("↳ pending edit");
     expect(rendered).toContain("↳ diff +1 -1");
-  });
+    expect(rendered).toContain("▌+ 1 │ const value = 2;");
+});
 });

@@ -47,19 +47,18 @@ function formatContentPreviewLines(content: string, theme: any): string[] {
 }
 
 function pendingWritePreviewParts(summary: string, preview: PendingDiffPreviewResult | undefined, expanded: boolean, theme: any): { lines: string[]; diffData?: DiffData } {
-  if (!preview || preview.type !== "ok") return { lines: summary.split("\n") };
-  // Pure creates (write to a new file) have no "old" side, so a diff-shaped
-  // preview is just noise. Show the new file's content with a dim gutter of
-  // line numbers when expanded; otherwise just a Ctrl+O hint.
-  const hasOldSide = preview.data.fileExistedBeforeWrite;
-  const headerLine = summaryLine(preview.data.headerLabel, { hidden: !expanded });
-  if (!hasOldSide) {
-    const lines = [summary, headerLine];
-    if (expanded) lines.push(...formatContentPreviewLines(preview.data.nextContent, theme));
-    return { lines };
+  if (!expanded || !preview || preview.type !== "ok") return { lines: summary.split("\n") };
+  const headerLine = summaryLine(preview.data.headerLabel, { hidden: false });
+  if (!preview.data.fileExistedBeforeWrite) {
+    return { lines: [summary, headerLine, ...formatContentPreviewLines(preview.data.nextContent, theme)] };
   }
-  const diffData = buildDiffData({ path: preview.data.filePath, oldContent: preview.data.previousContent, newContent: preview.data.nextContent, diff: preview.data.diff });
-  return { lines: [summary, headerLine], diffData: expanded ? diffData : undefined };
+  const diffData = buildDiffData({
+    path: preview.data.filePath,
+    oldContent: preview.data.previousContent,
+    newContent: preview.data.nextContent,
+    diff: preview.data.diff,
+  });
+  return { lines: [summary, headerLine], diffData };
 }
 
 const MAX_LINES = 2000;
@@ -451,10 +450,26 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
         textComponent.setText(text);
         return textComponent;
       }
-      const previewKey = buildWritePreviewKey(args ?? {});
-      const preview = resolvePendingDiffPreview(context, WRITE_PENDING_PREVIEW_STATE_KEY, previewKey, () => buildPendingWritePreviewData(args ?? {}, context.cwd ?? process.cwd()));
       const expanded = !!context.expanded;
-      const parts = pendingWritePreviewParts(text, preview, expanded, theme);
+      const argsStable = context.argsComplete === true;
+      const previewEligible = argsStable && expanded;
+      const previewKey = previewEligible ? buildWritePreviewKey(args ?? {}) : undefined;
+      const preview = previewEligible
+        ? resolvePendingDiffPreview(
+            context,
+            WRITE_PENDING_PREVIEW_STATE_KEY,
+            previewKey,
+            () => buildPendingWritePreviewData(args ?? {}, context.cwd ?? process.cwd()),
+          )
+        : undefined;
+      const parts: { lines: string[]; diffData?: DiffData } = !expanded && argsStable && typeof path === "string" && typeof content === "string"
+        ? {
+            lines: [
+              text,
+              summaryLine(existsSync(resolveToCwd(path, cwd)) ? "pending overwrite" : "pending create", { hidden: true }),
+            ],
+          }
+        : pendingWritePreviewParts(text, preview, expanded, theme);
       if (parts.diffData) {
         const diffComponent = context.lastComponent instanceof DiffPreviewComponent
           ? context.lastComponent
