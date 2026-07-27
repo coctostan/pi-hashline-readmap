@@ -5,6 +5,7 @@ import { applyHashlineEdits, type HashlineEditItem } from "./hashline.js";
 import { replaceSymbol } from "./replace-symbol.js";
 
 export const PENDING_DIFF_MAX_BYTES = 1024 * 1024;
+export const PENDING_DIFF_MAX_LINE_CELLS = 1_000_000;
 
 export interface PendingDiffPreviewData {
 	filePath: string;
@@ -55,6 +56,19 @@ function readUtf8File(filePath: string): { type: "ok"; content: string } | { typ
 	const content = readFileSync(filePath, "utf-8");
 	if (content.includes("\0")) return { type: "skip", reason: "binary file" };
 	return { type: "ok", content };
+}
+
+function countPreviewLines(content: string): number {
+	if (content.length === 0) return 0;
+	let lines = 1;
+	for (let index = 0; index < content.length; index++) {
+		if (content.charCodeAt(index) === 10) lines++;
+	}
+	return lines;
+}
+
+function pendingDiffTooComplex(previousContent: string, nextContent: string): boolean {
+	return countPreviewLines(previousContent) * countPreviewLines(nextContent) > PENDING_DIFF_MAX_LINE_CELLS;
 }
 
 function buildData(
@@ -149,9 +163,23 @@ export function buildPendingWritePreviewData(input: { path?: unknown; content?: 
 	if (Buffer.byteLength(input.content, "utf8") > PENDING_DIFF_MAX_BYTES) return skip("content too large");
 	const resolved = resolveWorkspacePreviewPath(input.path, cwd, true);
 	if (resolved.type === "skip") return resolved;
-	const previous = resolved.existed ? readUtf8File(resolved.path) : { type: "ok" as const, content: "" };
+	if (!resolved.existed) {
+		return {
+			type: "ok",
+			data: {
+				filePath: resolved.path,
+				previousContent: "",
+				nextContent: input.content,
+				fileExistedBeforeWrite: false,
+				headerLabel: "pending create",
+				diff: "",
+			},
+		};
+	}
+	const previous = readUtf8File(resolved.path);
 	if (previous.type === "skip") return previous;
-	return buildData(resolved.path, previous.content, input.content, resolved.existed, resolved.existed ? "pending overwrite" : "pending create");
+	if (pendingDiffTooComplex(previous.content, input.content)) return skip("diff too complex");
+	return buildData(resolved.path, previous.content, input.content, true, "pending overwrite");
 }
 
 export async function buildPendingEditPreviewData(input: PendingEditInput, cwd: string): Promise<PendingDiffPreviewResult> {
@@ -201,6 +229,7 @@ export async function buildPendingEditPreviewData(input: PendingEditInput, cwd: 
 		if (anchored.type === "skip") return anchored;
 		next = anchored.content;
 	}
+	if (pendingDiffTooComplex(previous.content, next)) return skip("diff too complex");
 	return buildData(resolved.path, previous.content, next, true, "pending edit");
 }
 

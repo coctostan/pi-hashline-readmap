@@ -25,7 +25,7 @@ describe("write renderCall pending diff preview", () => {
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-write-pending-success-"));
 		writeFileSync(resolve(cwd, "sample.txt"), "old value\n", "utf-8");
 		const tool = getWriteTool();
-		const context: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: false };
+		const context: any = { argsComplete: true, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: false };
 
 		const rendered = tool.renderCall({ path: "sample.txt", content: "new value\n" }, theme, context);
 		const text = textOf(rendered);
@@ -40,7 +40,7 @@ describe("write renderCall pending diff preview", () => {
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-write-pending-expanded-"));
 		writeFileSync(resolve(cwd, "sample.txt"), "old value\n", "utf-8");
 		const tool = getWriteTool();
-		const context: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: true };
+		const context: any = { argsComplete: true, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: true };
 
 		const rendered = tool.renderCall({ path: "sample.txt", content: "new value\n" }, theme, context);
 		const text = textOf(rendered);
@@ -56,7 +56,7 @@ describe("write renderCall pending diff preview", () => {
 		const tool = getWriteTool();
 
 		// Collapsed: just the "pending create" header with a Ctrl+O hint. No diff header, no body, no file contents.
-		const collapsedContext: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: false };
+		const collapsedContext: any = { argsComplete: true, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: false };
 		const collapsed = textOf(tool.renderCall({ path: "fresh.txt", content: "hello\nworld\n" }, theme, collapsedContext));
 		expect(collapsed).toContain("↳ pending create");
 		expect(collapsed).toContain("Ctrl+O to expand");
@@ -65,7 +65,7 @@ describe("write renderCall pending diff preview", () => {
 		expect(collapsed).not.toContain("hello");
 
 		// Expanded: the new file's contents are shown indented (no gutter, no line numbers, no colors).
-		const expandedContext: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: true };
+		const expandedContext: any = { argsComplete: true, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined, expanded: true };
 		const expanded = textOf(tool.renderCall({ path: "fresh.txt", content: "hello\nworld\n" }, theme, expandedContext));
 		expect(expanded).toContain("↳ pending create");
 		expect(expanded).toContain("  1 │ hello");

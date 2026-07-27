@@ -28,10 +28,15 @@ import { resolveEditDiffDisplay } from "./hashline-settings.js";
 const EDIT_PENDING_PREVIEW_STATE_KEY = "hashline-edit-pending-preview";
 
 function pendingPreviewLines(summary: string, preview: PendingDiffPreviewResult | undefined, expanded: boolean): { lines: string[]; diffData?: ReturnType<typeof buildDiffData>; headerLabel?: string } {
-	if (!preview || preview.type !== "ok") return { lines: summary.split("\n") };
-	const diffData = buildDiffData({ path: preview.data.filePath, oldContent: preview.data.previousContent, newContent: preview.data.nextContent, diff: preview.data.diff });
-	const headerLine = summaryLine(preview.data.headerLabel, { hidden: !expanded });
-	return { lines: [summary, headerLine], diffData: expanded ? diffData : undefined, headerLabel: preview.data.headerLabel };
+	if (!expanded || !preview || preview.type !== "ok") return { lines: summary.split("\n") };
+	const diffData = buildDiffData({
+		path: preview.data.filePath,
+		oldContent: preview.data.previousContent,
+		newContent: preview.data.nextContent,
+		diff: preview.data.diff,
+	});
+	const headerLine = summaryLine(preview.data.headerLabel, { hidden: false });
+	return { lines: [summary, headerLine], diffData, headerLabel: preview.data.headerLabel };
 }
 
 export function wrapWriteError(err: any, path: string): Error {
@@ -674,15 +679,23 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				textComponent.setText(text);
 				return textComponent;
 			}
-			const previewKey = buildEditPreviewKey(args ?? {});
-			const preview = resolvePendingDiffPreview(
-				context,
-				EDIT_PENDING_PREVIEW_STATE_KEY,
-				previewKey,
-				() => buildPendingEditPreviewData(args ?? {}, context.cwd ?? process.cwd()),
-			);
-			const expanded = !!context.expanded || resolveEditDiffDisplay() === "expanded";
-			const preview2 = pendingPreviewLines(text, preview, expanded);
+			const contextExpanded = !!context.expanded;
+			const settingExpanded = resolveEditDiffDisplay() === "expanded";
+			const expanded = contextExpanded || settingExpanded;
+			const argsStable = context.argsComplete === true;
+			const previewEligible = expanded && argsStable;
+			const previewKey = previewEligible ? buildEditPreviewKey(args ?? {}) : undefined;
+			const preview = previewEligible
+				? resolvePendingDiffPreview(
+					context,
+					EDIT_PENDING_PREVIEW_STATE_KEY,
+					previewKey,
+					() => buildPendingEditPreviewData(args ?? {}, context.cwd ?? process.cwd()),
+				)
+				: undefined;
+			const preview2: ReturnType<typeof pendingPreviewLines> = !expanded && argsStable
+				? { lines: [text, summaryLine("pending edit", { hidden: true })], headerLabel: "pending edit" }
+				: pendingPreviewLines(text, preview, expanded);
 			if (preview2.diffData) {
 				const diffComponent = context.lastComponent instanceof DiffPreviewComponent
 					? context.lastComponent

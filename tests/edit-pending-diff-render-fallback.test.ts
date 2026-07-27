@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
@@ -21,7 +21,9 @@ const theme = {
 };
 
 describe("edit renderCall preview fallback", () => {
+	afterEach(() => vi.unstubAllEnvs());
 	it("projects first-occurrence replace preview and executes the same change", async () => {
+		vi.stubEnv("PI_HASHLINE_EDIT_DIFF_DISPLAY", "collapsed");
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-edit-pending-fallback-"));
 		const filePath = resolve(cwd, "sample.ts");
 		writeFileSync(filePath, "const value = 1;\nconst value = 1;\n", "utf-8");
@@ -33,7 +35,7 @@ describe("edit renderCall preview fallback", () => {
 		await Promise.resolve();
 		const rendered = textOf(tool.renderCall(args, theme, context));
 		expect(rendered).toContain("edit");
-		expect(rendered).toContain("pending edit");
+		expect(rendered).not.toContain("pending edit");
 
 		const result = await tool.execute("edit-call", args, new AbortController().signal, undefined, { cwd });
 		expect(result.isError).not.toBe(true);
