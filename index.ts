@@ -352,7 +352,11 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       const prefix = `${formatDoomLoopMessage(doomLoop)}\n\n---\n`;
       return `${prefix}${body}`;
     };
-    const { output, savedChars, info } = filterBashOutput(command, originalSelection.inputForRtk);
+    const { output, savedChars, info } = filterBashOutput(
+      command,
+      originalSelection.inputForRtk,
+      { isError: event.isError === true },
+    );
     if (process.env.PI_RTK_SAVINGS === "1") {
       process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
     }
