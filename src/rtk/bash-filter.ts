@@ -34,6 +34,10 @@ export interface FilterResult {
   info: CompressionInfo;
 }
 
+export interface FilterBashOutputOptions {
+  isError?: boolean;
+}
+
 export function isTestCommand(command: string): boolean {
   const c = command.toLowerCase();
   return ["vitest", "jest", "pytest", "cargo test", "npm test", "npx vitest", "bun test", "go test", "mocha"].some(
@@ -47,9 +51,7 @@ export function isGitCommand(command: string): boolean {
 }
 
 export function isBuildCommand(command: string): boolean {
-  const c = command.toLowerCase();
-  if (/\btsc\b/.test(c)) return true;
-  return ["cargo build", "cargo check", "cargo test", "npm run build"].some((t) => c.includes(t));
+  return build.isBuildCommand(command);
 }
 
 export function isLinterCommand(command: string): boolean {
@@ -69,7 +71,11 @@ function makeInfo(
   return { originalBytes, outputBytes, compressionRatio, technique, ...extra };
 }
 
-export function filterBashOutput(command: string, output: string): FilterResult {
+export function filterBashOutput(
+  command: string,
+  output: string,
+  options: FilterBashOutputOptions = {},
+): FilterResult {
   if (output === "") {
     return { output: "", savedChars: 0, info: makeInfo("", "", "none") };
   }
@@ -122,7 +128,7 @@ export function filterBashOutput(command: string, output: string): FilterResult 
       { matches: transfer.isTransferCommand(command), technique: "transfer", apply: () => transfer.compressTransferOutput(stripped) },
     ];
     for (const route of routes) {
-      if (!route.matches) continue;
+      if (options.isError === true || !route.matches) continue;
       technique = route.technique;
       const next = route.apply();
       if (next !== null) {

@@ -4,18 +4,24 @@ interface BuildStats {
 	warnings: string[];
 }
 
-const BUILD_COMMANDS = [
-	"cargo build",
-	"cargo check",
-	"bun build",
-	"npm run build",
-	"yarn build",
-	"pnpm build",
-	"go build",
-	"go install",
-	"python setup.py build",
-	"pip install",
+const BUILD_COMMAND_PATTERNS = [
+	/^cargo\s+(?:build|check|test)(?:\s|$)/,
+	/^bun\s+build(?:\s|$)/,
+	/^npm\s+run\s+build(?:\s|$)/,
+	/^yarn\s+(?:run\s+)?build(?:\s|$)/,
+	/^pnpm\s+(?:run\s+)?build(?:\s|$)/,
+	/^go\s+(?:build|install)(?:\s|$)/,
+	/^python(?:3)?\s+setup\.py\s+build(?:\s|$)/,
+	/^pip(?:3)?\s+install(?:\s|$)/,
 ];
+
+const TSC_COMMAND_PATTERN = /^(?:(?:npx|bunx)\s+)?(?:[^\s]+[\\/])?tsc(?:\s|$)/;
+const TSC_VERSION_PATTERN = /^(?:(?:npx|bunx)\s+)?(?:[^\s]+[\\/])?tsc\s+(?:--version|-v)(?:\s|$)/;
+const LEADING_ENV_ASSIGNMENTS_PATTERN = /^(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S+)\s+)*/;
+
+function normalizeBuildCommand(command: string): string {
+	return command.trim().replace(LEADING_ENV_ASSIGNMENTS_PATTERN, "").toLowerCase();
+}
 
 const SKIP_PATTERNS = [
 	/^\s*Compiling\s+/,
@@ -54,13 +60,14 @@ function isWarning(line: string): boolean {
 }
 
 export function isBuildCommand(command: string | undefined | null): boolean {
-	if (typeof command !== "string" || command.length === 0) {
+	if (typeof command !== "string" || command.trim().length === 0) {
 		return false;
 	}
 
-	const cmdLower = command.toLowerCase();
-	if (/\btsc\b/.test(cmdLower)) return true;
-	return BUILD_COMMANDS.some((bc) => cmdLower.includes(bc.toLowerCase()));
+	const normalized = normalizeBuildCommand(command);
+	if (TSC_VERSION_PATTERN.test(normalized)) return false;
+	if (TSC_COMMAND_PATTERN.test(normalized)) return true;
+	return BUILD_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 export function filterBuildOutput(
@@ -142,6 +149,9 @@ export function filterBuildOutput(
 
 	// Format output
 	if (stats.errors.length === 0 && stats.warnings.length === 0) {
+		if (stats.compiled === 0) {
+			return null;
+		}
 		return `✓ Build successful (${stats.compiled} units compiled)`;
 	}
 
