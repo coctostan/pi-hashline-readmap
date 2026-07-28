@@ -149,11 +149,31 @@ interface StatusStats {
 	untrackedFiles: string[];
 }
 
+const SHORT_STATUS_CODES = new Set([" ", "M", "A", "D", "R", "C", "U", "T", "?", "!"]);
+
+function isRecognizedShortStatusLine(line: string): boolean {
+	if (line.startsWith("## ")) {
+		return line.length > 3;
+	}
+
+	if (line.length < 4 || line[2] !== " " || line.includes("\0")) {
+		return false;
+	}
+
+	const status = line.slice(0, 2);
+	return status !== "  " && Array.from(status).every((code) => SHORT_STATUS_CODES.has(code));
+}
+
 export function compactStatus(output: string): string {
 	const lines = output.split("\n");
 
 	if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === "")) {
 		return "Clean working tree";
+	}
+
+	const contentLines = lines.filter((line) => line !== "");
+	if (contentLines.length === 0 || !contentLines.every(isRecognizedShortStatusLine)) {
+		return output;
 	}
 
 	const stats: StatusStats = {
@@ -286,7 +306,8 @@ export function compactGitOutput(
 	}
 
 	if (cmdLower.startsWith("git status")) {
-		return compactStatus(output);
+		const compacted = compactStatus(output);
+		return compacted === output ? null : compacted;
 	}
 
 	if (cmdLower.startsWith("git log")) {

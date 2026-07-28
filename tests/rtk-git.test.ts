@@ -137,6 +137,58 @@ describe("compactStatus", () => {
     expect(result).toContain("Untracked");
     expect(result).toContain("newfile.ts");
   });
+
+  it("preserves unsupported long-form status output across working-tree states", () => {
+    const outputs = [
+      [
+        "On branch main",
+        "Changes not staged for commit:",
+        "  (use \"git add <file>...\" to update what will be committed)",
+        "  (use \"git restore <file>...\" to discard changes in working directory)",
+        "",
+        "\tmodified:   src/changed.ts",
+        "",
+        "no changes added to commit (use \"git add\" and/or \"git commit -a\")",
+      ].join("\n"),
+      [
+        "On branch main",
+        "nothing to commit, working tree clean",
+      ].join("\n"),
+      [
+        "On branch main",
+        "Changes to be committed:",
+        "  (use \"git restore --staged <file>...\" to unstage)",
+        "",
+        "\tnew file:   src/staged.ts",
+      ].join("\n"),
+      [
+        "On branch main",
+        "Untracked files:",
+        "  (use \"git add <file>...\" to include in what will be committed)",
+        "",
+        "\tsrc/untracked.ts",
+      ].join("\n"),
+      [
+        "On branch main",
+        "You have unmerged paths.",
+        "  (fix conflicts and run \"git commit\")",
+        "",
+        "Unmerged paths:",
+        "  (use \"git add <file>...\" to mark resolution)",
+        "",
+        "\tboth modified:   src/conflicted.ts",
+      ].join("\n"),
+      [
+        "## main",
+        " M src/changed.ts",
+        "post-processing output",
+      ].join("\n"),
+    ];
+
+    for (const output of outputs) {
+      expect(compactStatus(output)).toBe(output);
+    }
+  });
 });
 
 describe("compactLog", () => {
