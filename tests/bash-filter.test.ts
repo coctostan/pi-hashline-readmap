@@ -102,6 +102,34 @@ describe("filterBashOutput routing", () => {
     spy.mockRestore();
   });
 
+  it("falls back to ANSI-stripped output for unsupported long-form git status", () => {
+    const raw = [
+      "\x1b[36mOn branch main\x1b[0m",
+      "Changes not staged for commit:",
+      "  (use \"git add <file>...\" to update what will be committed)",
+      "  (use \"git restore <file>...\" to discard changes in working directory)",
+      "",
+      "\tmodified:   src/changed.ts",
+      "",
+      "no changes added to commit (use \"git add\" and/or \"git commit -a\")",
+    ].join("\n");
+    const stripped = [
+      "On branch main",
+      "Changes not staged for commit:",
+      "  (use \"git add <file>...\" to update what will be committed)",
+      "  (use \"git restore <file>...\" to discard changes in working directory)",
+      "",
+      "\tmodified:   src/changed.ts",
+      "",
+      "no changes added to commit (use \"git add\" and/or \"git commit -a\")",
+    ].join("\n");
+
+    const result = filterBashOutput("git status", raw);
+
+    expect(result.output).toBe(stripped);
+    expect(result.info.technique).toBe("none");
+  });
+
   it("routes linter commands to aggregateLinterOutput and falls back when null", () => {
     const spy = vi.spyOn(linterModule, "aggregateLinterOutput").mockReturnValue("compressed linter output");
 
