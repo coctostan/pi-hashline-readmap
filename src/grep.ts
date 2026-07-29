@@ -75,34 +75,55 @@ interface GrepParams {
 	scopeContext?: number | string;
 }
 
-const MATCH_LINE_RE = /^(.*):(\d+): (.*)$/;
-const CONTEXT_LINE_RE = /^(.*)-(\d+)- (.*)$/;
+export interface GrepOutputCandidate {
+	kind: "match" | "context";
+	displayPath: string;
+	lineNumber: number;
+	text: string;
+}
 
-function parseGrepOutputLine(line: string):
-	| { kind: "match"; displayPath: string; lineNumber: number; text: string }
-	| { kind: "context"; displayPath: string; lineNumber: number; text: string }
-	| null {
-	const match = line.match(MATCH_LINE_RE);
-	if (match) {
-		return {
+const BUILTIN_LINE_TRUNCATION_SUFFIX = "... [truncated]";
+const BUILTIN_MATCH_LIMIT_NOTICE_RE = /^\[\d+ matches limit reached\..*\]$/;
+
+export function collectMatchCandidates(line: string): GrepOutputCandidate[] {
+	const candidates: GrepOutputCandidate[] = [];
+	for (const match of line.matchAll(/:(\d+): /g)) {
+		const index = match.index;
+		if (index === undefined) continue;
+		candidates.push({
 			kind: "match",
-			displayPath: match[1],
-			lineNumber: Number.parseInt(match[2], 10),
-			text: match[3],
-		};
+			displayPath: line.slice(0, index),
+			lineNumber: Number.parseInt(match[1], 10),
+			text: line.slice(index + match[0].length),
+		});
 	}
+	return candidates;
+}
 
-	const context = line.match(CONTEXT_LINE_RE);
-	if (context) {
-		return {
+function collectContextCandidates(line: string): GrepOutputCandidate[] {
+	const candidates: GrepOutputCandidate[] = [];
+	for (const match of line.matchAll(/-(\d+)- /g)) {
+		const index = match.index;
+		if (index === undefined) continue;
+		candidates.push({
 			kind: "context",
-			displayPath: context[1],
-			lineNumber: Number.parseInt(context[2], 10),
-			text: context[3],
-		};
+			displayPath: line.slice(0, index),
+			lineNumber: Number.parseInt(match[1], 10),
+			text: line.slice(index + match[0].length),
+		});
 	}
+	return candidates;
+}
 
-	return null;
+function collectGrepOutputCandidates(line: string): GrepOutputCandidate[] {
+	return [...collectMatchCandidates(line), ...collectContextCandidates(line)]
+		.sort((a, b) => a.displayPath.length - b.displayPath.length);
+}
+
+function candidateTextMatchesSource(candidateText: string, sourceLine: string): boolean {
+	if (candidateText === sourceLine) return true;
+	if (!candidateText.endsWith(BUILTIN_LINE_TRUNCATION_SUFFIX)) return false;
+	return sourceLine.startsWith(candidateText.slice(0, -BUILTIN_LINE_TRUNCATION_SUFFIX.length));
 }
 
 export interface GrepIRLine {
@@ -484,22 +505,48 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 
 			for (const line of textBlock.text.split("\n")) {
 				throwIfAborted(signal);
-				const parsed = parseGrepOutputLine(line);
-				if (!parsed || !Number.isFinite(parsed.lineNumber) || parsed.lineNumber < 1) {
+				const candidates = collectGrepOutputCandidates(line);
+				let parsed: GrepOutputCandidate | undefined;
+				let absolute: string | undefined;
+				let fileLines: string[] | undefined;
+
+				const validatedCandidates: Array<{
+					parsed: GrepOutputCandidate;
+					absolute: string;
+					fileLines: string[];
+				}> = [];
+				for (const candidate of candidates) {
+					if (!Number.isFinite(candidate.lineNumber) || candidate.lineNumber < 1) continue;
+					if (!searchPathIsDirectory && candidate.displayPath !== path.basename(searchPath)) continue;
+					const candidateAbsolute = toAbsolutePath(candidate.displayPath);
+					const candidateFileLines = await getFileLines(candidateAbsolute);
+					if (candidateFileLines === undefined) continue;
+					const candidateSourceLine = candidateFileLines[candidate.lineNumber - 1];
+					if (candidateSourceLine === undefined) continue;
+					const needsBareCrRemap = candidate.kind === "match" && bareCRFiles.has(candidateAbsolute);
+					if (!needsBareCrRemap && !candidateTextMatchesSource(candidate.text, candidateSourceLine)) continue;
+					validatedCandidates.push({ parsed: candidate, absolute: candidateAbsolute, fileLines: candidateFileLines });
+				}
+				if (validatedCandidates.length === 1) {
+					({ parsed, absolute, fileLines } = validatedCandidates[0]);
+				}
+
+				if (!parsed || absolute === undefined || fileLines === undefined) {
 					if (candidateLinePattern.test(line)) {
 						candidateUnparsedCount++;
 					}
 					const trimmed = line.trim();
-					if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+					if (
+						trimmed.startsWith("[") &&
+						trimmed.endsWith("]") &&
+						!BUILTIN_MATCH_LIMIT_NOTICE_RE.test(trimmed)
+					) {
 						passthroughLines.push(trimmed);
 					}
 					transformed.push(line);
 					continue;
 				}
 				parsedCount++;
-				const absolute = toAbsolutePath(parsed.displayPath);
-				const fileLines = await getFileLines(absolute);
-				if (fileLines === undefined) continue;
 				// Bare-CR remapping: rg treats the entire bare-CR file as line 1, and the
 				// builtin grep tool may strip \r before this code sees the output. So
 				// parsed.text is just the first CR-separated fragment and parsed.lineNumber
@@ -591,7 +638,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 			}
 			const truncatedIR = truncateGrepIR(grepIR);
 			const summary = p.summary;
-			const effectiveLimit = typeof p.limit === "number" ? p.limit : 100;
+			const effectiveLimit = Math.max(1, typeof p.limit === "number" ? p.limit : 100);
 			const outputIR = summary
 				? {
 					...truncatedIR,
