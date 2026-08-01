@@ -41,13 +41,13 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@repomix/tree-sitter-wasms": "0.1.17",
     "diff": "^8.0.3",
     "ignore": "^7.0.5",
     "nushell": "0.108.0",
     "picomatch": "^4.0.4",
-    "tree-sitter-wasms": "0.1.13",
     "ts-morph": "^27.0.2",
-    "web-tree-sitter": "0.25.10",
+    "web-tree-sitter": "0.26.11",
     "xxhash-wasm": "^1.1.0"
   },
   "optionalDependencies": {

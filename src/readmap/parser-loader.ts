@@ -22,7 +22,7 @@ function isBun(): boolean {
 }
 
 function wasmPath(langId: WasmLanguageId): string {
-  const pkg = require_.resolve("tree-sitter-wasms/package.json");
+  const pkg = require_.resolve("@repomix/tree-sitter-wasms/package.json");
   return join(dirname(pkg), "out", `tree-sitter-${wasmNames[langId]}.wasm`);
 }
 

@@ -32,7 +32,7 @@ describe("WASM parser loader", () => {
     expect(mocks.MockParser.init).not.toHaveBeenCalled();
   });
 
-  it("memoizes init and language loads", async () => {
+  it("memoizes init and language loads from the Repomix package", async () => {
     const { getWasmParser, __resetWasmParserLoaderForTests } = await import("../src/readmap/parser-loader.js");
     __resetWasmParserLoaderForTests();
     const [a, b] = await Promise.all([getWasmParser("rust"), getWasmParser("rust")]);
@@ -41,15 +41,19 @@ describe("WASM parser loader", () => {
     expect(a).not.toBe(b);
     expect(mocks.MockParser.init).toHaveBeenCalledTimes(1);
     expect(mocks.MockLanguage.load).toHaveBeenCalledTimes(1);
-    expect(mocks.MockLanguage.load).toHaveBeenCalledWith(expect.stringMatching(/tree-sitter-wasms[/\\]out[/\\]tree-sitter-rust\.wasm$/));
+    expect(mocks.MockLanguage.load).toHaveBeenCalledWith(
+      expect.stringMatching(/@repomix[/\\]tree-sitter-wasms[/\\]out[/\\]tree-sitter-rust\.wasm$/),
+    );
     a?.delete();
     b?.delete();
   });
 
-  it("maps c-header to cpp grammar", async () => {
+  it("maps c-header to the Repomix cpp grammar", async () => {
     const { getWasmParser, __resetWasmParserLoaderForTests } = await import("../src/readmap/parser-loader.js");
     __resetWasmParserLoaderForTests();
     await getWasmParser("c-header");
-    expect(mocks.MockLanguage.load).toHaveBeenCalledWith(expect.stringMatching(/tree-sitter-wasms[/\\]out[/\\]tree-sitter-cpp\.wasm$/));
+    expect(mocks.MockLanguage.load).toHaveBeenCalledWith(
+      expect.stringMatching(/@repomix[/\\]tree-sitter-wasms[/\\]out[/\\]tree-sitter-cpp\.wasm$/),
+    );
   });
 });
