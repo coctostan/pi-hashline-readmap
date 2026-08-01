@@ -43,12 +43,16 @@ describe("README.md content (AC-1, AC-2)", () => {
     expect(readme).toContain("https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/exploratory-functional-testing.md");
   });
 
-  it("does not document obsolete native tree-sitter install caveats or Clojure support", () => {
+  it("documents the scoped WASM grammar runtime without native tree-sitter caveats", () => {
     expect(readme).not.toContain("tree-sitter peer dependencies");
     expect(readme).not.toContain("tree-sitter-cpp and tree-sitter-java");
     expect(readme).not.toContain("widen their peer ranges upstream");
     expect(readme).not.toContain("Clojure");
-    expect(readme).toContain("Rust, C++, and Java structural maps use `web-tree-sitter` with packaged `tree-sitter-wasms` grammars");
+    expect(readme).not.toContain("packaged `tree-sitter-wasms` grammars");
+    expect(readme).toContain(
+      "Rust, C++, and Java structural maps use `web-tree-sitter` 0.26 with packaged `@repomix/tree-sitter-wasms` grammars",
+    );
+    expect(readme).toContain("C/C++ headers share the C++ mapper");
     expect(readme).toContain("no native tree-sitter packages are installed for those mappers");
   });
 
