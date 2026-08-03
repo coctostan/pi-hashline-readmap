@@ -24,6 +24,7 @@ import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, 
 import { DiffPreviewComponent } from "./tui-diff-component.js";
 import { buildContextHygieneMetadata, buildFileResource, type ContextHygieneMetadata } from "./context-hygiene.js";
 import { resolveEditDiffDisplay } from "./hashline-settings.js";
+import { looksLikeBinary } from "./binary-detect.js";
 
 const EDIT_PENDING_PREVIEW_STATE_KEY = "hashline-edit-pending-preview";
 
@@ -48,7 +49,7 @@ export function wrapWriteError(err: any, path: string): Error {
 }
 
 export function isBinaryBuffer(buf: Buffer): boolean {
-	return buf.includes(0);
+	return looksLikeBinary(buf);
 }
 
 // ─── Schema ─────────────────────────────────────────────────────────────
