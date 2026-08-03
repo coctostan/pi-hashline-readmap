@@ -27,7 +27,7 @@ export const PTC_ERROR_CODES = {
   "hash-mismatch": { description: "edit anchors do not verify against current file contents", trigger: "applyHashlineEdits detected stale anchors" },
   "no-op": { description: "edits produced identical content", trigger: "originalNormalized === result after applying edits" },
   "text-not-found": { description: "replace.old_text not present in file", trigger: "replaceText returned 0 matches" },
-  "binary-file": { description: "edit refused because file is binary", trigger: "isBinaryBuffer detected NUL bytes" },
+  "binary-file": { description: "edit refused because file is binary", trigger: "looksLikeBinary detected NUL bytes or invalid UTF-8" },
   "invalid-edit-variant": { description: "edits[i] is not exactly one of set_line/replace_lines/insert_after/replace", trigger: "exactly-one variant check failed" },
 
   // grep
