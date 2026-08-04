@@ -1,5 +1,15 @@
 import { dirname } from "path";
 
+const LONG_FORMAT_LS_ROW_RE = /^[bcdlps-][rwxStTs-]{9}[+@.]?\s+/;
+const LONG_FORMAT_LS_TOTAL_RE = /^total\s+\d+\s*$/;
+
+function isLongFormatLsLine(line: string): boolean {
+  return (
+    LONG_FORMAT_LS_ROW_RE.test(line.trimStart()) ||
+    LONG_FORMAT_LS_TOTAL_RE.test(line.trim())
+  );
+}
+
 export function isFileListingCommand(cmd: string): boolean {
   const c = cmd.trim().toLowerCase();
   if (c.startsWith("find ") || c === "find") return true;
@@ -18,8 +28,9 @@ export function isFileListingCommand(cmd: string): boolean {
 
 export function compressFileListingOutput(output: string): string | null {
   const rawLines = output.split("\n");
+  if (rawLines.some(isLongFormatLsLine)) return null;
   if (rawLines.length <= 100) return output;
-  const lines = rawLines.filter((l) => l.trim() !== "");
+  const lines = rawLines.filter((line) => line.trim() !== "");
 
   const errors: string[] = [];
   const dirCounts = new Map<string, number>();

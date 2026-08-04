@@ -64,8 +64,15 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 			result.push(`  ${hunkInfo}`);
 			continue;
 		}
-		// Skip diff meta lines
-		if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("\\\\")) {
+		// A no-newline marker is metadata both inside and outside a hunk.
+		if (line === "\\ No newline at end of file") {
+			continue;
+		}
+
+		// File headers are metadata only before hunk parsing starts. Inside a
+		// hunk, ---... and +++... are valid change records whose content starts
+		// with -- or ++.
+		if (!inHunk && (line.startsWith("--- ") || line.startsWith("+++ "))) {
 			continue;
 		}
 		// Hunk content

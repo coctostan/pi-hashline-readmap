@@ -131,7 +131,9 @@ export function filterBashOutput(
       if (options.isError === true || !route.matches) continue;
       technique = route.technique;
       const next = route.apply();
-      if (next !== null) {
+      const erasedNonEmptyOutput =
+        next !== null && stripped.length > 0 && next.trim() === "";
+      if (next !== null && !erasedNonEmptyOutput) {
         result = next;
         break;
       }
