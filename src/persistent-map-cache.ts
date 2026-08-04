@@ -1,8 +1,9 @@
+import { createReadStream } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
-import { open, readFile, writeFile as fsWriteFile, mkdir as fsMkdir, rename, readdir, stat, unlink } from "node:fs/promises";
-import xxhashWasm from "xxhash-wasm";
+import { readFile, writeFile as fsWriteFile, mkdir as fsMkdir, rename, readdir, stat, unlink } from "node:fs/promises";
+import xxhashWasm, { type XXHashAPI } from "xxhash-wasm";
 import type { FileMap } from "./readmap/types.js";
 import { resolveHashlineJsonSettings } from "./hashline-settings.js";
 
@@ -51,35 +52,31 @@ export function computeKey(
     .slice(0, 32);
 }
 
-const CONTENT_HASH_WINDOW_BYTES = 64 * 1024;
+const CONTENT_HASH_CHUNK_BYTES = 64 * 1024;
 
-let xxhashReady: Promise<{ h32Raw: (b: Uint8Array, seed?: number) => number }> | null = null;
+type ContentHashApi = Pick<XXHashAPI, "create32">;
+let xxhashReady: Promise<ContentHashApi> | null = null;
 
-function loadXxhash(): Promise<{ h32Raw: (b: Uint8Array, seed?: number) => number }> {
+function loadXxhash(): Promise<ContentHashApi> {
   if (!xxhashReady) {
-    xxhashReady = xxhashWasm().then((h) => ({ h32Raw: h.h32Raw }));
+    xxhashReady = xxhashWasm().then(({ create32 }) => ({ create32 }));
   }
-
   return xxhashReady;
 }
 
 /**
- * xxHash32 hex digest over the first 64 KB of `absPath`. Returns "" if the
- * file cannot be opened or read — the caller treats that as a miss.
+ * Streaming xxHash32 digest over all bytes in `absPath`. Returns "" when the
+ * file cannot be opened or read so callers treat the fingerprint as a miss.
  */
-export async function contentHashFor64k(absPath: string): Promise<string> {
+export async function contentHashForFile(absPath: string): Promise<string> {
   try {
-    const fh = await open(absPath, "r");
-    try {
-      const buf = Buffer.alloc(CONTENT_HASH_WINDOW_BYTES);
-      const { bytesRead } = await fh.read(buf, 0, CONTENT_HASH_WINDOW_BYTES, 0);
-      const view = buf.subarray(0, bytesRead);
-      const { h32Raw } = await loadXxhash();
-      const n = h32Raw(view, 0) >>> 0;
-      return n.toString(16).padStart(8, "0");
-    } finally {
-      await fh.close();
+    const { create32 } = await loadXxhash();
+    const hash = create32(0);
+    const stream = createReadStream(absPath, { highWaterMark: CONTENT_HASH_CHUNK_BYTES });
+    for await (const chunk of stream) {
+      hash.update(chunk as Uint8Array);
     }
+    return (hash.digest() >>> 0).toString(16).padStart(8, "0");
   } catch {
     return "";
   }

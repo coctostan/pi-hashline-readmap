@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-08-03
+
+### Changed
+- Runtime Rust, C++, and Java WASM grammars now come from the packaged `@repomix/tree-sitter-wasms` dependency while retaining `web-tree-sitter` 0.26 compatibility (#224).
+
+### Fixed
+- `edit` and `write` no longer build changing diff previews from incomplete streamed arguments; pending previews wait for complete arguments before performing file I/O or diff work (#221).
+- Bash filtering no longer fabricates successful build summaries for failed commands or trigger words that merely occur as data; failed output is preserved (#222).
+- Unsupported long-form `git status` output is preserved instead of being compacted into a misleading clean-status result (#223).
+- `grep` keeps the real source line and hash anchor when matched content itself contains colon-delimited numbers such as diagnostic locations (#226).
+- `edit` rejects NUL-containing or malformed UTF-8 input before mutation and preserves every original byte (#227).
+- Structural-map caches now fingerprint complete files, so same-size changes beyond the first 64 KiB invalidate both in-memory and persistent entries even when mtime is restored (#186).
+- Published packages now include the Python and Go mapper source helpers required by installed-layout dedicated mappers (#180).
+
 ## [0.11.1] - 2026-06-19
 
 ### Fixed

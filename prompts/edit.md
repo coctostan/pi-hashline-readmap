@@ -66,6 +66,7 @@ If `edit` auto-relocates an anchor, check the warning and verify the edit landed
 
 ## Validation and warnings
 
+- Files containing NUL bytes or malformed UTF-8 are rejected as binary before any mutation; the original bytes remain unchanged.
 - All edits are checked before writing; if a hard validation fails, nothing is written.
 - Anchored edits are applied bottom-up so line numbers stay stable.
 - `no-op` means the requested edit matched the current file already or produced identical content.
