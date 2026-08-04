@@ -77,6 +77,14 @@ describe("filterBashOutput core behavior", () => {
     expect(result.output).toBe("hello");
     expect(result.savedChars).toBe(input.length - "hello".length);
   });
+
+  it("declines a route that erases non-empty output without an omission marker", () => {
+    const input = "\x1b[33mwarning: unsupported diff output\x1b[0m";
+    const result = filterBashOutput("git diff", input, { isError: false });
+
+    expect(result.output).toBe("warning: unsupported diff output");
+    expect(result.info.technique).toBe("none");
+  });
 });
 
 describe("filterBashOutput routing", () => {

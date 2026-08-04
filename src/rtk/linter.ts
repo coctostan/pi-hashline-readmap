@@ -104,7 +104,10 @@ export function aggregateLinterOutput(
 	const issues = parseIssues(output, linterType);
 
 	if (issues.length === 0) {
-		return `✓ ${linterType}: No issues found`;
+		if (output.trim() === "") {
+			return `✓ ${linterType}: No issues found`;
+		}
+		return null;
 	}
 
 	// Count by severity
