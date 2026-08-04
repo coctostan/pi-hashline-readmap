@@ -4,7 +4,7 @@ import { generateMap, generateMapWithIdentity, ALL_MAPPER_IDENTITIES } from "./r
 import { detectLanguage } from "./readmap/language-detect.js";
 import {
   computeKey,
-  contentHashFor64k,
+  contentHashForFile,
   readCached,
   writeCached,
   persistenceEnabled,
@@ -50,7 +50,7 @@ async function stableContentHash(
 	if (!expectedHash) return null;
 	const currentStat = await stat(absPath);
 	if (currentStat.mtimeMs !== mtimeMs) return null;
-	const currentHash = await contentHashFor64k(absPath);
+	const currentHash = await contentHashForFile(absPath);
 	if (!currentHash || currentHash !== expectedHash) return null;
 	return currentHash;
 }
@@ -68,7 +68,7 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 		const state = getMapCacheState();
 		const cached = state.cache.get(absPath);
 		if (!bypassMapCache && cached && cached.mtimeMs === mtimeMs) {
-			const currentHash = await contentHashFor64k(absPath);
+			const currentHash = await contentHashForFile(absPath);
 			if (currentHash && currentHash === cached.contentHash) {
 				state.cache.delete(absPath);
 				state.cache.set(absPath, cached);
@@ -78,7 +78,7 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 		if (!persistenceEnabled() || bypassMapCache) {
 			const map = await generateMap(absPath);
 			if (!bypassMapCache) {
-				const hash = await contentHashFor64k(absPath);
+				const hash = await contentHashForFile(absPath);
 				rememberInMemory(absPath, { mtimeMs, contentHash: hash, map });
 			}
 			return map;
@@ -86,7 +86,7 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 
 		let preContentHash = "";
 		try {
-			preContentHash = await contentHashFor64k(absPath);
+			preContentHash = await contentHashForFile(absPath);
 			if (preContentHash) {
 				const langIdentity = lang ? ALL_MAPPER_IDENTITIES[lang.id] : undefined;
 				const candidates = [

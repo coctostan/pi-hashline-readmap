@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
+import xxhashWasm from "xxhash-wasm";
 import { mkdir, rm, writeFile, unlink, readdir, utimes, stat as fsStat, readFile } from "node:fs/promises";
-import { resolveCacheDir, computeKey, contentHashFor64k, readCached, writeCachedRaw, writeCached, __setEvictionHooksForTest, __resetWriteCounter } from "../src/persistent-map-cache.js";
+import { resolveCacheDir, computeKey, contentHashForFile, readCached, writeCachedRaw, writeCached, __setEvictionHooksForTest, __resetWriteCounter } from "../src/persistent-map-cache.js";
 import * as persistentMapCacheModule from "../src/persistent-map-cache.js";
 import * as mapperModule from "../src/readmap/mapper.js";
 import { clearMapCache, getOrGenerateMap } from "../src/map-cache.js";
@@ -199,7 +200,7 @@ describe("computeKey", () => {
   });
 });
 
-describe("contentHashFor64k", () => {
+describe("contentHashForFile", () => {
   const tmp: string[] = [];
 
   afterEach(async () => {
@@ -216,35 +217,61 @@ describe("contentHashFor64k", () => {
     return p;
   }
 
-  it("returns stable hex digest for identical bytes", async () => {
+  it("returns same hash for identical content", async () => {
     const p1 = mk();
     const p2 = mk();
     await writeFile(p1, "hello world");
     await writeFile(p2, "hello world");
-    expect(await contentHashFor64k(p1)).toBe(await contentHashFor64k(p2));
+    expect(await contentHashForFile(p1)).toBe(await contentHashForFile(p2));
   });
 
-  it("differs when first-64K bytes differ", async () => {
+  it("differs when content differs", async () => {
     const p1 = mk();
     const p2 = mk();
     await writeFile(p1, "hello world");
     await writeFile(p2, "HELLO world");
-    expect(await contentHashFor64k(p1)).not.toBe(await contentHashFor64k(p2));
+    expect(await contentHashForFile(p1)).not.toBe(await contentHashForFile(p2));
   });
 
-  it("ignores bytes past the 64 KB window", async () => {
+  it("covers equal-length tail changes with bounded streaming and naturally misses prefix-only keys", async () => {
+    expect("contentHashForFile" in persistentMapCacheModule).toBe(true);
+    const retiredPrefixHelper = ["contentHashFor", "64k"].join("");
+    expect(retiredPrefixHelper in persistentMapCacheModule).toBe(false);
+
     const p1 = mk();
     const p2 = mk();
-    const prefix = Buffer.alloc(64 * 1024, 0x61);
-    await writeFile(p1, Buffer.concat([prefix, Buffer.from("tail-A")]));
-    await writeFile(p2, Buffer.concat([prefix, Buffer.from("different-tail-XYZ-longer")]));
-    expect(await contentHashFor64k(p1)).toBe(await contentHashFor64k(p2));
+    const prefix = Buffer.alloc(8 * 1024 * 1024, 0x61);
+    const tailA = Buffer.from("tail-A");
+    const tailB = Buffer.from("tail-B");
+    await writeFile(p1, Buffer.concat([prefix, tailA]));
+    await writeFile(p2, Buffer.concat([prefix, tailB]));
+
+    const startedAt = performance.now();
+    const [hashA, hashB] = await Promise.all([
+      contentHashForFile(p1),
+      contentHashForFile(p2),
+    ]);
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(hashA).not.toBe(hashB);
+    expect(elapsedMs).toBeLessThan(5_000);
+
+    const { h32Raw } = await xxhashWasm();
+    const legacyPrefixHash = (h32Raw(prefix.subarray(0, 64 * 1024), 0) >>> 0)
+      .toString(16)
+      .padStart(8, "0");
+    expect(hashA).not.toBe(legacyPrefixHash);
+
+    const mtimeMs = (await fsStat(p1)).mtimeMs;
+    expect(computeKey(p1, mtimeMs, hashA, "typescript", 1)).not.toBe(
+      computeKey(p1, mtimeMs, legacyPrefixHash, "typescript", 1),
+    );
   });
 
-  it("returns a lowercase hex string", async () => {
+  it("returns non-empty hex string", async () => {
     const p = mk();
     await writeFile(p, "abc");
-    expect(await contentHashFor64k(p)).toMatch(/^[0-9a-f]+$/);
+    expect(await contentHashForFile(p)).toMatch(/^[0-9a-f]+$/);
   });
 });
 
@@ -568,7 +595,9 @@ describe("getOrGenerateMap — disk miss writes", () => {
     tmpFiles.push(srcPath);
     await writeFile(srcPath, "export const noHash = 1;\n");
 
-    const contentHashSpy = vi.spyOn(persistentMapCacheModule, "contentHashFor64k").mockResolvedValue("");
+    const contentHashSpy = vi
+      .spyOn(persistentMapCacheModule, "contentHashForFile")
+      .mockResolvedValue("");
     const readCachedSpy = vi.spyOn(persistentMapCacheModule, "readCached");
     const writeCachedSpy = vi.spyOn(persistentMapCacheModule, "writeCached");
 
@@ -630,13 +659,13 @@ describe("getOrGenerateMap — opt-out env var", () => {
 
     const readCachedSpy = vi.spyOn(persistentMapCacheModule, "readCached");
     const writeCachedSpy = vi.spyOn(persistentMapCacheModule, "writeCached");
-    const contentHashSpy = vi.spyOn(persistentMapCacheModule, "contentHashFor64k");
+    const contentHashSpy = vi.spyOn(persistentMapCacheModule, "contentHashForFile");
 
     const result = await getOrGenerateMap(srcPath);
     expect(result).not.toBeNull();
     expect(readCachedSpy).not.toHaveBeenCalled();
     expect(writeCachedSpy).not.toHaveBeenCalled();
-    // contentHashFor64k is now called for in-memory cache validation even when persistence is off
+    // contentHashForFile is called for in-memory cache validation even when persistence is off
     expect(contentHashSpy).toHaveBeenCalled();
 
     await new Promise((r) => setImmediate(r));
@@ -823,8 +852,37 @@ describe("contentHash invalidation when mtime is reset", () => {
     expect(second).not.toBeNull();
     expect(spy).toHaveBeenCalledTimes(1);
   });
-});
 
+  it("regenerates when a same-length rename after 64 KiB preserves mtime", async () => {
+    const srcPath = join(tmpdir(), `pmc-content-tail-${randomBytes(6).toString("hex")}.ts`);
+    tmpFiles.push(srcPath);
+    const prefix = " ".repeat(64 * 1024);
+    const before = `${prefix}export function oldName(): void {}\n`;
+    const after = `${prefix}export function newName(): void {}\n`;
+    const pinnedTime = new Date(Date.now() - 10_000);
+
+    expect(Buffer.byteLength(after)).toBe(Buffer.byteLength(before));
+    expect(before.indexOf("oldName")).toBeGreaterThanOrEqual(64 * 1024);
+
+    await writeFile(srcPath, before);
+    await utimes(srcPath, pinnedTime, pinnedTime);
+    const pinnedMtimeMs = (await fsStat(srcPath)).mtimeMs;
+    const first = await getOrGenerateMap(srcPath);
+    expect(first).not.toBeNull();
+    expect(first!.symbols.some((s) => s.name === "oldName")).toBe(true);
+    clearMapCache();
+
+    await writeFile(srcPath, after);
+    await utimes(srcPath, pinnedTime, pinnedTime);
+    expect((await fsStat(srcPath)).mtimeMs).toBe(pinnedMtimeMs);
+
+    const second = await getOrGenerateMap(srcPath);
+    expect(second).not.toBeNull();
+    const secondNames = second!.symbols.map((symbol) => symbol.name);
+    expect(secondNames).toEqual(expect.arrayContaining(["newName"]));
+    expect(secondNames).not.toContain("oldName");
+  });
+});
 
 describe("corrupt cache file is overwritten", () => {
   const dir = join(tmpdir(), `pmc-corrupt-${randomBytes(6).toString("hex")}`);
@@ -856,7 +914,7 @@ describe("corrupt cache file is overwritten", () => {
 
     const identity = mapperModule.ALL_MAPPER_IDENTITIES.typescript;
     const s = await fsStat(srcPath);
-    const ch = await contentHashFor64k(srcPath);
+    const ch = await contentHashForFile(srcPath);
     const key = computeKey(
       srcPath,
       s.mtimeMs,

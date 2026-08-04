@@ -113,6 +113,35 @@ describe("map-cache", () => {
 		spy.mockRestore();
 	});
 
+	it("regenerates when a same-length rename after 64 KiB preserves mtime", async () => {
+		const p = createTempFile("");
+		const prefix = " ".repeat(64 * 1024);
+		const before = `${prefix}export function oldName(): void {}\n`;
+		const after = `${prefix}export function newName(): void {}\n`;
+		const pinnedTime = new Date(Date.now() - 10_000);
+
+		expect(Buffer.byteLength(after)).toBe(Buffer.byteLength(before));
+		expect(before.indexOf("oldName")).toBeGreaterThanOrEqual(64 * 1024);
+
+		await writeFile(p, before);
+		await utimes(p, pinnedTime, pinnedTime);
+		const pinnedMtimeMs = (await stat(p)).mtimeMs;
+		const first = await getOrGenerateMap(p);
+		expect(first).not.toBeNull();
+		expect(first!.symbols.some((s) => s.name === "oldName")).toBe(true);
+
+		await writeFile(p, after);
+		await utimes(p, pinnedTime, pinnedTime);
+		expect((await stat(p)).mtimeMs).toBe(pinnedMtimeMs);
+
+		const second = await getOrGenerateMap(p);
+		expect(second).not.toBeNull();
+		const secondNames = second!.symbols.map((symbol) => symbol.name);
+		expect(secondNames).toEqual(expect.arrayContaining(["newName"]));
+		expect(secondNames).not.toContain("oldName");
+		expect(second).not.toBe(first);
+	});
+
 	it("regenerates map when content changes but mtime stays the same", async () => {
 		const mapperModule = await import("../src/readmap/mapper.js");
 		const spy = vi.spyOn(mapperModule, "generateMap");
