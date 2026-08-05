@@ -59,6 +59,10 @@ export interface ReadOutputInput {
   totalLines: number;
   selectedLines: string[];
   warnings?: PtcWarning[];
+  /**
+   * @deprecated Compatibility-only. buildReadOutput computes the authoritative
+   * displayed-source budget and ignores caller-supplied truncation metadata.
+   */
   truncation?: ReadTruncationMetadata | null;
   continuation?: ReadContinuationMetadata | null;
   symbol?: ReadSymbolMetadata | null;
@@ -67,9 +71,43 @@ export interface ReadOutputInput {
   rehydrate?: ContextHygieneRehydrateDescriptor | null;
 }
 
+export interface ReadSourceOutput {
+  text: string;
+  lines: PtcLine[];
+  budget: ReturnType<typeof truncateHead>;
+  truncation: ReadTruncationMetadata | null;
+}
+
+export function buildReadSourceOutput(
+  input: Pick<ReadOutputInput, "startLine" | "totalLines" | "selectedLines">,
+): ReadSourceOutput {
+  const lines = buildPtcLines(input.startLine, input.selectedLines);
+  const renderedLines = renderPtcLines(lines);
+  const budget = truncateHead(renderedLines, {
+    maxLines: DEFAULT_MAX_LINES,
+    maxBytes: DEFAULT_MAX_BYTES,
+  });
+  const truncation: ReadTruncationMetadata | null = budget.truncated
+    ? {
+        outputLines: budget.outputLines,
+        totalLines: input.totalLines,
+        outputBytes: budget.outputBytes,
+        totalBytes: budget.totalBytes,
+      }
+    : null;
+
+  return {
+    text: budget.truncated ? budget.content : renderedLines,
+    lines,
+    budget,
+    truncation,
+  };
+}
+
 export interface ReadOutputResult {
   text: string;
   lines: PtcLine[];
+  truncation: ReturnType<typeof truncateHead> | null;
   ptcValue: {
     tool: "read";
     path: string;
@@ -103,19 +141,16 @@ export interface ReadOutputResult {
   contextHygiene: ContextHygieneMetadata;
 }
 
-export function buildReadOutput(input: ReadOutputInput): ReadOutputResult {
-  const lines = buildPtcLines(input.startLine, input.selectedLines);
+export function buildReadOutput(
+  input: ReadOutputInput,
+  sourceOutput: ReadSourceOutput = buildReadSourceOutput(input),
+): ReadOutputResult {
+  const { lines, truncation } = sourceOutput;
   const warnings = input.warnings ?? [];
-  const renderedLines = renderPtcLines(lines);
-  const truncated = truncateHead(renderedLines, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: DEFAULT_MAX_BYTES,
-  });
+  let text = sourceOutput.text;
 
-  let text = input.truncation ? truncated.content : renderedLines;
-
-  if (input.truncation) {
-    text += `\n\n[Output truncated: showing ${input.truncation.outputLines} of ${input.totalLines} lines (${formatSize(input.truncation.outputBytes)} of ${formatSize(input.truncation.totalBytes)}). Use offset=${input.startLine + input.truncation.outputLines} to continue.]`;
+  if (truncation) {
+    text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${input.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). Use offset=${input.startLine + truncation.outputLines} to continue.]`;
   } else if (input.continuation) {
     text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of ${input.totalLines}. Use offset=${input.continuation.nextOffset} to continue.]`;
   }
@@ -125,14 +160,7 @@ export function buildReadOutput(input: ReadOutputInput): ReadOutputResult {
       const supportLines = buildPtcLines(item.symbol.startLine, item.lines);
       return renderPtcLines(supportLines);
     });
-
-    text = [
-      "## Requested symbol",
-      text,
-      "",
-      "## Local support",
-      ...supportBlocks,
-    ].join("\n");
+    text = ["## Requested symbol", text, "", "## Local support", ...supportBlocks].join("\n");
   }
 
   if (input.map?.appended && input.map.text) {
@@ -151,13 +179,9 @@ export function buildReadOutput(input: ReadOutputInput): ReadOutputResult {
   const ptcValue: ReadOutputResult["ptcValue"] = {
     tool: "read",
     path: input.path,
-    range: {
-      startLine: input.startLine,
-      endLine: input.endLine,
-      totalLines: input.totalLines,
-    },
+    range: { startLine: input.startLine, endLine: input.endLine, totalLines: input.totalLines },
     warnings,
-    truncation: input.truncation ?? null,
+    truncation,
     symbol: input.symbol ?? null,
     map: {
       requested: input.map?.requested ?? false,
@@ -204,6 +228,7 @@ export function buildReadOutput(input: ReadOutputInput): ReadOutputResult {
   return {
     text,
     lines,
+    truncation: sourceOutput.budget.truncated ? sourceOutput.budget : null,
     ptcValue,
     contextHygiene,
   };
