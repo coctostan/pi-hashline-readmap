@@ -5,6 +5,7 @@
  * Key additions ported: merge detection, confusable hyphens, restoreOldWrappedLines.
  */
 
+import { diffArrays } from "diff";
 import xxhashWasm from "xxhash-wasm";
 import { throwIfAborted } from "./runtime.js";
 import type { PtcLine } from "./ptc-value.js";
@@ -404,6 +405,16 @@ function parseHashlineEditItem(edit: HashlineEditItem): ParsedEdit {
 	throw new Error("replace edits are applied separately");
 }
 
+function countChangedLines(before: string[], after: string[]): number {
+	let added = 0;
+	let removed = 0;
+	for (const change of diffArrays(before, after)) {
+		if (change.added) added += change.value.length;
+		else if (change.removed) removed += change.value.length;
+	}
+	return Math.max(added, removed);
+}
+
 // ─── Main edit engine ───────────────────────────────────────────────────
 
 export function applyHashlineEdits(
@@ -601,14 +612,27 @@ export function applyHashlineEdits(
 	}
 	const deduped = parsed.filter((_, i) => !dupes.has(i));
 
-	// Sort bottom-up for stable splice
+	// Sort bottom-up for stable splice. Insertions sharing one resolved anchor
+	// apply in reverse request order because every splice uses the same boundary;
+	// this preserves request order in the resulting file. Replacement ties stay
+	// in request order so their existing last-wins semantics are unchanged.
 	const sorted = deduped
 		.map((p) => {
 			const sl = p.spec.kind === "single" ? p.spec.ref.line : p.spec.kind === "range" ? p.spec.end.line : p.spec.after.line;
 			const pr = p.spec.kind === "insertAfter" ? 1 : 0;
 			return { ...p, sl, pr };
 		})
-		.sort((a, b) => b.sl - a.sl || a.pr - b.pr || a.idx - b.idx);
+		.sort((a, b) => {
+			const byLine = b.sl - a.sl;
+			if (byLine !== 0) return byLine;
+			const byPriority = a.pr - b.pr;
+			if (byPriority !== 0) return byPriority;
+			if (a.spec.kind === "insertAfter" && b.spec.kind === "insertAfter") {
+				return b.idx - a.idx;
+			}
+			return a.idx - b.idx;
+		});
+	let insertedAtSyntheticEmptyAnchor = false;
 
 	function track(line: number) {
 		if (firstChanged === undefined || line < firstChanged) firstChanged = line;
@@ -726,7 +750,17 @@ export function applyHashlineEdits(
 				continue;
 			}
 			if (content === "" && spec.after.line === 1 && anchor === "") {
-				fileLines.splice(0, 1, ...inserted);
+				if (insertedAtSyntheticEmptyAnchor) {
+					// Same-boundary insertions are being applied in reverse request order.
+					fileLines.splice(0, 0, ...inserted);
+				} else if (fileLines.length === 1 && fileLines[0] === "") {
+					// Consume the synthetic empty-line sentinel exactly once.
+					fileLines.splice(0, 1, ...inserted);
+					insertedAtSyntheticEmptyAnchor = true;
+				} else {
+					// A set/range edit already consumed the sentinel; insert after its line.
+					fileLines.splice(spec.after.line, 0, ...inserted);
+				}
 				track(1);
 				continue;
 			}
@@ -736,10 +770,7 @@ export function applyHashlineEdits(
 	}
 
 	const warnings: string[] = [...relocationNotes, ...duplicateTargetWarnings];
-	let diff = Math.abs(fileLines.length - origLines.length);
-	for (let i = 0; i < Math.min(fileLines.length, origLines.length); i++) {
-		if (fileLines[i] !== origLines[i]) diff++;
-	}
+	const diff = countChangedLines(origLines, fileLines);
 	if (diff > edits.length * 4) {
 		warnings.push(`Edit changed ${diff} lines across ${edits.length} operations — verify no unintended reformatting.`);
 	}

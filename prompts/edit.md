@@ -68,7 +68,7 @@ If `edit` auto-relocates an anchor, check the warning and verify the edit landed
 
 - Files containing NUL bytes or malformed UTF-8 are rejected as binary before any mutation; the original bytes remain unchanged.
 - All edits are checked before writing; if a hard validation fails, nothing is written.
-- Anchored edits are applied bottom-up so line numbers stay stable.
+- Anchored edits are applied bottom-up so line numbers stay stable. Distinct `insert_after` operations sharing the same resolved anchor retain request-array order; identical duplicate insertions are applied once.
 - `no-op` means the requested edit matched the current file already or produced identical content.
 - A whitespace-only warning means formatting changed but behavior probably did not.
 - Anchored edits honor your `new_text` indentation. If your replacement adds its own leading whitespace, that is used verbatim. As a convenience for replacements that collapse a wrapped/split line back to one line, the original line's indentation is restored only when no indentation was supplied; a plain 1:1 single-line replacement (`set_line`, or `replace_lines` with one target line) that starts at column 0 is honored as-is, so you can dedent a line to the left margin by setting `new_text` to column-0 content.
