@@ -1,17 +1,11 @@
 import type { ExtensionAPI, ToolRenderResultOptions, AgentToolResult } from "@earendil-works/pi-coding-agent";
-import {
-	createReadTool,
-	truncateHead,
-	formatSize,
-	DEFAULT_MAX_BYTES,
-	DEFAULT_MAX_LINES,
-} from "@earendil-works/pi-coding-agent";
+import { createReadTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff.js";
-import { ensureHashInit, formatHashlineDisplay } from "./hashline.js";
-import { buildPtcError, buildPtcWarning, buildPtcLines, type PtcWarning } from "./ptc-value.js";
+import { ensureHashInit } from "./hashline.js";
+import { buildPtcError, buildPtcWarning, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { resolveToCwd } from "./path-utils.js";
 import { throwIfAborted } from "./runtime.js";
@@ -19,7 +13,7 @@ import { getOrGenerateMap } from "./map-cache.js";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
 import { findSymbol, type SymbolMatch } from "./readmap/symbol-lookup.js";
 import { formatAmbiguous, formatNotFound } from "./readmap/symbol-error-format.js";
-import { buildReadOutput } from "./read-output.js";
+import { buildReadOutput, buildReadSourceOutput } from "./read-output.js";
 import { buildReadRehydrateDescriptor } from "./context-hygiene.js";
 import { buildLocalBundle } from "./read-local-bundle.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
@@ -536,116 +530,93 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			}
 
 			const selected = allLines.slice(startLine - 1, endIdx);
-			const ptcLines = buildPtcLines(startLine, selected);
+			const sourceOutput = buildReadSourceOutput({
+				startLine,
+				totalLines: total,
+				selectedLines: selected,
+			});
+			const truncation = sourceOutput.truncation;
 
-			const formatted = selected
-				.map((line, i) => {
-					const num = startLine + i;
-					return formatHashlineDisplay(num, line);
-				})
-				.join("\n");
-
-			const truncation = truncateHead(formatted, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
-			let text = truncation.content;
-
-			if (truncation.truncated) {
-				text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${total} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). Use offset=${startLine + truncation.outputLines} to continue.]`;
-			} else if (endIdx < total) {
-				text += `\n\n[Showing lines ${startLine}-${endIdx} of ${total}. Use offset=${endIdx + 1} to continue.]`;
-			}
-
-			// Append structural map: on-demand (p.map) or auto on truncated full-file reads
+			// Append structural map: on-demand or automatic for an actually truncated full-file read.
 			const shouldAppendMap =
 				!!p.map ||
-				(!!truncation.truncated && !p.offset && !p.limit && !symbolMatch);
+				(!!truncation && !p.offset && !p.limit && !symbolMatch);
 			let appendedMap = false;
 			let mapText: string | null = null;
 			if (shouldAppendMap) {
 				try {
 					const fileMap = await getOrGenerateMap(absolutePath);
 					if (fileMap) {
-						const formattedMap = formatFileMapWithBudget(fileMap);
-						text += "\n\n" + formattedMap;
-						mapText = formattedMap;
+						mapText = formatFileMapWithBudget(fileMap);
 						appendedMap = true;
 					}
 				} catch {
-					// Map formatting failed — still return hashlined content without map
+					// Map formatting failed — still return hashlined content without map.
 				}
-			}
-
-			if (p.symbol && symbolMatch) {
-				const parentInfo = symbolMatch.parentName ? ` in ${symbolMatch.parentName}` : "";
-				text = `[Symbol: ${symbolMatch.name} (${symbolMatch.kind})${parentInfo}, lines ${symbolMatch.startLine}-${symbolMatch.endLine} of ${total}]\n\n${text}`;
 			}
 
 			if (symbolWarning) {
 				structuredWarnings.push(buildPtcWarning("symbol-warning", symbolWarning.trim()));
-				text = symbolWarning + text;
 			}
 
 			if (hasBinaryContent) {
 				const warning = "[Warning: file appears to be binary — output may be garbled]";
 				structuredWarnings.push(buildPtcWarning("binary-content", warning));
-				text = `${warning}\n\n${text}`;
 			}
 
 			if (hasBareCarriageReturn(rawBuffer.toString("utf-8"))) {
 				const warning = "[Warning: file contains bare CR (\\r) line endings — line numbering may be inconsistent with grep and other tools]";
 				structuredWarnings.push(buildPtcWarning("bare-cr", warning));
-				text = `${warning}\n\n${text}`;
 			}
 
 const readOutput = buildReadOutput({
-	path: absolutePath,
-	startLine,
-	endLine: endIdx,
-	totalLines: total,
-	selectedLines: selected,
-	warnings: structuredWarnings,
-	truncation: truncation.truncated
-		? {
-				outputLines: truncation.outputLines,
-				totalLines: total,
-				outputBytes: truncation.outputBytes,
-				totalBytes: truncation.totalBytes,
-			}
-		: null,
-	continuation: !truncation.truncated && endIdx < total ? { nextOffset: endIdx + 1 } : null,
-	symbol: symbolMatch
-		? {
-				query: p.symbol ?? symbolMatch.name,
-				name: symbolMatch.name,
-				kind: symbolMatch.kind,
-				parentName: symbolMatch.parentName,
-				startLine: symbolMatch.startLine,
-				endLine: symbolMatch.endLine,
-			}
-		: null,
-	map: {
-		requested: !!p.map,
-		appended: appendedMap,
-		text: mapText,
-	},
-	...(bundleMetadata ? { bundle: bundleMetadata } : {}),
-	rehydrate: buildReadRehydrateDescriptor({
-		path: p.path,
-		offset: p.offset,
-		limit: p.limit,
-		symbol: p.symbol,
-		map: p.map,
-		bundle: p.bundle,
-	}),
-});
+					path: absolutePath,
+					startLine,
+					endLine: endIdx,
+					totalLines: total,
+					selectedLines: selected,
+					warnings: structuredWarnings,
+					// Deprecated compatibility projection; sourceOutput remains authoritative.
+					truncation,
+					continuation: !truncation && endIdx < total
+						? { nextOffset: endIdx + 1 }
+						: null,
+					symbol: symbolMatch
+						? {
+								query: p.symbol ?? symbolMatch.name,
+								name: symbolMatch.name,
+								kind: symbolMatch.kind,
+								parentName: symbolMatch.parentName,
+								startLine: symbolMatch.startLine,
+								endLine: symbolMatch.endLine,
+							}
+						: null,
+					map: {
+						requested: !!p.map,
+						appended: appendedMap,
+						text: mapText,
+					},
+					...(bundleMetadata ? { bundle: bundleMetadata } : {}),
+					rehydrate: buildReadRehydrateDescriptor({
+						path: p.path,
+						offset: p.offset,
+						limit: p.limit,
+						symbol: p.symbol,
+						map: p.map,
+						bundle: p.bundle,
+					}),
+				},
+				sourceOutput,
+			);
 
-return succeed({
-	content: [{ type: "text", text: readOutput.text }],
-	details: {
-		truncation: truncation.truncated ? truncation : undefined,
-		ptcValue: readOutput.ptcValue,
-		contextHygiene: readOutput.contextHygiene,
-	},
-});
+			return succeed({
+				content: [{ type: "text", text: readOutput.text }],
+				details: {
+					truncation: readOutput.truncation ?? undefined,
+					ptcValue: readOutput.ptcValue,
+					contextHygiene: readOutput.contextHygiene,
+				},
+			});
 		},
 		renderCall(args: any, theme: any, ...rest: any[]) {
 			const context = rest[0] ?? {};
