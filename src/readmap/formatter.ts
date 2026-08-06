@@ -3,7 +3,7 @@ import { basename } from "node:path";
 import type { FileMap, FileSymbol } from "./types.js";
 
 import { THRESHOLDS } from "./constants.js";
-import { DetailLevel } from "./enums.js";
+import { DetailLevel, SymbolKind } from "./enums.js";
 
 const BOX_LINE = "───────────────────────────────────────";
 
@@ -27,6 +27,102 @@ function formatNumber(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+const IDENTIFIER_CHAR = /[\p{L}\p{N}_$]/u;
+const VARIABLE_LIKE_KINDS = new Set<SymbolKind>([
+  SymbolKind.Variable,
+  SymbolKind.Constant,
+  SymbolKind.Property,
+]);
+
+function matchingLeadingParenthesis(text: string): number {
+  let depth = 0;
+  for (let index = 0; index < text.length; index++) {
+    if (text[index] === "(") depth++;
+    if (text[index] === ")") {
+      depth--;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
+}
+
+function nameTokenPositions(signature: string, name: string): number[] {
+  const candidates = [...new Set([name, name.split(/::|\./).at(-1) ?? name])];
+  const positions: number[] = [];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    let searchFrom = 0;
+    while (searchFrom < signature.length) {
+      const index = signature.indexOf(candidate, searchFrom);
+      if (index === -1) break;
+      const before = index > 0 ? signature[index - 1] : "";
+      const after = signature.slice(
+        index + candidate.length,
+        index + candidate.length + 1,
+      );
+      if (!IDENTIFIER_CHAR.test(before) && !IDENTIFIER_CHAR.test(after)) {
+        positions.push(index);
+      }
+      searchFrom = index + candidate.length;
+    }
+  }
+  return positions;
+}
+
+/**
+ * A variable-like signature declares its symbol when the name sits in
+ * declaration position: first (TypeScript `pending: Promise<void>[]`, `nextId`)
+ * or after a real prefix (Rust `pub items: Vec<T>`, C `int id`,
+ * C++ `void (*callback)(int)`). Bare type suffixes such as Go's `string` or
+ * `*id` stay name-less and are prefixed by the formatter instead.
+ */
+function variableSignatureDeclaresSymbol(signature: string, name: string): boolean {
+  return nameTokenPositions(signature, name).some((index) => {
+    if (index === 0) return true;
+    const prefix = signature.slice(0, index);
+    return /\s/.test(prefix) && /[\s*&)]/.test(signature.slice(index - 1, index));
+  });
+}
+
+function signatureDeclaresSymbol(symbol: FileSymbol): boolean {
+  const { name, signature } = symbol;
+  if (!name || !signature) return false;
+
+  const trimmed = signature.trimStart();
+  const asyncPrefix = trimmed.startsWith("async ");
+  const callShaped = asyncPrefix
+    ? trimmed.slice("async ".length).trimStart()
+    : trimmed;
+
+  if (!callShaped.startsWith("(")) {
+    return VARIABLE_LIKE_KINDS.has(symbol.kind)
+      ? variableSignatureDeclaresSymbol(signature, name)
+      : nameTokenPositions(signature, name).length > 0;
+  }
+  if (asyncPrefix) return false;
+
+  const receiverEnd = matchingLeadingParenthesis(callShaped);
+  if (receiverEnd === -1) return false;
+  const leafName = name.split(/::|\./).at(-1) ?? name;
+  const afterReceiver = callShaped.slice(receiverEnd + 1).trimStart();
+  if (!afterReceiver.startsWith(leafName)) return false;
+  const boundary = afterReceiver.slice(leafName.length, leafName.length + 1);
+  if (IDENTIFIER_CHAR.test(boundary)) return false;
+  return afterReceiver.slice(leafName.length).trimStart().startsWith("(");
+}
+
+function appendPartialSignature(symbol: FileSymbol, name: string): string {
+  let signature = symbol.signature ?? "";
+  const modifiers = [...(symbol.modifiers ?? [])];
+  if (signature.trimStart().startsWith("async ")) {
+    signature = signature.trimStart().slice("async ".length).trimStart();
+    if (!modifiers.includes("async")) modifiers.unshift("async");
+  }
+  if (modifiers.length) name = `${modifiers.join(" ")} ${name}`;
+  const separator = signature.trimStart().startsWith("(") ? "" : ": ";
+  return `${name}${separator}${signature}`;
+}
+
 /**
  * Format a symbol for display.
  */
@@ -45,18 +141,9 @@ function formatSymbol(
 
   if (level === DetailLevel.Full) {
     if (symbol.signature) {
-      // Check whether the signature already contains the symbol name.
-      // Full-declaration signatures (e.g. Rust "pub fn foo(x: i32) -> bool")
-      // include the name; partial signatures (e.g. Python "(x, y) -> None")
-      // do not and should be appended.
-      if (symbol.signature.includes(name)) {
-        name = symbol.signature;
-      } else {
-        if (symbol.modifiers?.length) {
-          name = `${symbol.modifiers.join(" ")} ${name}`;
-        }
-        name = `${name}${symbol.signature}`;
-      }
+      name = signatureDeclaresSymbol(symbol)
+        ? symbol.signature
+        : appendPartialSignature(symbol, name);
     } else if (symbol.modifiers?.length) {
       name = `${symbol.modifiers.join(" ")} ${name}`;
     }

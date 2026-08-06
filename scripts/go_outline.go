@@ -99,7 +99,7 @@ func formatResults(fields *ast.FieldList) string {
 }
 
 func extractSymbols(fset *token.FileSet, file *ast.File) []Symbol {
-	var symbols []Symbol
+	symbols := make([]Symbol, 0)
 
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {

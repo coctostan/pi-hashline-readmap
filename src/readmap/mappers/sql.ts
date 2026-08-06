@@ -181,6 +181,15 @@ export async function sqlMapper(
       };
     });
 
+    // Contract: no extracted declarations means "miss" so generateMapWithIdentity
+    // can continue to ctags and then the regex fallback.
+    // MAPPER_VERSION stays 1 — non-empty SQL output is byte-identical, and stale
+    // empty cache entries are rejected semantically in src/map-cache.ts
+    // (isUsefulMap, Tasks 2-3) rather than by cache-key invalidation.
+    if (symbols.length === 0) {
+      return null;
+    }
+
     return {
       path: filePath,
       totalLines,

@@ -228,6 +228,14 @@ export async function cMapper(
       return symbol;
     });
 
+    // Contract: no extracted symbols means "miss" so ctags/regex fallback can run.
+    // MAPPER_VERSION stays 1 — non-empty C output is unchanged, and stale empty
+    // cache entries are rejected semantically in src/map-cache.ts (isUsefulMap,
+    // Tasks 2-3) rather than by cache-key invalidation.
+    if (symbols.length === 0) {
+      return null;
+    }
+
     return {
       path: filePath,
       totalLines,

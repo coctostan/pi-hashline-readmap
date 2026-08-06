@@ -14,6 +14,10 @@ interface CacheEntry {
 	contentHash: string;
 	map: FileMap | null;
 }
+
+function isUsefulMap(map: FileMap): boolean {
+	return map.symbols.length > 0;
+}
 export const MAP_CACHE_MAX_SIZE = 500;
 
 interface MapCacheGlobalState {
@@ -71,8 +75,10 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 			const currentHash = await contentHashForFile(absPath);
 			if (currentHash && currentHash === cached.contentHash) {
 				state.cache.delete(absPath);
-				state.cache.set(absPath, cached);
-				return cached.map;
+				if (cached.map === null || isUsefulMap(cached.map)) {
+					state.cache.set(absPath, cached);
+					return cached.map;
+				}
 			}
 		}
 		if (!persistenceEnabled() || bypassMapCache) {
@@ -104,11 +110,15 @@ export async function getOrGenerateMap(absPath: string): Promise<FileMap | null>
 						candidate.mapperVersion,
 					);
 					const fromDisk = await readCached(key);
-					if (fromDisk) {
-						rememberInMemory(absPath, { mtimeMs, contentHash: preContentHash, map: fromDisk });
+					if (fromDisk && isUsefulMap(fromDisk)) {
+						rememberInMemory(absPath, {
+							mtimeMs,
+							contentHash: preContentHash,
+							map: fromDisk,
+						});
 						return fromDisk;
-					}
 				}
+			}
 			}
 		} catch {
 			// fall through to regeneration on a disk-cache miss

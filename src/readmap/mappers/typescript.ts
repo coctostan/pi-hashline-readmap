@@ -715,6 +715,12 @@ export async function typescriptMapperFromContent(
 
     try {
       const rawSymbols = extractSymbols(ts, sourceFile);
+      // Contract: no extracted symbols means "miss". For content mapping there is
+      // no fallback by design, so callers such as replaceSymbol see an explicit
+      // precise-map miss instead of an empty map.
+      if (rawSymbols.length === 0) {
+        return null;
+      }
       const { exportedNames, defaultNames } = collectExportNames(ts, sourceFile);
       applyExportFlags(rawSymbols, exportedNames, defaultNames);
       const symbols = convertSymbols(rawSymbols);
@@ -770,6 +776,14 @@ export async function typescriptMapper(
 
     try {
       const rawSymbols = extractSymbols(ts, sourceFile);
+      // Contract: no extracted symbols means "miss" so ctags/regex fallback can run.
+      // MAPPER_VERSION stays 2 — all non-empty TypeScript/JavaScript maps are
+      // unchanged, and stale empty cache entries are rejected semantically in
+      // src/map-cache.ts (isUsefulMap, Tasks 2-3) rather than by invalidating the
+      // caches of both registry identities (typescript and javascript).
+      if (rawSymbols.length === 0) {
+        return null;
+      }
       const { exportedNames, defaultNames } = collectExportNames(
         ts,
         sourceFile

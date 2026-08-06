@@ -126,12 +126,21 @@ export async function pythonMapper(
       return null;
     }
 
+    const symbols = result.symbols.map(convertSymbol);
+    // Contract: no extracted symbols means "miss" so ctags/regex fallback can run.
+    // MAPPER_VERSION stays 1 — non-empty Python output is unchanged, and stale
+    // empty cache entries are rejected semantically in src/map-cache.ts
+    // (isUsefulMap, Tasks 2-3) rather than by cache-key invalidation.
+    if (symbols.length === 0) {
+      return null;
+    }
+
     const fileMap: FileMap = {
       path: filePath,
       totalLines,
       totalBytes,
       language: "Python",
-      symbols: result.symbols.map(convertSymbol),
+      symbols,
       imports: result.imports ?? [],
       detailLevel: DetailLevel.Full,
     };
