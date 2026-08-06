@@ -23,6 +23,10 @@ import { tomlMapper, MAPPER_VERSION as TOML_VERSION } from "./mappers/toml.js";
 import { typescriptMapper, typescriptMapperFromContent, MAPPER_VERSION as TYPESCRIPT_VERSION } from "./mappers/typescript.js";
 import { yamlMapper, MAPPER_VERSION as YAML_VERSION } from "./mappers/yaml.js";
 
+/**
+ * Dedicated mapper contract: return null when extraction produces no symbols.
+ * The dispatcher also normalizes legacy/violating empty FileMaps to misses.
+ */
 type MapperFn = (
   filePath: string,
   signal?: AbortSignal
@@ -123,7 +127,7 @@ export async function generateMapWithIdentity(
     const mapperEnabled = langInfo.id !== "gdscript" || isGdscriptMappingEnabled();
     if (entry && mapperEnabled) {
       const result = await entry.fn(filePath, signal);
-      if (result) {
+      if (result && result.symbols.length > 0) {
         return { map: result, mapperName: langInfo.id, mapperVersion: entry.version };
       }
     }

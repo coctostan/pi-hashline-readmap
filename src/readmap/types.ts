@@ -12,7 +12,13 @@ export interface FileSymbol {
   startLine: number;
   /** Ending line number (1-indexed) */
   endLine: number;
-  /** Optional signature (for functions/methods) */
+  /**
+   * Optional mapper-provided signature. Producers may emit either a complete
+   * declaration containing `name` (Rust `pub fn id(...)`, TypeScript
+   * `pending: Promise<void>[]`) or a name-less call/type suffix (Python
+   * `(self, id: int) -> None`, Go `string`). `formatSymbol` classifies the two
+   * shapes by declaration position.
+   */
   signature?: string;
   /** Child symbols (for nested structures like methods in classes) */
   children?: FileSymbol[];

@@ -36,7 +36,7 @@ interface GoSymbol {
 interface GoOutlineResult {
   package: string;
   imports?: string[];
-  symbols: GoSymbol[];
+  symbols: GoSymbol[] | null;
   error?: string;
 }
 
@@ -207,12 +207,23 @@ export async function goMapper(
       return null;
     }
 
+    // Old helper binaries emit `"symbols": null` for a nil slice; normalize before
+    // use. No extracted symbols is an ordinary miss, not an error — returning null
+    // quietly lets the dispatcher continue to ctags/regex fallback.
+    // MAPPER_VERSION stays 1: Go already returned null for symbol-less files (via
+    // the caught TypeError), so no empty Go map was ever persisted, and every
+    // non-empty FileMap is unchanged.
+    const symbols = Array.isArray(result.symbols) ? result.symbols : [];
+    if (symbols.length === 0) {
+      return null;
+    }
+
     const fileMap: FileMap = {
       path: filePath,
       totalLines,
       totalBytes,
       language: "Go",
-      symbols: result.symbols.map(convertSymbol),
+      symbols: symbols.map(convertSymbol),
       imports: result.imports ?? [],
       detailLevel: DetailLevel.Full,
     };
