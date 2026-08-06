@@ -99,6 +99,40 @@ function validateGlobBalance(glob: string): string | null {
   return null;
 }
 
+function buildLsFsErrorResult(err: any, target: string) {
+  const code =
+    err?.code === "EACCES" || err?.code === "EPERM"
+      ? "permission-denied"
+      : err?.code === "ENOENT"
+        ? "path-not-found"
+        : "fs-error";
+  const message =
+    code === "permission-denied"
+      ? `Error: permission denied for path '${target}'`
+      : code === "path-not-found"
+        ? `Error: path '${target}' does not exist`
+        : `Error: could not access path '${target}': ${err?.message ?? String(err)}`;
+  return {
+    content: [{ type: "text" as const, text: message }],
+    isError: true,
+    details: {
+      ptcValue: {
+        tool: "ls" as const,
+        ok: false,
+        path: target,
+        error: buildPtcError(
+          code,
+          message,
+          undefined,
+          code === "fs-error"
+            ? { fsCode: err?.code, fsMessage: err?.message }
+            : undefined,
+        ),
+      },
+    },
+  };
+}
+
 export function registerLsTool(pi: ExtensionAPI) {
   const tool: Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof LS_PTC } = {
     name: "ls",
@@ -163,33 +197,7 @@ export function registerLsTool(pi: ExtensionAPI) {
       try {
         pathStat = await stat(targetPath);
       } catch (err: any) {
-        const target = params.path ?? targetPath;
-        const code =
-          err?.code === "EACCES" || err?.code === "EPERM"
-            ? "permission-denied"
-            : err?.code === "ENOENT"
-              ? "path-not-found"
-              : "fs-error";
-        const message =
-          code === "permission-denied"
-            ? `Error: permission denied for path '${target}'`
-            : code === "path-not-found"
-              ? `Error: path '${target}' does not exist`
-              : `Error: could not access path '${target}': ${err?.message ?? String(err)}`;
-        return {
-          content: [{ type: "text" as const, text: message }],
-          isError: true,
-          details: {
-            ptcValue: {
-              tool: "ls",
-              ok: false,
-              path: target,
-              error: buildPtcError(code, message, undefined, code === "fs-error"
-                ? { fsCode: err?.code, fsMessage: err?.message }
-                : undefined),
-            },
-          },
-        };
+        return buildLsFsErrorResult(err, params.path ?? targetPath);
       }
       if (!pathStat.isDirectory()) {
         const message = `Error: '${params.path ?? targetPath}' is a file, not a directory. Use read to inspect files.`;
@@ -212,7 +220,12 @@ export function registerLsTool(pi: ExtensionAPI) {
       }
 
       // Read directory
-      const dirents = await readdir(targetPath, { withFileTypes: true });
+      let dirents: import("node:fs").Dirent[];
+      try {
+        dirents = await readdir(targetPath, { withFileTypes: true });
+      } catch (err: any) {
+        return buildLsFsErrorResult(err, params.path ?? targetPath);
+      }
       let allEntries: LsEntry[] = dirents.map((d) => ({
         name: d.name,
         type: d.isDirectory() ? ("dir" as const) : ("file" as const),
@@ -237,7 +250,7 @@ export function registerLsTool(pi: ExtensionAPI) {
           };
         }
         const picomatch = (await import("picomatch" as any)).default;
-        const isMatch = picomatch(params.glob);
+        const isMatch = picomatch(params.glob, { dot: true });
         allEntries = allEntries.filter((e) => isMatch(e.name));
       }
 

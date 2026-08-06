@@ -168,7 +168,15 @@ async function findWithFd(
   maxDepth?: number,
 ): Promise<FindEntry[]> {
   return new Promise((resolve_, reject) => {
-    const args: string[] = ["--glob", pattern, "--hidden", "--color", "never"];
+    const args: string[] = [
+      "--glob",
+      pattern,
+      "--hidden",
+      "--exclude",
+      ".git",
+      "--color",
+      "never",
+    ];
 
     if (type === "file") args.push("--type", "f");
     else if (type === "dir") args.push("--type", "d");
@@ -230,7 +238,15 @@ async function findWithFdRegex(
   maxDepth?: number,
 ): Promise<FindEntry[]> {
   return new Promise((resolve_, reject) => {
-    const args: string[] = ["--glob", "*", "--hidden", "--color", "never"];
+    const args: string[] = [
+      "--glob",
+      "*",
+      "--hidden",
+      "--exclude",
+      ".git",
+      "--color",
+      "never",
+    ];
     if (type === "file") args.push("--type", "f");
     else if (type === "dir") args.push("--type", "d");
     if (maxDepth !== undefined) args.push("--max-depth", String(maxDepth));
@@ -311,7 +327,12 @@ export function registerFindTool(pi: ExtensionAPI) {
       {
         pattern: Type.String({ description: "Glob or basename pattern" }),
         path: Type.Optional(Type.String({ description: "Search root" })),
-        limit: Type.Optional(Type.Number({ description: "Max entries" })),
+        limit: Type.Optional(
+          Type.Union(
+            [Type.Number(), Type.String()],
+            { description: "Max entries" },
+          ),
+        ),
         type: Type.Optional(
           Type.Union(
             [Type.Literal("file"), Type.Literal("dir"), Type.Literal("any")],
@@ -346,7 +367,7 @@ export function registerFindTool(pi: ExtensionAPI) {
       params: {
         pattern: string;
         path?: string;
-        limit?: number;
+        limit?: number | string;
         type?: "file" | "dir" | "any";
         maxDepth?: number;
         regex?: boolean;
@@ -362,7 +383,37 @@ export function registerFindTool(pi: ExtensionAPI) {
     ) {
       const cwd: string = ctx?.cwd ?? process.cwd();
       const searchPath = params.path ? resolveToCwd(params.path, cwd) : cwd;
-      const limit = params.limit ?? DEFAULT_LIMIT;
+      const limitCoerced = coerceObviousBase10Int(params.limit, "limit");
+      if (!limitCoerced.ok) {
+        return {
+          content: [{ type: "text" as const, text: limitCoerced.message }],
+          isError: true,
+          details: {
+            ptcValue: {
+              tool: "find" as const,
+              ok: false,
+              path: params.path ?? searchPath,
+              error: buildPtcError("invalid-limit", limitCoerced.message),
+            },
+          },
+        };
+      }
+      if (limitCoerced.value !== undefined && limitCoerced.value < 1) {
+        const message = `Invalid limit: expected a positive integer, received ${limitCoerced.value}.`;
+        return {
+          content: [{ type: "text" as const, text: message }],
+          isError: true,
+          details: {
+            ptcValue: {
+              tool: "find" as const,
+              ok: false,
+              path: params.path ?? searchPath,
+              error: buildPtcError("invalid-limit", message),
+            },
+          },
+        };
+      }
+      const limit = limitCoerced.value ?? DEFAULT_LIMIT;
       const type = params.type ?? "file";
       const pattern = params.pattern;
       const maxDepthCoerced = coerceObviousBase10Int(params.maxDepth, "maxDepth");
