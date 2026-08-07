@@ -5,7 +5,16 @@ import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { createPatch } from "diff";
 import { detectLineEnding, generateCompactOrFullDiff, normalizeToLF, replaceText, restoreLineEndings, stripBom } from "./edit-diff.js";
-import { HashlineMismatchError, applyHashlineEdits, computeLineHash, ensureHashInit, parseLineRef, type HashlineEditItem, escapeControlCharsForDisplay } from "./hashline.js";
+import {
+	HashlineMismatchError,
+	HashlineOverlapError,
+	applyHashlineEdits,
+	computeLineHash,
+	ensureHashInit,
+	parseLineRef,
+	type HashlineEditItem,
+	escapeControlCharsForDisplay,
+} from "./hashline.js";
 import { resolveToCwd } from "./path-utils.js";
 import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
 import { throwIfAborted } from "./runtime.js";
@@ -422,6 +431,9 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					return buildEditError(absolutePath, "hash-mismatch", err.message, undefined, {
 						updatedAnchors: err.updatedAnchors,
 					});
+				}
+				if (err instanceof HashlineOverlapError) {
+					return buildEditError(absolutePath, "overlapping-edit", err.message);
 				}
 				throw err;
 			}

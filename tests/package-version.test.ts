@@ -5,9 +5,9 @@ const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const packageLock = JSON.parse(readFileSync("package-lock.json", "utf8"));
 
 describe("package version", () => {
-  it("is bumped for the 0.11.2 release", () => {
-    expect(packageJson.version).toBe("0.11.2");
-    expect(packageLock.version).toBe("0.11.2");
-    expect(packageLock.packages[""].version).toBe("0.11.2");
+  it("is bumped for the 0.11.3 release", () => {
+    expect(packageJson.version).toBe("0.11.3");
+    expect(packageLock.version).toBe("0.11.3");
+    expect(packageLock.packages[""].version).toBe("0.11.3");
   });
 });

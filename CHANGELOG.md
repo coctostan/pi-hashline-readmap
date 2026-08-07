@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.3] - 2026-08-07
+
 ### Fixed
 
 - JSON structural maps now derive exact source ranges from the original JSON text, preserve nested object and array paths, count trailing/no-trailing-newline files consistently, and return the requested property from `read({ symbol })` instead of unrelated ordinal lines. JSON mapper cache identity is bumped so stale range maps are not reused (#237).
+- Anchored `edit` batches now reject intersecting replacement/deletion targets and unstable consumed insertion boundaries before mutation, return the structured `overlapping-edit` error, preserve safe duplicate and same-anchor insertion semantics, and leave rejected files unchanged (#238).
 
 ## [0.11.2] - 2026-08-03
 

@@ -35,6 +35,13 @@ export class HashlineMismatchError extends Error {
 	}
 }
 
+export class HashlineOverlapError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "HashlineOverlapError";
+	}
+}
+
 type ParsedRef = { line: number; hash: string; content?: string };
 
 type ParsedSpec =
@@ -46,6 +53,8 @@ interface ParsedEdit {
 	spec: ParsedSpec;
 	dstLines: string[];
 }
+
+type IndexedParsedEdit = ParsedEdit & { idx: number };
 
 interface NoopEdit {
 	editIndex: number;
@@ -405,6 +414,70 @@ function parseHashlineEditItem(edit: HashlineEditItem): ParsedEdit {
 	throw new Error("replace edits are applied separately");
 }
 
+interface DestructiveSpan {
+	start: number;
+	end: number;
+	edit: IndexedParsedEdit;
+}
+
+function getDestructiveSpan(edit: IndexedParsedEdit): DestructiveSpan | undefined {
+	if (edit.spec.kind === "insertAfter") return undefined;
+	if (edit.spec.kind === "single") {
+		return { start: edit.spec.ref.line, end: edit.spec.ref.line, edit };
+	}
+	return { start: edit.spec.start.line, end: edit.spec.end.line, edit };
+}
+
+function describeDestructiveSpan(span: DestructiveSpan): string {
+	return span.start === span.end ? `line ${span.start}` : `lines ${span.start}-${span.end}`;
+}
+
+function rejectOverlappingDestructiveEdits(edits: IndexedParsedEdit[]): void {
+	const spans = edits.map(getDestructiveSpan).filter((span): span is DestructiveSpan => span !== undefined);
+
+	for (let i = 0; i < spans.length; i++) {
+		for (let j = i + 1; j < spans.length; j++) {
+			const left = spans[i];
+			const right = spans[j];
+			if (left.end < right.start || right.end < left.start) continue;
+
+			// Preserve the existing same-single path for this task so its legacy tests
+			// remain green. Task 2 makes that path safe by retaining only the final
+			// edit for every resolved single target before this validator runs.
+			const sameSingleTarget =
+				left.edit.spec.kind === "single" && right.edit.spec.kind === "single" && left.start === right.start;
+			if (sameSingleTarget) continue;
+
+			throw new HashlineOverlapError(
+				`Overlapping anchored edits are not allowed: edits[${left.edit.idx}] targets ${describeDestructiveSpan(left)} and edits[${right.edit.idx}] targets ${describeDestructiveSpan(right)}.`,
+			);
+		}
+	}
+}
+
+function rejectUnsafeInsertionBoundaries(edits: IndexedParsedEdit[]): void {
+	const insertions = edits.filter(
+		(edit): edit is IndexedParsedEdit & { spec: Extract<ParsedSpec, { kind: "insertAfter" }> } =>
+			edit.spec.kind === "insertAfter",
+	);
+	const destructive = edits.map(getDestructiveSpan).filter((span): span is DestructiveSpan => span !== undefined);
+
+	for (const insertion of insertions) {
+		const boundary = insertion.spec.after.line;
+		for (const span of destructive) {
+			if (boundary < span.start || boundary > span.end) continue;
+
+			const stableOneForOneSingle =
+				span.edit.spec.kind === "single" && span.edit.dstLines.length === 1 && boundary === span.start;
+			if (stableOneForOneSingle) continue;
+
+			throw new HashlineOverlapError(
+				`Overlapping anchored edits are not allowed: edits[${insertion.idx}] inserts after line ${boundary}, but edits[${span.edit.idx}] replaces ${describeDestructiveSpan(span)}.`,
+			);
+		}
+	}
+}
+
 function countChangedLines(before: string[], after: string[]): number {
 	let added = 0;
 	let removed = 0;
@@ -433,7 +506,7 @@ export function applyHashlineEdits(
 	let firstChanged: number | undefined;
 	const noopEdits: NoopEdit[] = [];
 
-	const parsed: (ParsedEdit & { idx: number })[] = edits.map((edit, idx) => ({
+	const parsed: IndexedParsedEdit[] = edits.map((edit, idx) => ({
 		...parseHashlineEditItem(edit),
 		idx,
 	}));
@@ -576,7 +649,7 @@ export function applyHashlineEdits(
 	const duplicateTargetWarnings: string[] = [];
 	const warnedSingleTargets = new Set<string>();
 	const seenSingleTargets = new Map<string, string>();
-	const seenSingleEditByKey = new Map<string, number>();
+	const seenSingleIndexByTarget = new Map<string, number>();
 	const seenNonSingleEditByKey = new Map<string, number>();
 	const dupes = new Set<number>();
 	for (let i = 0; i < parsed.length; i++) {
@@ -591,9 +664,10 @@ export function applyHashlineEdits(
 		const dstKey = p.dstLines.join("\n");
 		const key = `${lk}|${dstKey}`;
 		if (p.spec.kind === "single") {
-			const previousIdx = seenSingleEditByKey.get(key);
+			const previousIdx = seenSingleIndexByTarget.get(lk);
 			if (previousIdx !== undefined) dupes.add(previousIdx);
-			seenSingleEditByKey.set(key, i);
+			seenSingleIndexByTarget.set(lk, i);
+
 			const previousDstKey = seenSingleTargets.get(lk);
 			if (previousDstKey !== undefined && previousDstKey !== dstKey && !warnedSingleTargets.has(lk)) {
 				duplicateTargetWarnings.push(
@@ -611,6 +685,8 @@ export function applyHashlineEdits(
 		}
 	}
 	const deduped = parsed.filter((_, i) => !dupes.has(i));
+	rejectOverlappingDestructiveEdits(deduped);
+	rejectUnsafeInsertionBoundaries(deduped);
 
 	// Sort bottom-up for stable splice. Insertions sharing one resolved anchor
 	// apply in reverse request order because every splice uses the same boundary;

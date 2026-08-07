@@ -133,6 +133,7 @@ edit({
 - `new_text` is plain file content — never include `LINE:HASH|`, hash-only (`a1b|`), or `+` diff prefixes. `edit` strips them defensively when they dominate the replacement, but you should omit them.
 - Set `new_text` to `""` to delete the anchored line(s); use `"\n"` for an intentionally blank line.
 - `replace` is exact-only by default. `fuzzy: true` only normalizes whitespace and confusable Unicode after an exact match fails — it is not approximate or semantic matching.
+- Anchored edit batches are validated against resolved original-file targets before writing. Unsafe overlapping replacements/deletions or consumed `insert_after` boundaries fail with the structured `overlapping-edit` error and leave the file unchanged. Keep batch targets disjoint, or put dependent changes in separate `edit` calls; a one-line replacement plus `insert_after` on that same stable line remains valid.
 
 ### Create a new file with `write`
 
