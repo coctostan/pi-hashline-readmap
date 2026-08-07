@@ -128,6 +128,9 @@ implicitly rewards:
    other lines.
 4. **Suppress the `>>>` table when the same mismatch fires twice in a
    row.** Show it once, then a stable "still stale; re-read" line.
+   Implemented by the forward-only notice ledger in `src/context-hygiene-notices.ts`:
+   each stale/retired record is announced exactly once per session, prefixed onto the
+   tool result that caused it, and historical messages are never rewritten.
 
 ## Bottom line
 

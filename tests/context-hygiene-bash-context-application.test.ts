@@ -47,9 +47,7 @@ describe("Bash context hygiene context application", () => {
 
     const applied = applyContextHygieneStaleContext([staleStatus, edit], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale bash context: bash-repo-state-after-mutation. Re-run the Bash command to refresh. Command: git status --short]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: " M src/example.ts" }]);
     expect(applied[0].details).toMatchObject({
       compressionInfo: { technique: "git" },
       contextHygiene: { tool: "bash" },
@@ -77,9 +75,7 @@ describe("Bash context hygiene context application", () => {
 
     const applied = applyContextHygieneStaleContext([oldLog, newLog], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: git log --oneline -5]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old history" }]);
     expect(applied[0].details).toMatchObject({
       compressionInfo: { technique: "git" },
       contextHygieneRetired: {

@@ -81,7 +81,8 @@ describe("issue #222: Bash build failure integration", () => {
       bashEvent("build-low-confidence", "cargo build", uncertainRaw, false),
     );
 
-    expect(uncertain.content[0].text).toBe(uncertainRaw);
+    expect(uncertain.content[0].text).toContain("[Context hygiene]");
+    expect(uncertain.content[0].text.endsWith(`---\n${uncertainRaw}`)).toBe(true);
     expect(uncertain.details.compressionInfo.technique).toBe("none");
     expect(uncertain.details.rtkCompaction).toMatchObject({
       applied: false,
@@ -98,7 +99,8 @@ describe("issue #222: Bash build failure integration", () => {
       ),
     );
 
-    expect(successful.content[0].text).toBe("✓ Build successful (1 units compiled)");
+    expect(successful.content[0].text).toContain("[Context hygiene]");
+    expect(successful.content[0].text.endsWith("---\n✓ Build successful (1 units compiled)")).toBe(true);
     expect(successful.details.contextHygiene.commandState.outcome).toBe("success");
     expect(successful.details.compressionInfo.technique).toBe("build");
     expect(successful.details.rtkCompaction).toMatchObject({

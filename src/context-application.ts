@@ -1,9 +1,7 @@
-import {
-  renderRetiredContextPlaceholder,
-  renderStaleContextPlaceholder,
-  type ContextHygieneReport,
-  type ContextHygieneRetiredRecord,
-  type ContextHygieneStaleRecord,
+import type {
+  ContextHygieneReport,
+  ContextHygieneRetiredRecord,
+  ContextHygieneStaleRecord,
 } from "./context-hygiene.js";
 
 type ContextToolResultMessage = {
@@ -51,11 +49,13 @@ function retiredRecordsByResultId(report: ContextHygieneReport): Map<string, Con
   return records;
 }
 
-function maskStaleToolResultMessage<T extends ContextToolResultMessage>(message: T, record: ContextHygieneStaleRecord): T {
+export function annotateStaleToolResultMessage<T extends ContextToolResultMessage>(
+  message: T,
+  record: ContextHygieneStaleRecord,
+): T {
   const details = isRecord(message.details) ? message.details : {};
   return {
     ...message,
-    content: [{ type: "text" as const, text: renderStaleContextPlaceholder(record) }],
     details: {
       ...details,
       contextHygieneStale: record,
@@ -63,11 +63,13 @@ function maskStaleToolResultMessage<T extends ContextToolResultMessage>(message:
   };
 }
 
-function maskRetiredToolResultMessage<T extends ContextToolResultMessage>(message: T, record: ContextHygieneRetiredRecord): T {
+export function annotateRetiredToolResultMessage<T extends ContextToolResultMessage>(
+  message: T,
+  record: ContextHygieneRetiredRecord,
+): T {
   const details = isRecord(message.details) ? message.details : {};
   return {
     ...message,
-    content: [{ type: "text" as const, text: renderRetiredContextPlaceholder(record) }],
     details: {
       ...details,
       contextHygieneRetired: record,
@@ -90,13 +92,13 @@ export function applyContextHygieneStaleContext<T extends ContextToolResultMessa
     if (staleRecord) {
       if (message.toolName !== staleRecord.originalTool) return message;
       changed = true;
-      return maskStaleToolResultMessage(message, staleRecord);
+      return annotateStaleToolResultMessage(message, staleRecord);
     }
     const retiredRecord = retiredByResultId.get(message.toolCallId);
     if (retiredRecord) {
       if (message.toolName !== retiredRecord.originalTool) return message;
       changed = true;
-      return maskRetiredToolResultMessage(message, retiredRecord);
+      return annotateRetiredToolResultMessage(message, retiredRecord);
     }
     return message;
   });

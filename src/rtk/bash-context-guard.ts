@@ -142,7 +142,10 @@ function isProtectedNotice(line: string): boolean {
     trimmed.startsWith("[Bash context guard:") ||
     trimmed.startsWith("Full post-RTK output:") ||
     trimmed.startsWith("⚠ REPEATED-CALL WARNING:") ||
-    trimmed.startsWith("⚠ ALTERNATING-CALL WARNING:")
+    trimmed.startsWith("⚠ ALTERNATING-CALL WARNING:") ||
+    trimmed.startsWith("[Context hygiene]") ||
+    (trimmed.startsWith("- ") &&
+      (trimmed.includes(": [Stale ") || trimmed.includes(": [Retired ")))
   );
 }
 

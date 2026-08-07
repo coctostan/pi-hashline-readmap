@@ -84,8 +84,11 @@ describe("issue 144 — stale-masked read must not satisfy edit's must-read guar
         },
       ],
     }, {});
-    expect(ctxResult.messages[0].content[0].text)
-      .toContain("[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]");
+    expect(ctxResult.messages[0].details.contextHygieneStale).toMatchObject({
+      status: "stale",
+      originalTool: "read",
+      originalResultId: "read-1",
+    });
 
     // 4. Edit with a structurally-valid LINE:HASH whose hash matches a *different*
     //    line — adaptive relocation would silently land it. The fix must intercept

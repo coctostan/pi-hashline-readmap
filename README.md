@@ -363,7 +363,7 @@ After, in `<repo>/.pi/hashline-readmap/settings.json`:
 
 - [docs/bash-output.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/bash-output.md) — Bash compression, original-output restoration, context-guard trimming, and bypass behavior.
 - [docs/structured-output.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/structured-output.md) — `details.ptcValue`, structured error envelopes, and the exported PTC policy contract.
-- [docs/context-hygiene.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/context-hygiene.md) — context-hygiene metadata, stale-context placeholders, and the debug report tool.
+- [docs/context-hygiene.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/context-hygiene.md) — context-hygiene metadata, forward-only stale-context signalling, and the debug report tool.
 - [docs/integrations.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/integrations.md) — EventBus/global executor exposure for downstream integrations.
 - [exploratory functional testing](https://github.com/coctostan/pi-hashline-readmap/blob/main/docs/exploratory-functional-testing.md) — exploratory testing notes.
 - [prompts/](prompts/) — tool prompt and schema documentation.
