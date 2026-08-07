@@ -39,9 +39,7 @@ describe("context hygiene context application", () => {
 
     expect(applied).not.toBe(messages);
     expect(applied[0]).not.toBe(staleRead);
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old read output" }]);
     expect(applied[0].details).toMatchObject({
       ptcValue: { tool: "read" },
       contextHygieneStale: {
@@ -81,9 +79,7 @@ describe("context hygiene context application", () => {
       tracker.generateReport(),
     );
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old write-target read" }]);
     expect(applied[1]).toBe(liveWrite);
     expect(applied[2]).toBe(freshRead);
   });
@@ -104,9 +100,7 @@ describe("context hygiene context application", () => {
     const liveEdit = toolResult("edit-grep-file", "edit", "edit succeeded");
     const applied = applyContextHygieneStaleContext([staleGrep, liveEdit], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run grep for current matches.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old grep output" }]);
     expect(applied[0].details).toMatchObject({
       contextHygieneStale: {
         status: "stale",
@@ -135,9 +129,7 @@ describe("context hygiene context application", () => {
     const liveWrite = toolResult("write-grep-file", "write", "write succeeded");
     const applied = applyContextHygieneStaleContext([staleGrep, liveWrite], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run grep for current matches.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old grep write output" }]);
     expect(applied[1]).toBe(liveWrite);
   });
 
@@ -163,12 +155,8 @@ describe("context hygiene context application", () => {
       toolResult("edit-chain", "edit", "chain edit output"),
     ], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale grep result — this earlier grep was superseded by a later file change; nothing is wrong with grep. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run grep for current matches.]" },
-    ]);
-    expect(applied[1].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "chain grep output" }]);
+    expect(applied[1].content).toEqual([{ type: "text", text: "chain read output" }]);
     expect(applied[2].content).toEqual([{ type: "text", text: "chain edit output" }]);
   });
 
@@ -188,9 +176,7 @@ describe("context hygiene context application", () => {
     const liveEdit = toolResult("edit-ast-file", "edit", "edit succeeded");
     const applied = applyContextHygieneStaleContext([staleAst, liveEdit], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run ast_search for current matches.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old ast_search output" }]);
     expect(applied[0].details).toMatchObject({
       contextHygieneStale: {
         status: "stale",
@@ -219,9 +205,7 @@ describe("context hygiene context application", () => {
     const liveWrite = toolResult("write-ast-file", "write", "write succeeded");
     const applied = applyContextHygieneStaleContext([staleAst, liveWrite], tracker.generateReport());
 
-    expect(applied[0].content).toEqual([
-      { type: "text", text: "[Stale ast_search result — this earlier ast_search was superseded by a later file change; nothing is wrong with ast_search. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run ast_search for current matches.]" },
-    ]);
+    expect(applied[0].content).toEqual([{ type: "text", text: "old ast_search write output" }]);
     expect(applied[1]).toBe(liveWrite);
   });
 
@@ -247,11 +231,12 @@ describe("context hygiene context application", () => {
 
     const staleRead = toolResult("read-before-edit", "read", "old read output");
     const staleApplied = applyContextHygieneStaleContext([staleRead], tracker.generateReport());
-    expect(staleApplied[0].content).toEqual([
-      { type: "text", text: "[Stale read result — this earlier read was superseded by a later file change; nothing is wrong with read. Edits still validate against current on-disk content via content-derived LINE:HASH anchors, so a matching hash still applies. Re-run read for fresh anchors.]" },
-    ]);
-    expect(staleApplied[0].content[0].text.toLowerCase()).toContain("stale");
-    expect(staleApplied[0].content[0].text.toLowerCase()).not.toContain("retired");
+    expect(staleApplied[0].content).toEqual([{ type: "text", text: "old read output" }]);
+    expect(staleApplied[0].details.contextHygieneStale).toMatchObject({
+      status: "stale",
+      originalTool: "read",
+    });
+    expect(staleApplied[0].details).not.toHaveProperty("contextHygieneRetired");
   });
 
 

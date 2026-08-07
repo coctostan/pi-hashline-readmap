@@ -69,7 +69,9 @@ describe("bash contextHygiene metadata", () => {
     expect(first.details.contextHygiene).toEqual(expectedContextHygiene);
     expect((first.details.ptcValue as any)?.contextHygiene).toBeUndefined();
 
-    expect(second.content).toEqual([{ type: "text", text: "PASS" }]);
+    expect(second.content).toHaveLength(1);
+    expect(second.content[0].text).toContain("[Context hygiene]");
+    expect(second.content[0].text.endsWith("---\nPASS")).toBe(true);
 
     expect(second.details.contextHygiene).toMatchObject(expectedContextHygiene);
     expect((second.details.contextHygiene as any).appliedEffects).toEqual({
@@ -125,7 +127,9 @@ describe("bash contextHygiene metadata", () => {
 
     expect(status.details.contextHygiene.commandState.stateKind).toBe("repo-status");
     expect(mutation.details.contextHygiene.commandState.stateKind).toBe("shell-file-mutation");
-    expect(mutation.content).toEqual([{ type: "text", text: "" }]);
+    expect(mutation.content).toHaveLength(1);
+    expect(mutation.content[0].text).toContain("[Context hygiene]");
+    expect(mutation.content[0].text.endsWith("---\n")).toBe(true);
     expect((mutation.details.contextHygiene as any).appliedEffects).toEqual({
       retired: {
         count: 0,
@@ -186,7 +190,9 @@ describe("bash contextHygiene metadata", () => {
       stateKind: "verification",
       outcome: "success",
     });
-    expect(success.content).toEqual([{ type: "text", text: "PASS tests/current-turn.test.ts" }]);
+    expect(success.content).toHaveLength(1);
+    expect(success.content[0].text).toContain("[Context hygiene]");
+    expect(success.content[0].text.endsWith("---\nPASS tests/current-turn.test.ts")).toBe(true);
     expect((success.details.contextHygiene as any).appliedEffects).toEqual({
       retired: {
         count: 0,

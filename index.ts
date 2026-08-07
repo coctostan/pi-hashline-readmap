@@ -14,6 +14,7 @@ import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
 import { applyBashContextGuard, resolveBashContextGuardConfig, type BashContextGuardConfig } from "./src/rtk/bash-context-guard.js";
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
+import { consumeContextHygieneNotice, resetContextHygieneNoticeLedger } from "./src/context-hygiene-notices.js";
 import { buildBashCommandState } from "./src/bash-command-state.js";
 import {
   buildCommandResource,
@@ -177,6 +178,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   const readTurns = new Map<string, number>();
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
+  resetContextHygieneNoticeLedger();
   const readTurnKey = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
   const noteRead = (absolutePath: string) => {
     // noteRead is invoked synchronously from inside read/grep/ast_search/write
@@ -266,11 +268,18 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (!isBashToolResult(event)) {
       const contextHygiene = contextHygieneFromDetails(event.details);
       if (contextHygiene) recordContextHygiene(contextHygiene, event.toolCallId);
-      if (!doomLoop || !Array.isArray(event.content)) {
+      if (!Array.isArray(event.content)) {
+        return undefined;
+      }
+      const staleNotice = consumeContextHygieneNotice(getContextHygieneTracker().generateReport());
+      const prefixParts: string[] = [];
+      if (doomLoop) prefixParts.push(formatDoomLoopMessage(doomLoop));
+      if (staleNotice) prefixParts.push(staleNotice);
+      if (prefixParts.length === 0) {
         return undefined;
       }
       const content = [...event.content];
-      const prefix = `${formatDoomLoopMessage(doomLoop)}\n\n---\n`;
+      const prefix = `${prefixParts.join("\n\n")}\n\n---\n`;
       let textIndex = -1;
       for (let i = 0; i < content.length; i++) {
         const item = content[i] as { type?: unknown; text?: unknown };
@@ -347,10 +356,13 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
       ? { ...contextHygiene, appliedEffects }
       : contextHygiene;
+    const staleNotice = consumeContextHygieneNotice(getContextHygieneTracker().generateReport());
     const applyWarning = (body: string): string => {
-      if (!doomLoop) return body;
-      const prefix = `${formatDoomLoopMessage(doomLoop)}\n\n---\n`;
-      return `${prefix}${body}`;
+      const prefixParts: string[] = [];
+      if (doomLoop) prefixParts.push(formatDoomLoopMessage(doomLoop));
+      if (staleNotice) prefixParts.push(staleNotice);
+      if (prefixParts.length === 0) return body;
+      return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
     const { output, savedChars, info } = filterBashOutput(
       command,

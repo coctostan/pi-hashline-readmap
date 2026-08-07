@@ -55,9 +55,10 @@ describe("issue 218 — stale masking stays file-scoped", () => {
     }, {});
 
     // read-A (same resource as the edit) IS masked — proving a mutation was recorded …
-    const maskedA = ctx?.messages?.[0]?.content?.[0]?.text ?? "";
-    expect(maskedA).toContain("Stale read result");
-    expect(maskedA.toLowerCase()).toContain("content-derived");
+    expect(ctx?.messages?.[0]?.details?.contextHygieneStale).toMatchObject({
+      status: "stale",
+      originalTool: "read",
+    });
     // … while the unrelated read-B is left untouched — proving file-scoped keying holds.
     // If a future change broke the resource-keying (e.g. masked all reads), this fails.
     expect(ctx?.messages?.[1]?.content?.[0]?.text).toBe("B read output");
@@ -84,8 +85,11 @@ describe("issue 218 — stale masking stays file-scoped", () => {
         { role: "toolResult", toolCallId: "edit-B", toolName: "edit", content: [{ type: "text", text: "edit succeeded" }], details: { ptcValue: { tool: "edit" } }, isError: false, timestamp: 2 },
       ],
     }, {});
-    const masked = ctx?.messages?.[0]?.content?.[0]?.text ?? "";
-    expect(masked).toContain("Stale read result");
-    expect(masked.toLowerCase()).toContain("content-derived");
+    expect(ctx?.messages?.[0]?.details?.contextHygieneStale).toMatchObject({
+      status: "stale",
+      originalTool: "read",
+    });
+    // Content is preserved — the stale signal lives in details, not in the message body.
+    expect(ctx?.messages?.[0]?.content?.[0]?.text).toBe("B read output");
   });
 });
