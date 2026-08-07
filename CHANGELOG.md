@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- JSON structural maps now derive exact source ranges from the original JSON text, preserve nested object and array paths, count trailing/no-trailing-newline files consistently, and return the requested property from `read({ symbol })` instead of unrelated ordinal lines. JSON mapper cache identity is bumped so stale range maps are not reused (#237).
+
 ## [0.11.2] - 2026-08-03
 
 ### Changed
