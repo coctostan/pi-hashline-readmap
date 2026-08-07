@@ -33,6 +33,9 @@ describe("prompts/edit.md coverage", () => {
     expect(content).toContain("default off");
     expect(content).toContain("post-write persisted-content verification");
     expect(content).toContain("not syntax validation");
+    expect(content).toContain("overlapping-edit");
+    expect(content).toContain("nothing is written");
+    expect(content).toContain("separate `edit` calls");
     expect(
       content.includes("same resolved anchor") &&
       content.includes("request-array order") &&

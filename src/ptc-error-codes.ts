@@ -25,6 +25,10 @@ export const PTC_ERROR_CODES = {
   // edit
   "file-not-read": { description: "edit called on a path that was not read in this session", trigger: "wasReadInSession returned false" },
   "hash-mismatch": { description: "edit anchors do not verify against current file contents", trigger: "applyHashlineEdits detected stale anchors" },
+  "overlapping-edit": {
+    description: "Anchored edit targets overlap in one batch",
+    trigger: "applyHashlineEdits detected intersecting destructive targets or an insertion boundary consumed by another edit",
+  },
   "no-op": { description: "edits produced identical content", trigger: "originalNormalized === result after applying edits" },
   "text-not-found": { description: "replace.old_text not present in file", trigger: "replaceText returned 0 matches" },
   "binary-file": { description: "edit refused because file is binary", trigger: "looksLikeBinary detected NUL bytes or invalid UTF-8" },
