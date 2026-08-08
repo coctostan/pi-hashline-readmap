@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import type { FileMap, FileSymbol } from "../types.js";
 
 import { DetailLevel, SymbolKind } from "../enums.js";
-export const MAPPER_VERSION = 1;
+export const MAPPER_VERSION = 2;
 
 /**
  * Regex patterns for SQL DDL statements.
@@ -81,22 +81,147 @@ interface SqlMatch {
  * Find the end line for a SQL statement starting at a given line.
  * Looks for semicolon or next statement.
  */
-function findStatementEnd(lines: string[], startIdx: number): number {
-  for (let i = startIdx; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) {
+type SqlQuoteEnd = "'" | '"' | "`" | "]";
+
+interface SqlScanState {
+  quoteEnd: SqlQuoteEnd | null;
+  inBlockComment: boolean;
+  dollarTag: string | null;
+  blockDepth: number;
+}
+
+function isTopLevel(state: SqlScanState): boolean {
+  return (
+    !state.quoteEnd &&
+    !state.inBlockComment &&
+    !state.dollarTag &&
+    state.blockDepth === 0
+  );
+}
+
+function lineHasTopLevelTerminator(line: string, state: SqlScanState): boolean {
+  let column = 0;
+
+  while (column < line.length) {
+    if (state.dollarTag) {
+      if (line.startsWith(state.dollarTag, column)) {
+        column += state.dollarTag.length;
+        state.dollarTag = null;
+      } else {
+        column += 1;
+      }
       continue;
     }
-    // Statement ends with semicolon
-    if (line.includes(";")) {
-      return i + 1; // 1-indexed
+
+    if (state.inBlockComment) {
+      if (line.startsWith("*/", column)) {
+        state.inBlockComment = false;
+        column += 2;
+      } else {
+        column += 1;
+      }
+      continue;
     }
-    // Next CREATE/ALTER starts a new statement
-    if (i > startIdx && /^\s*(CREATE|ALTER)\s+/i.test(line)) {
-      return i; // Previous line was end
+
+    if (state.quoteEnd) {
+      const quoteEnd = state.quoteEnd;
+      if (line[column] === "\\" && quoteEnd !== "]") {
+        column += 2;
+        continue;
+      }
+      if (line[column] === quoteEnd) {
+        if (line[column + 1] === quoteEnd) {
+          column += 2;
+        } else {
+          state.quoteEnd = null;
+          column += 1;
+        }
+      } else {
+        column += 1;
+      }
+      continue;
+    }
+
+    if (line.startsWith("--", column)) {
+      break;
+    }
+    if (line.startsWith("/*", column)) {
+      state.inBlockComment = true;
+      column += 2;
+      continue;
+    }
+
+    const character = line[column];
+    if (character === "'" || character === '"' || character === "`") {
+      state.quoteEnd = character;
+      column += 1;
+      continue;
+    }
+    if (character === "[") {
+      state.quoteEnd = "]";
+      column += 1;
+      continue;
+    }
+
+    if (character === "$") {
+      const dollarMatch = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/.exec(
+        line.slice(column),
+      );
+      if (dollarMatch) {
+        state.dollarTag = dollarMatch[0];
+        column += dollarMatch[0].length;
+        continue;
+      }
+    }
+
+    if (character && /[A-Za-z_]/.test(character)) {
+      const word = /^[A-Za-z_][A-Za-z0-9_$]*/.exec(line.slice(column))?.[0];
+      if (word) {
+        if (word.toUpperCase() === "BEGIN") {
+          state.blockDepth += 1;
+        } else if (word.toUpperCase() === "END" && state.blockDepth > 0) {
+          state.blockDepth -= 1;
+        }
+        column += word.length;
+        continue;
+      }
+    }
+
+    if (character === ";" && state.blockDepth === 0) {
+      return true;
+    }
+
+    column += 1;
+  }
+
+  return false;
+}
+
+function findStatementEnd(lines: string[], startIdx: number): number {
+  const state: SqlScanState = {
+    quoteEnd: null,
+    inBlockComment: false,
+    dollarTag: null,
+    blockDepth: 0,
+  };
+
+  for (let i = startIdx; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+
+    if (
+      i > startIdx &&
+      isTopLevel(state) &&
+      /^\s*(CREATE|ALTER)\s+/i.test(line)
+    ) {
+      return i;
+    }
+
+    if (lineHasTopLevelTerminator(line, state)) {
+      return i + 1;
     }
   }
-  return lines.length; // File end
+
+  return lines.length;
 }
 
 /**
@@ -183,9 +308,6 @@ export async function sqlMapper(
 
     // Contract: no extracted declarations means "miss" so generateMapWithIdentity
     // can continue to ctags and then the regex fallback.
-    // MAPPER_VERSION stays 1 — non-empty SQL output is byte-identical, and stale
-    // empty cache entries are rejected semantically in src/map-cache.ts
-    // (isUsefulMap, Tasks 2-3) rather than by cache-key invalidation.
     if (symbols.length === 0) {
       return null;
     }
