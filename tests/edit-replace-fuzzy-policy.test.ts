@@ -75,7 +75,7 @@ describe("edit replace fuzzy policy", () => {
     });
 
     expect(result.isError).not.toBe(true);
-    expect(readFileSync(filePath, "utf-8")).toBe("alpha\n\nalpha\n");
+    expect(readFileSync(filePath, "utf-8")).toBe("alpha\nalpha\n");
     const text = getTextContent(result);
     expect(text).toContain("Warnings:");
     expect(text).toContain("replace used fuzzy matching because exact old_text was not found");

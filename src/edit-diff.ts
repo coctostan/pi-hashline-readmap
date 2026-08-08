@@ -42,57 +42,77 @@ function normalizeFuzzyChar(ch: string): string {
 	return ch.replace(SINGLE_QUOTES_RE, "'").replace(DOUBLE_QUOTES_RE, '"').replace(HYPHENS_RE, "-").replace(UNICODE_SPACES_RE, " ");
 }
 
-function normalizeForFuzzyMatch(text: string): string {
-	return text
-		.split("\n")
-		.map((line) => line.trimEnd())
-		.join("\n")
-		.replace(SINGLE_QUOTES_RE, "'")
-		.replace(DOUBLE_QUOTES_RE, '"')
-		.replace(HYPHENS_RE, "-")
-		.replace(UNICODE_SPACES_RE, " ");
+function isFuzzyWhitespace(ch: string): boolean {
+	return /\s/u.test(ch);
 }
 
-function buildNormalizedWithMap(text: string): { normalized: string; indexMap: number[] } {
-	const lines = text.split("\n");
+function normalizeForFuzzyMatch(text: string): string {
 	const normalizedChars: string[] = [];
-	const indexMap: number[] = [];
-	let originalOffset = 0;
+	let inWhitespace = false;
 
-	for (let i = 0; i < lines.length; i++) {
-		const line = lines[i]!;
-		const trimmed = line.replace(/\s+$/u, "");
-
-		for (let j = 0; j < trimmed.length; j++) {
-			normalizedChars.push(normalizeFuzzyChar(trimmed[j]!));
-			indexMap.push(originalOffset + j);
+	for (let index = 0; index < text.length; index++) {
+		const normalizedChar = normalizeFuzzyChar(text[index]!);
+		if (isFuzzyWhitespace(normalizedChar)) {
+			if (!inWhitespace) normalizedChars.push(" ");
+			inWhitespace = true;
+			continue;
 		}
 
-		if (i < lines.length - 1) {
-			normalizedChars.push("\n");
-			indexMap.push(originalOffset + line.length);
-		}
-
-		originalOffset += line.length + 1;
+		normalizedChars.push(normalizedChar);
+		inWhitespace = false;
 	}
 
-	return { normalized: normalizedChars.join(""), indexMap };
+	return normalizedChars.join("");
+}
+
+function isSemanticallyEmptyFuzzyNeedle(text: string): boolean {
+	return text.trim().length === 0;
+}
+
+function buildNormalizedWithMap(text: string): { normalized: string; indexMap: number[]; endMap: number[] } {
+	const normalizedChars: string[] = [];
+	const indexMap: number[] = [];
+	const endMap: number[] = [];
+	let inWhitespace = false;
+
+	for (let index = 0; index < text.length; index++) {
+		const normalizedChar = normalizeFuzzyChar(text[index]!);
+		if (isFuzzyWhitespace(normalizedChar)) {
+			if (!inWhitespace) {
+				normalizedChars.push(" ");
+				indexMap.push(index);
+				endMap.push(index + 1);
+			} else {
+				endMap[endMap.length - 1] = index + 1;
+			}
+			inWhitespace = true;
+			continue;
+		}
+
+		normalizedChars.push(normalizedChar);
+		indexMap.push(index);
+		endMap.push(index + 1);
+		inWhitespace = false;
+	}
+
+	return { normalized: normalizedChars.join(""), indexMap, endMap };
 }
 
 function mapNormalizedSpanToOriginal(
 	indexMap: number[],
+	endMap: number[],
 	normalizedStart: number,
 	normalizedLength: number,
 ): { index: number; matchLength: number } | null {
 	if (normalizedStart < 0 || normalizedLength <= 0) return null;
 	const normalizedEnd = normalizedStart + normalizedLength;
-	if (normalizedEnd > indexMap.length) return null;
+	if (normalizedEnd > indexMap.length || normalizedEnd > endMap.length) return null;
 
 	const start = indexMap[normalizedStart];
-	const end = indexMap[normalizedEnd - 1];
-	if (start === undefined || end === undefined || end < start) return null;
+	const endExclusive = endMap[normalizedEnd - 1];
+	if (start === undefined || endExclusive === undefined || endExclusive < start) return null;
 
-	return { index: start, matchLength: end - start + 1 };
+	return { index: start, matchLength: endExclusive - start };
 }
 
 /**
@@ -108,16 +128,20 @@ export function fuzzyFindText(
 		return { found: true, index: exactIndex, matchLength: oldText.length, usedFuzzyMatch: false };
 	}
 
+	if (isSemanticallyEmptyFuzzyNeedle(oldText)) {
+		return { found: false, index: -1, matchLength: 0, usedFuzzyMatch: false };
+	}
+
 	const normalizedNeedle = normalizeForFuzzyMatch(oldText);
 	if (!normalizedNeedle.length) return { found: false, index: -1, matchLength: 0, usedFuzzyMatch: false };
 
-	const { normalized, indexMap } = buildNormalizedWithMap(content);
+	const { normalized, indexMap, endMap } = buildNormalizedWithMap(content);
 	const normalizedIndex = normalized.indexOf(normalizedNeedle);
 	if (normalizedIndex === -1) {
 		return { found: false, index: -1, matchLength: 0, usedFuzzyMatch: false };
 	}
 
-	const mapped = mapNormalizedSpanToOriginal(indexMap, normalizedIndex, normalizedNeedle.length);
+	const mapped = mapNormalizedSpanToOriginal(indexMap, endMap, normalizedIndex, normalizedNeedle.length);
 	if (!mapped) {
 		return { found: false, index: -1, matchLength: 0, usedFuzzyMatch: false };
 	}
@@ -146,19 +170,21 @@ export function replaceText(
 		if (exactCount > 0) {
 			return { content: content.split(oldText).join(normalizedNew), count: exactCount, usedFuzzyMatch: false };
 		}
-		if (!opts.fuzzy) return { content, count: 0, usedFuzzyMatch: false };
+		if (!opts.fuzzy || isSemanticallyEmptyFuzzyNeedle(oldText)) {
+			return { content, count: 0, usedFuzzyMatch: false };
+		}
 
 		const normalizedNeedle = normalizeForFuzzyMatch(oldText);
 		if (!normalizedNeedle.length) return { content, count: 0, usedFuzzyMatch: false };
 
-		const { normalized, indexMap } = buildNormalizedWithMap(content);
+		const { normalized, indexMap, endMap } = buildNormalizedWithMap(content);
 		const spans: Array<{ index: number; matchLength: number }> = [];
 		let searchFrom = 0;
 
 		while (searchFrom <= normalized.length - normalizedNeedle.length) {
 			const pos = normalized.indexOf(normalizedNeedle, searchFrom);
 			if (pos === -1) break;
-			const mapped = mapNormalizedSpanToOriginal(indexMap, pos, normalizedNeedle.length);
+			const mapped = mapNormalizedSpanToOriginal(indexMap, endMap, pos, normalizedNeedle.length);
 			if (mapped) {
 				const prev = spans[spans.length - 1];
 				if (!prev || mapped.index >= prev.index + prev.matchLength) {
@@ -171,8 +197,8 @@ export function replaceText(
 		if (!spans.length) return { content, count: 0, usedFuzzyMatch: false };
 
 		let out = content;
-		for (let i = spans.length - 1; i >= 0; i--) {
-			const span = spans[i]!;
+		for (let index = spans.length - 1; index >= 0; index--) {
+			const span = spans[index]!;
 			out = out.substring(0, span.index) + normalizedNew + out.substring(span.index + span.matchLength);
 		}
 		return { content: out, count: spans.length, usedFuzzyMatch: true };
@@ -187,7 +213,9 @@ export function replaceText(
 		};
 	}
 
-	if (!opts.fuzzy) return { content, count: 0, usedFuzzyMatch: false };
+	if (!opts.fuzzy || isSemanticallyEmptyFuzzyNeedle(oldText)) {
+		return { content, count: 0, usedFuzzyMatch: false };
+	}
 
 	const result = fuzzyFindText(content, oldText);
 	if (!result.found) return { content, count: 0, usedFuzzyMatch: false };
