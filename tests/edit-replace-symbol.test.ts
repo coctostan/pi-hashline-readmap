@@ -227,6 +227,48 @@ function bar(n: number) { return n; }
     expect(readFileSync(fp, "utf-8")).toBe(content);
   });
 
+  it("does not emit name-mismatch when a TypeScript method body contains a const declaration", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "edit-rs-method-nm-"));
+    const fp = join(dir, "processor.ts");
+    writeFileSync(fp, [
+      "export class Processor {",
+      "  process(value: string): string {",
+      "    return value;",
+      "  }",
+      "}",
+      "",
+    ].join("\n"));
+    const { pi, tools } = makeFakePi();
+    registerEditTool(pi, { wasReadInSession: () => true });
+    const tool = tools[0];
+    const res = await tool.execute(
+      "c",
+      {
+        path: fp,
+        edits: [{
+          replace_symbol: {
+            symbol: "Processor.process",
+            new_body: [
+              "process(value: string): string {",
+              "  const normalized = value.trim();",
+              "  return normalized;",
+              "}",
+            ].join("\n"),
+          },
+        }],
+      },
+      undefined,
+      undefined,
+      { cwd: dir },
+    );
+    expect(res.isError).toBeFalsy();
+    const out = readFileSync(fp, "utf-8");
+    expect(out).toContain("const normalized = value.trim();");
+    expect(out).toContain("return normalized;");
+    const warnings: string[] = res.details?.ptcValue?.warnings ?? [];
+    expect(warnings).toEqual([]);
+  });
+
   it("emits name-mismatch warning when new_body declares a different name", async () => {
     const dir = mkdtempSync(join(tmpdir(), "edit-rs-nm-"));
     const fp = join(dir, "x.ts");
