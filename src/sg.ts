@@ -10,12 +10,15 @@ import { ensureHashInit } from "./hashline.js";
 import { buildPtcError, buildPtcLine } from "./ptc-value.js";
 import { resolveToCwd } from "./path-utils.js";
 import type { FileSymbol } from "./readmap/types.js";
-import { buildSgOutput } from "./sg-output.js";
+import { buildSgOutput, type SgOutputBudget } from "./sg-output.js";
 import { buildAstSearchRehydrateDescriptor, isContextHygieneDebugEnabled } from "./context-hygiene.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { executableCommand, resolveBundledBin } from "./binary-resolution.js";
+import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 
-type SgParams = { pattern: string; lang?: string; path?: string };
+type SgParams = { pattern: string; lang?: string; path?: string; limit?: number | string };
+type NormalizedSgParams = Omit<SgParams, "limit"> & { limit?: number };
+export const AST_SEARCH_DEFAULT_LIMIT = 100;
 const CONTEXT_HYGIENE_SG_SYMBOL_FILE_CAP = 20;
 
 type SgMatch = {
@@ -143,6 +146,7 @@ export function isSgAvailable(): boolean {
 
 interface SgToolOptions {
   onFileAnchored?: (absolutePath: string) => void;
+  outputBudget?: SgOutputBudget;
 }
 
 export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
@@ -165,15 +169,38 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
       pattern: Type.String({ description: "AST pattern" }),
       lang: Type.Optional(Type.String({ description: "Language hint" })),
       path: Type.Optional(Type.String({ description: "Search path" })),
+      limit: Type.Optional(Type.Union([
+        Type.Number({ description: "Positive maximum AST match count" }),
+        Type.String({ description: "Positive maximum AST match count" }),
+      ])),
     }),
     ptc,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       await ensureHashInit();
-      const p = params as SgParams;
+      const rawParams = params as SgParams;
+      const limit = coerceObviousBase10Int(rawParams.limit, "limit");
+      if (!limit.ok) {
+        return {
+          content: [{ type: "text", text: limit.message }],
+          isError: true,
+          details: { ptcValue: { tool: "ast_search", ok: false, error: buildPtcError("invalid-limit", limit.message) } },
+        };
+      }
+      if (limit.value !== undefined && limit.value < 1) {
+        const message = `Invalid limit: expected a positive integer, received ${limit.value}.`;
+        return {
+          content: [{ type: "text", text: message }],
+          isError: true,
+          details: { ptcValue: { tool: "ast_search", ok: false, error: buildPtcError("invalid-limit", message) } },
+        };
+      }
+      const p: NormalizedSgParams = { ...rawParams, limit: limit.value };
+      const effectiveLimit = typeof p.limit === "number" ? p.limit : AST_SEARCH_DEFAULT_LIMIT;
       const rehydrate = buildAstSearchRehydrateDescriptor({
         pattern: p.pattern,
         lang: p.lang,
         path: p.path,
+        limit: typeof p.limit === "number" ? p.limit : undefined,
       });
       const args = ["run", "--json", "-p", p.pattern];
 
@@ -266,6 +293,18 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
           };
         }
 
+        const allMatches = matches as SgMatch[];
+        const selectedMatches = allMatches.slice(0, effectiveLimit);
+        const omittedMatches = allMatches.length - selectedMatches.length;
+        const matchLimit = omittedMatches > 0
+          ? {
+              limit: effectiveLimit,
+              totalMatches: allMatches.length,
+              returnedMatches: selectedMatches.length,
+              omittedMatches,
+            }
+          : undefined;
+
         const searchPathIsDirectory = await fsStat(searchPath).then((s) => s.isDirectory()).catch(() => false);
 
         const fileCache = new Map<string, string[]>();
@@ -289,7 +328,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         };
 
         const grouped = new Map<string, { abs: string; matches: SgMatch[] }>();
-        for (const m of matches as SgMatch[]) {
+        for (const m of selectedMatches) {
           const abs = toAbsoluteFile(m);
           const display = path.relative(ctx.cwd, abs);
           const bucket = grouped.get(display);
@@ -347,6 +386,8 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         const builtOutput = buildSgOutput({
           pattern: p.pattern,
           files: ptcFiles,
+          matchLimit,
+          budget: options.outputBudget,
           rehydrate,
         });
         for (const ptcFile of ptcFiles) {
@@ -356,10 +397,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         }
         return {
           content: [{ type: "text", text: builtOutput.text }],
-          details: {
-            ptcValue: builtOutput.ptcValue,
-            contextHygiene: builtOutput.contextHygiene,
-          },
+          details: { ptcValue: builtOutput.ptcValue, contextHygiene: builtOutput.contextHygiene },
         };
       } catch (err: any) {
         if (err?.code === "ENOENT") {
@@ -422,15 +460,35 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         return new Text(clampLinesToWidth(summaryLine(body).split("\n"), width).join("\n"), 0, 0);
       }
       const ptcValue = (result.details as any)?.ptcValue as
-        | { tool: "ast_search"; files: Array<{ path: string; lines: any[] }> }
+        | {
+            tool: "ast_search";
+            files: Array<{ path: string; lines: any[] }>;
+            truncation?: {
+              matchLimit?: { omittedMatches: number };
+              outputBudget?: { totalBlocks: number; shownBlocks: number };
+            };
+          }
         | undefined;
       const files = ptcValue?.files ?? [];
       if (files.length === 0) return new Text(summaryLine("no matches"), 0, 0);
       const fileCount = files.length;
-      const totalMatches = files.reduce((sum: number, f: any) => sum + f.lines.length, 0);
-      const matchWord = totalMatches === 1 ? "match" : "matches";
+      const returnedLines = files.reduce((sum: number, file: any) => sum + file.lines.length, 0);
+      const lineWord = returnedLines === 1 ? "anchored line" : "anchored lines";
       const fileWord = fileCount === 1 ? "file" : "files";
-      let text = summaryLine(`${totalMatches} ${matchWord} in ${fileCount} ${fileWord}`, { hidden: files.length > 0 && !expanded });
+      const truncationParts: string[] = [];
+      const omittedMatches = ptcValue?.truncation?.matchLimit?.omittedMatches ?? 0;
+      if (omittedMatches > 0) truncationParts.push(`${omittedMatches} AST matches omitted`);
+      if (ptcValue?.truncation?.outputBudget) {
+        const output = ptcValue.truncation.outputBudget;
+        truncationParts.push(`${output.shownBlocks}/${output.totalBlocks} blocks shown`);
+      }
+      const truncationLabel = truncationParts.length > 0
+        ? ` [truncated: ${truncationParts.join("; ")}]`
+        : "";
+      let text = summaryLine(
+        `${returnedLines} ${lineWord} in ${fileCount} ${fileWord}${truncationLabel}`,
+        { hidden: files.length > 0 && !expanded },
+      );
       if (expanded) {
         for (const file of files.slice(0, 20)) {
           const display = path.relative(cwd, file.path) || file.path;

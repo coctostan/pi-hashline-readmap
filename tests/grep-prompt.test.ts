@@ -55,4 +55,14 @@ describe("prompts/grep.md", () => {
     const content = readFileSync(GREP_PROMPT_PATH, "utf-8");
     expect(content).toContain(">>");
   });
+
+  it("documents grep numeric domains and summary-only diagnostics", () => {
+    const content = readFileSync(GREP_PROMPT_PATH, "utf-8");
+    expect(content).toContain("`context` — non-negative integer");
+    expect(content).toContain("`limit` — positive integer");
+    expect(content).toContain("Obvious base-10 numeric strings");
+    expect(content).toContain("structured parameter errors");
+    expect(content).toContain("Summary mode never reports source-line display truncation");
+    expect(content).toContain("one canonical");
+  });
 });

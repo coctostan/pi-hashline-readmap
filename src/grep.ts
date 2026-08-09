@@ -84,6 +84,8 @@ export interface GrepOutputCandidate {
 
 const BUILTIN_LINE_TRUNCATION_SUFFIX = "... [truncated]";
 const BUILTIN_MATCH_LIMIT_NOTICE_RE = /^\[\d+ matches limit reached\..*\]$/;
+const BUILTIN_LINE_TRUNCATION_NOTICE_RE =
+	/^\[Some lines truncated to \d+ chars\. Use read tool to see full lines\]$/;
 
 export function collectMatchCandidates(line: string): GrepOutputCandidate[] {
 	const candidates: GrepOutputCandidate[] = [];
@@ -348,6 +350,14 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 					},
 				};
 			}
+			if (context.value !== undefined && context.value < 0) {
+				const message = `Invalid context: expected a non-negative integer, received ${context.value}.`;
+				return {
+					content: [{ type: "text", text: message }],
+					isError: true,
+					details: { ptcValue: { tool: "grep", ok: false, error: buildPtcError("invalid-params-combo", message) } },
+				};
+			}
 			const limit = coerceObviousBase10Int(rawParams.limit, "limit");
 			if (!limit.ok) {
 				return {
@@ -360,6 +370,14 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 							error: buildPtcError("invalid-limit", limit.message),
 						},
 					},
+				};
+			}
+			if (limit.value !== undefined && limit.value < 1) {
+				const message = `Invalid limit: expected a positive integer, received ${limit.value}.`;
+				return {
+					content: [{ type: "text", text: message }],
+					isError: true,
+					details: { ptcValue: { tool: "grep", ok: false, error: buildPtcError("invalid-limit", message) } },
 				};
 			}
 			const scopeContext = coerceObviousBase10Int(rawParams.scopeContext, "scopeContext");
@@ -430,6 +448,11 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 					item.type === "text" && "text" in item && typeof (item as { text?: unknown }).text === "string",
 			);
 			if (!textBlock?.text) return result;
+
+			const dependencyLinesTruncated =
+				typeof result.details === "object" &&
+				result.details !== null &&
+				(result.details as { linesTruncated?: unknown }).linesTruncated === true;
 
 			const { path: rawSearchPath } = p;
 			const searchPath = resolveToCwd(rawSearchPath || ".", ctx.cwd);
@@ -536,10 +559,15 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 						candidateUnparsedCount++;
 					}
 					const trimmed = line.trim();
+					const irrelevantSummaryLineNotice =
+						p.summary === true &&
+						dependencyLinesTruncated &&
+						BUILTIN_LINE_TRUNCATION_NOTICE_RE.test(trimmed);
 					if (
 						trimmed.startsWith("[") &&
 						trimmed.endsWith("]") &&
-						!BUILTIN_MATCH_LIMIT_NOTICE_RE.test(trimmed)
+						!BUILTIN_MATCH_LIMIT_NOTICE_RE.test(trimmed) &&
+						!irrelevantSummaryLineNotice
 					) {
 						passthroughLines.push(trimmed);
 					}

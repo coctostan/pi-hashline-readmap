@@ -216,10 +216,10 @@ Set the mode with `PI_HASHLINE_SYNTAX_VALIDATE=block|warn|off`. See [prompts/edi
 ### Search code structurally
 
 ```text
-ast_search({ pattern: "console.log($$$ARGS)", lang: "typescript", path: "src" })
+ast_search({ pattern: "console.log($$$ARGS)", lang: "typescript", path: "src", limit: 100 })
 ```
 
-`ast_search` wraps local `ast-grep`, returns merged anchored match blocks grouped by file, and is best for syntax-shaped queries rather than raw text matching.
+`ast_search` wraps local `ast-grep`, limits raw match records before merging ranges, and returns grouped edit-ready anchors. The positive result limit defaults to 100. Deterministic line/byte ceilings apply to the complete visible response, with whole-block truncation guidance; structured PTC data retains every record admitted by the result limit, and TUI summaries distinguish anchored lines from omitted AST matches.
 
 ### Explore files
 

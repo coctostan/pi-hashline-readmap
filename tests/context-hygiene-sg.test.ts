@@ -140,4 +140,23 @@ describe("ast_search contextHygiene metadata", () => {
     ]);
     expect(result.details?.ptcValue.files[0].ranges).toEqual([{ startLine: 20, endLine: 37 }]);
   });
+
+  it("rehydrates an explicit normalized string limit and omits the default", async () => {
+    const filePath = resolve(fixturesDir, "small.ts");
+    vi.mocked(cp.execFile).mockImplementation((_cmd: any, _args: any, _opts: any, cb: any) => {
+      cb(null, JSON.stringify([
+        { file: filePath, range: { start: { line: 44, column: 0 }, end: { line: 44, column: 10 } } },
+      ]), "");
+      return {} as any;
+    });
+
+    const explicit = await callSgTool({ pattern: "$X", path: filePath, limit: "25" });
+    expect(explicit.details.contextHygiene.rehydrate.input.limit).toBe(25);
+
+    const defaults = await callSgTool({ pattern: "$X", path: filePath });
+    expect(defaults.details.contextHygiene.rehydrate.input).toEqual({
+      pattern: "$X",
+      path: filePath,
+    });
+  });
 });

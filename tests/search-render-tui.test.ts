@@ -44,7 +44,53 @@ describe("search TUI renderers", () => {
     const sg = capture(registerSgTool as any);
     expect(textOf(sg.renderCall({ pattern: "console.log($A)", path: "src", lang: "typescript" }, theme))).toBe("ast_search /console.log($A)/ in src (typescript)");
     const result = { content: [{ type: "text", text: "src/a.ts\n1:abc|console.log(a)" }], details: { ptcValue: { tool: "ast_search", files: [{ path: `${process.cwd()}/src/a.ts`, lines: [{ line: 1 }] }] } } };
-    expect(textOf(sg.renderResult(result, {}, theme, { cwd: process.cwd() }))).toBe("↳ 1 match in 1 file • Ctrl+O to expand");
+    expect(textOf(sg.renderResult(result, {}, theme, { cwd: process.cwd() }))).toBe("↳ 1 anchored line in 1 file • Ctrl+O to expand");
+  });
+
+  it("distinguishes anchored lines from omitted raw AST matches", () => {
+    const sg = capture(registerSgTool as any);
+    const result = {
+      content: [{ type: "text", text: ">>1:abc|one" }],
+      details: {
+        ptcValue: {
+          tool: "ast_search",
+          files: [{
+            path: `${process.cwd()}/src/a.ts`,
+            lines: Array.from({ length: 5 }, (_, index) => ({ line: index + 1 })),
+          }],
+          truncation: {
+            matchLimit: { limit: 2, totalMatches: 10, returnedMatches: 2, omittedMatches: 8 },
+          },
+        },
+      },
+    };
+
+    expect(textOf(sg.renderResult(result, {}, theme, { cwd: process.cwd() }))).toBe(
+      "↳ 5 anchored lines in 1 file [truncated: 8 AST matches omitted] • Ctrl+O to expand",
+    );
+  });
+
+  it("renders output-budget-only AST truncation without inventing match counts", () => {
+    const sg = capture(registerSgTool as any);
+    const result = {
+      content: [{ type: "text", text: ">>1:abc|one\n\n[Output truncated]" }],
+      details: {
+        ptcValue: {
+          tool: "ast_search",
+          files: [{
+            path: `${process.cwd()}/src/a.ts`,
+            lines: Array.from({ length: 5 }, (_, index) => ({ line: index + 1 })),
+          }],
+          truncation: {
+            outputBudget: { totalBlocks: 3, shownBlocks: 1, omittedBlocks: 2 },
+          },
+        },
+      },
+    };
+
+    expect(textOf(sg.renderResult(result, {}, theme, { cwd: process.cwd() }))).toBe(
+      "↳ 5 anchored lines in 1 file [truncated: 1/3 blocks shown] • Ctrl+O to expand",
+    );
   });
 
 
