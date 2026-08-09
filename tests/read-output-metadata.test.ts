@@ -80,6 +80,7 @@ describe("buildReadOutput metadata", () => {
       parentName: undefined,
       startLine: 45,
       endLine: 49,
+      tier: "exact",
     });
     expect(lastInput?.selectedLines).toEqual(selectedLines.slice(44, 49));
     expect(built.text.startsWith("[Symbol: createDemoDirectory (function), lines 45-49 of 49]")).toBe(true);

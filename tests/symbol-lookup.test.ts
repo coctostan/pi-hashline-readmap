@@ -35,7 +35,7 @@ describe("findSymbol", () => {
       { name: "parseConfig", kind: SymbolKind.Function, startLine: 10, endLine: 25 },
     ]);
 
-    expect(findSymbol(map, "parseConfig")).toEqual({
+    expect(findSymbol(map, "parseConfig")).toMatchObject({
       type: "found",
       symbol: { name: "parseConfig", kind: "function", startLine: 10, endLine: 25 },
     });
@@ -48,8 +48,9 @@ describe("findSymbol", () => {
       { name: "initialize", kind: SymbolKind.Function, startLine: 60, endLine: 90 },
     ]);
 
-    expect(findSymbol(map, "init")).toEqual({
+    expect(findSymbol(map, "init")).toMatchObject({
       type: "ambiguous",
+      tier: "exact",
       candidates: [
         { name: "init", kind: "method", startLine: 3, endLine: 10 },
         { name: "init", kind: "method", startLine: 32, endLine: 40 },
@@ -117,7 +118,7 @@ describe("findSymbol", () => {
       { name: "parseConfigHelper", kind: SymbolKind.Function, startLine: 30, endLine: 40 },
     ]);
 
-    expect(findSymbol(map, "PARSECONFIG")).toEqual({
+    expect(findSymbol(map, "PARSECONFIG")).toMatchObject({
       type: "found",
       symbol: { name: "parseConfig", kind: "function", startLine: 10, endLine: 25 },
     });
@@ -129,8 +130,9 @@ describe("findSymbol", () => {
       { name: "PARSECONFIG", kind: SymbolKind.Function, startLine: 30, endLine: 40 },
     ]);
 
-    expect(findSymbol(map, "parseconfig")).toEqual({
+    expect(findSymbol(map, "parseconfig")).toMatchObject({
       type: "ambiguous",
+      tier: "normalized-exact",
       candidates: [
         { name: "parseConfig", kind: "function", startLine: 10, endLine: 20 },
         { name: "PARSECONFIG", kind: "function", startLine: 30, endLine: 40 },
@@ -144,8 +146,9 @@ describe("findSymbol", () => {
       { name: "formatOutput", kind: SymbolKind.Function, startLine: 60, endLine: 70 },
     ]);
 
-    expect(findSymbol(map, "createDemo")).toEqual({
-      type: "found",
+    expect(findSymbol(map, "createDemo")).toMatchObject({
+      type: "fuzzy",
+      tier: "prefix",
       symbol: { name: "createDemoDirectory", kind: "function", startLine: 45, endLine: 49 },
     });
   });
@@ -156,8 +159,9 @@ describe("findSymbol", () => {
       { name: "processInput", kind: SymbolKind.Function, startLine: 12, endLine: 22 },
     ]);
 
-    expect(findSymbol(map, "process")).toEqual({
+    expect(findSymbol(map, "process")).toMatchObject({
       type: "ambiguous",
+      tier: "prefix",
       candidates: [
         { name: "processData", kind: "function", startLine: 1, endLine: 10 },
         { name: "processInput", kind: "function", startLine: 12, endLine: 22 },
@@ -172,5 +176,64 @@ describe("findSymbol", () => {
     ]);
 
     expect(findSymbol(map, "   ")).toEqual({ type: "not-found" });
+  });
+
+  it("preserves Java package-relative dotted ambiguity", () => {
+    const map: FileMap = {
+      ...makeMap(Array.from({ length: 6 }, (_, i) => ({
+        name: "Worker",
+        kind: SymbolKind.Class,
+        startLine: i * 3 + 1,
+        endLine: i * 3 + 3,
+        children: [{
+          name: "process",
+          kind: SymbolKind.Method,
+          startLine: i * 3 + 2,
+          endLine: i * 3 + 2,
+        }],
+      }))),
+      language: "Java",
+      imports: ["package com.acme;"],
+    };
+    const result = findSymbol(map, "com.acme.Worker.process");
+    expect(result).toMatchObject({ type: "ambiguous", tier: "normalized-exact" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
+  });
+
+  it("preserves all dotted-path ambiguity candidates", () => {
+    const map = makeMap([
+      {
+        name: "Worker",
+        kind: SymbolKind.Class,
+        startLine: 1,
+        endLine: 20,
+        children: Array.from({ length: 6 }, (_, i) => ({
+          name: "process",
+          kind: SymbolKind.Method,
+          startLine: i * 2 + 1,
+          endLine: i * 2 + 2,
+        })),
+      },
+    ]);
+    const result = findSymbol(map, "Worker.process");
+    expect(result).toMatchObject({ type: "ambiguous", tier: "exact" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
+  });
+
+  it("preserves Java package-relative exact ambiguity", () => {
+    const map: FileMap = {
+      ...makeMap(Array.from({ length: 6 }, (_, i) => ({
+        name: "Worker",
+        kind: SymbolKind.Class,
+        startLine: i * 3 + 1,
+        endLine: i * 3 + 3,
+      }))),
+      path: "/tmp/Registry.java",
+      language: "Java",
+      imports: ["package com.acme;"],
+    };
+    const result = findSymbol(map, "com.acme.Worker");
+    expect(result).toMatchObject({ type: "ambiguous", tier: "normalized-exact" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
   });
 });

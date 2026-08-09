@@ -20,7 +20,7 @@ export interface PtcWarningSymbol {
 export interface PtcWarning {
   code: string;
   message: string;
-  tier?: "camelCase" | "substring";
+  tier?: "prefix" | "camelCase" | "substring";
   symbol?: PtcWarningSymbol;
   otherCandidates?: PtcWarningSymbol[];
 }

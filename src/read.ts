@@ -11,8 +11,8 @@ import { resolveToCwd } from "./path-utils.js";
 import { throwIfAborted } from "./runtime.js";
 import { getOrGenerateMap } from "./map-cache.js";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
-import { findSymbol, type SymbolMatch } from "./readmap/symbol-lookup.js";
-import { formatAmbiguous, formatNotFound } from "./readmap/symbol-error-format.js";
+import { findSymbol, type SymbolMatch, type SymbolMatchTier } from "./readmap/symbol-lookup.js";
+import { formatAmbiguous, formatNotFound, summarizeAmbiguity } from "./readmap/symbol-error-format.js";
 import { buildReadOutput, buildReadSourceOutput } from "./read-output.js";
 import { buildReadRehydrateDescriptor } from "./context-hygiene.js";
 import { buildLocalBundle } from "./read-local-bundle.js";
@@ -401,6 +401,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				};
 			}
 			let symbolMatch: SymbolMatch | undefined;
+			let symbolMatchTier: SymbolMatchTier | undefined;
 			let symbolFileMap: Awaited<ReturnType<typeof getOrGenerateMap>> | null = null;
 			let symbolWarning: string | undefined;
 			let bundleMetadata:
@@ -429,15 +430,29 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				} else {
 					const lookup = findSymbol(symbolFileMap, p.symbol);
 					if (lookup.type === "ambiguous") {
+						const summary = summarizeAmbiguity(lookup.candidates);
 						return succeed({
-							content: [
-								{
-									type: "text",
-									text: formatAmbiguous(p.symbol, lookup.candidates),
-								},
-							],
+							content: [{ type: "text", text: formatAmbiguous(p.symbol, lookup.candidates) }],
 							isError: false,
-							details: {},
+							details: {
+								ptcValue: {
+									tool: "read",
+									ok: true,
+									path: rawParams.path,
+									ambiguity: {
+										query: p.symbol,
+										tier: lookup.tier,
+										totalCandidates: summary.totalCandidates,
+										displayedCandidates: summary.shownCandidates,
+										omittedCandidates: summary.omittedCandidates,
+										omittedSelectors: summary.omittedCandidates.map((candidate) =>
+											candidate.parentName
+												? `${candidate.parentName}.${candidate.name} or ${p.symbol}@${candidate.startLine}`
+												: `${p.symbol}@${candidate.startLine}`),
+										omittedCount: summary.omittedCount,
+									},
+								},
+							},
 						});
 					}
 					if (lookup.type === "not-found") {
@@ -447,17 +462,23 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 						startLine = Math.max(1, lookup.symbol.startLine);
 						endIdx = Math.min(total, lookup.symbol.endLine);
 						symbolMatch = lookup.symbol;
+						symbolMatchTier = lookup.tier;
 					}
 					if (lookup.type === "fuzzy") {
 						startLine = Math.max(1, lookup.symbol.startLine);
 						endIdx = Math.min(total, lookup.symbol.endLine);
 						symbolMatch = lookup.symbol;
+						symbolMatchTier = lookup.tier;
 
-						const tierLabel = lookup.tier === "camelCase" ? "camelCase word boundary" : "substring";
+						const tierLabels: Record<typeof lookup.tier, string> = {
+							prefix: "prefix",
+							camelCase: "camelCase word boundary",
+							substring: "substring",
+						};
 						const otherNames = lookup.otherCandidates.map((c) => `\`${c.name}\``).join(", ");
 						const confirmHint = `read({ symbol: "${lookup.symbol.name}" }) or ${lookup.symbol.name}@${lookup.symbol.startLine} to select by start line`;
 						const lines = [
-							`[Symbol '${p.symbol}' not exact-matched. Closest match: \`${lookup.symbol.name}\` (${lookup.symbol.kind}, lines ${lookup.symbol.startLine}-${lookup.symbol.endLine}) via ${tierLabel}.`,
+							`[Symbol '${p.symbol}' not exact-matched. Closest match: \`${lookup.symbol.name}\` (${lookup.symbol.kind}, lines ${lookup.symbol.startLine}-${lookup.symbol.endLine}) via ${tierLabels[lookup.tier]}.`,
 						];
 						if (otherNames) lines.push(` Other candidates: ${otherNames}.`);
 						lines.push(` To confirm: ${confirmHint}.]`);
@@ -589,6 +610,7 @@ const readOutput = buildReadOutput({
 								parentName: symbolMatch.parentName,
 								startLine: symbolMatch.startLine,
 								endLine: symbolMatch.endLine,
+								tier: symbolMatchTier,
 							}
 						: null,
 					map: {

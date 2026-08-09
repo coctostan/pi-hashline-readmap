@@ -45,7 +45,8 @@ When enabled, `edit` first runs the normal validation and write path. Only after
 Use `replace_symbol` to replace one function, class, method, interface, type, enum, or similar symbol. Query symbols like `read symbol:`: `Name`, `Class.method`, or `Name@<line>`.
 
 Rules:
-- Use an exact name, dotted path, or `@<line>`. If `read({symbol})` returned a fuzzy match, confirm the exact symbol before editing.
+- Prefer an exact name, dotted path, or `@<line>`. Successful `replace_symbol` results expose `matchTier`: exact and normalized-exact matches are silent; prefix, camelCase, and substring matches emit `fuzzy-symbol-match` with the selected symbol and tier.
+- Ambiguous `replace_symbol` diagnostics use the same five-row budget, parent-qualified names, exact omitted count, and dotted / `@line` selectors as `read({ symbol })`.
 - Supported for TypeScript, JavaScript, Rust, and Java. For other languages, use anchored edits.
 - `new_body` must not be empty or whitespace-only.
 - Write `new_body` without extra leading indentation; `edit` re-indents it to match the original symbol.

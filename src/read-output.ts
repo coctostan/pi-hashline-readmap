@@ -13,6 +13,7 @@ import {
   type ContextHygieneRehydrateDescriptor,
   type ContextHygieneResource,
 } from "./context-hygiene.js";
+import type { SymbolMatchTier } from "./readmap/symbol-lookup.js";
 
 export interface ReadSymbolMetadata {
   query: string;
@@ -21,6 +22,7 @@ export interface ReadSymbolMetadata {
   parentName?: string;
   startLine: number;
   endLine: number;
+  tier?: SymbolMatchTier;
 }
 
 export interface ReadTruncationMetadata {

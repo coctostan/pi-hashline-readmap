@@ -201,4 +201,82 @@ describe("read — fuzzy symbol match (issue 099)", () => {
       ],
     });
   });
+
+  it("labels a prefix fallback with its actual tier", async () => {
+    const cacheModule = await import("../src/map-cache.js");
+    const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+      path: resolve(fixturesDir, "small.ts"),
+      totalLines: 100,
+      totalBytes: 1000,
+      language: "typescript",
+      imports: [],
+      detailLevel: DetailLevel.Full,
+      symbols: [{ name: "longPayload", kind: SymbolKind.Function, startLine: 1, endLine: 2 }],
+    });
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "longPay",
+    });
+    const warning = ((result.details as any)?.ptcValue?.warnings ?? [])
+      .find((entry: any) => entry.code === "fuzzy-symbol-match");
+    expect(getTextContent(result)).toContain("via prefix");
+    expect(warning).toMatchObject({
+      code: "fuzzy-symbol-match",
+      tier: "prefix",
+      symbol: { name: "longPayload" },
+    });
+  });
+
+  it("reports exact metadata without a fuzzy warning", async () => {
+    const cacheModule = await import("../src/map-cache.js");
+    const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+      path: resolve(fixturesDir, "small.ts"),
+      totalLines: 10,
+      totalBytes: 100,
+      language: "typescript",
+      imports: [],
+      detailLevel: DetailLevel.Full,
+      symbols: [{ name: "longPayload", kind: SymbolKind.Function, startLine: 1, endLine: 2 }],
+    });
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "longPayload",
+    });
+    expect((result.details as any).ptcValue.symbol).toMatchObject({
+      name: "longPayload",
+      tier: "exact",
+    });
+    expect(
+      ((result.details as any).ptcValue.warnings ?? [])
+        .some((warning: any) => warning.code === "fuzzy-symbol-match"),
+    ).toBe(false);
+  });
+
+  it("reports normalized-exact metadata without a fuzzy warning", async () => {
+    const cacheModule = await import("../src/map-cache.js");
+    const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+      path: resolve(fixturesDir, "small.ts"),
+      totalLines: 10,
+      totalBytes: 100,
+      language: "typescript",
+      imports: [],
+      detailLevel: DetailLevel.Full,
+      symbols: [{ name: "longPayload", kind: SymbolKind.Function, startLine: 1, endLine: 2 }],
+    });
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "small.ts"),
+      symbol: "LONGPAYLOAD",
+    });
+    expect((result.details as any).ptcValue.symbol).toMatchObject({
+      name: "longPayload",
+      tier: "normalized-exact",
+    });
+    expect(
+      ((result.details as any).ptcValue.warnings ?? [])
+        .some((warning: any) => warning.code === "fuzzy-symbol-match"),
+    ).toBe(false);
+  });
 });
