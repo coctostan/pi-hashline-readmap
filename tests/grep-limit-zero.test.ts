@@ -5,32 +5,54 @@ import { join } from "node:path";
 import { registerGrepTool } from "../src/grep.js";
 
 function captureGrepTool(): any {
-	let tool: any;
-	registerGrepTool({ registerTool(def: any) { tool = def; } } as any);
-	return tool;
+  let tool: any;
+  registerGrepTool({ registerTool(def: any) { tool = def; } } as any);
+  return tool;
 }
 
-describe("grep limit zero", () => {
-	it("does not report truncation when a limit-zero search has no matches", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "pi-grep-limit-zero-"));
-		const filePath = join(dir, "sample.txt");
-		writeFileSync(filePath, "alpha\nbeta\n", "utf8");
+function text(result: any): string {
+  return result.content.find((item: any) => item.type === "text")?.text ?? "";
+}
 
-		const result = await captureGrepTool().execute(
-			"grep-limit-zero",
-			{ pattern: "missing", path: filePath, literal: true, limit: 0 },
-			new AbortController().signal,
-			() => {},
-			{ cwd: process.cwd() },
-		);
-		const text = result.content.find((item: any) => item.type === "text")?.text ?? "";
+async function execute(tool: any, filePath: string, params: Record<string, unknown>) {
+  return tool.execute(
+    "grep-numeric-domain",
+    { pattern: "needle", path: filePath, literal: true, ...params },
+    new AbortController().signal,
+    () => {},
+    { cwd: process.cwd() },
+  );
+}
 
-		expect(text).toBe("[0 matches in 0 files]");
-		expect(result.details.ptcValue).toEqual({
-			tool: "grep",
-			summary: false,
-			totalMatches: 0,
-			records: [],
-		});
-	});
+describe("grep numeric domain validation", () => {
+  it("rejects negative context and non-positive limit with parity envelopes", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "pi-grep-invalid-number-"));
+    const filePath = join(dir, "matches.txt");
+    writeFileSync(filePath, "needle\nneedle\n", "utf8");
+    const tool = captureGrepTool();
+
+    for (const value of [-1, "-1"]) {
+      const result = await execute(tool, filePath, { context: value });
+      const expected = "Invalid context: expected a non-negative integer, received -1.";
+      expect(result.isError).toBe(true);
+      expect(text(result)).toBe(expected);
+      expect(result.details?.ptcValue).toMatchObject({
+        tool: "grep",
+        ok: false,
+        error: { code: "invalid-params-combo", message: expected },
+      });
+    }
+
+    for (const value of [0, "0", -1, "-1"]) {
+      const result = await execute(tool, filePath, { limit: value });
+      const expected = `Invalid limit: expected a positive integer, received ${Number(value)}.`;
+      expect(result.isError).toBe(true);
+      expect(text(result)).toBe(expected);
+      expect(result.details?.ptcValue).toMatchObject({
+        tool: "grep",
+        ok: false,
+        error: { code: "invalid-limit", message: expected },
+      });
+    }
+  });
 });

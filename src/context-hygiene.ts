@@ -83,6 +83,7 @@ export interface ContextHygieneAstSearchRehydrateInput {
   pattern: string;
   lang?: string;
   path?: string;
+  limit?: number;
 }
 
 export interface ContextHygieneReadRehydrateDescriptor {
@@ -295,6 +296,7 @@ export interface BuildAstSearchRehydrateDescriptorInput {
   pattern: string;
   lang?: string;
   path?: string;
+  limit?: number;
 }
 
 export function buildAstSearchRehydrateDescriptor(
@@ -303,6 +305,7 @@ export function buildAstSearchRehydrateDescriptor(
   const descriptorInput: ContextHygieneAstSearchRehydrateInput = { pattern: input.pattern };
   if (input.lang !== undefined) descriptorInput.lang = input.lang;
   if (input.path !== undefined) descriptorInput.path = input.path;
+  if (input.limit !== undefined) descriptorInput.limit = input.limit;
   return { tool: "ast_search", input: descriptorInput };
 }
 
