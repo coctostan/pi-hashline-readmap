@@ -54,6 +54,7 @@ describe("read ptcValue — metadata cases", () => {
       parentName: undefined,
       startLine: 45,
       endLine: 49,
+      tier: "exact",
     });
     expect(ptc.range).toEqual({ startLine: 45, endLine: 49, totalLines: 49 });
     expect(text.startsWith("[Symbol: createDemoDirectory (function), lines 45-49 of 49]")).toBe(true);

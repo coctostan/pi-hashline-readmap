@@ -23,7 +23,7 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
       { name: "canParse", kind: SymbolKind.Function, startLine: 5, endLine: 6 },
     ]);
 
-    expect(findSymbol(map, "parse")).toEqual({
+    expect(findSymbol(map, "parse")).toMatchObject({
       type: "found",
       symbol: { name: "parse", kind: "function", startLine: 1, endLine: 2 },
     });
@@ -35,7 +35,7 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
       { name: "parseConfig", kind: SymbolKind.Function, startLine: 3, endLine: 4 },
     ]);
 
-    expect(findSymbol(map, "parse")).toEqual({
+    expect(findSymbol(map, "parse")).toMatchObject({
       type: "found",
       symbol: { name: "Parse", kind: "function", startLine: 1, endLine: 2 },
     });
@@ -47,8 +47,9 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
       { name: "canparse", kind: SymbolKind.Function, startLine: 3, endLine: 4 },
     ]);
 
-    expect(findSymbol(map, "parse")).toEqual({
-      type: "found",
+    expect(findSymbol(map, "parse")).toMatchObject({
+      type: "fuzzy",
+      tier: "prefix",
       symbol: { name: "parseConfig", kind: "function", startLine: 1, endLine: 2 },
     });
   });
@@ -59,12 +60,24 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
       { name: "getHandler", kind: SymbolKind.Function, startLine: 3, endLine: 4 },
     ]);
 
-    expect(findSymbol(map, "handler")).toEqual({
-      type: "found",
+    expect(findSymbol(map, "handler")).toMatchObject({
+      type: "fuzzy",
+      tier: "prefix",
       symbol: { name: "handlerConfig", kind: "function", startLine: 1, endLine: 2 },
     });
   });
 
+  it("preserves prefix identity for a unique abbreviated query", () => {
+    const map = makeMap([
+      { name: "longPayload", kind: SymbolKind.Function, startLine: 1, endLine: 3 },
+    ]);
+
+    expect(findSymbol(map, "longPay")).toMatchObject({
+      type: "fuzzy",
+      tier: "prefix",
+      symbol: expect.objectContaining({ name: "longPayload" }),
+    });
+  });
   it("multiple camelCase matches stay ambiguous before substring fallback", () => {
     const map = makeMap([
       { name: "getHandler", kind: SymbolKind.Function, startLine: 10, endLine: 20 },
@@ -72,8 +85,9 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
       { name: "myhandlerthing", kind: SymbolKind.Function, startLine: 50, endLine: 60 },
     ]);
 
-    expect(findSymbol(map, "handler")).toEqual({
+    expect(findSymbol(map, "handler")).toMatchObject({
       type: "ambiguous",
+      tier: "camelCase",
       candidates: [
         { name: "getHandler", kind: "function", startLine: 10, endLine: 20 },
         { name: "setHandler", kind: "function", startLine: 30, endLine: 40 },
@@ -145,7 +159,7 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
     }
   });
 
-  it("ambiguity returns at most 5 candidates", () => {
+  it("exact ambiguity keeps all candidates", () => {
     const map = makeMap([
       { name: "parse", kind: SymbolKind.Function, startLine: 1, endLine: 2 },
       { name: "parse", kind: SymbolKind.Method, startLine: 3, endLine: 4 },
@@ -158,8 +172,85 @@ describe("findSymbol ranked fuzzy matching (task 7)", () => {
     const result = findSymbol(map, "parse");
     expect(result.type).toBe("ambiguous");
     if (result.type === "ambiguous") {
-      expect(result.candidates).toHaveLength(5);
+      expect(result.candidates).toHaveLength(6);
     }
+  });
+
+  it("preserves all exact ambiguity candidates", () => {
+    const result = findSymbol(
+      makeMap(Array.from({ length: 8 }, (_, i) => ({
+        name: "process",
+        kind: SymbolKind.Method,
+        startLine: i * 2 + 1,
+        endLine: i * 2 + 2,
+      }))),
+      "process",
+    );
+    expect(result).toMatchObject({ type: "ambiguous", tier: "exact" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(8);
+  });
+
+  it("preserves all prefix ambiguity candidates", () => {
+    const map = makeMap(Array.from({ length: 6 }, (_, i) => ({
+      name: `processWorker${i}`,
+      kind: SymbolKind.Method,
+      startLine: i + 1,
+      endLine: i + 1,
+    })));
+    const result = findSymbol(map, "process");
+    expect(result).toMatchObject({ type: "ambiguous", tier: "prefix" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
+  });
+
+  it("preserves all normalized-exact ambiguity candidates", () => {
+    const names = ["PROCESS", "Process", "pROCESS", "prOCESS", "proCESS", "procESS"];
+    const result = findSymbol(
+      makeMap(names.map((name, i) => ({
+        name,
+        kind: SymbolKind.Method,
+        startLine: i + 1,
+        endLine: i + 1,
+      }))),
+      "process",
+    );
+    expect(result).toMatchObject({ type: "ambiguous", tier: "normalized-exact" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
+  });
+
+  it("preserves all camelCase ambiguity candidates", () => {
+    const names = [
+      "getHandler",
+      "setHandler",
+      "runHandler",
+      "stopHandler",
+      "openHandler",
+      "closeHandler",
+    ];
+    const result = findSymbol(
+      makeMap(names.map((name, i) => ({
+        name,
+        kind: SymbolKind.Method,
+        startLine: i + 1,
+        endLine: i + 1,
+      }))),
+      "handler",
+    );
+    expect(result).toMatchObject({ type: "ambiguous", tier: "camelCase" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
+  });
+
+  it("preserves all substring ambiguity candidates", () => {
+    const result = findSymbol(
+      makeMap(Array.from({ length: 6 }, (_, i) => ({
+        name: `beforeprocess${i}`,
+        kind: SymbolKind.Method,
+        startLine: i + 1,
+        endLine: i + 1,
+      }))),
+      "process",
+    );
+    expect(result).toMatchObject({ type: "ambiguous", tier: "substring" });
+    if (result.type === "ambiguous") expect(result.candidates).toHaveLength(6);
   });
 
   it("returns not-found when no tier matches", () => {

@@ -5,6 +5,7 @@ import { join } from "path";
 import { registerEditTool } from "../src/edit.js";
 import { computeLineHash, ensureHashInit } from "../src/hashline.js";
 import { registerReadTool } from "../src/read.js";
+import { replaceSymbol } from "../src/replace-symbol.js";
 
 function makeFakePi() {
   const tools: any[] = [];
@@ -384,5 +385,52 @@ function bar(n: number) { return n; }
     expect(res.isError).toBeFalsy();
     const warnings: string[] = res.details?.ptcValue?.warnings ?? [];
     expect(warnings.some((w) => w.startsWith("syntax-regression"))).toBe(true);
+  });
+
+  it("returns a confirmation warning for a prefix query", async () => {
+    const result = await replaceSymbol({
+      filePath: "/tmp/prefix.ts",
+      content: "export function longPayload() {\n  return 1;\n}\n",
+      symbol: "longPay",
+      newBody: "export function longPayload() {\n  return 2;\n}",
+    });
+    expect(result.type).toBe("ok");
+    if (result.type === "ok") {
+      expect(result.warnings).toContain(
+        "fuzzy-symbol-match: 'longPay' resolved to 'longPayload' via prefix; confirm the exact symbol before editing.",
+      );
+    }
+  });
+
+  it("returns exact match identity without a fuzzy warning", async () => {
+    const result = await replaceSymbol({
+      filePath: "/tmp/exact.ts",
+      content: "export function longPayload() {\n  return 1;\n}\n",
+      symbol: "longPayload",
+      newBody: "export function longPayload() {\n  return 2;\n}",
+    });
+    expect(result.type).toBe("ok");
+    if (result.type === "ok") {
+      expect(result.matchTier).toBe("exact");
+      expect(
+        result.warnings.some((warning) => warning.startsWith("fuzzy-symbol-match:")),
+      ).toBe(false);
+    }
+  });
+
+  it("returns normalized-exact identity without a fuzzy warning", async () => {
+    const result = await replaceSymbol({
+      filePath: "/tmp/normalized.ts",
+      content: "export function longPayload() {\n  return 1;\n}\n",
+      symbol: "LONGPAYLOAD",
+      newBody: "export function longPayload() {\n  return 2;\n}",
+    });
+    expect(result.type).toBe("ok");
+    if (result.type === "ok") {
+      expect(result.matchTier).toBe("normalized-exact");
+      expect(
+        result.warnings.some((warning) => warning.startsWith("fuzzy-symbol-match:")),
+      ).toBe(false);
+    }
   });
 });

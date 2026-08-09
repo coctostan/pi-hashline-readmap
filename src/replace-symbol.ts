@@ -1,6 +1,6 @@
 import { generateMapFromContent } from "./readmap/mapper.js";
 import { detectLanguage } from "./readmap/language-detect.js";
-import { findSymbol } from "./readmap/symbol-lookup.js";
+import { findSymbol, type SymbolMatchTier } from "./readmap/symbol-lookup.js";
 import { formatAmbiguous, formatNotFound } from "./readmap/symbol-error-format.js";
 import { extractReplacementDeclarationName } from "./replacement-declaration-name.js";
 
@@ -12,7 +12,7 @@ export interface ReplaceSymbolInput {
 }
 
 export type ReplaceSymbolResult =
-	| { type: "ok"; content: string; replacement: string; warnings: string[]; range: { start: number; end: number } }
+	| { type: "ok"; content: string; replacement: string; warnings: string[]; range: { start: number; end: number }; matchTier: SymbolMatchTier }
 	| { type: "not-found"; message: string }
 	| { type: "ambiguous"; message: string }
 	| { type: "unsupported"; message: string };
@@ -60,6 +60,11 @@ export async function replaceSymbol(input: ReplaceSymbolInput): Promise<ReplaceS
 	const indent = detectIndent(sigLine);
 	const reindented = reindent(dedent(input.newBody), indent);
 	const warnings: string[] = [];
+	if (lookup.type === "fuzzy") {
+		warnings.push(
+			`fuzzy-symbol-match: '${input.symbol}' resolved to '${lookup.symbol.name}' via ${lookup.tier}; confirm the exact symbol before editing.`,
+		);
+	}
 	const leaf = input.symbol.replace(/@\d+$/, "").split(".").pop() ?? "";
 	const firstDeclName = await extractReplacementDeclarationName({
 		filePath: input.filePath,
@@ -80,5 +85,6 @@ export async function replaceSymbol(input: ReplaceSymbolInput): Promise<ReplaceS
 		replacement: reindented,
 		warnings,
 		range: { start: sym.startLine, end: sym.endLine },
+		matchTier: lookup.tier,
 	};
 }

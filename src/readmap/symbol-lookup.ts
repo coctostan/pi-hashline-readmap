@@ -9,13 +9,15 @@ export interface SymbolMatch {
   parentName?: string;
 }
 
+export type SymbolMatchTier = "exact" | "normalized-exact" | "prefix" | "camelCase" | "substring";
+
 export type SymbolLookupResult =
-  | { type: "found"; symbol: SymbolMatch }
-  | { type: "ambiguous"; candidates: SymbolMatch[] }
+  | { type: "found"; symbol: SymbolMatch; tier: "exact" | "normalized-exact" }
+  | { type: "ambiguous"; candidates: SymbolMatch[]; tier?: SymbolMatchTier }
   | {
       type: "fuzzy";
       symbol: SymbolMatch;
-      tier: "camelCase" | "substring";
+      tier: "prefix" | "camelCase" | "substring";
       otherCandidates: SymbolMatch[];
     }
   | { type: "not-found"; message?: string; candidates?: SymbolMatch[] };
@@ -37,6 +39,10 @@ interface SymbolCandidate {
 
 function toMatches(candidates: SymbolCandidate[]): SymbolMatch[] {
   return candidates.map((candidate) => toMatch(candidate.symbol, candidate.parentName));
+}
+
+function ambiguousResult(candidates: SymbolCandidate[], tier: SymbolMatchTier): SymbolLookupResult {
+  return { type: "ambiguous", candidates: toMatches(candidates), tier };
 }
 
 function flattenSymbols(symbols: FileSymbol[]): SymbolCandidate[] {
@@ -153,38 +159,50 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
         (c) => c.symbol.startLine <= lineNum && c.symbol.endLine >= lineNum,
       );
       if (containing.length > 0) {
-        return { type: "found", symbol: toMatch(containing[0].symbol, containing[0].parentName) };
+        return { type: "found", symbol: toMatch(containing[0].symbol, containing[0].parentName), tier: "exact" };
       }
       const below = pool
         .filter((c) => c.symbol.startLine >= lineNum)
         .sort((a, b) => a.symbol.startLine - b.symbol.startLine);
       if (below.length) {
-        return { type: "found", symbol: toMatch(below[0].symbol, below[0].parentName) };
+        return { type: "found", symbol: toMatch(below[0].symbol, below[0].parentName), tier: "exact" };
       }
       const above = pool
         .filter((c) => c.symbol.startLine < lineNum)
         .sort((a, b) => b.symbol.startLine - a.symbol.startLine);
       if (above.length) {
-        return { type: "found", symbol: toMatch(above[0].symbol, above[0].parentName) };
+        return { type: "found", symbol: toMatch(above[0].symbol, above[0].parentName), tier: "exact" };
       }
     }
   }
 
   const exact = allSymbols.filter((c) => c.symbol.name === q);
-  if (exact.length === 1) return { type: "found", symbol: toMatch(exact[0].symbol, exact[0].parentName) };
+  if (exact.length === 1) return { type: "found", symbol: toMatch(exact[0].symbol, exact[0].parentName), tier: "exact" };
   if (exact.length > 1) {
     const preferred = preferJavaTopLevelType(map, exact);
-    if (preferred) return { type: "found", symbol: toMatch(preferred.symbol, preferred.parentName) };
-    return { type: "ambiguous", candidates: toMatches(exact.slice(0, 5)) };
+    if (preferred) {
+      return {
+        type: "found",
+        symbol: toMatch(preferred.symbol, preferred.parentName),
+        tier: "exact",
+      };
+    }
+    return ambiguousResult(exact, "exact");
   }
 
   if (javaRelativeQuery) {
     const javaExact = allSymbols.filter((c) => c.symbol.name === javaRelativeQuery);
-    if (javaExact.length === 1) return { type: "found", symbol: toMatch(javaExact[0].symbol, javaExact[0].parentName) };
+    if (javaExact.length === 1) return { type: "found", symbol: toMatch(javaExact[0].symbol, javaExact[0].parentName), tier: "normalized-exact" };
     if (javaExact.length > 1) {
       const preferred = preferJavaTopLevelType(map, javaExact);
-      if (preferred) return { type: "found", symbol: toMatch(preferred.symbol, preferred.parentName) };
-      return { type: "ambiguous", candidates: toMatches(javaExact.slice(0, 5)) };
+      if (preferred) {
+        return {
+          type: "found",
+          symbol: toMatch(preferred.symbol, preferred.parentName),
+          tier: "normalized-exact",
+        };
+      }
+      return ambiguousResult(javaExact, "normalized-exact");
     }
   }
 
@@ -193,27 +211,19 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
     if (parts.length >= 2 && parts.every((p) => p.length > 0)) {
       const candidates = resolveDotPath(map.symbols, parts);
       if (candidates.length === 1) {
-        return { type: "found", symbol: toMatch(candidates[0].symbol, candidates[0].parentName) };
+        return { type: "found", symbol: toMatch(candidates[0].symbol, candidates[0].parentName), tier: "exact" };
       }
-      if (candidates.length > 1) {
-        return {
-          type: "ambiguous",
-          candidates: toMatches(candidates.slice(0, 5)),
-        };
-      }
+      if (candidates.length > 1) return ambiguousResult(candidates, "exact");
       const javaParts = javaRelativeQuery?.includes(".")
         ? javaRelativeQuery.split(".").map((p) => p.trim())
         : [];
       if (javaParts.length >= 2 && javaParts.every((p) => p.length > 0)) {
         const javaCandidates = resolveDotPath(map.symbols, javaParts);
         if (javaCandidates.length === 1) {
-          return { type: "found", symbol: toMatch(javaCandidates[0].symbol, javaCandidates[0].parentName) };
+          return { type: "found", symbol: toMatch(javaCandidates[0].symbol, javaCandidates[0].parentName), tier: "normalized-exact" };
         }
         if (javaCandidates.length > 1) {
-          return {
-            type: "ambiguous",
-            candidates: toMatches(javaCandidates.slice(0, 5)),
-          };
+          return ambiguousResult(javaCandidates, "normalized-exact");
         }
       }
     }
@@ -223,13 +233,20 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
 
   // Tier 1: case-insensitive exact
   const ci = allSymbols.filter((c) => c.symbol.name.toLowerCase() === qLower);
-  if (ci.length === 1) return { type: "found", symbol: toMatch(ci[0].symbol, ci[0].parentName) };
-  if (ci.length > 1) return { type: "ambiguous", candidates: toMatches(ci.slice(0, 5)) };
+  if (ci.length === 1) return { type: "found", symbol: toMatch(ci[0].symbol, ci[0].parentName), tier: "normalized-exact" };
+  if (ci.length > 1) return ambiguousResult(ci, "normalized-exact");
 
   // Tier 2: prefix match
   const prefix = allSymbols.filter((c) => c.symbol.name.toLowerCase().startsWith(qLower));
-  if (prefix.length === 1) return { type: "found", symbol: toMatch(prefix[0].symbol, prefix[0].parentName) };
-  if (prefix.length > 1) return { type: "ambiguous", candidates: toMatches(prefix.slice(0, 5)) };
+  if (prefix.length === 1) {
+    return {
+      type: "fuzzy",
+      symbol: toMatch(prefix[0].symbol, prefix[0].parentName),
+      tier: "prefix",
+      otherCandidates: [],
+    };
+  }
+  if (prefix.length > 1) return ambiguousResult(prefix, "prefix");
 
   // Tier 3: camelCase word boundary match
   const camelCase = allSymbols.filter((c) => {
@@ -258,7 +275,7 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
       otherCandidates: buildOtherCandidates(camelCase[0]),
     };
   }
-  if (camelCase.length > 1) return { type: "ambiguous", candidates: toMatches(camelCase.slice(0, 5)) };
+  if (camelCase.length > 1) return ambiguousResult(camelCase, "camelCase");
   if (partial.length === 1) {
     return {
       type: "fuzzy",
@@ -267,7 +284,7 @@ export function findSymbol(map: FileMap, query: string): SymbolLookupResult {
       otherCandidates: buildOtherCandidates(partial[0]),
     };
   }
-  if (partial.length > 1) return { type: "ambiguous", candidates: toMatches(partial.slice(0, 5)) };
+  if (partial.length > 1) return ambiguousResult(partial, "substring");
 
   return { type: "not-found" };
 }

@@ -67,7 +67,7 @@ describe("read bundle=local integration", () => {
       }),
     ].join("\n"));
 
-    expect(ptc.symbol).toEqual({ query: "target", name: "target", kind: "function", parentName: undefined, startLine: 9, endLine: 12 });
+    expect(ptc.symbol).toEqual({ query: "target", name: "target", kind: "function", parentName: undefined, startLine: 9, endLine: 12, tier: "exact" });
     expect(ptc.bundle).toEqual({
       mode: "local",
       applied: true,

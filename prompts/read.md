@@ -26,9 +26,10 @@ Very long single lines are truncated in the displayed output at 500 characters, 
 `@<line>` only applies as a trailing suffix like `Foo.bar@42`; names such as `foo@bar` are ordinary queries. Resolution order: containing range → nearest symbol starting at/after the requested line → nearest symbol above it. If unresolved but same-name candidates exist, the response lists retry hints like `name@<startLine>`.
 
 Result behavior:
-- **Found**: returns only the symbol range with `[Symbol: name (kind), lines X-Y of Z]`.
-- **Ambiguous**: returns candidate names/kinds/ranges; retry with dot notation or `@<line>`.
-- **Fuzzy**: returns the best camelCase/substring match with a warning banner and confirmation hint. Verify before editing from fuzzy-match anchors.
+- **Exact**: an exact name, dotted path, or `@<line>` selector returns the symbol range with tier `exact` and no confirmation warning.
+- **Normalized exact**: a case-insensitive exact or supported Java package-relative selector returns the symbol range with tier `normalized-exact` and no confirmation warning.
+- **Prefix / camelCase / substring**: a unique approximate match emits `fuzzy-symbol-match` with the concrete tier, selected symbol, alternatives, and exact-name / `@line` confirmation guidance. Confirm before editing.
+- **Ambiguous**: displays at most five parent-qualified candidate rows and states the exact omitted count. Accurate dotted / `name@line` selectors are provided for shown and every omitted candidate. Structured metadata contains `tier`, `totalCandidates`, `displayedCandidates`, `omittedCandidates`, `omittedSelectors`, and `omittedCount`.
 - **Not found**: falls back to normal read with a warning listing available symbols.
 - **Unmappable**: falls back to normal read with a warning.
 

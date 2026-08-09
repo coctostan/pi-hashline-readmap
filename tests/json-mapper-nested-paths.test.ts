@@ -26,7 +26,7 @@ it("keeps repeated nested names addressable through their object paths", () => {
     detailLevel: DetailLevel.Full,
   };
 
-  expect(findSymbol(map, "left.same")).toEqual({
+  expect(findSymbol(map, "left.same")).toMatchObject({
     type: "found",
     symbol: {
       name: "same",
@@ -36,7 +36,7 @@ it("keeps repeated nested names addressable through their object paths", () => {
       endLine: 3,
     },
   });
-  expect(findSymbol(map, "right.same")).toEqual({
+  expect(findSymbol(map, "right.same")).toMatchObject({
     type: "found",
     symbol: {
       name: "same",

@@ -28,7 +28,8 @@ describe("prompts directory (AC15)", () => {
     expect(readPrompt).toContain("read({ offset, limit })");
     expect(readPrompt).toContain("Images return attachments");
     expect(readPrompt).toContain("bundle: \"local\"");
-    expect(readPrompt).toContain("Fuzzy");
+    expect(readPrompt).toContain("fuzzy-symbol-match");
+    expect(readPrompt).toContain("omittedSelectors");
   });
 
   it("sg prompt documents limits, final budgets, structured retention, and guidance", () => {

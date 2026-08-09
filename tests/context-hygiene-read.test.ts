@@ -144,6 +144,7 @@ describe("read contextHygiene metadata", () => {
       parentName: undefined,
       startLine: 45,
       endLine: 49,
+      tier: "exact",
     });
     expect((result.details?.ptcValue as any).contextHygiene).toBeUndefined();
     expect(getTextContent(result)).toContain("## Requested symbol");
