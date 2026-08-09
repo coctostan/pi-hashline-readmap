@@ -2,6 +2,7 @@ import { generateMapFromContent } from "./readmap/mapper.js";
 import { detectLanguage } from "./readmap/language-detect.js";
 import { findSymbol } from "./readmap/symbol-lookup.js";
 import { formatAmbiguous, formatNotFound } from "./readmap/symbol-error-format.js";
+import { extractReplacementDeclarationName } from "./replacement-declaration-name.js";
 
 export interface ReplaceSymbolInput {
 	filePath: string;
@@ -60,9 +61,11 @@ export async function replaceSymbol(input: ReplaceSymbolInput): Promise<ReplaceS
 	const reindented = reindent(dedent(input.newBody), indent);
 	const warnings: string[] = [];
 	const leaf = input.symbol.replace(/@\d+$/, "").split(".").pop() ?? "";
-	const firstDeclName =
-		reindented.match(/\b(?:function|class|method|const|let|var)\s+([A-Za-z_$][\w$]*)/)?.[1]
-		?? reindented.match(/^\s*(?:[\w$<>,?\s]+\s+)?([A-Za-z_$][\w$]*)\s*\(/)?.[1];
+	const firstDeclName = await extractReplacementDeclarationName({
+		filePath: input.filePath,
+		newBody: reindented,
+		isMember: Boolean(sym.parentName),
+	});
 	if (leaf && firstDeclName && firstDeclName !== leaf) {
 		warnings.push(`name-mismatch: expected ${leaf}, got ${firstDeclName}`);
 	}
