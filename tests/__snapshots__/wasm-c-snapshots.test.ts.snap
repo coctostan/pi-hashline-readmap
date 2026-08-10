@@ -1,0 +1,178 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`C WASM mapper snapshots > maps representative C definitions 1`] = `
+{
+  "detailLevel": "full",
+  "imports": [],
+  "language": "C",
+  "path": "wasm-c-representative.c",
+  "symbols": [
+    {
+      "endLine": 3,
+      "kind": "constant",
+      "name": "BUFFER_LIMIT",
+      "startLine": 3,
+    },
+    {
+      "endLine": 4,
+      "kind": "constant",
+      "name": "CLAMP",
+      "startLine": 4,
+    },
+    {
+      "endLine": 8,
+      "kind": "type",
+      "name": "handler_t",
+      "signature": "typedef int (*handler_t)(void *ctx, int flags, const char *name)",
+      "startLine": 6,
+    },
+    {
+      "endLine": 13,
+      "kind": "class",
+      "name": "node",
+      "startLine": 10,
+    },
+    {
+      "endLine": 13,
+      "kind": "class",
+      "name": "node_t",
+      "startLine": 10,
+    },
+    {
+      "endLine": 15,
+      "kind": "enum",
+      "name": "status",
+      "startLine": 15,
+    },
+    {
+      "endLine": 20,
+      "kind": "class",
+      "modifiers": [
+        "union",
+      ],
+      "name": "packet",
+      "startLine": 17,
+    },
+    {
+      "endLine": 25,
+      "kind": "class",
+      "modifiers": [
+        "union",
+      ],
+      "name": "Bits",
+      "startLine": 23,
+    },
+    {
+      "endLine": 29,
+      "kind": "class",
+      "name": "(anonymous struct)",
+      "startLine": 27,
+    },
+    {
+      "endLine": 29,
+      "kind": "variable",
+      "name": "anonymous_slot",
+      "signature": "struct anonymous_slot",
+      "startLine": 27,
+    },
+    {
+      "endLine": 31,
+      "kind": "variable",
+      "name": "registered_handler",
+      "signature": "static handler_t registered_handler",
+      "startLine": 31,
+    },
+    {
+      "endLine": 33,
+      "isExported": true,
+      "kind": "function",
+      "name": "fatal",
+      "signature": "__attribute__((noreturn)) void fatal(const char *message)",
+      "startLine": 33,
+    },
+    {
+      "endLine": 35,
+      "isExported": true,
+      "kind": "function",
+      "name": "checksum",
+      "signature": "__attribute__((pure)) int checksum(const unsigned char *data, int len)",
+      "startLine": 35,
+    },
+    {
+      "endLine": 42,
+      "isExported": true,
+      "kind": "function",
+      "name": "legacy_sum",
+      "signature": "int legacy_sum(a, b) int a; int b",
+      "startLine": 37,
+    },
+    {
+      "endLine": 46,
+      "isExported": false,
+      "kind": "function",
+      "name": "clamp_value",
+      "signature": "static int clamp_value(int value)",
+      "startLine": 44,
+    },
+    {
+      "endLine": 55,
+      "isExported": true,
+      "kind": "function",
+      "name": "dispatch",
+      "signature": "int dispatch(handler_t handler, void *ctx, int flags)",
+      "startLine": 48,
+    },
+  ],
+  "totalBytes": 986,
+  "totalLines": 56,
+}
+`;
+
+exports[`C WASM mapper snapshots > maps simple C definitions 1`] = `
+{
+  "detailLevel": "full",
+  "imports": [],
+  "language": "C",
+  "path": "wasm-c-simple.c",
+  "symbols": [
+    {
+      "endLine": 1,
+      "kind": "constant",
+      "name": "MAX_ITEMS",
+      "startLine": 1,
+    },
+    {
+      "endLine": 2,
+      "kind": "constant",
+      "name": "SQUARE",
+      "startLine": 2,
+    },
+    {
+      "endLine": 4,
+      "isExported": true,
+      "kind": "function",
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "startLine": 4,
+    },
+    {
+      "endLine": 6,
+      "isExported": false,
+      "kind": "function",
+      "name": "helper",
+      "signature": "static int helper(int value)",
+      "startLine": 6,
+    },
+    {
+      "endLine": 8,
+      "isExported": true,
+      "kind": "function",
+      "name": "noop",
+      "signature": "void noop(void)",
+      "startLine": 8,
+    },
+  ],
+  "totalBytes": 162,
+  "totalLines": 9,
+}
+`;

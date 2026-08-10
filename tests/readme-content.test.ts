@@ -50,7 +50,7 @@ describe("README.md content (AC-1, AC-2)", () => {
     expect(readme).not.toContain("Clojure");
     expect(readme).not.toContain("packaged `tree-sitter-wasms` grammars");
     expect(readme).toContain(
-      "Rust, C++, and Java structural maps use `web-tree-sitter` 0.26 with packaged `@repomix/tree-sitter-wasms` grammars",
+      "Rust, C, C++, Java, and Swift structural maps use `web-tree-sitter` 0.26 with packaged `@repomix/tree-sitter-wasms` grammars",
     );
     expect(readme).toContain("C/C++ headers share the C++ mapper");
     expect(readme).toContain("no native tree-sitter packages are installed for those mappers");
