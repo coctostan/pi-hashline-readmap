@@ -1,252 +1,339 @@
 import { readFile, stat } from "node:fs/promises";
 
+/**
+ * C mapper using tree-sitter (web-tree-sitter WASM) for AST extraction.
+ */
+import type { Node as SyntaxNode, Tree } from "web-tree-sitter";
+
 import type { FileMap, FileSymbol } from "../types.js";
 
 import { DetailLevel, SymbolKind } from "../enums.js";
-export const MAPPER_VERSION = 1;
+import { getWasmParser } from "../parser-loader.js";
+import { reportParserError } from "../parser-errors.js";
+import {
+  disposeTreeAndParser,
+  getNodeText,
+  getLineRange,
+  finalizeSignature,
+} from "./tree-sitter-helpers.js";
 
-/**
- * Regex patterns for C language constructs.
- */
-const C_PATTERNS = {
-  // Function definition: type name(params) { or type name(params);
-  function: /^(\w+(?:\s*\*)?)\s+(\w+)\s*\(([^)]*)\)\s*(?:\{|;)?/,
+export const MAPPER_VERSION = 2;
 
-  // Struct definition: struct name { or typedef struct { ... } name;
-  struct: /^(?:typedef\s+)?struct\s+(\w+)?\s*\{/,
-
-  // Enum definition
-  enum: /^(?:typedef\s+)?enum\s+(\w+)?\s*\{/,
-
-  // Union definition
-  union: /^(?:typedef\s+)?union\s+(\w+)?\s*\{/,
-
-  // #define macro
-  define: /^#define\s+(\w+)(?:\([^)]*\))?\s*/,
-
-  // Global variable declaration
-  variable:
-    /^(?:static\s+)?(?:const\s+)?(?:volatile\s+)?(\w+(?:\s*\*)?)\s+(\w+)\s*(?:=|;)/,
-
-  // Typedef
-  typedef: /^typedef\s+(?:struct|enum|union)?\s*\w*\s*\{?[^}]*\}?\s*(\w+)\s*;/,
+const AGGREGATE_KIND: Record<string, SymbolKind> = {
+  struct_specifier: SymbolKind.Class,
+  union_specifier: SymbolKind.Class,
+  enum_specifier: SymbolKind.Enum,
 };
 
-interface CMatch {
-  name: string;
-  kind: SymbolKind;
-  startLine: number;
-  signature?: string;
-  modifiers?: string[];
-  isExported?: boolean;
+const PREPROCESSOR_BRANCH_NODES = new Set([
+  "preproc_if",
+  "preproc_ifdef",
+  "preproc_else",
+  "preproc_elif",
+]);
+
+function aggregateLabel(type: string): string {
+  if (type === "struct_specifier") return "struct";
+  if (type === "union_specifier") return "union";
+  return "enum";
 }
 
-/**
- * Find the end of a brace-delimited block.
- */
-function findBlockEnd(lines: string[], startIdx: number): number {
-  let braceCount = 0;
-  let foundOpen = false;
+function signatureOf(node: SyntaxNode, source: string): string {
+  const body = node.childForFieldName("body");
+  const text = body
+    ? source.slice(node.startIndex, body.startIndex)
+    : getNodeText(node, source);
+  return finalizeSignature(text);
+}
 
-  for (let i = startIdx; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line) {
+function declarationSignature(
+  node: SyntaxNode,
+  declarator: SyntaxNode,
+  aggregate: SyntaxNode | undefined,
+  source: string,
+): string {
+  const aggregateBody = aggregate?.childForFieldName("body");
+  const type = node.childForFieldName("type");
+  let typePrefix: string;
+  if (aggregate && aggregateBody) {
+    const beforeBody = source.slice(node.startIndex, aggregateBody.startIndex).trim();
+    const afterBody = source.slice(aggregateBody.endIndex, aggregate.endIndex).trim();
+    typePrefix = [beforeBody, afterBody].filter(Boolean).join(" ");
+  } else {
+    const prefixEnd = type?.endIndex ?? declarator.startIndex;
+    typePrefix = source.slice(node.startIndex, prefixEnd).trim();
+  }
+  return finalizeSignature(`${typePrefix} ${getNodeText(declarator, source)}`);
+}
+
+function makeAggregate(node: SyntaxNode, nameOverride?: string): FileSymbol {
+  const named = node.namedChildren.find((child) => child.type === "type_identifier");
+  const name = nameOverride ?? named?.text ?? `(anonymous ${aggregateLabel(node.type)})`;
+  const { startLine, endLine } = getLineRange(node);
+  const symbol: FileSymbol = {
+    name,
+    kind: AGGREGATE_KIND[node.type] ?? SymbolKind.Class,
+    startLine,
+    endLine,
+  };
+  if (node.type === "union_specifier") symbol.modifiers = ["union"];
+  return symbol;
+}
+
+function declaratorName(node: SyntaxNode): string | null {
+  let current: SyntaxNode | null = node;
+  while (current) {
+    if (
+      current.type === "identifier" ||
+      current.type === "type_identifier" ||
+      current.type === "field_identifier"
+    ) {
+      return current.text;
+    }
+    const next: SyntaxNode | null =
+      current.childForFieldName("declarator") ??
+      current.namedChildren.find(
+        (c) =>
+          c.type.endsWith("declarator") ||
+          c.type === "identifier" ||
+          c.type === "type_identifier"
+      ) ??
+      null;
+    if (!next || next === current) return null;
+    current = next;
+  }
+  return null;
+}
+
+function hasStatic(node: SyntaxNode): boolean {
+  return node.namedChildren.some(
+    (c) => c.type === "storage_class_specifier" && c.text === "static"
+  );
+}
+
+interface DeclaratorInfo {
+  name: string;
+  denotesFunction: boolean;
+}
+
+function declaratorInfo(node: SyntaxNode): DeclaratorInfo | null {
+  let current: SyntaxNode | null = node;
+  let innermostOperator: "function" | "pointer" | null = null;
+  while (current) {
+    if (current.type === "function_declarator") innermostOperator = "function";
+    if (current.type === "pointer_declarator") innermostOperator = "pointer";
+    if (current.type === "identifier" || current.type === "field_identifier") {
+      return {
+        name: current.text,
+        denotesFunction: innermostOperator === "function",
+      };
+    }
+    const next: SyntaxNode | null =
+      current.childForFieldName("declarator") ??
+      current.namedChildren.find(
+        (child) =>
+          child.type.endsWith("declarator") ||
+          child.type === "identifier" ||
+          child.type === "field_identifier",
+      ) ??
+      null;
+    if (!next || next === current) return null;
+    current = next;
+  }
+  return null;
+}
+
+function topLevelDeclarators(node: SyntaxNode): SyntaxNode[] {
+  return node.namedChildren.filter(
+    (child) => child.type.endsWith("declarator") || child.type === "identifier",
+  );
+}
+
+function fieldDeclarators(node: SyntaxNode): SyntaxNode[] {
+  return node.namedChildren.filter(
+    (_child, index) => node.fieldNameForNamedChild(index) === "declarator",
+  );
+}
+
+function preprocessorSymbol(node: SyntaxNode): FileSymbol | null {
+  if (node.type !== "preproc_def" && node.type !== "preproc_function_def") {
+    return null;
+  }
+  const name = node.namedChildren.find((child) => child.type === "identifier")?.text;
+  if (!name) return null;
+  const { startLine } = getLineRange(node);
+  return {
+    name,
+    kind: SymbolKind.Constant,
+    startLine,
+    endLine: startLine,
+  };
+}
+
+function nestedPreprocessorSymbols(node: SyntaxNode): FileSymbol[] {
+  const symbols: FileSymbol[] = [];
+  for (const child of node.namedChildren) {
+    const macro = preprocessorSymbol(child);
+    if (macro) {
+      symbols.push(macro);
+    } else {
+      symbols.push(...nestedPreprocessorSymbols(child));
+    }
+  }
+  return symbols;
+}
+
+export function extractCSymbols(root: SyntaxNode, source: string): FileSymbol[] {
+  const symbols: FileSymbol[] = [];
+  for (const node of root.namedChildren) {
+    const { startLine } = getLineRange(node);
+    const macro = preprocessorSymbol(node);
+    if (macro) {
+      symbols.push(macro);
       continue;
     }
-    for (const char of line) {
-      if (char === "{") {
-        braceCount++;
-        foundOpen = true;
-      } else if (char === "}") {
-        braceCount--;
-        if (foundOpen && braceCount === 0) {
-          return i + 1; // 1-indexed
+    if (PREPROCESSOR_BRANCH_NODES.has(node.type)) {
+      symbols.push(...extractCSymbols(node, source));
+      continue;
+    }
+    if (node.type in AGGREGATE_KIND) {
+      symbols.push(makeAggregate(node));
+      continue;
+    }
+    if (node.type === "type_definition") {
+      const { endLine } = getLineRange(node);
+      const aggregate = node.namedChildren.find((child) => child.type in AGGREGATE_KIND);
+      const declarators = fieldDeclarators(node);
+      if (aggregate) {
+        const tag = aggregate.namedChildren.find(
+          (child) => child.type === "type_identifier",
+        )?.text;
+        const definesAggregate = aggregate.childForFieldName("body") !== null;
+        const emittedTag = Boolean(tag && definesAggregate);
+        if (emittedTag) symbols.push(makeAggregate(aggregate));
+        for (const declarator of declarators) {
+          const alias = declaratorName(declarator);
+          if (!alias) continue;
+          const isDirectAggregateAlias = declarator.type === "type_identifier";
+          if (isDirectAggregateAlias && emittedTag && alias === tag) continue;
+          if (isDirectAggregateAlias) {
+            const aliasSymbol = makeAggregate(aggregate, alias);
+            aliasSymbol.startLine = startLine;
+            aliasSymbol.endLine = endLine;
+            symbols.push(aliasSymbol);
+          } else {
+            symbols.push({
+              name: alias,
+              kind: SymbolKind.Type,
+              startLine,
+              endLine,
+              signature: declarationSignature(node, declarator, aggregate, source),
+            });
+          }
+        }
+      } else {
+        for (const declarator of declarators) {
+          const alias = declaratorName(declarator);
+          if (!alias) continue;
+          symbols.push({
+            name: alias,
+            kind: SymbolKind.Type,
+            startLine,
+            endLine,
+            signature: declarationSignature(node, declarator, undefined, source),
+          });
         }
       }
-    }
-  }
-
-  return startIdx + 1; // Single line if no block found
-}
-
-/**
- * Check if a line is inside a function body.
- */
-function isInsideFunction(lines: string[], lineIdx: number): boolean {
-  let braceCount = 0;
-  for (let i = 0; i < lineIdx; i++) {
-    const line = lines[i];
-    if (!line) {
       continue;
     }
-    for (const char of line) {
-      if (char === "{") {
-        braceCount++;
-      } else if (char === "}") {
-        braceCount--;
+    if (node.type === "function_definition") {
+      const { endLine } = getLineRange(node);
+      const declarator =
+        node.childForFieldName("declarator") ??
+        node.namedChildren.find((child) => child.type.endsWith("declarator"));
+      const info = declarator ? declaratorInfo(declarator) : null;
+      if (info?.denotesFunction) {
+        symbols.push({
+          name: info.name,
+          kind: SymbolKind.Function,
+          startLine,
+          endLine,
+          signature: signatureOf(node, source),
+          isExported: !hasStatic(node),
+        });
+      }
+      symbols.push(...nestedPreprocessorSymbols(node));
+      continue;
+    }
+    if (node.type === "declaration") {
+      const { endLine } = getLineRange(node);
+      const declarators = topLevelDeclarators(node);
+      const aggregate = node.namedChildren.find((child) => child.type in AGGREGATE_KIND);
+      const definesAggregate = aggregate?.childForFieldName("body") !== null;
+      if (aggregate && (definesAggregate || declarators.length === 0)) {
+        symbols.push(makeAggregate(aggregate));
+      }
+
+      for (const declarator of declarators) {
+        const info = declaratorInfo(declarator);
+        if (!info) continue;
+        symbols.push({
+          name: info.name,
+          kind: info.denotesFunction ? SymbolKind.Function : SymbolKind.Variable,
+          startLine,
+          endLine,
+          signature: declarationSignature(node, declarator, aggregate, source),
+          ...(info.denotesFunction ? { isExported: !hasStatic(node) } : {}),
+        });
       }
     }
   }
-  return braceCount > 0;
+  return symbols;
 }
 
 /**
- * Generate a file map for a C file using regex patterns.
+ * Generate a file map for a C file using tree-sitter.
  */
 export async function cMapper(
   filePath: string,
-  _signal?: AbortSignal
+  signal?: AbortSignal
 ): Promise<FileMap | null> {
+  const parser = await getWasmParser("c");
+  if (!parser) return null;
+  let tree: Tree | null = null;
   try {
     const stats = await stat(filePath);
-    const totalBytes = stats.size;
-
     const content = await readFile(filePath, "utf8");
-    const lines = content.split("\n");
-    const totalLines = lines.length;
+    if (signal?.aborted) return null;
 
-    const matches: CMatch[] = [];
+    tree = parser.parse(content);
+    if (!tree) return null;
+    // Error recovery can reinterpret malformed tokens as plausible declarations.
+    // Fall through rather than returning a corrupted map marked as Full.
+    if (tree.rootNode.hasError) return null;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line) {
-        continue;
-      }
-      const trimmed = line.trim();
-      const lineNum = i + 1;
-
-      // Skip empty lines and comments
-      if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("/*")) {
-        continue;
-      }
-
-      // Skip lines inside function bodies (only want top-level)
-      if (isInsideFunction(lines, i) && !C_PATTERNS.define.test(trimmed)) {
-        continue;
-      }
-
-      // Check for #define
-      const defineMatch = C_PATTERNS.define.exec(trimmed);
-      if (defineMatch) {
-        const [, matchName] = defineMatch;
-        if (matchName) {
-          matches.push({
-            name: matchName,
-            kind: SymbolKind.Constant,
-            startLine: lineNum,
-          });
-        }
-        continue;
-      }
-
-      // Check for struct
-      const structMatch = C_PATTERNS.struct.exec(trimmed);
-      if (structMatch) {
-        matches.push({
-          name: structMatch[1] ?? "(anonymous)",
-          kind: SymbolKind.Class,
-          startLine: lineNum,
-        });
-        continue;
-      }
-
-      // Check for enum
-      const enumMatch = C_PATTERNS.enum.exec(trimmed);
-      if (enumMatch) {
-        matches.push({
-          name: enumMatch[1] ?? "(anonymous)",
-          kind: SymbolKind.Enum,
-          startLine: lineNum,
-        });
-        continue;
-      }
-
-      // Check for union
-      const unionMatch = C_PATTERNS.union.exec(trimmed);
-      if (unionMatch) {
-        matches.push({
-          name: unionMatch[1] ?? "(anonymous)",
-          kind: SymbolKind.Class,
-          startLine: lineNum,
-          modifiers: ["union"],
-        });
-        continue;
-      }
-
-      // Check for function
-      const funcMatch = C_PATTERNS.function.exec(trimmed);
-      if (funcMatch) {
-        const [, returnType, name, params] = funcMatch;
-
-        // Skip if it's a variable declaration or control statement
-        if (
-          !trimmed.includes("(") ||
-          !name ||
-          /^(if|while|for|switch|return)$/.test(name)
-        ) {
-          continue;
-        }
-
-        matches.push({
-          name,
-          kind: SymbolKind.Function,
-          startLine: lineNum,
-          signature: `(${params ?? ""}): ${returnType ?? "void"}`,
-          isExported: !trimmed.startsWith("static"),
-        });
-        continue;
-      }
-    }
-
-    // Convert to symbols with end lines
-    const symbols: FileSymbol[] = matches.map((m) => {
-      const { startLine } = m;
-      const endLine =
-        m.kind === SymbolKind.Constant
-          ? startLine
-          : findBlockEnd(lines, startLine - 1);
-
-      const symbol: FileSymbol = {
-        name: m.name,
-        kind: m.kind,
-        startLine,
-        endLine,
-      };
-
-      if (m.signature) {
-        symbol.signature = m.signature;
-      }
-
-      if (m.modifiers) {
-        symbol.modifiers = m.modifiers;
-      }
-
-      if (m.isExported !== undefined) {
-        symbol.isExported = m.isExported;
-      }
-
-      return symbol;
-    });
+    const symbols = extractCSymbols(tree.rootNode, content);
 
     // Contract: no extracted symbols means "miss" so ctags/regex fallback can run.
-    // MAPPER_VERSION stays 1 — non-empty C output is unchanged, and stale empty
-    // cache entries are rejected semantically in src/map-cache.ts (isUsefulMap,
-    // Tasks 2-3) rather than by cache-key invalidation.
-    if (symbols.length === 0) {
-      return null;
-    }
+    if (symbols.length === 0) return null;
 
     return {
       path: filePath,
-      totalLines,
-      totalBytes,
+      totalLines: content.split("\n").length,
+      totalBytes: stats.size,
       language: "C",
       symbols,
       imports: [],
       detailLevel: DetailLevel.Full,
     };
-  } catch (error) {
-    console.error(`C mapper failed: ${error}`);
+  } catch (err) {
+    reportParserError(
+      `wasm:parse:c:${err instanceof Error ? err.message : String(err)}`,
+      err,
+      { context: "C tree-sitter parse failed" }
+    );
     return null;
+  } finally {
+    disposeTreeAndParser(tree, parser, "C");
   }
 }

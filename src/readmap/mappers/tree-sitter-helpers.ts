@@ -1,4 +1,5 @@
 import type { Node as SyntaxNode } from "web-tree-sitter";
+import { reportParserError } from "../parser-errors.js";
 
 /**
  * Shared low-level helpers for tree-sitter-based structural mappers
@@ -50,4 +51,34 @@ export function findFirstDescendant(
  */
 export function finalizeSignature(text: string): string {
   return normalizeWhitespace(text.replace(/;\s*$/, ""));
+}
+
+interface Deletable {
+  delete(): void;
+}
+
+/** Release both WASM objects without allowing one teardown failure to skip the other. */
+export function disposeTreeAndParser(
+  tree: Deletable | null,
+  parser: Deletable,
+  language: string,
+): void {
+  try {
+    tree?.delete();
+  } catch (err) {
+    reportParserError(
+      `wasm:delete:${language}:tree:${err instanceof Error ? err.message : String(err)}`,
+      err,
+      { context: `${language} tree-sitter tree cleanup failed` },
+    );
+  }
+  try {
+    parser.delete();
+  } catch (err) {
+    reportParserError(
+      `wasm:delete:${language}:parser:${err instanceof Error ? err.message : String(err)}`,
+      err,
+      { context: `${language} tree-sitter parser cleanup failed` },
+    );
+  }
 }

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { Language, Parser } from "web-tree-sitter";
 import { reportParserError } from "./parser-errors.js";
 
-export type WasmLanguageId = "rust" | "cpp" | "c-header" | "java";
+export type WasmLanguageId = "rust" | "cpp" | "c-header" | "java" | "c" | "swift";
 export type WasmParser = Parser;
 
 const require_ = createRequire(import.meta.url);
@@ -12,6 +12,8 @@ const wasmNames: Record<WasmLanguageId, string> = {
   cpp: "cpp",
   "c-header": "cpp",
   java: "java",
+  c: "c",
+  swift: "swift",
 };
 let initPromise: Promise<void> | null = null;
 const languages = new Map<WasmLanguageId, Language>();
@@ -66,14 +68,26 @@ export async function getWasmParser(langId: WasmLanguageId): Promise<WasmParser 
   if (isBun()) return null;
   const lang = await language(langId);
   if (!lang) return null;
+  let parser: Parser | null = null;
   try {
-    const parser = new Parser();
+    parser = new Parser();
     parser.setLanguage(lang);
     return parser;
   } catch (err) {
-    reportParserError(`wasm:parser:${langId}`, err, { context: `tree-sitter WASM parser creation failed for ${langId}` });
+    try {
+      parser?.delete();
+    } catch (deleteErr) {
+      reportParserError(
+        `wasm:delete:parser-loader:${langId}:${deleteErr instanceof Error ? deleteErr.message : String(deleteErr)}`,
+        deleteErr,
+        { context: `tree-sitter WASM parser cleanup failed for ${langId}` },
+      );
+    }
+    reportParserError(`wasm:parser:${langId}`, err, {
+      context: `tree-sitter WASM parser creation failed for ${langId}`,
+    });
     return null;
-  }
+}
 }
 
 export function __resetWasmParserLoaderForTests(): void {

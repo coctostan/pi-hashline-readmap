@@ -2,8 +2,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   class MockParser {
+    static instances: MockParser[] = [];
+    static setLanguageError: Error | null = null;
+    constructor() {
+      MockParser.instances.push(this);
+    }
     static init = vi.fn(async () => {});
-    setLanguage = vi.fn();
+    setLanguage = vi.fn(() => {
+      if (MockParser.setLanguageError) throw MockParser.setLanguageError;
+    });
     delete = vi.fn();
   }
   class MockLanguage {
@@ -21,6 +28,8 @@ describe("WASM parser loader", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    mocks.MockParser.instances.length = 0;
+    mocks.MockParser.setLanguageError = null;
     delete (globalThis as { Bun?: unknown }).Bun;
   });
 
@@ -46,6 +55,17 @@ describe("WASM parser loader", () => {
     );
     a?.delete();
     b?.delete();
+  });
+
+
+  it("deletes a newly allocated parser when setLanguage throws", async () => {
+    const { getWasmParser, __resetWasmParserLoaderForTests } = await import("../src/readmap/parser-loader.js");
+    __resetWasmParserLoaderForTests();
+    mocks.MockParser.setLanguageError = new Error("incompatible grammar");
+
+    await expect(getWasmParser("rust")).resolves.toBeNull();
+    expect(mocks.MockParser.instances).toHaveLength(1);
+    expect(mocks.MockParser.instances[0]!.delete).toHaveBeenCalledTimes(1);
   });
 
   it("maps c-header to the Repomix cpp grammar", async () => {

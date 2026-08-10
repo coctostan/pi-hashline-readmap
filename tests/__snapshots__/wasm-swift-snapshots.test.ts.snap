@@ -1,0 +1,165 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Swift WASM mapper snapshots > maps representative Swift definitions 1`] = `
+{
+  "detailLevel": "full",
+  "imports": [],
+  "language": "Swift",
+  "path": "wasm-swift-representative.swift",
+  "symbols": [
+    {
+      "endLine": 4,
+      "kind": "function",
+      "name": "assertPositive",
+      "signature": "@freestanding(expression) macro assertPositive(_ value: Int) = #externalMacro(module: "Macros", type: "AssertPositive")",
+      "startLine": 3,
+    },
+    {
+      "children": [
+        {
+          "endLine": 13,
+          "kind": "method",
+          "name": "deinit",
+          "signature": "deinit",
+          "startLine": 11,
+        },
+        {
+          "endLine": 17,
+          "kind": "method",
+          "name": "load",
+          "signature": "public func load(id: String) async throws -> Int",
+          "startLine": 15,
+        },
+        {
+          "endLine": 21,
+          "kind": "method",
+          "name": "==",
+          "signature": "static func == (lhs: SessionStore, rhs: SessionStore) -> Bool",
+          "startLine": 19,
+        },
+        {
+          "endLine": 25,
+          "kind": "method",
+          "name": "+",
+          "signature": "static func + (lhs: SessionStore, rhs: SessionStore) -> SessionStore",
+          "startLine": 23,
+        },
+      ],
+      "endLine": 26,
+      "kind": "class",
+      "name": "SessionStore",
+      "signature": "@MainActor public actor SessionStore",
+      "startLine": 6,
+    },
+    {
+      "children": [
+        {
+          "endLine": 33,
+          "kind": "method",
+          "name": "value",
+          "signature": "public func value(for key: Key) -> Value?",
+          "startLine": 31,
+        },
+      ],
+      "endLine": 34,
+      "kind": "class",
+      "name": "Cache",
+      "signature": "public struct Cache<Key: Hashable, Value>: Sendable where Value: Sendable",
+      "startLine": 28,
+    },
+    {
+      "children": [
+        {
+          "endLine": 38,
+          "kind": "method",
+          "name": "render",
+          "signature": "func render() -> Output",
+          "startLine": 38,
+        },
+      ],
+      "endLine": 39,
+      "kind": "interface",
+      "name": "Renderable",
+      "signature": "protocol Renderable",
+      "startLine": 36,
+    },
+    {
+      "children": [
+        {
+          "endLine": 44,
+          "kind": "method",
+          "name": "describeAll",
+          "signature": "func describeAll() -> [String]",
+          "startLine": 42,
+        },
+      ],
+      "endLine": 45,
+      "kind": "class",
+      "name": "Cache",
+      "signature": "extension Cache where Value: CustomStringConvertible",
+      "startLine": 41,
+    },
+    {
+      "children": [
+        {
+          "endLine": 49,
+          "kind": "method",
+          "name": "buildBlock",
+          "signature": "static func buildBlock(_ parts: String...) -> [String]",
+          "startLine": 49,
+        },
+      ],
+      "endLine": 50,
+      "kind": "class",
+      "name": "ListBuilder",
+      "signature": "@resultBuilder struct ListBuilder",
+      "startLine": 47,
+    },
+    {
+      "endLine": 54,
+      "kind": "function",
+      "name": "makeRenderable",
+      "signature": "func makeRenderable() -> some Sendable",
+      "startLine": 52,
+    },
+  ],
+  "totalBytes": 1221,
+  "totalLines": 55,
+}
+`;
+
+exports[`Swift WASM mapper snapshots > maps simple Swift definitions 1`] = `
+{
+  "detailLevel": "full",
+  "imports": [],
+  "language": "Swift",
+  "path": "wasm-swift-simple.swift",
+  "symbols": [
+    {
+      "endLine": 5,
+      "kind": "function",
+      "name": "globalHelper",
+      "signature": "func globalHelper() -> Int",
+      "startLine": 3,
+    },
+    {
+      "children": [
+        {
+          "endLine": 8,
+          "kind": "method",
+          "name": "method",
+          "signature": "func method()",
+          "startLine": 8,
+        },
+      ],
+      "endLine": 9,
+      "kind": "class",
+      "name": "Simple",
+      "signature": "class Simple",
+      "startLine": 7,
+    },
+  ],
+  "totalBytes": 104,
+  "totalLines": 10,
+}
+`;

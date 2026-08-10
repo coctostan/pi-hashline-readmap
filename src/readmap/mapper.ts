@@ -53,24 +53,22 @@ const MAPPERS_V: Record<string, MapperEntry> = {
   javascript: { fn: typescriptMapper, version: TYPESCRIPT_VERSION },
   // Phase 3: Internal regex-based markdown
   markdown: { fn: markdownMapper, version: MARKDOWN_VERSION },
-  // Phase 3: Internal tree-sitter mappers
+  // Internal tree-sitter mappers
   rust: { fn: rustMapper, version: RUST_VERSION },
   cpp: { fn: cppMapper, version: CPP_VERSION },
   "c-header": { fn: cppMapper, version: CPP_VERSION }, // .h files
-  // Phase 8: Java tree-sitter mapper
   java: { fn: javaMapper, version: JAVA_VERSION },
-  // Phase 2: Regex/subprocess mappers
+  c: { fn: cMapper, version: C_VERSION },
+  swift: { fn: swiftMapper, version: SWIFT_VERSION },
+  // Regex/subprocess mappers
   sql: { fn: sqlMapper, version: SQL_VERSION },
   json: { fn: jsonMapper, version: JSON_VERSION },
   jsonl: { fn: jsonlMapper, version: JSONL_VERSION },
-  c: { fn: cMapper, version: C_VERSION }, // .c files use regex
-  // Phase 4: Extended coverage
+  // Extended coverage
   yaml: { fn: yamlMapper, version: YAML_VERSION },
   toml: { fn: tomlMapper, version: TOML_VERSION },
   csv: { fn: csvMapper, version: CSV_VERSION },
-  // Phase 6: Swift regex mapper
-  swift: { fn: swiftMapper, version: SWIFT_VERSION },
-  // Phase 7: Shell/Bash regex mapper
+  // Shell/Bash regex mapper
   shell: { fn: shellMapper, version: SHELL_VERSION },
 };
 
