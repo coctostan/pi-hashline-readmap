@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-10
+
+### Changed
+- The C and Swift structural mappers now use tree-sitter AST parsing via the packaged `web-tree-sitter` WASM runtime instead of regex/brace-depth scanning, joining Rust, C++, and Java on the same parsing, memory-hygiene, and error-reporting contracts. C gains correct handling of multiline function-pointer typedefs, K&R definitions, `__attribute__` declarations, unions (marked with a `union` modifier), and anonymous aggregates; Swift gains correct `class`/`struct`/`actor`/`enum`/`extension` disambiguation, operator-overload names, and nested `deinit`/method symbols. Both mapper cache versions are bumped so stale structural maps regenerate (#194).
+
 ## [0.11.3] - 2026-08-07
 
 ### Fixed
