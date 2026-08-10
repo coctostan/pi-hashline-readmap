@@ -26,17 +26,49 @@ export type ContextHygieneNoticeEntry =
 // Staleness is the more urgent signal and must lead. Sorting on the raw key
 // alone would put "retired:…" before "stale:…" lexicographically.
 const NOTICE_KIND_ORDER: Record<ContextHygieneNoticeEntry["kind"], number> = { stale: 0, retired: 1 };
+const CONTEXT_HYGIENE_NOTICE_MAX_VISIBLE_GROUPS = 8;
 
 function recordIdentity(originalResultId: string | undefined, originalEventId: number | undefined): string {
   return originalResultId ?? `event-${originalEventId ?? 0}`;
 }
 
+function lifecycleNoticeKey(input: {
+  kind: ContextHygieneNoticeEntry["kind"];
+  originalResultId?: string;
+  originalEventId?: number;
+  reason: string;
+  resourceKeys: readonly string[];
+  command?: string;
+}): string {
+  return JSON.stringify([
+    input.kind,
+    recordIdentity(input.originalResultId, input.originalEventId),
+    input.reason,
+    [...input.resourceKeys].sort(),
+    input.command ?? "",
+  ]);
+}
+
 export function staleNoticeKey(record: ContextHygieneStaleRecord): string {
-  return `stale:${recordIdentity(record.originalResultId, record.originalEventId)}:${record.reason}`;
+  return lifecycleNoticeKey({
+    kind: "stale",
+    originalResultId: record.originalResultId,
+    originalEventId: record.originalEventId,
+    reason: record.reason,
+    resourceKeys: record.staleResourceKeys,
+    command: record.command,
+  });
 }
 
 export function retiredNoticeKey(record: ContextHygieneRetiredRecord): string {
-  return `retired:${recordIdentity(record.originalResultId, record.originalEventId)}:${record.reason}`;
+  return lifecycleNoticeKey({
+    kind: "retired",
+    originalResultId: record.originalResultId,
+    originalEventId: record.originalEventId,
+    reason: record.reason,
+    resourceKeys: record.retiredResourceKeys,
+    command: record.command,
+  });
 }
 
 let announced = new Set<string>();
@@ -88,11 +120,61 @@ function noticeResourceLabel(keys: readonly string[]): string {
   return keys.length === 0 ? "" : ` (${keys.join(", ")})`;
 }
 
-function renderNoticeLine(entry: ContextHygieneNoticeEntry): string {
-  if (entry.kind === "stale") {
-    return `- ${entry.record.originalTool}${noticeResourceLabel(entry.record.staleResourceKeys)}: ${renderStaleContextPlaceholder(entry.record)}`;
+interface ContextHygieneNoticeGroup {
+  kind: ContextHygieneNoticeEntry["kind"];
+  key: string;
+  entries: ContextHygieneNoticeEntry[];
+}
+
+function noticeResourceKeys(entry: ContextHygieneNoticeEntry): readonly string[] {
+  return entry.kind === "stale"
+    ? entry.record.staleResourceKeys
+    : entry.record.retiredResourceKeys;
+}
+
+function noticeDisplayGroupKey(entry: ContextHygieneNoticeEntry): string {
+  return JSON.stringify([
+    entry.kind,
+    entry.record.originalTool,
+    entry.record.reason,
+    entry.record.command ?? "",
+    [...noticeResourceKeys(entry)].sort(),
+  ]);
+}
+
+function groupContextHygieneNoticeEntries(
+  entries: readonly ContextHygieneNoticeEntry[],
+): ContextHygieneNoticeGroup[] {
+  const groupsByKey = new Map<string, ContextHygieneNoticeGroup>();
+
+  for (const entry of entries) {
+    const key = noticeDisplayGroupKey(entry);
+    const existing = groupsByKey.get(key);
+    if (existing) {
+      existing.entries.push(entry);
+    } else {
+      groupsByKey.set(key, { kind: entry.kind, key, entries: [entry] });
+    }
   }
-  return `- ${entry.record.originalTool}${noticeResourceLabel(entry.record.retiredResourceKeys)}: ${renderRetiredContextPlaceholder(entry.record)}`;
+
+  return [...groupsByKey.values()].sort((left, right) => {
+    if (NOTICE_KIND_ORDER[left.kind] !== NOTICE_KIND_ORDER[right.kind]) {
+      return NOTICE_KIND_ORDER[left.kind] - NOTICE_KIND_ORDER[right.kind];
+    }
+    return left.key < right.key ? -1 : left.key > right.key ? 1 : 0;
+  });
+}
+
+function renderNoticeLine(group: ContextHygieneNoticeGroup): string {
+  const entry = group.entries[0]!;
+  const groupedSuffix = group.entries.length > 1
+    ? ` (${group.entries.length} results grouped)`
+    : "";
+
+  if (entry.kind === "stale") {
+    return `- ${entry.record.originalTool}${noticeResourceLabel(entry.record.staleResourceKeys)}: ${renderStaleContextPlaceholder(entry.record)}${groupedSuffix}`;
+  }
+  return `- ${entry.record.originalTool}${noticeResourceLabel(entry.record.retiredResourceKeys)}: ${renderRetiredContextPlaceholder(entry.record)}${groupedSuffix}`;
 }
 
 export function renderContextHygieneNotice(entries: readonly ContextHygieneNoticeEntry[]): string {
@@ -102,7 +184,24 @@ export function renderContextHygieneNotice(entries: readonly ContextHygieneNotic
     count === 1
       ? "[Context hygiene] 1 earlier tool result no longer reflects current state. Do not treat it as current:"
       : `[Context hygiene] ${count} earlier tool results no longer reflect current state. Do not treat them as current:`;
-  return [header, ...entries.map(renderNoticeLine)].join("\n");
+  const groups = groupContextHygieneNoticeEntries(entries);
+  const shownGroups = groups.slice(0, CONTEXT_HYGIENE_NOTICE_MAX_VISIBLE_GROUPS);
+  const omittedGroups = groups.slice(CONTEXT_HYGIENE_NOTICE_MAX_VISIBLE_GROUPS);
+  const lines = [header, ...shownGroups.map(renderNoticeLine)];
+
+  if (omittedGroups.length > 0) {
+    const omittedResults = omittedGroups.reduce(
+      (total, group) => total + group.entries.length,
+      0,
+    );
+    const groupWord = omittedGroups.length === 1 ? "group" : "groups";
+    const resultWord = omittedResults === 1 ? "result" : "results";
+    lines.push(
+      `- Showing ${shownGroups.length} of ${groups.length} notice groups; ${omittedGroups.length} ${groupWord} omitted (${omittedResults} ${resultWord}).`,
+    );
+  }
+
+  return lines.join("\n");
 }
 
 /**

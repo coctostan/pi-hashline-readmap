@@ -144,6 +144,7 @@ function isProtectedNotice(line: string): boolean {
     trimmed.startsWith("⚠ REPEATED-CALL WARNING:") ||
     trimmed.startsWith("⚠ ALTERNATING-CALL WARNING:") ||
     trimmed.startsWith("[Context hygiene]") ||
+    /^- Showing \d+ of \d+ notice groups; \d+ (?:group|groups) omitted \(\d+ (?:result|results)\)\.$/.test(trimmed) ||
     (trimmed.startsWith("- ") &&
       (trimmed.includes(": [Stale ") || trimmed.includes(": [Retired ")))
   );

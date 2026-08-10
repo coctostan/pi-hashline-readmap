@@ -48,8 +48,10 @@ Instead, staleness is signalled **forward-only**, in two complementary ways:
 1. **A notice on the tool result that caused the staleness.** When an `edit`,
    `write`, or repo-mutating Bash command makes earlier context stale, a
    `[Context hygiene]` notice is prefixed onto that command's own result. That
-   message is brand new, so it costs nothing in prefix terms. Each record is
-   announced exactly once per session.
+   message is brand new, so it costs nothing in prefix terms. Every underlying
+   stale/retired lifecycle record is announced exactly once per session, while
+   equivalent visible details are grouped by notice kind, tool, reason,
+   command/recovery action, and resource keys.
 2. **Hard guards at the point of use.** `edit` refuses with `file-not-read`
    when the tracked read for a path has been superseded, and every `LINE:HASH`
    anchor is validated against current on-disk content (`hash-mismatch`). These
@@ -83,12 +85,34 @@ result is reported as retired:
 [Retired bash context: same-command-success-rerun. Superseded by a later successful Bash command. Command: npm test]
 ```
 
-A full notice looks like:
+### Grouping and visible-detail budget
+
+A full grouped notice looks like:
 
 ```text
-[Context hygiene] 1 earlier tool result no longer reflects current state. Do not treat it as current:
-- read (file:src/a.ts): [Stale read result — this earlier read was superseded by a later file change; ...]
+[Context hygiene] 21 earlier tool results no longer reflect current state. Do not treat them as current:
+- read (file:src/a.ts): [Stale read result — this earlier read was superseded by a later file change; ...] (21 results grouped)
 ```
+
+The header count is the number of underlying stale/retired results, not the
+number of visible groups. Equivalent results share one detail line and report
+how many results were grouped. Distinct tools, resources, stale/retired kinds,
+reasons, and Bash commands/recovery actions remain separate groups.
+
+At most **8** semantic groups are shown. Groups are ordered deterministically
+(stale before retired, then by semantic group key). If more groups exist, the
+notice explicitly reports shown groups, total groups, omitted groups, and the
+number of underlying omitted results:
+
+```text
+- Showing 8 of 12 notice groups; 4 groups omitted (6 results).
+```
+
+The cap affects display only. All underlying lifecycle entries are marked
+announced in the monotonic session ledger, so omitted groups do not leak into
+later tool results. Per-result report records, original result IDs,
+mutation/supersession IDs, and rehydrate descriptors remain available to
+integrations.
 
 ### Retirement does not reclaim tokens
 
@@ -131,6 +155,7 @@ When enabled, the extension registers `context_hygiene_report`, a read-only debu
 ## Integration guidance
 
 - Treat `details.contextHygiene` as metadata for state tracking, not as display text.
+- Treat grouped/capped notice text as a display summary. Use structured report and `details.contextHygieneStale` / `details.contextHygieneRetired` metadata for per-result state.
 - Use rehydrate descriptors when refreshing stale file/search context.
 - Do not assume stale notices contain enough information to reconstruct the original result. The original result is still present in history — the notice only marks it as no longer current.
 - Restart the pi session if you change extension code; the in-memory tracker is reset when the extension is loaded.

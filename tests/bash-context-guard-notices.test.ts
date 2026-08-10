@@ -64,4 +64,30 @@ describe("guarded Bash preview protected notices", () => {
     expect(result.text).toContain(doomLoopNotice);
     expect(result.metadata.preservedNoticeCount).toBe(2);
   });
+
+  it("preserves context-hygiene omitted-group summaries when trimming", () => {
+    const header =
+      "[Context hygiene] 16 earlier tool results no longer reflect current state. Do not treat them as current:";
+    const detail =
+      "- read (file:src/a.ts): [Stale read result — re-run read.] (3 results grouped)";
+    const omission = "- Showing 8 of 12 notice groups; 4 groups omitted (6 results).";
+    const text = [header, detail, omission, "body-1", "body-2", "body-3"].join("\n");
+
+    const result = applyBashContextGuard({
+      text,
+      command: "npm test",
+      config: { enabled: true, maxLines: 3, maxBytes: 4096, headLines: 1, tailLines: 1 },
+      fs: {
+        randomId: () => "hygiene-cap-id",
+        tempDir: () => "/tmp",
+        writeFile() {},
+      },
+    });
+
+    const preserved = result.text.split("Preserved notices:")[1]?.split("\nHead:")[0] ?? "";
+    expect(result.metadata.preservedNoticeCount).toBe(3);
+    expect(preserved).toContain(header);
+    expect(preserved).toContain(detail);
+    expect(preserved).toContain(omission);
+  });
 });
