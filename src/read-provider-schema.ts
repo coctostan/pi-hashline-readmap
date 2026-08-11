@@ -15,15 +15,15 @@ function hasReadProperties(properties: UnknownRecord): boolean {
   );
 }
 
-// sub2api GPT fills every optional field in the flat Read schema; expose the real modes on the wire.
+// GPT gateways such as sub2api may fill every optional field; expose the real Read modes on the wire.
 
 export function rewriteReadSchemaForProvider(
   payload: unknown,
   model: ProviderModelIdentity | undefined,
 ): unknown {
   if (
-    model?.provider !== "sub2api" ||
-    model?.id !== "gpt-5.6-sol" ||
+    typeof model?.id !== "string" ||
+    !model.id.startsWith("gpt-") ||
     !isRecord(payload) ||
     !Array.isArray(payload.tools)
   ) {
