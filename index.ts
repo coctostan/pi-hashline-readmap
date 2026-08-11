@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerReadTool } from "./src/read.js";
+import { rewriteReadSchemaForProvider } from "./src/read-provider-schema.js";
 import { registerEditTool } from "./src/edit.js";
 import { registerGrepTool } from "./src/grep.js";
 import { registerSgTool, isSgAvailable } from "./src/sg.js";
@@ -224,6 +225,11 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
 
   (globalThis as any).__hashlineToolExecutors = toolExecutors;
   pi.events.emit("hashline:tool-executors", toolExecutors);
+
+  pi.on("before_provider_request", (event, ctx) => {
+    const payload = rewriteReadSchemaForProvider(event.payload, ctx.model);
+    return payload === event.payload ? undefined : payload;
+  });
 
   pi.on("tool_call", (event: any) => {
     recordToolCall(
