@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCommandResource,
   buildContextHygieneMetadata,
@@ -170,5 +170,70 @@ describe("context hygiene telemetry tracker", () => {
     const reset = resetContextHygieneTracker({ maxEvents: 2 });
     expect(getContextHygieneTracker()).toBe(reset);
     expect(reset.generateReport().eventCount).toBe(0);
+  });
+
+  it("orchestrates report generation through six named derivation methods", () => {
+    const tracker = createContextHygieneTracker() as unknown as Record<string, any>;
+    const methodNames = [
+      "deriveReadReuse",
+      "deriveCommandReruns",
+      "deriveMutationAfterRead",
+      "deriveRepoStateStale",
+      "deriveVerificationStale",
+      "deriveRetirement",
+    ];
+    const spies = methodNames.map((name) => vi.spyOn(tracker, name));
+
+    tracker.generateReport();
+
+    for (const spy of spies) expect(spy).toHaveBeenCalledOnce();
+  });
+
+  it("memoizes reports until record invalidates the bounded event snapshot", () => {
+    const tracker = createContextHygieneTracker({ maxEvents: 2 });
+    const resource = buildFileResource("src/memoized-report.ts");
+    const metadata = buildContextHygieneMetadata({
+      tool: "read",
+      classification: "read-context",
+      resources: [resource],
+    });
+
+    const empty = tracker.generateReport();
+    expect(tracker.generateReport()).toBe(empty);
+
+    const firstEvent = tracker.record(metadata, { resultId: "read-1" });
+    const first = tracker.generateReport();
+    expect(firstEvent.id).toBe(1);
+    expect(first).not.toBe(empty);
+    expect(first.eventCount).toBe(1);
+    expect(tracker.generateReport()).toBe(first);
+
+    const secondEvent = tracker.record(metadata, { resultId: "read-2" });
+    const second = tracker.generateReport();
+    expect(secondEvent.id).toBe(2);
+    expect(second).not.toBe(first);
+    expect(second.readReuse).toEqual([
+      {
+        resourceKey: resource.key,
+        count: 2,
+        eventIds: [1, 2],
+        resultIds: ["read-1", "read-2"],
+      },
+    ]);
+
+    const thirdEvent = tracker.record(metadata, { resultId: "read-3" });
+    const bounded = tracker.generateReport();
+    expect(thirdEvent.id).toBe(3);
+    expect(bounded).not.toBe(second);
+    expect(bounded.eventCount).toBe(2);
+    expect(bounded.readReuse).toEqual([
+      {
+        resourceKey: resource.key,
+        count: 2,
+        eventIds: [2, 3],
+        resultIds: ["read-2", "read-3"],
+      },
+    ]);
+    expect(tracker.generateReport()).toBe(bounded);
   });
 });

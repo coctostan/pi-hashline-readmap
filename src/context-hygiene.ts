@@ -616,10 +616,26 @@ function createEmptyClassificationCounts(): Record<ContextHygieneClassification,
   };
 }
 
+interface ContextHygieneReportAnalysis {
+  eventsByResource: Map<string, ContextHygieneEvent[]>;
+  readEventsByResource: Map<string, ContextHygieneEvent[]>;
+  commandEventsByResource: Map<string, ContextHygieneEvent[]>;
+  mutationEventsByResource: Map<string, ContextHygieneEvent[]>;
+  bashCommandEvents: ContextHygieneEvent[];
+  invalidatingRepoEvents: ContextHygieneEvent[];
+  byClassification: Record<ContextHygieneClassification, number>;
+  byTool: Record<string, number>;
+}
+
+interface ContextHygieneMutationAfterReadDerivation {
+  mutationAfterRead: ContextHygieneMutationAfterReadReportEntry[];
+  staleCandidates: ContextHygieneStaleCandidateReportEntry[];
+}
 class DefaultContextHygieneTracker implements ContextHygieneTracker {
   private readonly events: ContextHygieneEvent[] = [];
   private readonly maxEvents: number;
   private nextEventId = 1;
+  private cachedReport: ContextHygieneReport | undefined;
 
   constructor(options: CreateContextHygieneTrackerOptions = {}) {
     this.maxEvents = Math.max(1, Math.floor(options.maxEvents ?? DEFAULT_CONTEXT_HYGIENE_MAX_EVENTS));
@@ -637,10 +653,11 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
     if (metadata.commandState) event.commandState = cloneBashCommandState(metadata.commandState);
     this.events.push(event);
     if (this.events.length > this.maxEvents) this.events.splice(0, this.events.length - this.maxEvents);
+    this.cachedReport = undefined;
     return cloneContextHygieneEvent(event);
   }
 
-  generateReport(): ContextHygieneReport {
+  private buildReportAnalysis(): ContextHygieneReportAnalysis {
     const eventsByResource = new Map<string, ContextHygieneEvent[]>();
     const readEventsByResource = new Map<string, ContextHygieneEvent[]>();
     const commandEventsByResource = new Map<string, ContextHygieneEvent[]>();
@@ -675,21 +692,58 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
       }
     }
 
-    const readReuse = sortResourceKeys(readEventsByResource.keys()).flatMap((resourceKey) => {
+    return {
+      eventsByResource,
+      readEventsByResource,
+      commandEventsByResource,
+      mutationEventsByResource,
+      bashCommandEvents: this.events.filter(
+        (event) => event.tool === "bash" && event.classification === "command-output" && event.commandState,
+      ),
+      invalidatingRepoEvents: this.events.filter(
+        (event) => event.classification === "mutation" || event.commandState?.stateKind === "git-worktree-mutation",
+      ),
+      byClassification,
+      byTool,
+    };
+  }
+
+  private deriveReadReuse(
+    readEventsByResource: Map<string, ContextHygieneEvent[]>,
+  ): ContextHygieneReuseReportEntry[] {
+    return sortResourceKeys(readEventsByResource.keys()).flatMap((resourceKey) => {
       const events = readEventsByResource.get(resourceKey) ?? [];
       if (events.length < 2) return [];
-      return [{ resourceKey, count: events.length, eventIds: events.map((event) => event.id), resultIds: resultIdsForEvents(events) }];
+      return [{
+        resourceKey,
+        count: events.length,
+        eventIds: events.map((event) => event.id),
+        resultIds: resultIdsForEvents(events),
+      }];
     });
+  }
 
-    const commandReruns = sortResourceKeys(commandEventsByResource.keys()).flatMap((resourceKey) => {
+  private deriveCommandReruns(
+    commandEventsByResource: Map<string, ContextHygieneEvent[]>,
+  ): ContextHygieneReuseReportEntry[] {
+    return sortResourceKeys(commandEventsByResource.keys()).flatMap((resourceKey) => {
       const events = commandEventsByResource.get(resourceKey) ?? [];
       if (events.length < 2) return [];
-      return [{ resourceKey, count: events.length, eventIds: events.map((event) => event.id), resultIds: resultIdsForEvents(events) }];
+      return [{
+        resourceKey,
+        count: events.length,
+        eventIds: events.map((event) => event.id),
+        resultIds: resultIdsForEvents(events),
+      }];
     });
+  }
 
+  private deriveMutationAfterRead(
+    readEventsByResource: Map<string, ContextHygieneEvent[]>,
+    mutationEventsByResource: Map<string, ContextHygieneEvent[]>,
+  ): ContextHygieneMutationAfterReadDerivation {
     const mutationAfterRead: ContextHygieneMutationAfterReadReportEntry[] = [];
     const staleCandidates: ContextHygieneStaleCandidateReportEntry[] = [];
-    const retirementCandidates: ContextHygieneRetirementCandidateReportEntry[] = [];
 
     for (const resourceKey of sortResourceKeys(mutationEventsByResource.keys())) {
       const reads = readEventsByResource.get(resourceKey) ?? [];
@@ -718,20 +772,24 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
       }
     }
 
-    const bashCommandEvents = this.events.filter(
-      (event) => event.tool === "bash" && event.classification === "command-output" && event.commandState,
-    );
-    const invalidatingRepoEvents = this.events.filter(
-      (event) => event.classification === "mutation" || event.commandState?.stateKind === "git-worktree-mutation",
-    );
-    const commandKeyForEvent = (event: ContextHygieneEvent): string | undefined =>
-      event.resources.find((resource) => resource.kind === "command")?.key;
+    return { mutationAfterRead, staleCandidates };
+  }
+
+  private commandKeyForEvent(event: ContextHygieneEvent): string | undefined {
+    return event.resources.find((resource) => resource.kind === "command")?.key;
+  }
+
+  private deriveRepoStateStale(
+    bashCommandEvents: ContextHygieneEvent[],
+    invalidatingRepoEvents: ContextHygieneEvent[],
+  ): ContextHygieneStaleCandidateReportEntry[] {
+    const staleCandidates: ContextHygieneStaleCandidateReportEntry[] = [];
 
     for (const event of bashCommandEvents) {
       const state = event.commandState;
       if (!state || (state.stateKind !== "repo-status" && state.stateKind !== "repo-diff")) continue;
       const invalidator = invalidatingRepoEvents.find((candidate) => candidate.id > event.id);
-      const commandKey = commandKeyForEvent(event);
+      const commandKey = this.commandKeyForEvent(event);
       if (!invalidator || !commandKey) continue;
       staleCandidates.push({
         resourceKey: commandKey,
@@ -751,13 +809,23 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
       });
     }
 
+    return staleCandidates;
+  }
+
+  private deriveVerificationStale(
+    bashCommandEvents: ContextHygieneEvent[],
+  ): ContextHygieneStaleCandidateReportEntry[] {
+    const staleCandidates: ContextHygieneStaleCandidateReportEntry[] = [];
+
     for (const event of bashCommandEvents) {
       const state = event.commandState;
-      const commandKey = commandKeyForEvent(event);
+      const commandKey = this.commandKeyForEvent(event);
       if (!state || state.stateKind !== "verification" || state.outcome !== "failure" || !commandKey) continue;
       const success = bashCommandEvents.find((candidate) => {
         const candidateState = candidate.commandState;
-        return candidate.id > event.id && commandKeyForEvent(candidate) === commandKey && candidateState?.outcome === "success";
+        return candidate.id > event.id
+          && this.commandKeyForEvent(candidate) === commandKey
+          && candidateState?.outcome === "success";
       });
       if (!success) continue;
       staleCandidates.push({
@@ -777,6 +845,14 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
         })],
       });
     }
+
+    return staleCandidates;
+  }
+
+  private deriveRetirement(
+    commandEventsByResource: Map<string, ContextHygieneEvent[]>,
+  ): ContextHygieneRetirementCandidateReportEntry[] {
+    const retirementCandidates: ContextHygieneRetirementCandidateReportEntry[] = [];
 
     for (const resourceKey of sortResourceKeys(commandEventsByResource.keys())) {
       const eligible = (commandEventsByResource.get(resourceKey) ?? []).filter((event) =>
@@ -818,20 +894,41 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
       }
     }
 
-    return {
+    return retirementCandidates;
+  }
+
+  generateReport(): ContextHygieneReport {
+    if (this.cachedReport) return this.cachedReport;
+    const analysis = this.buildReportAnalysis();
+    const mutationAfterRead = this.deriveMutationAfterRead(
+      analysis.readEventsByResource,
+      analysis.mutationEventsByResource,
+    );
+    const staleCandidates = [
+      ...mutationAfterRead.staleCandidates,
+      ...this.deriveRepoStateStale(analysis.bashCommandEvents, analysis.invalidatingRepoEvents),
+      ...this.deriveVerificationStale(analysis.bashCommandEvents),
+    ];
+
+    const report: ContextHygieneReport = {
       eventCount: this.events.length,
-      resourceCount: eventsByResource.size,
-      readReuse,
-      commandReruns,
-      mutationAfterRead,
+      resourceCount: analysis.eventsByResource.size,
+      readReuse: this.deriveReadReuse(analysis.readEventsByResource),
+      commandReruns: this.deriveCommandReruns(analysis.commandEventsByResource),
+      mutationAfterRead: mutationAfterRead.mutationAfterRead,
       staleCandidates,
-      retirementCandidates,
+      retirementCandidates: this.deriveRetirement(analysis.commandEventsByResource),
       churn: {
-        byClassification,
-        byTool: Object.fromEntries(Object.entries(byTool).sort(([left], [right]) => compareStable(left, right))),
-        uniqueResourcesSeen: eventsByResource.size,
+        byClassification: analysis.byClassification,
+        byTool: Object.fromEntries(
+          Object.entries(analysis.byTool).sort(([left], [right]) => compareStable(left, right)),
+        ),
+        uniqueResourcesSeen: analysis.eventsByResource.size,
       },
     };
+
+    this.cachedReport = report;
+    return report;
   }
 }
 
