@@ -150,18 +150,20 @@ Both `write` and `edit` write atomically (temp file in the same directory, then 
 ```text
 read({ path: "src/hashline.ts", map: true })
 read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory" })
-read({ path: "tests/fixtures/small.ts", symbol: "UserDirectory.addUser" })
+read({ path: "src/read.ts", symbol: "registerReadTool", limit: 80 })
+read({ path: "tests/fixtures/small.ts", symbol: "UserDirectory.addUser", map: true })
 ```
 
-Structural maps are appended automatically when large text reads are truncated. The readmap supports TypeScript, JavaScript, Python, Rust, Go, Java, Swift, Shell, C/C++, SQL, JSON/JSONL, Markdown, YAML, TOML, CSV/TSV, and opt-in GDScript. Direct symbol reads can target functions, classes, methods, interfaces, type aliases, constants, and enums when the file type is supported.
+Structural maps are appended automatically when large text reads are truncated. The readmap supports TypeScript, JavaScript, Python, Rust, Go, Java, Swift, Shell, C/C++, SQL, JSON/JSONL, Markdown, YAML, TOML, CSV/TSV, and opt-in GDScript. Direct symbol reads can target functions, classes, methods, interfaces, type aliases, constants, and enums when the file type is supported. A symbol may be combined with `limit` to cap its displayed range and with `map: true` to append the full-file map. `offset` remains invalid with `symbol`; use `limit` alone or a trailing `symbol@line` selector instead.
 
 ### Read a symbol with local support
 
 ```text
 read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", bundle: "local" })
+read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", limit: 2, bundle: "local", map: true })
 ```
 
-Use `bundle: "local"` when you want the requested symbol plus direct same-file local support.
+Use `bundle: "local"` when you want the requested symbol plus direct same-file local support. A bundle requires `symbol` and may be combined with `limit` and `map: true`; output is ordered as requested symbol, local support, then full-file map.
 
 ### Read an image or screenshot
 

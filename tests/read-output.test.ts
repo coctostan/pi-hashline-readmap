@@ -58,6 +58,7 @@ describe("buildReadOutput", () => {
       },
       warnings: [],
       truncation: null,
+      continuation: null,
       symbol: null,
       map: {
         requested: false,
@@ -75,6 +76,36 @@ describe("buildReadOutput", () => {
         };
       }),
     });
+  });
+
+  it("projects an explicit symbol cap as structured and actionable continuation", () => {
+    const path = "/tmp/example.ts";
+    const built = readOutputModule.buildReadOutput({
+      path,
+      startLine: 20,
+      endLine: 22,
+      totalLines: 49,
+      selectedLines: ["  addUser(user: UserRecord) {", "    this.users.set(user.id, user);", "  }"],
+      continuation: { nextOffset: 23, limit: 3 },
+      symbol: {
+        query: "addUser",
+        name: "addUser",
+        kind: "method",
+        parentName: "UserDirectory",
+        startLine: 20,
+        endLine: 33,
+        tier: "exact",
+      },
+    });
+
+    expect(built.ptcValue.continuation).toEqual({ nextOffset: 23 });
+    expect(built.ptcValue.range).toEqual({ startLine: 20, endLine: 22, totalLines: 49 });
+    expect(built.ptcValue.symbol).toMatchObject({ startLine: 20, endLine: 33 });
+    expect(built.ptcValue.truncation).toBeNull();
+    expect(built.truncation).toBeNull();
+    expect(built.text).toContain(
+      'Continue with read({ path: "/tmp/example.ts", offset: 23, limit: 3 }).',
+    );
   });
 
   it("routes plain read results through buildReadOutput", async () => {

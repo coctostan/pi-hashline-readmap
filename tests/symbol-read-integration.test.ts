@@ -67,26 +67,92 @@ describe("symbol read integration", () => {
     expect(tool.parameters.required ?? []).not.toContain("symbol");
   });
 
-  it("returns error when symbol is combined with offset", async () => {
-    const result = await callReadTool({
-      path: resolve(fixturesDir, "small.ts"),
-      symbol: "createDemoDirectory",
-      offset: 5,
-    });
+  it.each([
+    { label: "exact", query: "addUser", limit: 3, expectedTier: "exact", expectedEnd: 22, expectedNext: 23 },
+    { label: "normalized exact", query: "ADDUSER", limit: 3, expectedTier: "normalized-exact", expectedEnd: 22, expectedNext: 23 },
+    { label: "line-qualified", query: "addUser@20", limit: 3, expectedTier: "exact", expectedEnd: 22, expectedNext: 23 },
+    { label: "oversized", query: "addUser", limit: 99, expectedTier: "exact", expectedEnd: 33, expectedNext: null },
+  ])("caps a $label symbol match without changing its true range", async ({ query, limit, expectedTier, expectedEnd, expectedNext }) => {
+    const filePath = resolve(fixturesDir, "small.ts");
+    const result = await callReadTool({ path: filePath, symbol: query, limit });
+    const text = getTextContent(result);
+    const rows = parseHashlineRows(text);
 
-    expect(result.isError).toBe(true);
-    expect(getTextContent(result)).toBe("Cannot combine symbol with offset/limit. Use one or the other.");
+    expect(result.isError).not.toBe(true);
+    expect(rows.map((row) => row.line)).toEqual(
+      Array.from({ length: expectedEnd - 20 + 1 }, (_, index) => 20 + index),
+    );
+    expect(result.details.ptcValue.range).toEqual({ startLine: 20, endLine: expectedEnd, totalLines: 49 });
+    expect(result.details.ptcValue.symbol).toMatchObject({
+      query,
+      name: "addUser",
+      startLine: 20,
+      endLine: 33,
+      tier: expectedTier,
+    });
+    expect(result.details.ptcValue.continuation).toEqual(
+      expectedNext === null ? null : { nextOffset: expectedNext },
+    );
+    expect(result.details.ptcValue.truncation).toBeNull();
+    expect(result.details.truncation).toBeUndefined();
+    expect(text).not.toContain("File Map:");
+
+    if (expectedNext === null) {
+      expect(text).not.toContain("Continue with read(");
+    } else {
+      expect(text).toContain(
+        `Continue with read({ path: ${JSON.stringify(filePath)}, offset: ${expectedNext}, limit: ${limit} }).`,
+      );
+    }
   });
 
-  it("returns error when symbol is combined with limit", async () => {
-    const result = await callReadTool({
+  it("does not apply a symbol limit to not-found or unmappable fallbacks", async () => {
+    const notFound = await callReadTool({
       path: resolve(fixturesDir, "small.ts"),
-      symbol: "createDemoDirectory",
-      limit: 5,
+      symbol: "DefinitelyMissing",
+      limit: 2,
     });
+    const notFoundRows = parseHashlineRows(getTextContent(notFound));
 
-    expect(result.isError).toBe(true);
-    expect(getTextContent(result)).toBe("Cannot combine symbol with offset/limit. Use one or the other.");
+    expect(notFound.details.ptcValue.symbol).toBeNull();
+    expect(notFound.details.ptcValue.range).toEqual({ startLine: 1, endLine: 49, totalLines: 49 });
+    expect(notFound.details.ptcValue.continuation).toBeNull();
+    expect(notFoundRows.map((row) => row.line)).toEqual(
+      Array.from({ length: 49 }, (_, index) => index + 1),
+    );
+
+    const cacheModule = await import("../src/map-cache.js");
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue(null);
+    const unmappable = await callReadTool({
+      path: resolve(fixturesDir, "plain.txt"),
+      symbol: "anything",
+      limit: 2,
+    });
+    const unmappableRows = parseHashlineRows(getTextContent(unmappable));
+    const unmappableRange = unmappable.details.ptcValue.range;
+
+    expect(unmappable.details.ptcValue.symbol).toBeNull();
+    expect(unmappableRange.endLine).toBe(unmappableRange.totalLines);
+    expect(unmappable.details.ptcValue.continuation).toBeNull();
+    expect(unmappableRows).toHaveLength(unmappableRange.totalLines);
+    expect(getTextContent(unmappable)).toContain("showing full file");
+  });
+
+  it("auto-appends a map for a truncated not-found fallback even when a symbol limit was supplied", async () => {
+    const result = await callReadTool({
+      path: resolve(fixturesDir, "large.ts"),
+      symbol: "DefinitelyMissing",
+      limit: 2,
+    });
+    const text = getTextContent(result);
+    const range = result.details.ptcValue.range;
+
+    expect(result.isError).not.toBe(true);
+    expect(result.details.ptcValue.symbol).toBeNull();
+    expect(range.endLine).toBe(range.totalLines);
+    expect(result.details.ptcValue.truncation).not.toBeNull();
+    expect(result.details.ptcValue.map).toEqual({ requested: false, appended: true });
+    expect(text).toContain("File Map:");
   });
 
 

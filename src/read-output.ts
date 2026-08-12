@@ -40,6 +40,7 @@ export interface ReadMapMetadata {
 
 export interface ReadContinuationMetadata {
   nextOffset: number;
+  limit?: number;
 }
 
 export interface ReadBundleSupportItem {
@@ -120,6 +121,7 @@ export interface ReadOutputResult {
     };
     warnings: PtcWarning[];
     truncation: ReadTruncationMetadata | null;
+    continuation: { nextOffset: number } | null;
     symbol: ReadSymbolMetadata | null;
     map: {
       requested: boolean;
@@ -150,11 +152,27 @@ export function buildReadOutput(
   const { lines, truncation } = sourceOutput;
   const warnings = input.warnings ?? [];
   let text = sourceOutput.text;
+  const effectiveContinuation = input.continuation
+    ? {
+        nextOffset: truncation
+          ? input.startLine + truncation.outputLines
+          : input.continuation.nextOffset,
+      }
+    : null;
 
   if (truncation) {
-    text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${input.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). Use offset=${input.startLine + truncation.outputLines} to continue.]`;
+    if (input.symbol && input.continuation && effectiveContinuation) {
+      const remainingSelected = input.endLine - effectiveContinuation.nextOffset + 1;
+      text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${input.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). Continue with read({ path: ${JSON.stringify(input.path)}, offset: ${effectiveContinuation.nextOffset}, limit: ${remainingSelected} }).]`;
+    } else {
+      text += `\n\n[Output truncated: showing ${truncation.outputLines} of ${input.totalLines} lines (${formatSize(truncation.outputBytes)} of ${formatSize(truncation.totalBytes)}). Use offset=${input.startLine + truncation.outputLines} to continue.]`;
+    }
   } else if (input.continuation) {
-    text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of ${input.totalLines}. Use offset=${input.continuation.nextOffset} to continue.]`;
+    if (input.symbol && input.continuation.limit !== undefined) {
+      text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of symbol '${input.symbol.name}'. Continue with read({ path: ${JSON.stringify(input.path)}, offset: ${input.continuation.nextOffset}, limit: ${input.continuation.limit} }).]`;
+    } else {
+      text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of ${input.totalLines}. Use offset=${input.continuation.nextOffset} to continue.]`;
+    }
   }
 
   if (input.bundle?.applied) {
@@ -184,6 +202,7 @@ export function buildReadOutput(
     range: { startLine: input.startLine, endLine: input.endLine, totalLines: input.totalLines },
     warnings,
     truncation,
+    continuation: effectiveContinuation,
     symbol: input.symbol ?? null,
     map: {
       requested: input.map?.requested ?? false,

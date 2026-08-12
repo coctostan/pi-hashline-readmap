@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { clearMapCache } from "../src/map-cache.js";
@@ -24,21 +24,41 @@ async function getReadToolDef() {
 
 describe("read map on demand", () => {
 	beforeEach(() => clearMapCache());
+	afterEach(() => vi.restoreAllMocks());
 
 	it("registers a schema that includes the optional map parameter", async () => {
 		const tool = await getReadToolDef();
 		expect(tool.parameters?.properties?.map).toBeDefined();
 	});
 
-	it("rejects map: true combined with symbol", async () => {
-		const result = await callReadTool({
-			path: resolve(fixturesDir, "small.ts"),
-			map: true,
-			symbol: "UserDirectory",
-		});
-		const text = result.content[0].text;
-		expect(result.isError).toBe(true);
-		expect(text).toBe("Cannot combine map with symbol. Use one or the other.");
+	it("appends an explicit full-file map after a symbol and degrades safely on append failure", async () => {
+		const cacheModule = await import("../src/map-cache.js");
+		const filePath = resolve(fixturesDir, "small.ts");
+		const fileMap = await cacheModule.getOrGenerateMap(filePath);
+		if (!fileMap) throw new Error("expected small.ts to be mappable");
+		const mapSpy = vi.spyOn(cacheModule, "getOrGenerateMap");
+
+		mapSpy.mockResolvedValueOnce(fileMap).mockResolvedValueOnce(fileMap);
+		const mapped = await callReadTool({ path: filePath, symbol: "UserDirectory", map: true });
+		const mappedText = mapped.content[0].text;
+		const lastSymbolRow = mappedText.lastIndexOf("38:");
+		const mapStart = mappedText.indexOf("File Map:");
+
+		expect(mapped.isError).not.toBe(true);
+		expect(mapped.details.ptcValue.symbol).toMatchObject({ name: "UserDirectory", startLine: 13, endLine: 38 });
+		expect(mapped.details.ptcValue.map).toEqual({ requested: true, appended: true });
+		expect(lastSymbolRow).toBeGreaterThan(-1);
+		expect(mapStart).toBeGreaterThan(lastSymbolRow);
+
+		mapSpy.mockReset();
+		mapSpy.mockResolvedValueOnce(fileMap).mockRejectedValueOnce(new Error("map append failed"));
+		const degraded = await callReadTool({ path: filePath, symbol: "UserDirectory", map: true });
+		const degradedText = degraded.content[0].text;
+
+		expect(degraded.isError).not.toBe(true);
+		expect(degradedText).toMatch(/^\[Symbol: UserDirectory/);
+		expect(degradedText).not.toContain("File Map:");
+		expect(degraded.details.ptcValue.map).toEqual({ requested: true, appended: false });
 	});
 
 	it("map: true on a small file appends structural map after hashlines", async () => {

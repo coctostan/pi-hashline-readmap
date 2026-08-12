@@ -44,6 +44,7 @@ describe("read ptcValue — basic line payload", () => {
       },
       warnings: [],
       truncation: null,
+      continuation: null,
       symbol: null,
       map: {
         requested: false,
