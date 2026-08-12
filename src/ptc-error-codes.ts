@@ -18,7 +18,10 @@ export const PTC_ERROR_CODES = {
   "permission-denied": { description: "Filesystem refused access", trigger: "fs EACCES or EPERM" },
   "fs-error": { description: "Unexpected filesystem failure outside the specific classified cases", trigger: "non-ENOENT/non-EISDIR/non-EACCES/non-EPERM fs error while reading, writing, or stat'ing a path" },
   "offset-past-end": { description: "Requested offset exceeds file length", trigger: "offset > total lines" },
-  "invalid-params-combo": { description: "Mutually exclusive parameters combined", trigger: "e.g. symbol + offset, bundle + map, map + symbol" },
+  "invalid-params-combo": {
+    description: "Invalid, ambiguous, or incomplete parameter combination",
+    trigger: "e.g. symbol + offset, bundle without symbol, invalid scoped or numeric parameter combinations",
+  },
   "invalid-offset": { description: "offset is not a positive integer", trigger: "non-int or value < 1" },
   "invalid-limit": { description: "limit is not a positive integer", trigger: "non-int or value < 1" },
 

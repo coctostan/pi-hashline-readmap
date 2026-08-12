@@ -279,4 +279,51 @@ describe("read — fuzzy symbol match (issue 099)", () => {
         .some((warning: any) => warning.code === "fuzzy-symbol-match"),
     ).toBe(false);
   });
+
+  it("caps an accepted fuzzy match while preserving its warning and full symbol metadata", async () => {
+    const cacheModule = await import("../src/map-cache.js");
+    const { DetailLevel, SymbolKind } = await import("../src/readmap/enums.js");
+    const filePath = resolve(fixturesDir, "small.ts");
+
+    vi.spyOn(cacheModule, "getOrGenerateMap").mockResolvedValue({
+      path: filePath,
+      totalLines: 49,
+      totalBytes: 1000,
+      language: "typescript",
+      symbols: [
+        { name: "getHandler", kind: SymbolKind.Function, startLine: 10, endLine: 20 },
+        { name: "formatOutput", kind: SymbolKind.Function, startLine: 30, endLine: 35 },
+      ],
+      imports: [],
+      detailLevel: DetailLevel.Full,
+    });
+
+    const result = await callReadTool({ path: filePath, symbol: "handler", limit: 3 });
+    const text = getTextContent(result);
+    const emittedLines = text
+      .split("\n")
+      .flatMap((line) => {
+        const match = line.match(/^(\d+):[0-9a-f]{3}\|/);
+        return match ? [Number(match[1])] : [];
+      });
+    const fuzzyWarning = (result.details.ptcValue.warnings ?? [])
+      .find((warning: any) => warning.code === "fuzzy-symbol-match");
+
+    expect(emittedLines).toEqual([10, 11, 12]);
+    expect(result.details.ptcValue.range).toEqual({ startLine: 10, endLine: 12, totalLines: 49 });
+    expect(result.details.ptcValue.symbol).toMatchObject({
+      query: "handler",
+      name: "getHandler",
+      startLine: 10,
+      endLine: 20,
+      tier: "camelCase",
+    });
+    expect(result.details.ptcValue.continuation).toEqual({ nextOffset: 13 });
+    expect(fuzzyWarning).toMatchObject({
+      code: "fuzzy-symbol-match",
+      tier: "camelCase",
+      symbol: { name: "getHandler", startLine: 10, endLine: 20 },
+    });
+    expect(text).toContain("[Symbol 'handler' not exact-matched");
+  });
 });

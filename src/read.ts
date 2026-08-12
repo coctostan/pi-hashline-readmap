@@ -232,8 +232,8 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			};
 
 			throwIfAborted(signal);
-			if (p.symbol && (p.offset !== undefined || p.limit !== undefined)) {
-				const message = "Cannot combine symbol with offset/limit. Use one or the other.";
+			if (p.symbol && p.offset !== undefined) {
+				const message = "Cannot combine symbol with offset. Either omit offset and use limit to cap the symbol, or use a trailing symbol@line selector.";
 				return {
 					content: [{ type: "text", text: message }],
 					isError: true,
@@ -249,36 +249,6 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			}
 			if (p.bundle && !p.symbol) {
 				const message = 'Cannot use bundle without symbol. Use read({ path, symbol, bundle: "local" }).';
-				return {
-					content: [{ type: "text", text: message }],
-					isError: true,
-					details: {
-						ptcValue: {
-							tool: "read",
-							ok: false,
-							path: rawParams.path,
-							error: buildPtcError("invalid-params-combo", message),
-						},
-					},
-				};
-			}
-			if (p.bundle && p.map) {
-				const message = "Cannot combine bundle with map. Use one or the other.";
-				return {
-					content: [{ type: "text", text: message }],
-					isError: true,
-					details: {
-						ptcValue: {
-							tool: "read",
-							ok: false,
-							path: rawParams.path,
-							error: buildPtcError("invalid-params-combo", message),
-						},
-					},
-				};
-			}
-			if (p.map && p.symbol) {
-				const message = "Cannot combine map with symbol. Use one or the other.";
 				return {
 					content: [{ type: "text", text: message }],
 					isError: true,
@@ -384,7 +354,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			const total = allLines.length;
 			const structuredWarnings: PtcWarning[] = [];
 			let startLine = p.offset !== undefined ? p.offset : 1;
-			let endIdx = p.limit !== undefined ? Math.min(startLine - 1 + p.limit, total) : total;
+			let endIdx = p.limit !== undefined && !p.symbol ? Math.min(startLine - 1 + p.limit, total) : total;
 			if (p.offset !== undefined && startLine > total) {
 				const message = `[offset ${p.offset} is past end of file (${total} lines)]`;
 				return {
@@ -460,13 +430,19 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 					}
 					if (lookup.type === "found") {
 						startLine = Math.max(1, lookup.symbol.startLine);
-						endIdx = Math.min(total, lookup.symbol.endLine);
+						const symbolEndLine = Math.min(total, lookup.symbol.endLine);
+						endIdx = p.limit !== undefined
+							? Math.min(symbolEndLine, startLine + p.limit - 1)
+							: symbolEndLine;
 						symbolMatch = lookup.symbol;
 						symbolMatchTier = lookup.tier;
 					}
 					if (lookup.type === "fuzzy") {
 						startLine = Math.max(1, lookup.symbol.startLine);
-						endIdx = Math.min(total, lookup.symbol.endLine);
+						const symbolEndLine = Math.min(total, lookup.symbol.endLine);
+						endIdx = p.limit !== undefined
+							? Math.min(symbolEndLine, startLine + p.limit - 1)
+							: symbolEndLine;
 						symbolMatch = lookup.symbol;
 						symbolMatchTier = lookup.tier;
 
@@ -561,7 +537,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			// Append structural map: on-demand or automatic for an actually truncated full-file read.
 			const shouldAppendMap =
 				!!p.map ||
-				(!!truncation && !p.offset && !p.limit && !symbolMatch);
+				(!!truncation && !p.offset && !symbolMatch && (!p.limit || !!p.symbol));
 			let appendedMap = false;
 			let mapText: string | null = null;
 			if (shouldAppendMap) {
@@ -590,7 +566,18 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				structuredWarnings.push(buildPtcWarning("bare-cr", warning));
 			}
 
-const readOutput = buildReadOutput({
+			const symbolEndLine = symbolMatch
+				? Math.min(total, symbolMatch.endLine)
+				: undefined;
+			const symbolContinuation = symbolMatch && p.limit !== undefined && symbolEndLine !== undefined && (endIdx < symbolEndLine || truncation)
+				? {
+						nextOffset: truncation ? startLine + truncation.outputLines : endIdx + 1,
+						limit: truncation
+							? endIdx - (startLine + truncation.outputLines) + 1
+							: Math.min(p.limit, symbolEndLine - endIdx),
+					}
+				: null;
+			const readOutput = buildReadOutput({
 					path: absolutePath,
 					startLine,
 					endLine: endIdx,
@@ -599,9 +586,11 @@ const readOutput = buildReadOutput({
 					warnings: structuredWarnings,
 					// Deprecated compatibility projection; sourceOutput remains authoritative.
 					truncation,
-					continuation: !truncation && endIdx < total
-						? { nextOffset: endIdx + 1 }
-						: null,
+					continuation: symbolContinuation ?? (
+						!truncation && !symbolMatch && endIdx < total
+							? { nextOffset: endIdx + 1 }
+							: null
+					),
 					symbol: symbolMatch
 						? {
 								query: p.symbol ?? symbolMatch.name,

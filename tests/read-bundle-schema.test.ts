@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyHashlineEdits } from "../src/hashline.js";
 import { registerReadTool } from "../src/read.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -23,28 +25,60 @@ function getTextContent(result: any): string {
 }
 
 describe("read bundle schema validation", () => {
-  it("adds bundle and validates combos", async () => {
+  it("composes a capped symbol, local support, and an explicit map with reusable anchors", async () => {
     const tool = await getReadTool();
     expect(tool.parameters.properties.bundle).toBeDefined();
     expect(tool.parameters.properties.bundle.const).toBe("local");
     expect(tool.parameters.required ?? []).not.toContain("bundle");
 
     const filePath = resolve(fixturesDir, "small.ts");
-    const baseline = await callReadTool({ path: filePath, symbol: "createDemoDirectory" });
-    expect(getTextContent(baseline)).toMatch(/^\[Symbol: createDemoDirectory \(function\), lines 45-49 of 49\]/);
-    expect(getTextContent(baseline)).not.toContain("## Requested symbol");
-    expect((baseline.details?.ptcValue as any).bundle).toBeUndefined();
+    const result = await callReadTool({
+      path: filePath,
+      symbol: "createDemoDirectory",
+      limit: 2,
+      bundle: "local",
+      map: true,
+    });
+    const text = getTextContent(result);
+    const rows = text.split("\n").flatMap((line: string) => {
+      const match = line.match(/^(\d+):([0-9a-f]{3})\|/);
+      return match ? [{ line: Number(match[1]), anchor: `${match[1]}:${match[2]}` }] : [];
+    });
+    const requestedAnchor = rows.find((row) => row.line === 45)?.anchor;
+    const supportAnchor = rows.find((row) => row.line === 20)?.anchor;
 
-    const withoutSymbol = await callReadTool({ path: filePath, bundle: "local" });
-    expect(withoutSymbol.isError).toBe(true);
-    expect(getTextContent(withoutSymbol)).toBe('Cannot use bundle without symbol. Use read({ path, symbol, bundle: "local" }).');
+    expect(result.isError).not.toBe(true);
+    expect(result.details.ptcValue.range).toEqual({ startLine: 45, endLine: 46, totalLines: 49 });
+    expect(result.details.ptcValue.symbol).toMatchObject({
+      name: "createDemoDirectory",
+      startLine: 45,
+      endLine: 49,
+    });
+    expect(result.details.ptcValue.continuation).toEqual({ nextOffset: 47 });
+    expect(result.details.ptcValue.bundle).toMatchObject({
+      mode: "local",
+      applied: true,
+      localSupport: [
+        { name: "addUser", kind: "method", startLine: 20, endLine: 33 },
+      ],
+    });
+    expect(result.details.ptcValue.map).toEqual({ requested: true, appended: true });
+    expect(text.indexOf("## Requested symbol")).toBeLessThan(text.indexOf("## Local support"));
+    expect(text.indexOf("## Local support")).toBeLessThan(text.indexOf("File Map:"));
+    expect(result.details.contextHygiene.rehydrate).toEqual({
+      tool: "read",
+      input: { path: filePath, limit: 2, symbol: "createDemoDirectory", map: true, bundle: "local" },
+    });
+    expect(requestedAnchor).toBeDefined();
+    expect(supportAnchor).toBeDefined();
 
-    const withMap = await callReadTool({ path: filePath, symbol: "createDemoDirectory", bundle: "local", map: true });
-    expect(withMap.isError).toBe(true);
-    expect(getTextContent(withMap)).toBe("Cannot combine bundle with map. Use one or the other.");
-
-    const withOffset = await callReadTool({ path: filePath, symbol: "createDemoDirectory", bundle: "local", offset: 1 });
-    expect(withOffset.isError).toBe(true);
-    expect(getTextContent(withOffset)).toBe("Cannot combine symbol with offset/limit. Use one or the other.");
+    const original = readFileSync(filePath, "utf-8");
+    const edited = applyHashlineEdits(original, [
+      { set_line: { anchor: requestedAnchor!, new_text: "// requested-anchor" } },
+      { set_line: { anchor: supportAnchor!, new_text: "// support-anchor" } },
+    ]);
+    expect(edited.firstChangedLine).toBe(20);
+    expect(edited.content).toContain("// requested-anchor");
+    expect(edited.content).toContain("// support-anchor");
   });
 });
