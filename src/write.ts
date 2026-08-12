@@ -341,91 +341,91 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
         // keep queueKey = absolutePath
       }
       return withFileMutationQueue(queueKey, async () => {
-      let result: WriteResult;
-      try {
-        result = await executeWrite({
-          path: absolutePath,
-          content: params.content,
-          map: params.map,
-          cwd,
-        });
-      } catch (err: any) {
-        const mapped = mapFsWriteError(err, absolutePath);
-        return {
-          content: [{ type: "text" as const, text: mapped.message }],
-          isError: true,
-          details: {
-            ptcValue: {
-              tool: "write" as const,
-              path: absolutePath,
-              lines: [] as PtcLine[],
-              warnings: [] as PtcWarning[],
-              ok: false,
-              error: buildPtcError(
-                mapped.code,
-                mapped.message,
-                undefined,
-                mapped.includeMeta ? { fsCode: err?.code, fsMessage: err?.message } : undefined,
-              ),
+        let result: WriteResult;
+        try {
+          result = await executeWrite({
+            path: absolutePath,
+            content: params.content,
+            map: params.map,
+            cwd,
+          });
+        } catch (err: any) {
+          const mapped = mapFsWriteError(err, absolutePath);
+          return {
+            content: [{ type: "text" as const, text: mapped.message }],
+            isError: true,
+            details: {
+              ptcValue: {
+                tool: "write" as const,
+                path: absolutePath,
+                lines: [] as PtcLine[],
+                warnings: [] as PtcWarning[],
+                ok: false,
+                error: buildPtcError(
+                  mapped.code,
+                  mapped.message,
+                  undefined,
+                  mapped.includeMeta ? { fsCode: err?.code, fsMessage: err?.message } : undefined,
+                ),
+              },
+              warnings: [] as string[],
             },
-            warnings: [] as string[],
-          },
-        };
-      }
+          };
+        }
 
-      if (result.ptcValue.lines.length > 0) {
-        options.onFileAnchored?.(absolutePath);
-      }
+        if (result.ptcValue.lines.length > 0) {
+          options.onFileAnchored?.(absolutePath);
+        }
 
-      // Lift binary-content signal into a fatal ptcValue.error envelope so
-      // downstream consumers get the same taxonomy shape as every other tool.
-      // The existing PtcWarning entry is preserved on ptcValue.warnings for
-      // backward compatibility (see AC 12 — warnings namespace alignment).
-      const binaryWarning = result.ptcValue.warnings.find((w) => w.code === "binary-content");
-      if (binaryWarning) {
+        // Lift binary-content signal into a fatal ptcValue.error envelope so
+        // downstream consumers get the same taxonomy shape as every other tool.
+        // The existing PtcWarning entry is preserved on ptcValue.warnings for
+        // backward compatibility (see AC 12 — warnings namespace alignment).
+        const binaryWarning = result.ptcValue.warnings.find((w) => w.code === "binary-content");
+        if (binaryWarning) {
+          return {
+            content: [{ type: "text" as const, text: result.text }],
+            isError: true,
+            details: {
+              ptcValue: {
+                ...result.ptcValue,
+                ok: false,
+                error: buildPtcError("binary-content", binaryWarning.message),
+              },
+              warnings: result.warnings,
+              contextHygiene: result.contextHygiene,
+            },
+          };
+        }
+
+        const bareCrWarning = result.ptcValue.warnings.find((w) => w.code === "bare-cr");
+        if (bareCrWarning) {
+          return {
+            content: [{ type: "text" as const, text: result.text }],
+            isError: true,
+            details: {
+              ptcValue: {
+                ...result.ptcValue,
+                ok: false,
+                error: buildPtcError("bare-cr", bareCrWarning.message),
+              },
+              warnings: result.warnings,
+              contextHygiene: result.contextHygiene,
+            },
+          };
+        }
+
         return {
           content: [{ type: "text" as const, text: result.text }],
-          isError: true,
           details: {
-            ptcValue: {
-              ...result.ptcValue,
-              ok: false,
-              error: buildPtcError("binary-content", binaryWarning.message),
-            },
+            ...(result.diff !== undefined ? { diff: result.diff } : {}),
+            ...(result.diffData !== undefined ? { diffData: result.diffData } : {}),
+            ...(result.writeState ? { writeState: result.writeState } : {}),
+            ptcValue: result.ptcValue,
             warnings: result.warnings,
             contextHygiene: result.contextHygiene,
           },
         };
-      }
-
-      const bareCrWarning = result.ptcValue.warnings.find((w) => w.code === "bare-cr");
-      if (bareCrWarning) {
-        return {
-          content: [{ type: "text" as const, text: result.text }],
-          isError: true,
-          details: {
-            ptcValue: {
-              ...result.ptcValue,
-              ok: false,
-              error: buildPtcError("bare-cr", bareCrWarning.message),
-            },
-            warnings: result.warnings,
-            contextHygiene: result.contextHygiene,
-          },
-        };
-      }
-
-      return {
-        content: [{ type: "text" as const, text: result.text }],
-        details: {
-          ...(result.diff !== undefined ? { diff: result.diff } : {}),
-          ...(result.diffData !== undefined ? { diffData: result.diffData } : {}),
-          ...(result.writeState ? { writeState: result.writeState } : {}),
-          ptcValue: result.ptcValue,
-          warnings: result.warnings,
-          contextHygiene: result.contextHygiene,
-        },
-      };
       });
     },
     renderCall(args: any, theme: any, context: any = {}) {
