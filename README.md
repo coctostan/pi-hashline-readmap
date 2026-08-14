@@ -18,7 +18,19 @@ Requires Pi extension support and Node.js 20+. Start a new Pi session after inst
 
 ### Validated compatibility baseline
 
-Development, schema validation, and extension-load testing target Pi 0.84.2 and TypeBox 1.3.7. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally use `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
+Development, schema validation, and extension-load testing use the exact Pi version resolved by `package-lock.json`, currently Pi 0.84.2, with TypeBox 1.3.7. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally retain `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
+
+Run the compatibility coverage through the normal test suite or by itself:
+
+```bash
+npm test
+npm test -- tests/pi-extension-load-compatibility.test.ts
+npm run typecheck
+```
+
+The extension itself retains its separately tracked Node.js engine declaration. Running the loader compatibility test must also satisfy the locked Pi host package’s engine requirement, currently Node.js 22.19 or newer.
+
+To advance the compatibility baseline, update the Pi development dependency ranges in `package.json` and refresh `package-lock.json` with `npm install`, reviewing both changes together. Then run the focused compatibility test, the full `npm test` suite, and `npm run typecheck` before committing the update. Do not narrow the Pi-hosted wildcard peer ranges to encode the baseline.
 
 ```bash
 # alternatives
