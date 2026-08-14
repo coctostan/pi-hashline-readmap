@@ -1,6 +1,7 @@
 import { withFileMutationQueue, type ExtensionAPI, type EditToolDetails, type ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
-import type { Static } from "@sinclair/typebox";
+import { Type } from "typebox";
+import type { Static } from "typebox";
+import { withLegacyObjectOrder } from "./typebox-schema-order.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { createPatch } from "diff";
@@ -64,47 +65,47 @@ export function isBinaryBuffer(buf: Buffer): boolean {
 // ─── Schema ─────────────────────────────────────────────────────────────
 
 const hashlineEditItemSchema = Type.Union([
-	Type.Object({
+	withLegacyObjectOrder(Type.Object({
 		set_line: Type.Object({
 			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
 			new_text: Type.String(),
 		}),
-	}, { additionalProperties: true }),
-	Type.Object({
+	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object({
 		replace_lines: Type.Object({
 			start_anchor: Type.String({ description: "Fresh LINE:HASH start anchor" }),
 			end_anchor: Type.String({ description: "Fresh LINE:HASH end anchor" }),
 			new_text: Type.String(),
 		}),
-	}, { additionalProperties: true }),
-	Type.Object({
+	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object({
 		insert_after: Type.Object({
 			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
 			new_text: Type.String(),
 			text: Type.Optional(Type.String()),
 		}),
-	}, { additionalProperties: true }),
-	Type.Object({
+	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object({
 		replace: Type.Object({
 			old_text: Type.String({ description: "Non-empty exact target text" }),
 			new_text: Type.String(),
 			all: Type.Optional(Type.Boolean()),
 			fuzzy: Type.Optional(Type.Boolean()),
 		}),
-	}, { additionalProperties: true }),
-	Type.Object({
+	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object({
 		replace_symbol: Type.Object({
 			symbol: Type.String(),
 			new_body: Type.String({ description: "Non-blank complete symbol body" }),
 		}),
-	}, { additionalProperties: true }),
-	Type.Object(
+	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object(
 		{ old_text: Type.String(), new_text: Type.String() },
 		{ additionalProperties: true, description: "Do not use — Wrap as { replace: {old_text, new_text} }." },
-	),
+	)),
 ], { description: "Overlaps reject; set_line last wins; safe insert_after ok" });
 
-const hashlineEditSchema = Type.Object(
+const hashlineEditSchema = withLegacyObjectOrder(Type.Object(
 	{
 		path: Type.String({ description: "Existing file path; requires fresh session anchors" }),
 		edits: Type.Optional(Type.Array(hashlineEditItemSchema, {
@@ -115,7 +116,7 @@ const hashlineEditSchema = Type.Object(
 		})),
 	},
 	{ additionalProperties: true },
-);
+));
 
 type HashlineParams = Static<typeof hashlineEditSchema>;
 

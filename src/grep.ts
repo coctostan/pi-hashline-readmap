@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { createGrepTool } from "@earendil-works/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
+import { withLegacyLiteralOrder } from "./typebox-schema-order.js";
 import { readFile as fsReadFile, stat as fsStat } from "fs/promises";
 import path from "path";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
@@ -50,9 +51,9 @@ const grepSchema = Type.Object({
 	),
 	summary: Type.Optional(Type.Boolean({ description: "Per-file counts only; no edit anchors" })),
 	scope: Type.Optional(
-		Type.Literal("symbol", {
+		withLegacyLiteralOrder(Type.Literal("symbol", {
 			description: "symbol only; enables scopeContext",
-		}),
+		})),
 	),
 	scopeContext: Type.Optional(
 		Type.Union([

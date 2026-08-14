@@ -3,7 +3,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Value } from "@sinclair/typebox/value";
+import { Value } from "typebox/value";
 import { _testable, isFdAvailable, registerFindTool } from "../src/find.js";
 import { registerLsTool } from "../src/ls.js";
 
@@ -114,6 +114,7 @@ describe("issue 233 find/ls alignment regressions", () => {
     const tool = getFindTool();
     expect(Value.Check(tool.parameters, { pattern: "*.txt", limit: 1 })).toBe(true);
     expect(Value.Check(tool.parameters, { pattern: "*.txt", limit: "1" })).toBe(true);
+    expect(Value.Check(tool.parameters, { pattern: "*.txt", type: "bogus" })).toBe(false);
 
     const dir = mkdtempSync(join(tmpdir(), "repro-233-find-limit-"));
     try {

@@ -1,6 +1,6 @@
 import type { ExtensionAPI, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
 import * as cp from "node:child_process";
 import path from "node:path";
 import { readFile as fsReadFile, stat as fsStat } from "node:fs/promises";
