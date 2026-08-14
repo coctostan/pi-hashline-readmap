@@ -16,6 +16,10 @@ pi install npm:pi-hashline-readmap
 
 Requires Pi extension support and Node.js 20+. Start a new Pi session after installing; sessions do not hot-reload extensions.
 
+### Validated compatibility baseline
+
+Development, schema validation, and extension-load testing target Pi 0.84.2 and TypeBox 1.3.7. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally use `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
+
 ```bash
 # alternatives
 pi install git:github.com/coctostan/pi-hashline-readmap

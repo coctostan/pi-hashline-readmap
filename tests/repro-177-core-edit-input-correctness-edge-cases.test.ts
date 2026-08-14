@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
-import { Value } from "@sinclair/typebox/value";
+import { Value } from "typebox/value";
 import { ensureHashInit } from "../src/hashline.js";
 import { registerEditTool } from "../src/edit.js";
 import { registerWriteTool } from "../src/write.js";
@@ -80,6 +80,10 @@ describe("repro 177 — core edit input correctness edge cases", () => {
     await writeTool.execute("write", { path: filePath, content: "const a = 1;\n" }, new AbortController().signal, () => {}, { cwd: process.cwd() });
 
     expect(Value.Check(editTool.parameters, commonMistake)).toBe(true);
+    expect(Value.Check(editTool.parameters, {
+      path: filePath,
+      edits: [{ replace: { old_text: 1, new_text: "b" } }],
+    })).toBe(false);
     // #199: the bare member stays valid (so the guard runs) but is now annotated to reduce exposure.
     const bareMember = (editTool.parameters as any).properties?.edits?.items?.anyOf?.find(
       (m: any) => m.properties?.old_text && m.properties?.new_text && !m.properties?.replace,

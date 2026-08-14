@@ -1,6 +1,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
-import { Type } from "@sinclair/typebox";
+import { Type } from "typebox";
+import { withLegacyLiteralOrder, withLegacyRequiredOrder } from "./typebox-schema-order.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { execFileSync, execFile } from "node:child_process";
@@ -323,7 +324,7 @@ export function registerFindTool(pi: ExtensionAPI) {
     promptSnippet: FIND_PROMPT_METADATA.promptSnippet,
     promptGuidelines: FIND_PROMPT_METADATA.promptGuidelines,
     ptc: FIND_PTC,
-    parameters: Type.Object(
+    parameters: withLegacyRequiredOrder(Type.Object(
       {
         pattern: Type.String({ description: "Glob/basename; JavaScript regex when regex is true" }),
         path: Type.Optional(Type.String({ description: "Directory search root" })),
@@ -335,7 +336,7 @@ export function registerFindTool(pi: ExtensionAPI) {
         ),
         type: Type.Optional(
           Type.Union(
-            [Type.Literal("file"), Type.Literal("dir"), Type.Literal("any")],
+            [withLegacyLiteralOrder(Type.Literal("file")), withLegacyLiteralOrder(Type.Literal("dir")), withLegacyLiteralOrder(Type.Literal("any"))],
             { description: "Entry type filter" },
           ),
         ),
@@ -345,7 +346,7 @@ export function registerFindTool(pi: ExtensionAPI) {
         ),
         sortBy: Type.Optional(
           Type.Union(
-            [Type.Literal("name"), Type.Literal("mtime"), Type.Literal("size")],
+            [withLegacyLiteralOrder(Type.Literal("name")), withLegacyLiteralOrder(Type.Literal("mtime")), withLegacyLiteralOrder(Type.Literal("size"))],
             { description: "Sort key" },
           ),
         ),
@@ -361,7 +362,7 @@ export function registerFindTool(pi: ExtensionAPI) {
         ),
       },
       { required: ["pattern"] },
-    ),
+    )),
     async execute(
       _toolCallId: string,
       params: {
