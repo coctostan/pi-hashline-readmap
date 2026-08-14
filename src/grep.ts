@@ -38,26 +38,26 @@ const grepSchema = Type.Object({
 	literal: Type.Optional(Type.Boolean({ description: "Treat pattern literally" })),
 	context: Type.Optional(
 		Type.Union([
-			Type.Number({ description: "Context lines" }),
-			Type.String({ description: "Context lines" }),
+			Type.Number({ description: "Non-negative int or obvious base-10 numeric string" }),
+			Type.String({ description: "Non-negative int or obvious base-10 numeric string" }),
 		]),
 	),
 	limit: Type.Optional(
 		Type.Union([
-			Type.Number({ description: "Max matches" }),
-			Type.String({ description: "Max matches" }),
+			Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
+			Type.String({ description: "Positive int or obvious base-10 numeric string" }),
 		]),
 	),
-	summary: Type.Optional(Type.Boolean({ description: "Return per-file counts" })),
+	summary: Type.Optional(Type.Boolean({ description: "Per-file counts only; no edit anchors" })),
 	scope: Type.Optional(
 		Type.Literal("symbol", {
-			description: "Scope matches to symbols",
+			description: "symbol only; enables scopeContext",
 		}),
 	),
 	scopeContext: Type.Optional(
 		Type.Union([
-			Type.Number({ description: "Symbol context lines" }),
-			Type.String({ description: "Symbol context lines" }),
+			Type.Number({ description: "Non-negative int/base-10 string; requires scope: symbol" }),
+			Type.String({ description: "Non-negative int/base-10 string; requires scope: symbol" }),
 		]),
 	),
 });

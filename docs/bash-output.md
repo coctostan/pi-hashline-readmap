@@ -2,6 +2,8 @@
 
 `pi-hashline-readmap` post-processes `bash` tool results after the command runs. The goal is to keep useful signal in the conversation while still preserving ways to inspect larger output when needed.
 
+[Back to README](../README.md)
+
 ## Processing layers
 
 Bash output moves through two layers:
@@ -87,6 +89,12 @@ The guard uses raw byte counts. Environment values must be positive base-10 inte
 | `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES` | Tighten the maximum post-RTK byte count. Default/ceiling: `51200`. |
 | `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES` | Tighten preview head lines. Default/ceiling: `80`. |
 | `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES` | Tighten preview tail lines. Default/ceiling: `120`. |
+
+## Structured result contract
+
+The `bash` result exposes the public RTK compaction record at `details.rtkCompaction`, mirrored at `details.ptcValue.rtkCompaction`. Consumers should use that stable contract rather than private reducer fields. It identifies the technique, input/output sizes, bypass state, and recovery metadata.
+
+Guard metadata remains at `details.bashContextGuard`. When trimming occurs, use the full post-RTK path for the complete guarded result and the `Original/pre-RTK output` path for command output before route compression.
 
 ## Recovering full output
 

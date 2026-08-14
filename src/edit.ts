@@ -64,33 +64,52 @@ export function isBinaryBuffer(buf: Buffer): boolean {
 // ─── Schema ─────────────────────────────────────────────────────────────
 
 const hashlineEditItemSchema = Type.Union([
-	Type.Object({ set_line: Type.Object({ anchor: Type.String(), new_text: Type.String() }) }, { additionalProperties: true }),
-	Type.Object(
-		{ replace_lines: Type.Object({ start_anchor: Type.String(), end_anchor: Type.String(), new_text: Type.String() }) },
-		{ additionalProperties: true },
-	),
-	Type.Object({ insert_after: Type.Object({ anchor: Type.String(), new_text: Type.String(), text: Type.Optional(Type.String()) }) }, { additionalProperties: true }),
-	Type.Object(
-		{ replace: Type.Object({ old_text: Type.String(), new_text: Type.String(), all: Type.Optional(Type.Boolean()), fuzzy: Type.Optional(Type.Boolean()) }) },
-		{ additionalProperties: true },
-	),
-	Type.Object(
-		{ replace_symbol: Type.Object({ symbol: Type.String(), new_body: Type.String() }) },
-		{ additionalProperties: true },
-	),
+	Type.Object({
+		set_line: Type.Object({
+			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
+			new_text: Type.String(),
+		}),
+	}, { additionalProperties: true }),
+	Type.Object({
+		replace_lines: Type.Object({
+			start_anchor: Type.String({ description: "Fresh LINE:HASH start anchor" }),
+			end_anchor: Type.String({ description: "Fresh LINE:HASH end anchor" }),
+			new_text: Type.String(),
+		}),
+	}, { additionalProperties: true }),
+	Type.Object({
+		insert_after: Type.Object({
+			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
+			new_text: Type.String(),
+			text: Type.Optional(Type.String()),
+		}),
+	}, { additionalProperties: true }),
+	Type.Object({
+		replace: Type.Object({
+			old_text: Type.String({ description: "Non-empty exact target text" }),
+			new_text: Type.String(),
+			all: Type.Optional(Type.Boolean()),
+			fuzzy: Type.Optional(Type.Boolean()),
+		}),
+	}, { additionalProperties: true }),
+	Type.Object({
+		replace_symbol: Type.Object({
+			symbol: Type.String(),
+			new_body: Type.String({ description: "Non-blank complete symbol body" }),
+		}),
+	}, { additionalProperties: true }),
 	Type.Object(
 		{ old_text: Type.String(), new_text: Type.String() },
-		{
-			additionalProperties: true,
-			description: "Do not use — Wrap as { replace: {old_text, new_text} }.",
-		},
+		{ additionalProperties: true, description: "Do not use — Wrap as { replace: {old_text, new_text} }." },
 	),
-]);
+], { description: "Overlaps reject; set_line last wins; safe insert_after ok" });
 
 const hashlineEditSchema = Type.Object(
 	{
-		path: Type.String({ description: "File path" }),
-		edits: Type.Optional(Type.Array(hashlineEditItemSchema, { description: "Edit operations" })),
+		path: Type.String({ description: "Existing file path; requires fresh session anchors" }),
+		edits: Type.Optional(Type.Array(hashlineEditItemSchema, {
+			description: "Non-empty; each item has exactly one supported variant",
+		})),
 		postEditVerify: Type.Optional(Type.Boolean({
 			description: "Verify persisted content after write",
 		})),

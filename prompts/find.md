@@ -1,5 +1,7 @@
 Find files recursively by name. Uses glob patterns by default, respects nested `.gitignore`, includes hidden files, and returns relative paths.
 
+> **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
 ## Parameters
 
 - `pattern` — required. Glob by default; with `regex: true`, JavaScript regex against each basename.

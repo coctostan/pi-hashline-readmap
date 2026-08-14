@@ -315,7 +315,7 @@ export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
     parameters: Type.Object({
       command: Type.String({ description: "Nushell script" }),
       timeout: Type.Optional(
-        Type.Number({ description: "Timeout seconds" }),
+        Type.Number({ description: "Seconds; default 30" }),
       ),
     }),
     async execute(_toolCallId, params: { command: string; timeout?: number }, signal, onUpdate, ctx) {

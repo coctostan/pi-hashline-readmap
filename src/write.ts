@@ -323,9 +323,9 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
     promptGuidelines: WRITE_PROMPT_METADATA.promptGuidelines,
     ptc,
     parameters: Type.Object({
-      path: Type.String({ description: "File path" }),
-      content: Type.String({ description: "File content" }),
-      map: Type.Optional(Type.Boolean({ description: "Append structural map" })),
+      path: Type.String({ description: "New or existing file path; fully overwrites target" }),
+      content: Type.String({ description: "Complete content; bare CR refused; binary gets no anchors" }),
+      map: Type.Optional(Type.Boolean({ description: "Request a structural map after writing" })),
     }),
     async execute(_toolCallId: string, params: { path: string; content: string; map?: boolean }, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<any> {
       const cwd = ctx?.cwd ?? process.cwd();

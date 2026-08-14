@@ -1,5 +1,7 @@
 Explore files, structured data, and system state with Nushell pipelines. Use `nu` for inspection and data wrangling; use `bash` for tests, builds, git, package managers, and project commands.
 
+> **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
 ## Parameters
 
 - `command` — Nushell script; may be multi-line.

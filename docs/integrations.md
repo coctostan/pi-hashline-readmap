@@ -2,6 +2,8 @@
 
 `pi-hashline-readmap` exposes its registered tool executors for downstream pi integrations that want to call the same enhanced tools programmatically.
 
+[Back to README](../README.md)
+
 ## EventBus executor announcement
 
 When the extension loads, it emits the tool executor map on pi's EventBus:
@@ -45,6 +47,14 @@ The map includes these keys when the corresponding tool is registered:
 - Use `details.ptcValue` for structured results instead of parsing rendered output when possible.
 - Be prepared for optional executors such as `nu` and `context_hygiene_report` to be absent.
 - Do not rely on hot reload. Restart the pi session after changing this extension's source.
+
+## Provider-visible prompt metadata
+
+At Pi's real `createAgentSession` boundary, every registered tool can expose `description`, `promptSnippet`, and flat `promptGuidelines`. Pi uses snippets and guidelines when assembling `session.systemPrompt`; provider tool definitions carry tool and recursive parameter descriptions. Hashline's full prompt documents are detailed references and do not become provider-visible merely because their bodies change. See [the metadata contract and diagnosis](tool-metadata.md) for the exact boundary test and inventory.
+
+## PTC policy consumers
+
+`pi-prompt-assembler` may optionally consume `HASHLINE_TOOL_PTC_POLICY` when deciding which helpers to expose. Presence in the executor map does not override the policy's mutability or default-exposure classification.
 
 ## Related docs
 
