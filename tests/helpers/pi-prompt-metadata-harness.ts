@@ -9,11 +9,18 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { registerFauxProvider } from "@earendil-works/pi-ai";
 
+type RegisteredToolMetadata = {
+  description: string;
+  parameterDescriptions: Record<string, string>;
+  parameters: unknown;
+};
+
 type PromptMetadataResult = {
   systemPrompt: string;
   snippets: Record<string, string>;
   guidelinesByTool: Record<string, string[]>;
   activeToolNames: string[];
+  toolMetadata: Record<string, RegisteredToolMetadata>;
 };
 
 function normalizePromptSnippet(value: unknown): string | undefined {
@@ -26,6 +33,25 @@ function normalizePromptGuidelines(value: unknown): string[] {
     .filter((item): item is string => typeof item === "string")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function collectParameterDescriptions(
+  value: unknown,
+  path = "$",
+  output: Record<string, string> = {},
+): Record<string, string> {
+  if (!value || typeof value !== "object") return output;
+  const node = value as Record<string, unknown>;
+  if (typeof node.description === "string") output[path] = node.description;
+  for (const [key, child] of Object.entries(node)) {
+    if (key === "description") continue;
+    if (Array.isArray(child)) {
+      child.forEach((item, index) => collectParameterDescriptions(item, `${path}.${key}[${index}]`, output));
+    } else if (child && typeof child === "object") {
+      collectParameterDescriptions(child, `${path}.${key}`, output);
+    }
+  }
+  return output;
 }
 
 export async function collectHashlineSystemPromptMetadata(activeTools: string[]): Promise<PromptMetadataResult> {
@@ -60,6 +86,7 @@ export async function collectHashlineSystemPromptMetadata(activeTools: string[])
 
     const snippets: Record<string, string> = {};
     const guidelinesByTool: Record<string, string[]> = {};
+    const toolMetadata: Record<string, RegisteredToolMetadata> = {};
 
     for (const toolName of activeTools) {
       const definition = session.getToolDefinition(toolName) as (ToolDefinition & {
@@ -67,6 +94,14 @@ export async function collectHashlineSystemPromptMetadata(activeTools: string[])
         promptGuidelines?: unknown;
       }) | undefined;
       if (!definition) throw new Error(`Expected active Pi session to expose tool ${toolName}`);
+
+      const description = typeof definition.description === "string" ? definition.description : "";
+      if (!description) throw new Error(`Expected ${toolName} to expose a non-empty description`);
+      toolMetadata[toolName] = {
+        description,
+        parameterDescriptions: collectParameterDescriptions(definition.parameters),
+        parameters: definition.parameters,
+      };
 
       const snippet = normalizePromptSnippet(definition.promptSnippet);
       if (!snippet) throw new Error(`Expected ${toolName} to expose a non-empty promptSnippet`);
@@ -81,6 +116,7 @@ export async function collectHashlineSystemPromptMetadata(activeTools: string[])
       systemPrompt: session.systemPrompt,
       snippets,
       guidelinesByTool,
+      toolMetadata,
       activeToolNames: session.getActiveToolNames(),
     };
   } finally {

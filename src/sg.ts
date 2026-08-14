@@ -166,12 +166,12 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
     promptSnippet: SG_PROMPT_METADATA.promptSnippet,
     promptGuidelines: SG_PROMPT_METADATA.promptGuidelines,
     parameters: Type.Object({
-      pattern: Type.String({ description: "AST pattern" }),
+      pattern: Type.String({ description: "ast-grep structural pattern" }),
       lang: Type.Optional(Type.String({ description: "Language hint" })),
       path: Type.Optional(Type.String({ description: "Search path" })),
       limit: Type.Optional(Type.Union([
-        Type.Number({ description: "Positive maximum AST match count" }),
-        Type.String({ description: "Positive maximum AST match count" }),
+        Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
+        Type.String({ description: "Positive int or obvious base-10 numeric string" }),
       ])),
     }),
     ptc,

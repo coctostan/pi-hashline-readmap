@@ -115,21 +115,21 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			path: Type.String({ description: "File path" }),
 			offset: Type.Optional(
 				Type.Union([
-					Type.Number({ description: "Start line (1-indexed)" }),
-					Type.String({ description: "Start line (1-indexed)" }),
+					Type.Number({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
+					Type.String({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
 				]),
 			),
 			limit: Type.Optional(
 				Type.Union([
-					Type.Number({ description: "Max lines" }),
-					Type.String({ description: "Max lines" }),
+					Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
+					Type.String({ description: "Positive int or obvious base-10 numeric string" }),
 				]),
 			),
-			symbol: Type.Optional(Type.String({ description: "Symbol name to read" })),
-			map: Type.Optional(Type.Boolean({ description: "Append structural map" })),
+			symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
+			map: Type.Optional(Type.Boolean({ description: "Append map; valid with symbol, limit, and local bundle" })),
 			bundle: Type.Optional(
 				Type.Literal("local", {
-					description: "Include same-file local support",
+					description: "local; requires symbol; valid with limit and map",
 				}),
 			),
 		}),

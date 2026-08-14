@@ -325,12 +325,12 @@ export function registerFindTool(pi: ExtensionAPI) {
     ptc: FIND_PTC,
     parameters: Type.Object(
       {
-        pattern: Type.String({ description: "Glob or basename pattern" }),
-        path: Type.Optional(Type.String({ description: "Search root" })),
+        pattern: Type.String({ description: "Glob/basename; JavaScript regex when regex is true" }),
+        path: Type.Optional(Type.String({ description: "Directory search root" })),
         limit: Type.Optional(
           Type.Union(
             [Type.Number(), Type.String()],
-            { description: "Max entries" },
+            { description: "Positive int or obvious base-10 numeric string" },
           ),
         ),
         type: Type.Optional(
@@ -339,9 +339,9 @@ export function registerFindTool(pi: ExtensionAPI) {
             { description: "Entry type filter" },
           ),
         ),
-        maxDepth: Type.Optional(Type.Number({ description: "Max directory depth" })),
+        maxDepth: Type.Optional(Type.Number({ description: "Non-negative int; runtime also accepts base-10 strings" })),
         regex: Type.Optional(
-          Type.Boolean({ description: "Treat pattern as regex" }),
+          Type.Boolean({ description: "If true, pattern must be a valid JavaScript regex" }),
         ),
         sortBy: Type.Optional(
           Type.Union(
@@ -352,12 +352,12 @@ export function registerFindTool(pi: ExtensionAPI) {
         reverse: Type.Optional(
           Type.Boolean({ description: "Reverse sort order" }),
         ),
-        modifiedSince: Type.Optional(Type.String({ description: "Modified after time" })),
+        modifiedSince: Type.Optional(Type.String({ description: "ISO date/time or Nm, Nh, Nd relative age" })),
         minSize: Type.Optional(
-          Type.Union([Type.Number(), Type.String()], { description: "Minimum file size" }),
+          Type.Union([Type.Number(), Type.String()], { description: "Non-negative bytes or B/K/KB/M/MB/G/GB size" }),
         ),
         maxSize: Type.Optional(
-          Type.Union([Type.Number(), Type.String()], { description: "Maximum file size" }),
+          Type.Union([Type.Number(), Type.String()], { description: "Non-negative bytes or B/K/KB/M/MB/G/GB size" }),
         ),
       },
       { required: ["pattern"] },

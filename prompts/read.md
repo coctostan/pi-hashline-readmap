@@ -1,5 +1,7 @@
 Read text files with `LINE:HASH|content` anchors usable by `edit`. Default cap: {{DEFAULT_MAX_LINES}} lines or {{DEFAULT_MAX_BYTES}}. Images return attachments, not edit anchors.
 
+> **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
 ## Parameters
 
 - `offset` / `limit` — positive line numbers for targeted reads; `offset` is 1-indexed. `limit` may also cap a resolved `symbol`, but `offset` cannot combine with `symbol`.

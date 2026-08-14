@@ -1,28 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const root = resolve(__dirname, "..");
-
-describe("README.md ptc policy docs", () => {
-  const readme = readFileSync(resolve(root, "README.md"), "utf8");
-
-  it("documents the expanded policy contract and recommended exposure tiers", () => {
-    expect(readme).toContain("### PTC tool policy contract");
-    expect(readme).toContain("`HASHLINE_TOOL_PTC_POLICY`");
-    expect(readme).toContain("`read`, `grep`, `ls`, and `find` are safe-by-default and read-only");
-    expect(readme).toContain("`ast_search` and `nu` are opt-in and read-only");
-    expect(readme).toContain("`edit` is not safe-by-default and is mutating");
-    expect(readme).toContain("`pi-prompt-assembler` may optionally consume this contract");
+const structured = readFileSync("docs/structured-output.md", "utf8");
+const integrations = readFileSync("docs/integrations.md", "utf8");
+describe("relocated PTC and executor documentation", () => {
+  it("keeps policy rows in structured-output.md", () => {
+    expect(structured).toContain("`HASHLINE_TOOL_PTC_POLICY`");
+    expect(structured).toContain("`read` | `read` | Yes | `read-only` | `safe-by-default`");
+    expect(structured).toContain("`ast_search` | `ast_search` | No | `read-only` | `opt-in`");
+    expect(structured).toContain("`edit` | `edit` | Yes | `mutating` | `not-safe-by-default`");
   });
-
-  it("documents the emitted executor surface and nu's runtime-dependent presence", () => {
-    expect(readme).toContain("## EventBus integration");
-    expect(readme).toContain('pi.events.emit("hashline:tool-executors"');
-    expect(readme).toContain("`read`, `edit`, `grep`, `ast_search`, `write`, `ls`, and `find`");
-    expect(readme).toContain("`nu` when Nushell is available at runtime");
-    expect(readme).toContain("`globalThis.__hashlineToolExecutors`");
+  it("keeps executor exposure, optional nu, and policy-consumer guidance in integrations.md", () => {
+    expect(integrations).toContain('pi.events.emit("hashline:tool-executors"');
+    expect(integrations).toContain("__hashlineToolExecutors");
+    for (const tool of ["read", "edit", "grep", "ast_search", "write", "ls", "find"]) expect(integrations).toContain(`\`${tool}\``);
+    expect(integrations).toContain("Present only when the optional Nushell integration registers successfully");
+    expect(integrations).toContain("pi-prompt-assembler");
+    expect(integrations).toContain("HASHLINE_TOOL_PTC_POLICY");
   });
 });

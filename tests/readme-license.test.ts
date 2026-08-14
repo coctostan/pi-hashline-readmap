@@ -16,9 +16,9 @@ describe("README.md (AC-1, AC-2)", () => {
     expect(readme).toContain("pi-hashline-readmap");
   });
 
-  it("contains Installation section", () => {
+  it("contains install instructions", () => {
     const readme = readFileSync(resolve(root, "README.md"), "utf8");
-    expect(readme).toContain("Installation");
+    expect(readme).toMatch(/^## Install(?:ation)?$/m);
     expect(readme).toContain("pi install");
   });
 
@@ -27,15 +27,11 @@ describe("README.md (AC-1, AC-2)", () => {
     expect(readme).toContain("LINE:HASH");
   });
 
-  it("documents structural map behavior for large files", () => {
-    const readme = readFileSync(resolve(root, "README.md"), "utf8");
-    expect(readme).toContain("structural map");
-  });
-
-  it("mentions supported languages", () => {
-    const readme = readFileSync(resolve(root, "README.md"), "utf8");
-    expect(readme).toContain("TypeScript, JavaScript, Python");
-    expect(readme).toContain("opt-in GDScript");
+  it("keeps structural-map and mapper documentation in configuration.md", () => {
+    const configuration = readFileSync(resolve(root, "docs/configuration.md"), "utf8");
+    expect(configuration).toContain("Dedicated readmap mappers");
+    expect(configuration).toContain("TypeScript, JavaScript, Python");
+    expect(configuration).toContain("opt-in GDScript");
   });
 
   it("credits upstream projects", () => {

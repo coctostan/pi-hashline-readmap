@@ -1,5 +1,7 @@
 AST-aware structural code search. Use when text search is too broad or brittle and you need code shape, such as calls, imports, declarations, or JSX. Returns matches grouped by file with edit-ready hashline anchors.
 
+> **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
 ## Parameters
 
 - `pattern` — ast-grep pattern to match.

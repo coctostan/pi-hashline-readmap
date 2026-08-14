@@ -1,5 +1,7 @@
 Surgically edit existing text files. Prefer hash-verified anchored edits from fresh `read`, `grep`, `ast_search`, or `write` output; copy `LINE:HASH` anchors exactly.
 
+> **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
 `edit` requires the target file to have been anchored earlier in the current session. If you get `file-not-read`, run `read`, `grep`, `ast_search`, or `write` first.
 
 ## Variants

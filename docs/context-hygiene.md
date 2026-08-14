@@ -2,6 +2,8 @@
 
 `pi-hashline-readmap` adds context-hygiene metadata to tool results so the extension can reason about stale read/search/command context without parsing rendered text.
 
+[Back to README](../README.md)
+
 The feature is additive. It does not change normal tool output unless a later mutation or command rerun makes older context stale or retired.
 
 ## Metadata shape
@@ -52,8 +54,8 @@ Instead, staleness is signalled **forward-only**, in two complementary ways:
    stale/retired lifecycle record is announced exactly once per session, while
    equivalent visible details are grouped by notice kind, tool, reason,
    command/recovery action, and resource keys.
-2. **Hard guards at the point of use.** `edit` refuses with `file-not-read`
-   when the tracked read for a path has been superseded, and every `LINE:HASH`
+2. **Hard guards at the point of use.** `edit` refuses with `file-not-read` when the tracked read
+   for a path has been superseded, and every `LINE:HASH`
    anchor is validated against current on-disk content (`hash-mismatch`). These
    are stronger than advisory text: they block the unsafe operation rather than
    describing it.

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-12
+
+### Fixed
+
+- Encoded current static input constraints for `read`, `edit`, `grep`, `ast_search`, `write`, `ls`, `find`, and `nu` in compact provider-visible descriptions. This is metadata-only: JSON Schema structure, runtime validation, errors, and structured results are unchanged. Post-#248 symbol reads remain composable with limits, maps, and local bundles, while `symbol+offset` and bundle-without-symbol remain invalid.
+
+### Documentation
+
+- Added an evidence-based metadata diagnosis and reproducible session scanner. Before/after rates are explicitly correlational because model mix changed; they are not causal proof or a release gate.
+- Clarified that registered descriptions, snippets, and guidelines are provider-visible while full `prompts/*.md` bodies are detailed references whose edits do not automatically reach providers.
+- Rebuilt the README around installation and the first anchored read/edit, moving current Bash, configuration, context-hygiene, integration, structured-output, and metadata detail into linked package-shipped documents.
+
 ## [0.12.0] - 2026-08-10
 
 ### Changed

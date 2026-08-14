@@ -142,14 +142,14 @@ export function registerLsTool(pi: ExtensionAPI) {
     promptGuidelines: LS_PROMPT_METADATA.promptGuidelines,
     ptc: LS_PTC,
     parameters: Type.Object({
-      path: Type.Optional(Type.String({ description: "Directory path" })),
+      path: Type.Optional(Type.String({ description: "One directory path" })),
       limit: Type.Optional(
         Type.Union(
           [Type.Number(), Type.String()],
-          { description: "Max entries" },
+          { description: "Positive int or obvious base-10 numeric string" },
         ),
       ),
-      glob: Type.Optional(Type.String({ description: "Glob filter" })),
+      glob: Type.Optional(Type.String({ description: "Entry glob with balanced brackets and braces" })),
     }),
     async execute(
       _toolCallId: string,

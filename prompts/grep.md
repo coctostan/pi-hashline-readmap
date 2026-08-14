@@ -1,5 +1,7 @@
 Search file contents. Non-summary results return `LINE:HASH` anchors usable directly by `edit`; no follow-up `read` is needed.
 
+> **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
 ## Modes
 
 - Default: matching lines only. Output lines are `path:>>LINE:HASH|content`; `>>` marks matches.
