@@ -23,7 +23,7 @@ function getTextContent(result: any): string {
 }
 
 describe("issue #081 regression — invalid offset", () => {
-  it("rejects negative and zero offsets instead of clamping or treating them as missing", async () => {
+  it("continues to reject negative offsets", async () => {
     const tool = captureReadTool();
     const filePath = resolve(fixturesDir, "small.ts");
 
@@ -46,23 +46,24 @@ describe("issue #081 regression — invalid offset", () => {
         message: "Invalid offset: expected a positive integer, received -5.",
       },
     });
-    const zeroOffset = await tool.execute(
+  });
+
+  it.each([0, "0"])("reports and omits a %s offset placeholder", async (value) => {
+    const tool = captureReadTool();
+    const filePath = resolve(fixturesDir, "small.ts");
+    const result = await tool.execute(
       "read-081-zero-offset",
-      { path: filePath, offset: "0" },
+      { path: filePath, offset: value },
       new AbortController().signal,
       () => {},
       { cwd: process.cwd() },
     );
-    expect(zeroOffset.isError).toBe(true);
-    expect(getTextContent(zeroOffset)).toBe("Invalid offset: expected a positive integer, received 0.");
-    expect(zeroOffset.details?.ptcValue).toEqual({
-      tool: "read",
-      ok: false,
-      path: filePath,
-      error: {
-        code: "invalid-offset",
-        message: "Invalid offset: expected a positive integer, received 0.",
-      },
-    });
+
+    expect(result.isError).not.toBe(true);
+    expect(getTextContent(result)).toContain("[Read params adjusted: ignored offset 0]");
+    expect(getTextContent(result)).toMatch(/^1:[0-9a-f]{3}\|/m);
+    expect(result.details?.ptcValue?.warnings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "params-adjusted" })]),
+    );
   });
 });

@@ -135,6 +135,10 @@ describe("read integration — combined output", () => {
 
 			expect(getTextContent(result)).toContain("Read image file [image/png]");
 			expect(getTextContent(result)).not.toContain("LINE:HASH");
+
+			const adjusted = await callReadTool({ path: imagePath, offset: 0 });
+			expect(getTextContent(adjusted)).toContain("[Read params adjusted: ignored offset 0]");
+			expect(getTextContent(adjusted)).toContain("Read image file [image/png]");
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });
 		}

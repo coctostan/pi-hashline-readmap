@@ -23,48 +23,23 @@ function getTextContent(result: any): string {
 }
 
 describe("issue #081 regression — zero limit", () => {
-  it("treats numeric and string zero limits as invalid instead of as 'no limit'", async () => {
+  it.each([0, "0"])("reports and omits a %s limit placeholder", async (value) => {
     const tool = captureReadTool();
     const filePath = resolve(fixturesDir, "small.ts");
 
-    const numericZero = await tool.execute(
-      "read-081-zero-limit-number",
-      { path: filePath, limit: 0 },
+    const result = await tool.execute(
+      "read-081-zero-limit",
+      { path: filePath, limit: value },
       new AbortController().signal,
       () => {},
       { cwd: process.cwd() },
     );
 
-    expect(numericZero.isError).toBe(true);
-    expect(getTextContent(numericZero)).toBe("Invalid limit: expected a positive integer, received 0.");
-    expect(numericZero.details?.ptcValue).toMatchObject({
-      tool: "read",
-      ok: false,
-      path: filePath,
-      error: {
-        code: "invalid-limit",
-        message: "Invalid limit: expected a positive integer, received 0.",
-      },
-    });
-
-    const stringZero = await tool.execute(
-      "read-081-zero-limit-string",
-      { path: filePath, limit: "0" },
-      new AbortController().signal,
-      () => {},
-      { cwd: process.cwd() },
+    expect(result.isError).not.toBe(true);
+    expect(getTextContent(result)).toContain("[Read params adjusted: ignored limit 0]");
+    expect(getTextContent(result)).toMatch(/^1:[0-9a-f]{3}\|/m);
+    expect(result.details?.ptcValue?.warnings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "params-adjusted" })]),
     );
-
-    expect(stringZero.isError).toBe(true);
-    expect(getTextContent(stringZero)).toBe("Invalid limit: expected a positive integer, received 0.");
-    expect(stringZero.details?.ptcValue).toMatchObject({
-      tool: "read",
-      ok: false,
-      path: filePath,
-      error: {
-        code: "invalid-limit",
-        message: "Invalid limit: expected a positive integer, received 0.",
-      },
-    });
   });
 });

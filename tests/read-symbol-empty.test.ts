@@ -22,7 +22,7 @@ describe("read symbol validation", () => {
     ["spaces only", "   "],
     ["tab only", "\t"],
     ["newline only", "\n"],
-  ])("rejects %s symbol with a validator-prefixed error", async (_label, sym) => {
+  ])("treats %s symbol as an omitted placeholder with an explicit notice", async (_label, sym) => {
     const tool = captureReadTool();
     const result = await tool.execute(
       "read-empty",
@@ -31,10 +31,12 @@ describe("read symbol validation", () => {
       () => {},
       { cwd: process.cwd() },
     );
-    expect(result.isError).toBe(true);
-    expect(textOf(result)).toContain("Invalid symbol: expected a non-empty string.");
-    expect(result.details?.ptcValue?.ok).toBe(false);
-    expect(result.details?.ptcValue?.error?.code).toBe("invalid-params-combo");
+    expect(result.isError).not.toBe(true);
+    expect(textOf(result)).toContain("[Read params adjusted: ignored empty symbol]");
+    expect(textOf(result)).toMatch(/^1:[0-9a-f]{3}\|/m);
+    expect(result.details?.ptcValue?.warnings).toEqual(
+      expect.arrayContaining([expect.objectContaining({ code: "params-adjusted" })]),
+    );
   });
 
   it("regression: omitted symbol still returns full file output", async () => {

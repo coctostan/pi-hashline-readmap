@@ -9,6 +9,8 @@ Read text files with `LINE:HASH|content` anchors usable by `edit`. Default cap: 
 - `symbol: "Name"` — read one symbol range by name, with hash anchors. Supports `ClassName.method`, Java package-relative names, and `Name@<line>` disambiguation. May combine with `limit`, `map: true`, and `bundle: "local"`; cannot combine with `offset`.
 - `bundle: "local"` — with `symbol`, also include direct same-file local support when available. May combine with `limit` and `map: true`; cannot be used without `symbol`.
 
+Empty-string `symbol` / `offset` / `limit` values and numeric zero `offset` / `limit` values are treated as omitted placeholders before the read mode is selected. Every omission is reported in a leading `[Read params adjusted: ...]` notice and structured `params-adjusted` warning. Meaningful conflicts still fail instead of guessing: a non-empty `symbol` cannot combine with a positive `offset`, and `bundle` still requires a surviving `symbol`.
+
 When a full-file read is truncated, a structural map is appended automatically when available. Use that map's line ranges for follow-up `read({ offset, limit })`. Rust, C, C++, Java, and Swift maps use packaged `web-tree-sitter` WASM grammars (`.h` remains C++-backed); other common code/data formats use their dedicated mapper or may fall back to ctags/heuristics.
 
 Very long single lines are truncated in the displayed output at 500 characters, the same threshold `grep` uses, with a `... [truncated, N chars total]` marker showing the original length. Truncation is display-only: the `LINE:HASH` anchor is computed from the full line, so `edit` still operates on the complete content and the hash is unchanged.

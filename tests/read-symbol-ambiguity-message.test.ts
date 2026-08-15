@@ -36,16 +36,20 @@ describe("read symbol ambiguity message", () => {
 
 		const result = await capturedTool.execute(
 			"test-call",
-			{ path: "/tmp/sample.ts", symbol: "add" },
+			{ path: "/tmp/sample.ts", symbol: "add", limit: 0 },
 			new AbortController().signal,
 			() => {},
 			{ cwd: process.cwd() },
 		);
 
 		const text = result.content.find((c: any) => c.type === "text")?.text ?? "";
+		expect(text).toContain("[Read params adjusted: ignored limit 0]");
 		expect(text).toContain("add@1");
 		expect(text).toContain("add@5");
 		expect(text.toLowerCase()).not.toContain("dot notation");
+		expect(result.details.ptcValue.warnings).toEqual(
+			expect.arrayContaining([expect.objectContaining({ code: "params-adjusted" })]),
+		);
 	});
 
 	it("exposes displayed and omitted ambiguity candidates", async () => {
