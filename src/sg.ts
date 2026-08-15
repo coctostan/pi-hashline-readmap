@@ -15,6 +15,10 @@ import { buildAstSearchRehydrateDescriptor, isContextHygieneDebugEnabled } from 
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { executableCommand, resolveBundledBin } from "./binary-resolution.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
+import {
+  buildRequiredNullParameterError,
+  normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 type SgParams = { pattern: string; lang?: string; path?: string; limit?: number | string };
 type NormalizedSgParams = Omit<SgParams, "limit"> & { limit?: number };
@@ -149,6 +153,16 @@ interface SgToolOptions {
   outputBudget?: SgOutputBudget;
 }
 
+const SG_PARAMETERS = Type.Object({
+  pattern: Type.String({ description: "ast-grep structural pattern" }),
+  lang: Type.Optional(Type.String({ description: "Language hint" })),
+  path: Type.Optional(Type.String({ description: "Search path" })),
+  limit: Type.Optional(Type.Union([
+    Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
+    Type.String({ description: "Positive int or obvious base-10 numeric string" }),
+  ])),
+});
+
 export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
   const ptc = {
     callable: true,
@@ -165,19 +179,15 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
     description: SG_PROMPT_METADATA.description,
     promptSnippet: SG_PROMPT_METADATA.promptSnippet,
     promptGuidelines: SG_PROMPT_METADATA.promptGuidelines,
-    parameters: Type.Object({
-      pattern: Type.String({ description: "ast-grep structural pattern" }),
-      lang: Type.Optional(Type.String({ description: "Language hint" })),
-      path: Type.Optional(Type.String({ description: "Search path" })),
-      limit: Type.Optional(Type.Union([
-        Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
-        Type.String({ description: "Positive int or obvious base-10 numeric string" }),
-      ])),
-    }),
+    parameters: SG_PARAMETERS,
     ptc,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+      const normalized = normalizeToolParameters(SG_PARAMETERS, params);
+      if (normalized.requiredNull) {
+        return buildRequiredNullParameterError("ast_search", normalized.requiredNull);
+      }
+      const rawParams = normalized.value as SgParams;
       await ensureHashInit();
-      const rawParams = params as SgParams;
       const limit = coerceObviousBase10Int(rawParams.limit, "limit");
       if (!limit.ok) {
         return {

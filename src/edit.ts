@@ -35,6 +35,10 @@ import { DiffPreviewComponent } from "./tui-diff-component.js";
 import { buildContextHygieneMetadata, buildFileResource, type ContextHygieneMetadata } from "./context-hygiene.js";
 import { resolveEditDiffDisplay } from "./hashline-settings.js";
 import { looksLikeBinary } from "./binary-detect.js";
+import {
+	buildRequiredNullParameterError,
+	normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 const EDIT_PENDING_PREVIEW_STATE_KEY = "hashline-edit-pending-preview";
 
@@ -754,9 +758,13 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 		ptc,
 		renderShell: "default" as const,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			const normalized = normalizeToolParameters(hashlineEditSchema, params);
+			if (normalized.requiredNull) {
+				return buildRequiredNullParameterError("edit", normalized.requiredNull);
+			}
+			const parsed = normalized.value as HashlineParams;
+			const input = normalized.value as Record<string, unknown>;
 			await ensureHashInit();
-			const parsed = params as HashlineParams;
-			const input = params as Record<string, unknown>;
 			const rawPath = parsed.path;
 			const path = rawPath.replace(/^@/, "");
 			const absolutePath = resolveToCwd(path, ctx.cwd);

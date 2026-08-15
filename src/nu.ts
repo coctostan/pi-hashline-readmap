@@ -11,6 +11,10 @@ import { stripAnsi } from "./rtk/ansi.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { executableCommand, resolveBundledBin } from "./binary-resolution.js";
+import {
+  buildRequiredNullParameterError,
+  normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 const MAX_LINES = 2000;
 const MAX_BYTES = 50 * 1024; // 50 KB
@@ -301,6 +305,13 @@ export const NU_PTC = {
  */
 export type NuToolDefinition = Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof NU_PTC };
 
+const NU_PARAMETERS = Type.Object({
+  command: Type.String({ description: "Nushell script" }),
+  timeout: Type.Optional(
+    Type.Number({ description: "Seconds; default 30" }),
+  ),
+});
+
 export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
   if (!isNuAvailable()) {
     return false;
@@ -312,17 +323,20 @@ export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
     promptSnippet: NU_PROMPT_METADATA.promptSnippet,
     promptGuidelines: NU_PROMPT_METADATA.promptGuidelines,
     ptc: NU_PTC,
-    parameters: Type.Object({
-      command: Type.String({ description: "Nushell script" }),
-      timeout: Type.Optional(
-        Type.Number({ description: "Seconds; default 30" }),
-      ),
-    }),
+    parameters: NU_PARAMETERS,
     async execute(_toolCallId, params: { command: string; timeout?: number }, signal, onUpdate, ctx) {
+      const normalized = normalizeToolParameters(NU_PARAMETERS, params);
+      if (normalized.requiredNull) {
+        return buildRequiredNullParameterError("nu", normalized.requiredNull);
+      }
+      const normalizedParams = normalized.value as {
+        command: string;
+        timeout?: number;
+      };
       const result = await executeNuScript({
-        command: params.command,
+        command: normalizedParams.command,
         cwd: ctx.cwd,
-        timeoutSeconds: params.timeout ?? 30,
+        timeoutSeconds: normalizedParams.timeout ?? 30,
         signal: signal ?? undefined,
         onUpdate: onUpdate
           ? (text) => onUpdate({ content: [{ type: "text", text }], details: {} })
@@ -344,7 +358,7 @@ export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
           error: buildPtcError(
             "nu-timed-out",
             text,
-            `Increase timeout via the 'timeout' parameter (current: ${params.timeout ?? 30}s).`,
+            `Increase timeout via the 'timeout' parameter (current: ${normalizedParams.timeout ?? 30}s).`,
             { exitCode: result.exitCode, timedOut: true },
           ),
         };

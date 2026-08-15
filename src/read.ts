@@ -22,6 +22,10 @@ import { Text } from "@earendil-works/pi-tui";
 import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
+import {
+	buildRequiredNullParameterError,
+	normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 const READ_PROMPT_METADATA = defineToolPromptMetadata({
 	promptUrl: new URL("../prompts/read.md", import.meta.url),
@@ -46,6 +50,29 @@ interface ReadParams {
 interface ReadToolOptions {
 	onSuccessfulRead?: (absolutePath: string) => void;
 }
+
+const READ_PARAMETERS = Type.Object({
+	path: Type.String({ description: "File path" }),
+	offset: Type.Optional(
+		Type.Union([
+			Type.Number({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
+			Type.String({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
+		]),
+	),
+	limit: Type.Optional(
+		Type.Union([
+			Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
+			Type.String({ description: "Positive int or obvious base-10 numeric string" }),
+		]),
+	),
+	symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
+	map: Type.Optional(Type.Boolean({ description: "Append map; valid with symbol, limit, and local bundle" })),
+	bundle: Type.Optional(
+		withLegacyLiteralOrder(Type.Literal("local", {
+			description: "local; requires symbol; valid with limit and map",
+		})),
+	),
+});
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
@@ -112,32 +139,15 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 		description: READ_PROMPT_METADATA.description,
 		promptSnippet: READ_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: READ_PROMPT_METADATA.promptGuidelines,
-		parameters: Type.Object({
-			path: Type.String({ description: "File path" }),
-			offset: Type.Optional(
-				Type.Union([
-					Type.Number({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
-					Type.String({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
-				]),
-			),
-			limit: Type.Optional(
-				Type.Union([
-					Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
-					Type.String({ description: "Positive int or obvious base-10 numeric string" }),
-				]),
-			),
-			symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
-			map: Type.Optional(Type.Boolean({ description: "Append map; valid with symbol, limit, and local bundle" })),
-			bundle: Type.Optional(
-				withLegacyLiteralOrder(Type.Literal("local", {
-					description: "local; requires symbol; valid with limit and map",
-				})),
-			),
-		}),
+		parameters: READ_PARAMETERS,
 		ptc,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+			const normalizedParams = normalizeToolParameters(READ_PARAMETERS, params);
+			if (normalizedParams.requiredNull) {
+				return buildRequiredNullParameterError("read", normalizedParams.requiredNull);
+			}
+			const rawParams = normalizedParams.value as ReadParams;
 			await ensureHashInit();
-			const rawParams = params as ReadParams;
 			const offset = coerceObviousBase10Int(rawParams.offset, "offset");
 			if (!offset.ok) {
 				return {

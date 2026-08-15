@@ -7,6 +7,7 @@ import { resolveToCwd } from "./path-utils.js";
 import { buildPtcError } from "./ptc-value.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import { normalizeToolParameters } from "./normalize-tool-params.js";
 
 const MAX_BYTES = 50 * 1024; // 50 KB
 const DEFAULT_LIMIT = 500;
@@ -133,6 +134,17 @@ function buildLsFsErrorResult(err: any, target: string) {
   };
 }
 
+const LS_PARAMETERS = Type.Object({
+  path: Type.Optional(Type.String({ description: "One directory path" })),
+  limit: Type.Optional(
+    Type.Union(
+      [Type.Number(), Type.String()],
+      { description: "Positive int or obvious base-10 numeric string" },
+    ),
+  ),
+  glob: Type.Optional(Type.String({ description: "Entry glob with balanced brackets and braces" })),
+});
+
 export function registerLsTool(pi: ExtensionAPI) {
   const tool: Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof LS_PTC } = {
     name: "ls",
@@ -141,16 +153,7 @@ export function registerLsTool(pi: ExtensionAPI) {
     promptSnippet: LS_PROMPT_METADATA.promptSnippet,
     promptGuidelines: LS_PROMPT_METADATA.promptGuidelines,
     ptc: LS_PTC,
-    parameters: Type.Object({
-      path: Type.Optional(Type.String({ description: "One directory path" })),
-      limit: Type.Optional(
-        Type.Union(
-          [Type.Number(), Type.String()],
-          { description: "Positive int or obvious base-10 numeric string" },
-        ),
-      ),
-      glob: Type.Optional(Type.String({ description: "Entry glob with balanced brackets and braces" })),
-    }),
+    parameters: LS_PARAMETERS,
     async execute(
       _toolCallId: string,
       params: { path?: string; limit?: number | string; glob?: string },
@@ -158,6 +161,8 @@ export function registerLsTool(pi: ExtensionAPI) {
       _onUpdate: any,
       ctx: any,
     ) {
+      const normalized = normalizeToolParameters(LS_PARAMETERS, params);
+      params = normalized.value as typeof params;
       const cwd: string = ctx?.cwd ?? process.cwd();
       const targetPath = params.path ? resolveToCwd(params.path, cwd) : cwd;
       const limitCoerced = coerceObviousBase10Int(params.limit, "limit");
