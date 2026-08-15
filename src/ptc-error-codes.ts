@@ -24,6 +24,10 @@ export const PTC_ERROR_CODES = {
   },
   "invalid-offset": { description: "offset is not a positive integer", trigger: "non-int or value < 1" },
   "invalid-limit": { description: "limit is not a positive integer", trigger: "non-int or value < 1" },
+  "invalid-null": {
+    description: "A required parameter was supplied as JSON null",
+    trigger: "a schema-required parameter is present with value null after optional-null normalization",
+  },
 
   // edit
   "file-not-read": { description: "edit called on a path that was not read in this session", trigger: "wasReadInSession returned false" },

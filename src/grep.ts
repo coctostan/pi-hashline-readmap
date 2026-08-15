@@ -20,6 +20,10 @@ import { formatGrepCallText, formatGrepResultText } from "./grep-render-helpers.
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
+import {
+	buildRequiredNullParameterError,
+	normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 const GREP_PROMPT_METADATA = defineToolPromptMetadata({
 	promptUrl: new URL("../prompts/grep.md", import.meta.url),
@@ -335,8 +339,12 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 			? [GREP_PROMPT_METADATA.promptGuidelines[0], options.astSearchGuideline]
 			: GREP_PROMPT_METADATA.promptGuidelines,
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
+			const normalized = normalizeToolParameters(grepSchema, params);
+			if (normalized.requiredNull) {
+				return buildRequiredNullParameterError("grep", normalized.requiredNull);
+			}
+			const rawParams = normalized.value as GrepParams;
 			await ensureHashInit();
-			const rawParams = params as GrepParams;
 			const context = coerceObviousBase10Int(rawParams.context, "context");
 			if (!context.ok) {
 				return {

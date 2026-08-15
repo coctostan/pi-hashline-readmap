@@ -12,6 +12,10 @@ import { parseRelativeOrIsoDate, parseSize } from "./find-parsers.js";
 import { buildPtcError } from "./ptc-value.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
+import {
+  buildRequiredNullParameterError,
+  normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 const MAX_BYTES = 50 * 1024; // 50 KB
 const DEFAULT_LIMIT = 1000;
@@ -316,6 +320,46 @@ function formatOutput(
   return text;
 }
 
+const FIND_PARAMETERS = withLegacyRequiredOrder(Type.Object(
+  {
+    pattern: Type.String({ description: "Glob/basename; JavaScript regex when regex is true" }),
+    path: Type.Optional(Type.String({ description: "Directory search root" })),
+    limit: Type.Optional(
+      Type.Union(
+        [Type.Number(), Type.String()],
+        { description: "Positive int or obvious base-10 numeric string" },
+      ),
+    ),
+    type: Type.Optional(
+      Type.Union(
+        [withLegacyLiteralOrder(Type.Literal("file")), withLegacyLiteralOrder(Type.Literal("dir")), withLegacyLiteralOrder(Type.Literal("any"))],
+        { description: "Entry type filter" },
+      ),
+    ),
+    maxDepth: Type.Optional(Type.Number({ description: "Non-negative int; runtime also accepts base-10 strings" })),
+    regex: Type.Optional(
+      Type.Boolean({ description: "If true, pattern must be a valid JavaScript regex" }),
+    ),
+    sortBy: Type.Optional(
+      Type.Union(
+        [withLegacyLiteralOrder(Type.Literal("name")), withLegacyLiteralOrder(Type.Literal("mtime")), withLegacyLiteralOrder(Type.Literal("size"))],
+        { description: "Sort key" },
+      ),
+    ),
+    reverse: Type.Optional(
+      Type.Boolean({ description: "Reverse sort order" }),
+    ),
+    modifiedSince: Type.Optional(Type.String({ description: "ISO date/time or Nm, Nh, Nd relative age" })),
+    minSize: Type.Optional(
+      Type.Union([Type.Number(), Type.String()], { description: "Non-negative bytes or B/K/KB/M/MB/G/GB size" }),
+    ),
+    maxSize: Type.Optional(
+      Type.Union([Type.Number(), Type.String()], { description: "Non-negative bytes or B/K/KB/M/MB/G/GB size" }),
+    ),
+  },
+  { required: ["pattern"] },
+));
+
 export function registerFindTool(pi: ExtensionAPI) {
   const tool: Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof FIND_PTC } = {
     name: "find",
@@ -324,45 +368,7 @@ export function registerFindTool(pi: ExtensionAPI) {
     promptSnippet: FIND_PROMPT_METADATA.promptSnippet,
     promptGuidelines: FIND_PROMPT_METADATA.promptGuidelines,
     ptc: FIND_PTC,
-    parameters: withLegacyRequiredOrder(Type.Object(
-      {
-        pattern: Type.String({ description: "Glob/basename; JavaScript regex when regex is true" }),
-        path: Type.Optional(Type.String({ description: "Directory search root" })),
-        limit: Type.Optional(
-          Type.Union(
-            [Type.Number(), Type.String()],
-            { description: "Positive int or obvious base-10 numeric string" },
-          ),
-        ),
-        type: Type.Optional(
-          Type.Union(
-            [withLegacyLiteralOrder(Type.Literal("file")), withLegacyLiteralOrder(Type.Literal("dir")), withLegacyLiteralOrder(Type.Literal("any"))],
-            { description: "Entry type filter" },
-          ),
-        ),
-        maxDepth: Type.Optional(Type.Number({ description: "Non-negative int; runtime also accepts base-10 strings" })),
-        regex: Type.Optional(
-          Type.Boolean({ description: "If true, pattern must be a valid JavaScript regex" }),
-        ),
-        sortBy: Type.Optional(
-          Type.Union(
-            [withLegacyLiteralOrder(Type.Literal("name")), withLegacyLiteralOrder(Type.Literal("mtime")), withLegacyLiteralOrder(Type.Literal("size"))],
-            { description: "Sort key" },
-          ),
-        ),
-        reverse: Type.Optional(
-          Type.Boolean({ description: "Reverse sort order" }),
-        ),
-        modifiedSince: Type.Optional(Type.String({ description: "ISO date/time or Nm, Nh, Nd relative age" })),
-        minSize: Type.Optional(
-          Type.Union([Type.Number(), Type.String()], { description: "Non-negative bytes or B/K/KB/M/MB/G/GB size" }),
-        ),
-        maxSize: Type.Optional(
-          Type.Union([Type.Number(), Type.String()], { description: "Non-negative bytes or B/K/KB/M/MB/G/GB size" }),
-        ),
-      },
-      { required: ["pattern"] },
-    )),
+    parameters: FIND_PARAMETERS,
     async execute(
       _toolCallId: string,
       params: {
@@ -382,6 +388,11 @@ export function registerFindTool(pi: ExtensionAPI) {
       _onUpdate: any,
       ctx: any,
     ) {
+      const normalized = normalizeToolParameters(FIND_PARAMETERS, params);
+      if (normalized.requiredNull) {
+        return buildRequiredNullParameterError("find", normalized.requiredNull);
+      }
+      params = normalized.value as typeof params;
       const cwd: string = ctx?.cwd ?? process.cwd();
       const searchPath = params.path ? resolveToCwd(params.path, cwd) : cwd;
       const limitCoerced = coerceObviousBase10Int(params.limit, "limit");

@@ -3,6 +3,10 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
+import {
+  buildRequiredNullParameterError,
+  normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 type BuiltInFactory = (cwd: string, options?: { shellPath?: string }) => any;
 
@@ -37,8 +41,17 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
     promptGuidelines: BASH_PROMPT_GUIDELINES,
     parameters: BASH_PARAMETERS,
     async execute(toolCallId: string, params: any, signal?: AbortSignal, onUpdate?: any, ctx: any = {}) {
+      const normalized = normalizeToolParameters(BASH_PARAMETERS, params);
+      if (normalized.requiredNull) {
+        return buildRequiredNullParameterError("bash", normalized.requiredNull);
+      }
       const cwd = ctx?.cwd ?? options.cwd ?? process.cwd();
-      return getBuiltIn(cwd).execute(toolCallId, params, signal, onUpdate);
+      return getBuiltIn(cwd).execute(
+        toolCallId,
+        normalized.value,
+        signal,
+        onUpdate,
+      );
     },
     renderCall(args: any, theme: any, context: any = {}) {
       const raw = String(args?.command ?? "");

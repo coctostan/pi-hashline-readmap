@@ -17,6 +17,10 @@ import { generateCompactOrFullDiff, normalizeToLF, hasBareCarriageReturn } from 
 import { buildDiffData, type DiffData } from "./diff-data.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { DiffPreviewComponent } from "./tui-diff-component.js";
+import {
+  buildRequiredNullParameterError,
+  normalizeToolParameters,
+} from "./normalize-tool-params.js";
 
 const WRITE_PENDING_PREVIEW_STATE_KEY = "hashline-write-pending-preview";
 
@@ -306,6 +310,12 @@ export async function executeWrite(opts: {
   };
 }
 
+const WRITE_PARAMETERS = Type.Object({
+  path: Type.String({ description: "New or existing file path; fully overwrites target" }),
+  content: Type.String({ description: "Complete content; bare CR refused; binary gets no anchors" }),
+  map: Type.Optional(Type.Boolean({ description: "Request a structural map after writing" })),
+});
+
 export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = {}) {
   const ptc = {
     callable: true,
@@ -322,14 +332,19 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
     promptSnippet: WRITE_PROMPT_METADATA.promptSnippet,
     promptGuidelines: WRITE_PROMPT_METADATA.promptGuidelines,
     ptc,
-    parameters: Type.Object({
-      path: Type.String({ description: "New or existing file path; fully overwrites target" }),
-      content: Type.String({ description: "Complete content; bare CR refused; binary gets no anchors" }),
-      map: Type.Optional(Type.Boolean({ description: "Request a structural map after writing" })),
-    }),
+    parameters: WRITE_PARAMETERS,
     async execute(_toolCallId: string, params: { path: string; content: string; map?: boolean }, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<any> {
+      const normalized = normalizeToolParameters(WRITE_PARAMETERS, params);
+      if (normalized.requiredNull) {
+        return buildRequiredNullParameterError("write", normalized.requiredNull);
+      }
+      const normalizedParams = normalized.value as {
+        path: string;
+        content: string;
+        map?: boolean;
+      };
       const cwd = ctx?.cwd ?? process.cwd();
-      const absolutePath = resolveToCwd(params.path, cwd);
+      const absolutePath = resolveToCwd(normalizedParams.path, cwd);
       // Best-effort: resolve the symlink/hard-link target so aliases serialize on
       // one queue key. If resolution itself fails (e.g. ELOOP), fall back to the
       // literal path; writeFileAtomically re-resolves and surfaces the error
@@ -345,8 +360,8 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
         try {
           result = await executeWrite({
             path: absolutePath,
-            content: params.content,
-            map: params.map,
+            content: normalizedParams.content,
+            map: normalizedParams.map,
             cwd,
           });
         } catch (err: any) {
