@@ -20,7 +20,7 @@ import { buildLocalBundle } from "./read-local-bundle.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { Text } from "@earendil-works/pi-tui";
 import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
-import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
+import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapLinesToWidth, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
 import {
 	buildRequiredNullParameterError,
@@ -49,6 +49,53 @@ interface ReadParams {
 
 interface ReadToolOptions {
 	onSuccessfulRead?: (absolutePath: string) => void;
+}
+
+interface ReadResultDetails {
+	ptcValue?: {
+		tool?: string;
+		ok?: boolean;
+		path?: string;
+		warnings?: PtcWarning[];
+		[key: string]: unknown;
+	};
+	[key: string]: unknown;
+}
+
+function withParamAdjustments<T extends AgentToolResult<any>>(
+	result: T,
+	path: string,
+	adjustments: string[],
+): T {
+	if (adjustments.length === 0) return result;
+	const warning = buildPtcWarning(
+		"params-adjusted",
+		`[Read params adjusted: ${adjustments.join("; ")}]`,
+	);
+	const content = [...result.content];
+	const textIndex = content.findIndex((item) => item.type === "text");
+	if (textIndex >= 0 && content[textIndex]?.type === "text") {
+		const item = content[textIndex];
+		content[textIndex] = { ...item, text: `${warning.message}\n\n${item.text}` };
+	} else {
+		content.unshift({ type: "text", text: warning.message });
+	}
+	const details = ((result.details && typeof result.details === "object") ? result.details : {}) as ReadResultDetails;
+	const ptcValue = details.ptcValue ?? {};
+	return {
+		...result,
+		content,
+		details: {
+			...details,
+			ptcValue: {
+				tool: "read",
+				ok: (result as { isError?: boolean }).isError !== true,
+				path,
+				...ptcValue,
+				warnings: [warning, ...(ptcValue.warnings ?? [])],
+			},
+		},
+	} as T;
 }
 
 const READ_PARAMETERS = Type.Object({
@@ -147,10 +194,17 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				return buildRequiredNullParameterError("read", normalizedParams.requiredNull);
 			}
 			const rawParams = normalizedParams.value as ReadParams;
+			const paramAdjustments: string[] = [];
+			const finish = <T extends AgentToolResult<any>>(result: T): T =>
+				withParamAdjustments(result, rawParams.path, paramAdjustments);
+			const rawOffset = rawParams.offset === "" ? undefined : rawParams.offset;
+			if (rawParams.offset === "") paramAdjustments.push("ignored empty offset");
+			const rawLimit = rawParams.limit === "" ? undefined : rawParams.limit;
+			if (rawParams.limit === "") paramAdjustments.push("ignored empty limit");
 			await ensureHashInit();
-			const offset = coerceObviousBase10Int(rawParams.offset, "offset");
+			const offset = coerceObviousBase10Int(rawOffset, "offset");
 			if (!offset.ok) {
-				return {
+				return finish({
 					content: [{ type: "text", text: offset.message }],
 					isError: true,
 					details: {
@@ -161,11 +215,11 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("invalid-offset", offset.message),
 						},
 					},
-				};
+				});
 			}
-			const limit = coerceObviousBase10Int(rawParams.limit, "limit");
+			const limit = coerceObviousBase10Int(rawLimit, "limit");
 			if (!limit.ok) {
-				return {
+				return finish({
 					content: [{ type: "text", text: limit.message }],
 					isError: true,
 					details: {
@@ -176,11 +230,16 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("invalid-limit", limit.message),
 						},
 					},
-				};
+				});
 			}
-			if (limit.value !== undefined && limit.value < 1) {
-				const message = `Invalid limit: expected a positive integer, received ${limit.value}.`;
-				return {
+			let limitValue = limit.value;
+			if (limitValue === 0) {
+				limitValue = undefined;
+				paramAdjustments.push("ignored limit 0");
+			}
+			if (limitValue !== undefined && limitValue < 0) {
+				const message = `Invalid limit: expected a positive integer, received ${limitValue}.`;
+				return finish({
 					content: [{ type: "text", text: message }],
 					isError: true,
 					details: {
@@ -191,11 +250,16 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("invalid-limit", message),
 						},
 					},
-				};
+				});
 			}
-			if (offset.value !== undefined && offset.value < 1) {
-				const message = `Invalid offset: expected a positive integer, received ${offset.value}.`;
-				return {
+			let offsetValue = offset.value;
+			if (offsetValue === 0) {
+				offsetValue = undefined;
+				paramAdjustments.push("ignored offset 0");
+			}
+			if (offsetValue !== undefined && offsetValue < 0) {
+				const message = `Invalid offset: expected a positive integer, received ${offsetValue}.`;
+				return finish({
 					content: [{ type: "text", text: message }],
 					isError: true,
 					details: {
@@ -206,46 +270,57 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("invalid-offset", message),
 						},
 					},
-				};
+				});
 			}
+			let symbolValue = rawParams.symbol;
+			const invalidSymbolType = rawParams.symbol !== undefined && typeof rawParams.symbol !== "string";
+			if (typeof rawParams.symbol === "string") {
+				const trimmedSymbol = rawParams.symbol.trim();
+				if (trimmedSymbol.length === 0) {
+					symbolValue = undefined;
+					paramAdjustments.push("ignored empty symbol");
+				} else {
+					symbolValue = trimmedSymbol;
+				}
+			}
+
 			const p = {
 				...rawParams,
-				offset: offset.value,
-				limit: limit.value,
+				offset: offsetValue,
+				limit: limitValue,
+				symbol: symbolValue,
 			};
-			if (rawParams.symbol !== undefined) {
-				const trimmedSymbol = typeof rawParams.symbol === "string" ? rawParams.symbol.trim() : "";
-				if (trimmedSymbol.length === 0) {
-					const message = "Invalid symbol: expected a non-empty string.";
-					return {
-						content: [{ type: "text", text: message }],
-						isError: true,
-						details: {
-							ptcValue: {
-								tool: "read",
-								ok: false,
-								path: rawParams.path,
-								error: buildPtcError("invalid-params-combo", message),
-							},
+
+			if (invalidSymbolType) {
+				const message = "Invalid symbol: expected a non-empty string.";
+				return finish({
+					content: [{ type: "text", text: message }],
+					isError: true,
+					details: {
+						ptcValue: {
+							tool: "read",
+							ok: false,
+							path: rawParams.path,
+							error: buildPtcError("invalid-params-combo", message),
 						},
-					};
-				}
-				p.symbol = trimmedSymbol;
+					},
+				});
 			}
 			const rawPath = p.path.replace(/^@/, "");
 			const absolutePath = resolveToCwd(rawPath, ctx.cwd);
 			const succeed = <T extends AgentToolResult<any>>(result: T): T => {
-				const isError = (result as { isError?: boolean }).isError;
+				const finished = finish(result);
+				const isError = (finished as { isError?: boolean }).isError;
 				if (!isError) {
 					options.onSuccessfulRead?.(absolutePath);
 				}
-				return result;
+				return finished;
 			};
 
 			throwIfAborted(signal);
 			if (p.symbol && p.offset !== undefined) {
 				const message = "Cannot combine symbol with offset. Either omit offset and use limit to cap the symbol, or use a trailing symbol@line selector.";
-				return {
+				return finish({
 					content: [{ type: "text", text: message }],
 					isError: true,
 					details: {
@@ -256,11 +331,11 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("invalid-params-combo", message),
 						},
 					},
-				};
+				});
 			}
 			if (p.bundle && !p.symbol) {
 				const message = 'Cannot use bundle without symbol. Use read({ path, symbol, bundle: "local" }).';
-				return {
+				return finish({
 					content: [{ type: "text", text: message }],
 					isError: true,
 					details: {
@@ -271,7 +346,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("invalid-params-combo", message),
 						},
 					},
-				};
+				});
 			}
 			// Delegate images to the built-in read tool
 			throwIfAborted(signal);
@@ -289,7 +364,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				const code = err?.code;
 				if (code === "EISDIR") {
 					const message = `Path is a directory: ${rawPath}. Use ls to inspect directories.`;
-					return {
+					return finish({
 						content: [{ type: "text", text: message }],
 						isError: true,
 						details: {
@@ -304,11 +379,11 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 								),
 							},
 						},
-					};
+					});
 				}
 				if (code === "EACCES" || code === "EPERM") {
 					const message = `Permission denied — cannot access: ${rawPath}`;
-					return {
+					return finish({
 						content: [{ type: "text", text: message }],
 						isError: true,
 						details: {
@@ -319,11 +394,11 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 								error: buildPtcError("permission-denied", message),
 							},
 						},
-					};
+					});
 				}
 				if (code === "ENOENT") {
 					const message = `File not found: ${rawPath}`;
-					return {
+					return finish({
 						content: [{ type: "text", text: message }],
 						isError: true,
 						details: {
@@ -334,10 +409,10 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 								error: buildPtcError("file-not-found", message),
 							},
 						},
-					};
+					});
 				}
 				const message = `File not readable: ${rawPath}${err?.message ? ` — ${err.message}` : ""}`;
-				return {
+				return finish({
 					content: [{ type: "text", text: message }],
 					isError: true,
 					details: {
@@ -351,7 +426,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							}),
 						},
 					},
-				};
+				});
 			}
 
 			if (isSupportedImageBuffer(rawBuffer)) {
@@ -368,7 +443,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			let endIdx = p.limit !== undefined && !p.symbol ? Math.min(startLine - 1 + p.limit, total) : total;
 			if (p.offset !== undefined && startLine > total) {
 				const message = `[offset ${p.offset} is past end of file (${total} lines)]`;
-				return {
+				return finish({
 					content: [{ type: "text", text: message }],
 					isError: true,
 					details: {
@@ -379,7 +454,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("offset-past-end", message),
 						},
 					},
-				};
+				});
 			}
 			let symbolMatch: SymbolMatch | undefined;
 			let symbolMatchTier: SymbolMatchTier | undefined;
@@ -666,16 +741,64 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 
 			const content = result.content?.[0];
 			const textContent = content?.type === "text" ? content.text : "";
+			const ptcValue = (result.details as any)?.ptcValue as {
+				range?: { startLine: number; endLine: number; totalLines: number };
+				truncation: any;
+				symbol: any;
+				map: any;
+				warnings: PtcWarning[];
+				ambiguity?: { query?: unknown };
+				error?: { message?: unknown };
+			} | undefined;
+
 			if (isError || result.isError) {
 				const firstLine = textContent.split("\n")[0] || "Error";
-				const errorText = expanded ? (textContent || firstLine) : firstLine;
-				return new Text(clampLinesToWidth([summaryLine(errorText)], width).join("\n"), 0, 0);
+				const structuredMessage = typeof ptcValue?.error?.message === "string" && ptcValue.error.message
+					? ptcValue.error.message
+					: firstLine;
+				if (expanded) {
+					const rows = wrapLinesToWidth(
+						[summaryLine(structuredMessage), ...(textContent ? textContent.split("\n") : [])],
+						width,
+					);
+					return new Text(rows.join("\n"), 0, 0);
+				}
+				return new Text(
+					clampLinesToWidth([summaryLine(structuredMessage)], width).join("\n"),
+					0,
+					0,
+				);
 			}
-
-			const ptcValue = (result.details as any)?.ptcValue as { range: { startLine: number; endLine: number; totalLines: number }; truncation: any; symbol: any; map: any; warnings: PtcWarning[] } | undefined;
-			if (!ptcValue) {
+			if (ptcValue?.ambiguity) {
+				const firstLine = textContent.split("\n").find((line: string) => line.trim().length > 0) || "Ambiguous symbol";
+				const ambiguitySummary = typeof ptcValue.ambiguity.query === "string"
+					? `Symbol '${ptcValue.ambiguity.query}' is ambiguous.`
+					: firstLine;
+				const summary = summaryLine(ambiguitySummary, {
+					hidden: !!textContent && !expanded,
+				});
+				if (expanded && textContent) {
+					return new Text(
+						wrapLinesToWidth([summary, ...textContent.split("\n")], width).join("\n"),
+						0,
+						0,
+					);
+				}
+				return new Text(summary, 0, 0);
+			}
+			if (!ptcValue?.range) {
 				const lines = textContent.split("\n").filter(Boolean).length || textContent.split("\n").length;
-				return new Text(summaryLine(`loaded ${lines} ${lines === 1 ? "line" : "lines"}`, { hidden: !!textContent && !expanded }), 0, 0);
+				const summary = summaryLine(`loaded ${lines} ${lines === 1 ? "line" : "lines"}`, {
+					hidden: !!textContent && !expanded,
+				});
+				if (expanded && textContent) {
+					return new Text(
+						wrapLinesToWidth([summary, ...textContent.split("\n")], width).join("\n"),
+						0,
+						0,
+					);
+				}
+				return new Text(summary, 0, 0);
 			}
 
 			const info = formatReadResultText({ range: ptcValue.range, truncation: ptcValue.truncation, symbol: ptcValue.symbol, map: ptcValue.map, warnings: ptcValue.warnings });

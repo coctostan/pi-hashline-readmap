@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
 import { registerReadTool } from "../src/read.js";
 
 const fixture = resolve(dirname(fileURLToPath(import.meta.url)), "fixtures/small.ts");
@@ -15,18 +15,21 @@ function textOf(result: any): string {
   return result.content.find((item: any) => item.type === "text")?.text ?? "";
 }
 
-describe("issue #081 regression — zero limit", () => {
-  it.each([0, "0"])("omits and reports limit %s", async (limit) => {
+describe("read empty numeric placeholders", () => {
+  it.each([
+    ["offset", { offset: "" }, "ignored empty offset"],
+    ["limit", { limit: "" }, "ignored empty limit"],
+  ] as const)("omits and reports an empty %s", async (_name, params, adjustment) => {
     const result = await tool().execute(
-      "read-zero-limit",
-      { path: fixture, limit },
+      "read-empty-numeric",
+      { path: fixture, ...params },
       new AbortController().signal,
       () => {},
       { cwd: process.cwd() },
     );
 
     expect(result.isError).not.toBe(true);
-    expect(textOf(result)).toContain("[Read params adjusted: ignored limit 0]");
+    expect(textOf(result)).toContain(`[Read params adjusted: ${adjustment}]`);
     expect(result.details.ptcValue.range).toMatchObject({
       startLine: 1,
       endLine: result.details.ptcValue.range.totalLines,

@@ -13,11 +13,11 @@ async function callReadTool(params: Record<string, unknown>) {
 }
 
 describe("read ptcValue.error — invalid-offset", () => {
-  it("populates ptcValue.error with code invalid-offset when offset < 1", async () => {
+  it("populates ptcValue.error with code invalid-offset when offset is negative", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-read-err-"));
     const filePath = resolve(dir, "f.txt");
     writeFileSync(filePath, "a\nb\n", "utf-8");
-    const result = await callReadTool({ path: filePath, offset: 0 });
+    const result = await callReadTool({ path: filePath, offset: -1 });
     expect(result.isError).toBe(true);
     const text = result.content.find((c: any) => c.type === "text")?.text ?? "";
     expect(text).toContain("Invalid offset");

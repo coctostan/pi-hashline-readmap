@@ -48,4 +48,44 @@ describe("read TUI renderer", () => {
     expect(result.content[0].text).toBe(beforeText);
     expect(JSON.stringify(result.details.ptcValue)).toBe(beforePtc);
   });
+
+  it("uses the structured error for an adjusted collapsed failure", async () => {
+    const readTool = tool();
+    const result = await readTool.execute(
+      "read-adjusted-error-render",
+      { path: "package.json", offset: "", limit: -1 },
+      new AbortController().signal,
+      () => {},
+      { cwd: process.cwd() },
+    );
+    const beforeText = result.content[0].text;
+    const beforePtc = JSON.stringify(result.details.ptcValue);
+
+    expect(beforeText).toBe(
+      "[Read params adjusted: ignored empty offset]\n\n" +
+      "Invalid limit: expected a positive integer, received -1.",
+    );
+    expect(result.details.ptcValue.error).toEqual({
+      code: "invalid-limit",
+      message: "Invalid limit: expected a positive integer, received -1.",
+    });
+    expect(textOf(readTool.renderResult(result, {}, theme, {}))).toBe(
+      "↳ Invalid limit: expected a positive integer, received -1.",
+    );
+
+    const expanded = textOf(
+      readTool.renderResult(
+        result,
+        { expanded: true, width: 40 },
+        theme,
+        { expanded: true, width: 40 },
+      ),
+      40,
+    );
+    expect(expanded).toContain("Read params adjusted:");
+    expect(expanded).toContain("Invalid limit:");
+    expect(expanded.split("\n").every((line: string) => visibleWidth(line) <= 40)).toBe(true);
+    expect(result.content[0].text).toBe(beforeText);
+    expect(JSON.stringify(result.details.ptcValue)).toBe(beforePtc);
+  });
 });
