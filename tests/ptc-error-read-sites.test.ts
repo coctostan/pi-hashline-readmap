@@ -16,10 +16,10 @@ async function callReadTool(params: Record<string, unknown>) {
 function getPtc(result: any) { return result.details?.ptcValue; }
 
 describe("read ptcValue.error — remaining error sites", () => {
-  it("invalid-limit when limit < 1", async () => {
+  it("invalid-limit when limit is negative", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-r-il-"));
     const f = resolve(dir, "f.txt"); writeFileSync(f, "a\n", "utf-8");
-    const r = await callReadTool({ path: f, limit: 0 });
+    const r = await callReadTool({ path: f, limit: -1 });
     expect(getPtc(r)?.error?.code).toBe("invalid-limit");
   });
 

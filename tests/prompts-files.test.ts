@@ -32,6 +32,16 @@ describe("prompts directory (AC15)", () => {
     expect(readPrompt).toContain("omittedSelectors");
   });
 
+  it("read prompt documents reported placeholder recovery", () => {
+    const readPrompt = readFileSync(resolve(root, "prompts/read.md"), "utf8");
+
+    expect(readPrompt.includes("Empty-string `symbol` / `offset` / `limit` values")).toBe(true);
+    expect(readPrompt.includes('numeric or base-10 string zero (`0` / `"0"`)')).toBe(true);
+    expect(readPrompt.includes("structured `params-adjusted` warning")).toBe(true);
+    expect(readPrompt.includes("a non-empty `symbol` cannot combine with a positive `offset`")).toBe(true);
+    expect(readPrompt.includes("`bundle` still requires a surviving `symbol`")).toBe(true);
+  });
+
   it("sg prompt documents limits, final budgets, structured retention, and guidance", () => {
     const sgPromptPath = resolve(root, "prompts/sg.md");
     expect(existsSync(sgPromptPath)).toBe(true);
