@@ -50,7 +50,7 @@ When `/mega on` is active, do not run ad-hoc branch/commit/push commands outside
 Prereqs:
 
 ```bash
-node --version   # >= 20
+node --version   # >= 22.19.0
 npm install
 ```
 

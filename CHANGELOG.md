@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-18
+
+### Changed
+
+- Raised the supported Node.js baseline to 22.19 or newer to match the locked Pi 0.84.2 host, aligned package and lockfile metadata plus user and contributor guidance, and added regression coverage that keeps the package engine synchronized with the exact locked host (#255).
+
 ## [0.13.0] - 2026-08-12
 
 ### Fixed
