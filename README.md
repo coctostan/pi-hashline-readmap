@@ -14,7 +14,7 @@ Upgrade Pi's local coding workflow with hash-anchored reads and edits, structura
 pi install npm:pi-hashline-readmap
 ```
 
-Requires Pi extension support and Node.js 20+. Start a new Pi session after installing; sessions do not hot-reload extensions.
+Requires Pi extension support and Node.js 22.19 or newer. Start a new Pi session after installing; sessions do not hot-reload extensions.
 
 ### Validated compatibility baseline
 
@@ -28,7 +28,7 @@ npm test -- tests/pi-extension-load-compatibility.test.ts
 npm run typecheck
 ```
 
-The extension itself retains its separately tracked Node.js engine declaration. Running the loader compatibility test must also satisfy the locked Pi host package’s engine requirement, currently Node.js 22.19 or newer.
+The extension and the exact Pi host version resolved by `package-lock.json` share one Node.js engine baseline, currently Node.js 22.19 or newer. The loader compatibility test verifies that this package's `engines.node` declaration stays identical to the installed locked Pi host package's declaration.
 
 To advance the compatibility baseline, update the Pi development dependency ranges in `package.json` and refresh `package-lock.json` with `npm install`, reviewing both changes together. Then run the focused compatibility test, the full `npm test` suite, and `npm run typecheck` before committing the update. Do not narrow the Pi-hosted wildcard peer ranges to encode the baseline.
 

@@ -120,7 +120,7 @@ describe("tree-sitter WASM package manifest", () => {
     }
   });
 
-  it("supports Node 20", () => {
-    expect(packageJson.engines?.node).toBe(">=20.0.0");
+  it("requires the current Pi Node baseline", () => {
+    expect(packageJson.engines?.node).toBe(">=22.19.0");
   });
 });

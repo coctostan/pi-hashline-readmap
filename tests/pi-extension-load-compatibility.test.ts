@@ -33,6 +33,8 @@ describe("locked Pi extension-loader compatibility", () => {
     expect(packageJson.pi?.extensions).toEqual(["./index.ts"]);
     expect(installedPiPackage.version).toBe(lockedPiVersion);
     expect(satisfies(lockedPiVersion, declaredPiRange)).toBe(true);
+    expect(packageLock.packages[""]?.engines?.node).toBe(packageJson.engines?.node);
+    expect(packageJson.engines?.node).toBe(installedPiPackage.engines?.node);
 
     for (const packageName of hostProvidedPeers) {
       expect(packageJson.peerDependencies?.[packageName]).toBe("*");
