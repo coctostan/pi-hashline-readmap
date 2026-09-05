@@ -65,6 +65,7 @@ export interface ContextHygieneReadRehydrateInput {
   symbol?: string;
   map?: true;
   bundle?: "local";
+  unclipped?: true;
 }
 
 export interface ContextHygieneGrepRehydrateInput {
@@ -251,6 +252,7 @@ export interface BuildReadRehydrateDescriptorInput {
   symbol?: string;
   map?: boolean;
   bundle?: "local";
+  unclipped?: boolean;
 }
 
 export function buildReadRehydrateDescriptor(
@@ -262,6 +264,7 @@ export function buildReadRehydrateDescriptor(
   if (input.symbol !== undefined) descriptorInput.symbol = input.symbol;
   if (input.map === true) descriptorInput.map = true;
   if (input.bundle !== undefined) descriptorInput.bundle = input.bundle;
+  if (input.unclipped === true) descriptorInput.unclipped = true;
   return { tool: "read", input: descriptorInput };
 }
 

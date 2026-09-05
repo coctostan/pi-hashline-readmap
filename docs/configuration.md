@@ -43,6 +43,7 @@ Precedence is environment variables > project JSON > global JSON > built-in defa
 
 ```json
 {
+  "read": { "allowUnclipped": false },
   "grep": { "maxLines": 1200, "maxBytes": 40960 },
   "mapCache": { "dir": ".cache/hashline/maps", "enabled": true },
   "bashContextGuard": { "enabled": true, "maxLines": 1500, "maxBytes": 40960, "headLines": 60, "tailLines": 100 },
@@ -57,6 +58,7 @@ Precedence is environment variables > project JSON > global JSON > built-in defa
 
 | JSON field | Environment override | Default / ceiling behavior |
 |---|---|---|
+| `read.allowUnclipped` | None | Defaults to `false`. When `true` at tool registration, exposes the optional `read` parameter `unclipped`. Calls remain clipped unless `unclipped: true` is supplied. |
 | `grep.maxLines` | `PI_HASHLINE_GREP_MAX_LINES` | Tightens `grep`'s final visible line budget; above-default values are clamped down to the built-in default. |
 | `grep.maxBytes` | `PI_HASHLINE_GREP_MAX_BYTES` | Tightens `grep`'s final visible byte budget; above-default values are clamped down to the built-in default. |
 | `mapCache.dir` | `PI_HASHLINE_MAP_CACHE_DIR` | Overrides the persistent structural-map cache directory; otherwise falls back to `$XDG_CACHE_HOME/pi-hashline-readmap/maps`, then `~/.cache/pi-hashline-readmap/maps`. |
@@ -74,6 +76,14 @@ Precedence is environment variables > project JSON > global JSON > built-in defa
 Budget fields must be strict positive base-10 integers except `display.previewLines`, which also accepts `0`. For strict-positive fields, zero is rejected; negative, signed, decimal, hexadecimal, exponent notation, separators, empty strings, and whitespace-only values are ignored. Boolean fields must be JSON booleans, and mapCache.dir must be a non-empty string. Malformed JSON and invalid fields degrade safely: valid fields continue to apply where practical, invalid fields are ignored, project parse failure does not suppress valid global settings, and warnings identify bad input without aborting extension startup.
 
 Environment-only options include `XDG_CACHE_HOME`, `PI_NUSHELL_CONFIG`, `PI_RTK_BYPASS=1`, and `PI_CONTEXT_HYGIENE_DEBUG=1`. `PI_NUSHELL_CONFIG` overrides the Nushell config path; otherwise Hashline prefers `~/.config/pi/nushell/config.nu` and then `--no-config-file`. See [Bash output](bash-output.md) for guard and recovery behavior.
+
+## Unclipped reads
+
+Large unclipped results can exhaust model context or cause compaction failures. The option adds no replacement ceiling. To enable the parameter, add `"read": { "allowUnclipped": true }` to either canonical settings file and restart Pi. Project `false` overrides global `true`. The setting is captured at tool registration, so edits to settings do not change an already registered tool.
+
+With opt-in enabled, `read({ path: "src/read.ts", unclipped: true })` returns all selected source text without the 2,000-line, 50 KiB, or 500-character per-line caps. `offset`, `limit`, `symbol`, `map`, and `bundle: "local"` retain their existing selection rules. Bundled support lines are also unclipped. Structural maps retain their own formatting budget. Image delegation, newline normalization, control character escaping, and hash anchors are unchanged.
+
+Without opt-in, the schema and prompt guidance omit `unclipped`, and direct calls that supply it return an error. With opt-in, omission or `unclipped: false` keeps normal output. Successful unclipped source results carry `details.ptcValue.unclipped: true`, `details.ptcValue.truncation: null`, and an unclipped rehydration descriptor. Explicitly limited selections still report continuation when more source remains.
 
 ## Migration example
 

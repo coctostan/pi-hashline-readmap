@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { SettingsManager } from "@earendil-works/pi-coding-agent";
 
 export interface HashlineJsonSettings {
+  read?: { allowUnclipped?: boolean };
   grep?: { maxLines?: number; maxBytes?: number };
   mapCache?: { dir?: string; enabled?: boolean };
   bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
@@ -164,6 +165,10 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
   const settings: HashlineJsonSettings = {};
   const warnings: HashlineSettingsWarning[] = [];
   if (!isRecord(raw)) return { settings, warnings };
+  if (isRecord(raw.read)) {
+    const allowUnclipped = readBoolean(raw.read, "allowUnclipped", "read.allowUnclipped", source, warnings);
+    if (allowUnclipped !== undefined) settings.read = { allowUnclipped };
+  }
   if (isRecord(raw.grep)) {
     const grep: NonNullable<HashlineJsonSettings["grep"]> = {};
     const maxLines = readPositive(raw.grep, "maxLines", "grep.maxLines", source, rawText, warnings);
@@ -235,6 +240,8 @@ function readSettingsFile(path: string): HashlineSettingsResult {
 }
 function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSettings): HashlineJsonSettings {
   const merged: HashlineJsonSettings = {};
+  const read = { ...(base.read ?? {}), ...(override.read ?? {}) };
+  if (Object.keys(read).length > 0) merged.read = read;
   const grep = { ...(base.grep ?? {}), ...(override.grep ?? {}) };
   if (Object.keys(grep).length > 0) merged.grep = grep;
   const mapCache = { ...(base.mapCache ?? {}), ...(override.mapCache ?? {}) };

@@ -97,8 +97,8 @@ export function renderPtcLine(line: PtcLine): string {
   return `${line.anchor}|${truncateDisplayLine(line.display)}`;
 }
 
-export function renderPtcLines(lines: PtcLine[]): string {
-  return lines.map(renderPtcLine).join("\n");
+export function renderPtcLines(lines: PtcLine[], options: { unclipped?: boolean } = {}): string {
+  return lines.map((line) => options.unclipped ? `${line.anchor}|${line.display}` : renderPtcLine(line)).join("\n");
 }
 
 export function buildPtcWarning(

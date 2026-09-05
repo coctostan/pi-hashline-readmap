@@ -21,7 +21,7 @@ import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { Text } from "@earendil-works/pi-tui";
 import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapLinesToWidth, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
-import { resolvePreviewLines } from "./hashline-settings.js";
+import { resolveHashlineJsonSettings, resolvePreviewLines } from "./hashline-settings.js";
 import {
 	buildRequiredNullParameterError,
 	normalizeToolParameters,
@@ -45,6 +45,7 @@ interface ReadParams {
 	symbol?: string;
 	map?: boolean;
 	bundle?: "local";
+	unclipped?: boolean;
 }
 
 interface ReadToolOptions {
@@ -171,6 +172,13 @@ function isSupportedImageBuffer(buffer: Buffer): boolean {
 
 
 export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}) {
+	const allowUnclipped = resolveHashlineJsonSettings().settings.read?.allowUnclipped === true;
+	const parameters = allowUnclipped
+		? Type.Object({
+			...READ_PARAMETERS.properties,
+			unclipped: Type.Optional(Type.Boolean({ description: "Return selected text without output or per-line clipping; may be very large" })),
+		})
+		: READ_PARAMETERS;
 	const ptc = {
 		callable: true,
 		enabled: true,
@@ -185,11 +193,13 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 		label: "Read",
 		description: READ_PROMPT_METADATA.description,
 		promptSnippet: READ_PROMPT_METADATA.promptSnippet,
-		promptGuidelines: READ_PROMPT_METADATA.promptGuidelines,
-		parameters: READ_PARAMETERS,
+		promptGuidelines: allowUnclipped
+			? [...READ_PROMPT_METADATA.promptGuidelines, "Use read unclipped: true only when complete selected text is needed; it bypasses line, byte, and per-line display caps and can exhaust context. Selections still apply."]
+			: READ_PROMPT_METADATA.promptGuidelines,
+		parameters,
 		ptc,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
-			const normalizedParams = normalizeToolParameters(READ_PARAMETERS, params);
+			const normalizedParams = normalizeToolParameters(parameters, params);
 			if (normalizedParams.requiredNull) {
 				return buildRequiredNullParameterError("read", normalizedParams.requiredNull);
 			}
@@ -197,6 +207,16 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			const paramAdjustments: string[] = [];
 			const finish = <T extends AgentToolResult<any>>(result: T): T =>
 				withParamAdjustments(result, rawParams.path, paramAdjustments);
+			if (rawParams.unclipped !== undefined && (!allowUnclipped || typeof rawParams.unclipped !== "boolean")) {
+				const message = !allowUnclipped
+					? "The unclipped parameter requires read.allowUnclipped: true in hashline-readmap settings before tool registration."
+					: "Invalid unclipped: expected a boolean.";
+				return finish({
+					content: [{ type: "text", text: message }],
+					isError: true,
+					details: { ptcValue: { tool: "read", ok: false, path: rawParams.path, error: buildPtcError("invalid-unclipped", message) } },
+				});
+			}
 			const rawOffset = rawParams.offset === "" ? undefined : rawParams.offset;
 			if (rawParams.offset === "") paramAdjustments.push("ignored empty offset");
 			const rawLimit = rawParams.limit === "" ? undefined : rawParams.limit;
@@ -617,6 +637,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				startLine,
 				totalLines: total,
 				selectedLines: selected,
+				unclipped: p.unclipped,
 			});
 			const truncation = sourceOutput.truncation;
 
@@ -669,6 +690,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 					endLine: endIdx,
 					totalLines: total,
 					selectedLines: selected,
+					unclipped: p.unclipped,
 					warnings: structuredWarnings,
 					// Deprecated compatibility projection; sourceOutput remains authoritative.
 					truncation,
@@ -701,6 +723,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 						symbol: p.symbol,
 						map: p.map,
 						bundle: p.bundle,
+						unclipped: p.unclipped,
 					}),
 				},
 				sourceOutput,

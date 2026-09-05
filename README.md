@@ -90,6 +90,8 @@ read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", limit: 2,
 
 A symbol can combine with `limit`, `map: true`, and `bundle: "local"`. `symbol+offset` is invalid, and bundle without `symbol` is invalid. Truncated full-file reads append a map when available. Dedicated mapper/runtime details are in [configuration and dependencies](docs/configuration.md).
 
+For complete selected text, opt in with `read.allowUnclipped: true` in Hashline settings, then pass `unclipped: true` to `read`. This bypasses the 2,000-line, 50 KiB, and 500-character per-line caps. It is disabled by default and can exhaust model context. See [unclipped reads](docs/configuration.md#unclipped-reads).
+
 ### Search and explore
 
 ```text
