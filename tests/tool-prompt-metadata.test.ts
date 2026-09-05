@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize } from "@earendil-works/pi-coding-agent";
 
+vi.mock("../src/hashline-settings.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/hashline-settings.js")>(),
+  resolveHashlineJsonSettings: () => ({ settings: {}, warnings: [] }),
+}));
+
 type ToolDefinition = {
   name: string;
   description?: unknown;

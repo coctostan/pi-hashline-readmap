@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectHashlineSystemPromptMetadata } from "./helpers/pi-prompt-metadata-harness.js";
 
+vi.mock("../src/hashline-settings.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../src/hashline-settings.js")>(),
+  resolveHashlineJsonSettings: () => ({ settings: {}, warnings: [] }),
+}));
+
 const EXPECTED_TOOLS = ["read", "edit", "grep", "find", "ls", "write", "ast_search", "nu"] as const;
 
 function schemaShape(value: unknown): unknown {
