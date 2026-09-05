@@ -171,7 +171,7 @@ export function buildReadOutput(
     }
   } else if (input.continuation) {
     if (input.symbol && input.continuation.limit !== undefined) {
-      text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of symbol '${input.symbol.name}'. Continue with read({ path: ${JSON.stringify(input.path)}, offset: ${input.continuation.nextOffset}, limit: ${input.continuation.limit} }).]`;
+      text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of symbol '${input.symbol.name}'. Continue with read({ path: ${JSON.stringify(input.path)}, offset: ${input.continuation.nextOffset}, limit: ${input.continuation.limit}${input.unclipped ? ", unclipped: true" : ""} }).]`;
     } else {
       text += `\n\n[Showing lines ${input.startLine}-${input.endLine} of ${input.totalLines}. Use offset=${input.continuation.nextOffset} to continue.]`;
     }

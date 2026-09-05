@@ -154,5 +154,8 @@ describe("unclipped read registration and execution", () => {
     expect(text(limited)).toContain(`|${supportLine}`);
     expect(text(limited)).toContain(`|${targetLine}`);
     expect(text(limited)).not.toContain("|  return helper();");
+    expect(text(limited)).toContain(`Continue with read({ path: ${JSON.stringify(path)}, offset: 6, limit: 2, unclipped: true }).`);
+    const clipped = await call(tool, { path, symbol: "target", limit: 2 });
+    expect(text(clipped)).toContain(`Continue with read({ path: ${JSON.stringify(path)}, offset: 6, limit: 2 }).`);
   });
 });
