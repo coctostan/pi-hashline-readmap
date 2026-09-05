@@ -61,6 +61,7 @@ export interface ReadOutputInput {
   endLine: number;
   totalLines: number;
   selectedLines: string[];
+  unclipped?: boolean;
   warnings?: PtcWarning[];
   /**
    * @deprecated Compatibility-only. buildReadOutput computes the authoritative
@@ -82,13 +83,13 @@ export interface ReadSourceOutput {
 }
 
 export function buildReadSourceOutput(
-  input: Pick<ReadOutputInput, "startLine" | "totalLines" | "selectedLines">,
+  input: Pick<ReadOutputInput, "startLine" | "totalLines" | "selectedLines" | "unclipped">,
 ): ReadSourceOutput {
   const lines = buildPtcLines(input.startLine, input.selectedLines);
-  const renderedLines = renderPtcLines(lines);
+  const renderedLines = renderPtcLines(lines, { unclipped: input.unclipped });
   const budget = truncateHead(renderedLines, {
-    maxLines: DEFAULT_MAX_LINES,
-    maxBytes: DEFAULT_MAX_BYTES,
+    maxLines: input.unclipped ? Infinity : DEFAULT_MAX_LINES,
+    maxBytes: input.unclipped ? Infinity : DEFAULT_MAX_BYTES,
   });
   const truncation: ReadTruncationMetadata | null = budget.truncated
     ? {
@@ -114,6 +115,7 @@ export interface ReadOutputResult {
   ptcValue: {
     tool: "read";
     path: string;
+    unclipped?: true;
     range: {
       startLine: number;
       endLine: number;
@@ -178,7 +180,7 @@ export function buildReadOutput(
   if (input.bundle?.applied) {
     const supportBlocks = input.bundle.localSupport.map((item) => {
       const supportLines = buildPtcLines(item.symbol.startLine, item.lines);
-      return renderPtcLines(supportLines);
+      return renderPtcLines(supportLines, { unclipped: input.unclipped });
     });
     text = ["## Requested symbol", text, "", "## Local support", ...supportBlocks].join("\n");
   }
@@ -199,6 +201,7 @@ export function buildReadOutput(
   const ptcValue: ReadOutputResult["ptcValue"] = {
     tool: "read",
     path: input.path,
+    ...(input.unclipped ? { unclipped: true as const } : {}),
     range: { startLine: input.startLine, endLine: input.endLine, totalLines: input.totalLines },
     warnings,
     truncation,
