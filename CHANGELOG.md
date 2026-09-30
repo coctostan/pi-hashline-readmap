@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.14.1]
+
+### Fixed
+
+- Reject required JSON `null` arguments before Pi's schema conversion can turn them into valid-looking scalars and cause unintended reads or writes; preserve optional-null omission, numeric-string acceptance, and literal `"null"` values (#258).
+- Accept both npm 11 array and npm 12 keyed-object `npm pack --json` results in package-content and mapper-tarball regression tests (#258).
+
+### Added
+
+- Real-host pipeline regression coverage across registered tools and an independent, pinned Pi 0.99.1 CI lane with an npm 11/12 matrix; document the host's preparation-error metadata limitation (#258).
+
 ## [0.14.0] - 2026-08-18
 
 ### Changed

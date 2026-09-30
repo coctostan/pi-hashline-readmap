@@ -39,7 +39,8 @@ describe("published mapper scripts", () => {
         ["pack", "--json", "--pack-destination", root],
         { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 },
       );
-      const [packed] = JSON.parse(stdout) as PackResult[];
+      const packOutput = JSON.parse(stdout) as PackResult[] | Record<string, PackResult>;
+      const packed = Array.isArray(packOutput) ? packOutput[0] : packOutput["pi-hashline-readmap"];
       const paths = packed.files.map((file) => file.path);
 
       expect(paths).toEqual(expect.arrayContaining([

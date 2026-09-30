@@ -8,6 +8,7 @@ import { registerWriteTool } from "./src/write.js";
 import { registerLsTool } from "./src/ls.js";
 import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
+import { withRawArgumentGuard } from "./src/raw-argument-guard.js";
 import { resolveShellPath } from "./src/hashline-settings.js";
 import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
@@ -171,6 +172,7 @@ function willBashContextGuardTrim(text: string, config: BashContextGuardConfig):
 }
 
 export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
+  pi = withRawArgumentGuard(pi);
   // readTurns maps an absolute path to the tracker event id of the most recent
   // live-anchor tool result for that path (read / grep / ast_search / write).
   // When the provider-context handler masks a prior live-anchor read into a

@@ -69,6 +69,31 @@ npm test
 npm run typecheck
 ```
 
+### Independent current-host compatibility
+
+`npm test` runs the loader smoke test and real tool-pipeline regression against the locked development host. `.github/workflows/pi-compatibility.yml` separately installs exactly Pi 0.99.1 into runner temporary storage and runs `tests/pi-host-null-pipeline.test.ts` through that installation's loader, wrapper, agent-core pipeline, and ExtensionRunner. Its npm 11/12 matrix also verifies both `npm pack --json` result shapes. Do not replace either host lane with the other.
+
+Reproduce the independent lane locally (no global Pi, credentials, or provider needed). Pin the Pi dependency graph as well as the host because its internal caret ranges otherwise allow newer versions:
+
+```bash
+host_prefix=$(mktemp -d)
+trap 'rm -rf -- "$host_prefix"' EXIT
+npm install --prefix "$host_prefix" --no-save --package-lock=false --no-audit --no-fund \
+  @earendil-works/pi-coding-agent@0.99.1 \
+  @earendil-works/pi-agent-core@0.99.1 \
+  @earendil-works/pi-ai@0.99.1 \
+  @earendil-works/pi-tui@0.99.1 \
+  @earendil-works/pi-mcp@0.99.1 \
+  @earendil-works/pi-codemode@0.99.1 \
+  @earendil-works/pi-telemetry@0.99.1 \
+  @earendil-works/chord@0.99.1
+PI_COMPAT_HOST="$host_prefix/node_modules/@earendil-works/pi-coding-agent" PI_COMPAT_REQUIRE_NU=1 npm test -- tests/pi-host-null-pipeline.test.ts
+```
+
+An explicitly supplied host must be exactly 0.99.1; wrong/missing installations fail without local fallback. `PI_COMPAT_REQUIRE_NU=1` requires the optional Nu tool to register in this lane. Current-host checks are deterministic runtime checks; `npm run typecheck` still uses the locked development declarations. See [structured-output null contracts](docs/structured-output.md#required-nulls-at-the-host-boundary) for Pi's preparation-error metadata limitation.
+
+Follow-up scope: exhaustive nested-union input auditing, all ExtensionRunner lifecycle branches, AgentSession/provider integration, and a separate current-host declaration typecheck are not claimed by these checks. No registered tool is deliberately excluded from the shared guard.
+
 ## Source map
 
 - `index.ts` — extension entry point
