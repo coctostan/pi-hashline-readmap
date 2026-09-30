@@ -1,21 +1,35 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { createBashTool } from "@earendil-works/pi-coding-agent";
 import { registerBashRendererTool } from "../src/bash-renderer.js";
 
 const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
 function textOf(component: any): string { return component?.text ?? component?.render?.(80)?.join("\n") ?? ""; }
 
 describe("bash renderer wrapper", () => {
-  it("delegates execution to a built-in bash tool and renders compact summaries", async () => {
-    const execute = vi.fn(async (_toolCallId, _params, _signal, _onUpdate) => ({ content: [{ type: "text", text: "ok\n" }], details: { delegated: true } }));
-    const createBuiltIn = vi.fn(() => ({ name: "bash", label: "bash", description: "bash", parameters: {}, execute }));
+  it("delegates native bash with intact execution context", async () => {
+    const ctx: any = {
+      cwd: process.cwd(),
+      model: { provider: "anthropic", id: "claude-test-model" },
+      sessionManager: { getSessionId: () => "session-test", getSessionFile: () => undefined },
+      thinkingLevel: "high",
+    };
+    const native = createBashTool(ctx.cwd);
+    const execute = vi.fn(native.execute.bind(native));
+    const createBuiltIn = vi.fn(() => ({ ...native, execute }));
     let registered: any;
-    registerBashRendererTool({ registerTool(def: any) { registered = def; } } as any, { createBuiltInBashTool: createBuiltIn, cwd: "/tmp/work" });
-
+    registerBashRendererTool({ registerTool(def: any) { registered = def; } } as any, {
+      createBuiltInBashTool: createBuiltIn, cwd: ctx.cwd,
+    });
+    const params = { command: "echo PI_MODEL=$PI_MODEL" };
+    const direct = await (native.execute as any)("direct", params, undefined, undefined, ctx);
+    const result = await registered.execute("call-1", params, undefined, undefined, ctx);
+    const text = (r: any) => r.content.find((c: any) => c.type === "text")?.text.trim();
+    expect(text(direct)).toBe("PI_MODEL=claude-test-model");
+    expect(text(result)).toBe(text(direct));
+    expect(createBuiltIn).toHaveBeenCalledWith(ctx.cwd, { shellPath: undefined });
+    expect(execute).toHaveBeenCalledWith("call-1", params, undefined, undefined, ctx);
     expect(textOf(registered.renderCall({ command: "npm test" }, theme))).toBe("bash npm test");
-    await expect(registered.execute("call-1", { command: "npm test" }, undefined, undefined, { cwd: "/tmp/work" })).resolves.toMatchObject({ details: { delegated: true } });
-    expect(createBuiltIn).toHaveBeenCalledWith("/tmp/work", { shellPath: undefined });
-    expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test" }, undefined, undefined);
     expect(textOf(registered.renderResult({ content: [{ type: "text", text: "ok\n" }] }, {}, theme, {}))).toBe("↳ 1 line returned\nok");
     expect(textOf(registered.renderResult({ content: [{ type: "text", text: "" }] }, {}, theme, {}))).toBe("↳ command completed (no output)");
   });

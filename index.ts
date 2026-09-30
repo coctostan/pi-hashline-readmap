@@ -43,6 +43,7 @@ function isBashToolResult(event: unknown): event is {
   content: Array<{ type: string; text?: string }>;
   isError?: boolean;
   details?: unknown;
+  structuredContent?: unknown;
 } {
   return !!event && typeof event === "object" && (event as { toolName?: unknown }).toolName === "bash";
 }
@@ -263,7 +264,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     return { messages };
   });
 
-  (pi as any).on("tool_result", (event: any) => {
+  (pi as any).on("tool_result", (event: any, ctx?: { cwd?: string }) => {
     const doomLoop = consumeDoomLoopWarning(doomLoopState, event.toolCallId);
     if (!isBashToolResult(event)) {
       const contextHygiene = contextHygieneFromDetails(event.details);
@@ -296,6 +297,8 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       }
       return {
         content,
+        // Operational notices do not invalidate the tool's machine-readable result.
+        ...(event.structuredContent !== undefined ? { structuredContent: event.structuredContent } : {}),
         details: event.details,
         isError: event.isError,
       };
@@ -329,7 +332,8 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const commandState = command
       ? buildBashCommandState({
           command,
-          cwd: process.cwd(),
+          // Prefer the live host context; legacy/manual handler calls may omit ctx.
+          cwd: ctx?.cwd ?? process.cwd(),
           isError: event.isError === true,
           text: originalSelection.inputForRtk || originalText,
         })
@@ -400,6 +404,8 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
         : {};
     return {
       content: [{ type: "text" as const, text: guarded.text }, ...nonTextContent],
+      // Compression changes presentation only; retain the native machine-readable result.
+      ...(event.structuredContent !== undefined ? { structuredContent: event.structuredContent } : {}),
       details: {
         ...existingDetails,
         compressionInfo: info,

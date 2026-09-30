@@ -352,8 +352,8 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			throwIfAborted(signal);
 			const ext = rawPath.split(".").pop()?.toLowerCase() ?? "";
 			if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
-				const builtinRead = createReadTool(ctx.cwd);
-				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate));
+				const builtinRead: any = createReadTool(ctx.cwd);
+				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate, ctx));
 			}
 
 			throwIfAborted(signal);
@@ -430,8 +430,8 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			}
 
 			if (isSupportedImageBuffer(rawBuffer)) {
-				const builtinRead = createReadTool(ctx.cwd);
-				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate));
+				const builtinRead: any = createReadTool(ctx.cwd);
+				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate, ctx));
 			}
 			const hasBinaryContent = looksLikeBinary(rawBuffer);
 			throwIfAborted(signal);

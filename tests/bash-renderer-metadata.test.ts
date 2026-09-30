@@ -47,6 +47,6 @@ describe("bash renderer provider-visible metadata", () => {
     expect(tool.parameters.properties.timeout.description).toBe("Timeout seconds");
 
     await tool.execute("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
-    expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test", timeout: 30 }, undefined, undefined);
+    expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
   });
 });

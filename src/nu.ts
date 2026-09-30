@@ -402,6 +402,7 @@ export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
       }
       return {
         content: [{ type: "text" as const, text }],
+        isError: !ptcValue.ok,
         details: {
           ...details,
           ptcValue,

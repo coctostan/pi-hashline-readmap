@@ -441,7 +441,10 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 				scopeContext: scopeContext.value,
 			};
 			const builtin = createGrepTool(ctx.cwd);
-			const result = await builtin.execute(
+			// Older host types omit the execution context; keep native parameter/result types.
+			const result = await (builtin.execute as (
+				...args: [...Parameters<typeof builtin.execute>, context?: unknown]
+			) => ReturnType<typeof builtin.execute>)(
 				toolCallId,
 				{
 					...p,
@@ -450,6 +453,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 				},
 				signal,
 				onUpdate,
+				ctx,
 			);
 
 			const textBlock = result.content?.find(

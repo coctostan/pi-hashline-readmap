@@ -40,6 +40,9 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
     promptSnippet: BASH_PROMPT_SNIPPET,
     promptGuidelines: BASH_PROMPT_GUIDELINES,
     parameters: BASH_PARAMETERS,
+    get outputSchema() {
+      return getBuiltIn(options.cwd ?? process.cwd()).outputSchema;
+    },
     async execute(toolCallId: string, params: any, signal?: AbortSignal, onUpdate?: any, ctx: any = {}) {
       const normalized = normalizeToolParameters(BASH_PARAMETERS, params);
       if (normalized.requiredNull) {
@@ -51,6 +54,7 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
         normalized.value,
         signal,
         onUpdate,
+        ctx,
       );
     },
     renderCall(args: any, theme: any, context: any = {}) {

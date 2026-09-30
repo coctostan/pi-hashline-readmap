@@ -26,8 +26,8 @@ describe("nu ptcValue envelope", () => {
     expect(r!.isError).toBeFalsy();
   });
 
-  itIfNu("nu-non-zero-exit when command exits non-zero", async () => {
-    const r = await callNu({ command: "exit 1" });
+  itIfNu("nu-non-zero-exit marks the tool result as an error", async () => {
+    const r = await callNu({ command: 'error make {msg: "audit failure"}' });
     expect(r).not.toBeNull();
     const ptc = r!.details?.ptcValue;
     expect(ptc.tool).toBe("nu");
@@ -36,7 +36,6 @@ describe("nu ptcValue envelope", () => {
     expect(typeof ptc.error?.message).toBe("string");
     expect(ptc.error?.message.length).toBeGreaterThan(0);
     expect(ptc.error?.details).toMatchObject({ exitCode: expect.any(Number) });
-    // AC 11: nu does not flip isError
-    expect(r!.isError).toBeFalsy();
+    expect(r!.isError).toBe(true);
   });
 });

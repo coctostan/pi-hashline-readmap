@@ -77,6 +77,7 @@ describe("bash null parameters", () => {
       { command: "echo ok" },
       undefined,
       undefined,
+      { cwd: "/tmp/null-bash" },
     );
     expect(executeBuiltIn).toHaveBeenNthCalledWith(
       2,
@@ -84,6 +85,7 @@ describe("bash null parameters", () => {
       { command: "echo ok" },
       undefined,
       undefined,
+      { cwd: "/tmp/null-bash" },
     );
   });
 });

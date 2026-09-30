@@ -131,6 +131,6 @@ describe("ptc-error contract — every tool emits ptcValue.error on representati
     if (!nuAvailable) return;
     const r = await callTool("registerNuTool", "../src/nu.js", { command: "exit 1" });
     assertContract(r, "nu", "nu-non-zero-exit");
-    expect(r!.isError).toBeFalsy();
+    expect(r!.isError).toBe(true);
   });
 });
