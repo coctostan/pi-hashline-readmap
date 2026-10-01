@@ -1,6 +1,6 @@
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { DiffData, DiffEntry, DiffSpan } from "./diff-data.js";
-import { clampLineToWidth, clampLinesToWidth, normalizeWidth, wrapWithHangingIndent, type RendererTheme } from "./tui-render-utils.js";
+import { clampLineToWidth, clampLinesToWidth, getExpandHint, normalizeWidth, wrapWithHangingIndent, type RendererTheme } from "./tui-render-utils.js";
 
 export type TuiDiffMode = "split" | "unified" | "compact" | "summary";
 export type RenderTuiDiffInput = { diffData: DiffData; width: number; theme: RendererTheme; expanded: boolean };
@@ -78,8 +78,13 @@ function splitRows(input: RenderTuiDiffInput, width: number): string[] {
   return rows;
 }
 function hiddenHint(hiddenLines: number, hiddenHunks: number, width: number): string {
-  const forms = [`… (${hiddenLines} more diff lines • ${hiddenHunks} more hunk${hiddenHunks === 1 ? "" : "s"} • Ctrl+O to expand)`, `… (${hiddenLines} more lines • ${hiddenHunks} hunks)`, `… (+${hiddenLines} • +${hiddenHunks}h)`, "…"];
-  return forms.find((f) => visibleWidth(f) <= width) ?? "…";
+  const forms = [
+    `… (${hiddenLines} more diff lines • ${hiddenHunks} more hunk${hiddenHunks === 1 ? "" : "s"}${getExpandHint()})`,
+    `… (${hiddenLines} more lines • ${hiddenHunks} hunks)`,
+    `… (+${hiddenLines} • +${hiddenHunks}h)`,
+    "…",
+  ];
+  return forms.find((form) => visibleWidth(form) <= width) ?? "…";
 }
 export function renderTuiDiff(input: RenderTuiDiffInput): RenderTuiDiffOutput {
   const width = normalizeWidth(input.width);

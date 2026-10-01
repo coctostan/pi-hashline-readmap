@@ -1,7 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { withLegacyLiteralOrder, withLegacyRequiredOrder } from "./typebox-schema-order.js";
+import { StringEnum } from "@earendil-works/pi-ai";
+import { withLegacyRequiredOrder } from "./typebox-schema-order.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { execFileSync, execFile } from "node:child_process";
@@ -331,20 +332,14 @@ const FIND_PARAMETERS = withLegacyRequiredOrder(Type.Object(
       ),
     ),
     type: Type.Optional(
-      Type.Union(
-        [withLegacyLiteralOrder(Type.Literal("file")), withLegacyLiteralOrder(Type.Literal("dir")), withLegacyLiteralOrder(Type.Literal("any"))],
-        { description: "Entry type filter" },
-      ),
+      StringEnum(["file", "dir", "any"] as const, { description: "Entry type filter" }),
     ),
     maxDepth: Type.Optional(Type.Number({ description: "Non-negative int; runtime also accepts base-10 strings" })),
     regex: Type.Optional(
       Type.Boolean({ description: "If true, pattern must be a valid JavaScript regex" }),
     ),
     sortBy: Type.Optional(
-      Type.Union(
-        [withLegacyLiteralOrder(Type.Literal("name")), withLegacyLiteralOrder(Type.Literal("mtime")), withLegacyLiteralOrder(Type.Literal("size"))],
-        { description: "Sort key" },
-      ),
+      StringEnum(["name", "mtime", "size"] as const, { description: "Sort key" }),
     ),
     reverse: Type.Optional(
       Type.Boolean({ description: "Reverse sort order" }),

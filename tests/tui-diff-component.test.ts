@@ -2,6 +2,24 @@ import { describe, it, expect } from "vitest";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { DiffPreviewComponent } from "../src/tui-diff-component.js";
 import type { DiffData } from "../src/diff-data.js";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+import { stripVTControlCharacters as plain } from "node:util";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { vi } from "vitest";
+import { initTheme, keyHint } from "@earendil-works/pi-coding-agent";
+
+vi.unmock("@earendil-works/pi-coding-agent");
+initTheme("dark", false);
+const hostEntry = import.meta.resolve("@earendil-works/pi-coding-agent");
+const hostTui = await import(pathToFileURL(
+  createRequire(hostEntry).resolve("@earendil-works/pi-tui")
+).href);
+const { KeybindingsManager: HostKeybindingsManager } = await import(
+  new URL("./core/keybindings.js", hostEntry).href
+);
 
 const identityTheme = { fg: (_kind: string, text: string) => text } as any;
 
@@ -69,4 +87,70 @@ describe("DiffPreviewComponent", () => {
 		expect(second).toContain("second");
 		expect(second).not.toContain("first");
 	});
+});
+
+it("refreshes cached collapsed diff hints after a binding change at the same width", () => {
+  const previous = hostTui.getKeybindings();
+  const bindings = new HostKeybindingsManager();
+  hostTui.setKeybindings(bindings);
+  try {
+    const component = new DiffPreviewComponent({
+      diffData: longDiffData,
+      theme: identityTheme,
+      expanded: false,
+    });
+    const first = component.render(120);
+    assert.strictEqual(component.render(120), first);
+    bindings.setUserBindings({ "app.tools.expand": "ctrl+shift+alt+x" });
+    const second = component.render(120);
+    assert.ok(plain(second.join("\n")).includes(plain(keyHint("app.tools.expand", "to expand"))),
+      "cached diff hint must follow binding changes");
+    assert.notStrictEqual(second, first);
+    assert.strictEqual(component.render(120), second);
+    assert.equal(second.length, first.length);
+    assert.ok(plain(second.join("\n")).includes("3 more diff lines • 1 more hunk"));
+    assert.ok(second.every(line => visibleWidth(line) <= 120));
+    for (const disabled of [[], ""] as const) {
+      bindings.setUserBindings({ "app.tools.expand": disabled });
+      const withoutHint = component.render(120);
+      assert.equal(plain(withoutHint[1]), "… (3 more diff lines • 1 more hunk)");
+      assert.strictEqual(component.render(120), withoutHint);
+      assert.ok(withoutHint.every(line => visibleWidth(line) <= 120));
+    }
+    component.update({ diffData: longDiffData, theme: identityTheme, expanded: true });
+    const expanded = component.render(120);
+    assert.ok(expanded.some(line => line.includes("▌-")));
+    bindings.setUserBindings({ "app.tools.expand": "ctrl+shift+alt+x" });
+    assert.strictEqual(component.render(120), expanded);
+  } finally {
+    hostTui.setKeybindings(previous);
+  }
+});
+
+it("renders expanded diffs without initializing the host theme", () => {
+  // A fresh process avoids this file's initTheme() and the global keyHint fixture.
+  const script = `
+    import assert from "node:assert/strict";
+    import { DiffPreviewComponent } from "./src/tui-diff-component.ts";
+    import { createRequire } from "node:module";
+    import { pathToFileURL } from "node:url";
+    import { keyText } from "@earendil-works/pi-coding-agent";
+    const hostEntry = import.meta.resolve("@earendil-works/pi-coding-agent");
+    const hostTui = await import(pathToFileURL(createRequire(hostEntry).resolve("@earendil-works/pi-tui")).href);
+    const { KeybindingsManager } = await import(new URL("./core/keybindings.js", hostEntry).href);
+    hostTui.setKeybindings(new KeybindingsManager());
+    assert.equal(keyText("app.tools.expand"), "ctrl+o");
+    const component = new DiffPreviewComponent({
+      diffData: ${JSON.stringify(longDiffData)},
+      theme: { fg: (_, text) => text, bold: text => text },
+      expanded: true,
+    });
+    const lines = component.render(80);
+    assert.ok(lines.some(line => line.includes("▌-")));
+    assert.ok(!lines.some(line => line.includes("to expand")));
+    assert.strictEqual(component.render(80), lines);
+  `;
+  execFileSync(process.execPath, [
+    "--loader", "./tests/helpers/typescript-loader.mjs", "--input-type=module", "-e", script,
+  ], { cwd: fileURLToPath(new URL("../", import.meta.url)), timeout: 10000, stdio: "pipe" });
 });

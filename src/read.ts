@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolRenderResultOptions, AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { createReadTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import { withLegacyLiteralOrder } from "./typebox-schema-order.js";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff.js";
@@ -115,9 +115,9 @@ const READ_PARAMETERS = Type.Object({
 	symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
 	map: Type.Optional(Type.Boolean({ description: "Append map; valid with symbol, limit, and local bundle" })),
 	bundle: Type.Optional(
-		withLegacyLiteralOrder(Type.Literal("local", {
+		StringEnum(["local"] as const, {
 			description: "local; requires symbol; valid with limit and map",
-		})),
+		}),
 	),
 });
 

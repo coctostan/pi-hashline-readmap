@@ -18,7 +18,12 @@ const delegated = vi.hoisted(() => {
 
 vi.mock("@earendil-works/pi-coding-agent", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@earendil-works/pi-coding-agent")>();
-  return { ...actual, createReadTool: () => ({ execute: delegated.execute }) };
+  return {
+    ...actual,
+    createReadTool: () => ({ execute: delegated.execute }),
+    keyHint: (_binding: string, description: string) => `Ctrl+O ${description}`,
+    keyText: (_binding: string) => "Ctrl+O",
+  };
 });
 
 const png = Buffer.from(

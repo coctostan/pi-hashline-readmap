@@ -63,10 +63,10 @@ describe("Pi system prompt metadata integration", () => {
       nu: "Run Nushell for structured data, filesystem metadata, and system inspection.",
     });
     expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, shapeHash(value.parameters)]))).toEqual({
-      read: "a9d8541a597d253c1f70b7b64131ba6026736a51ac53d2d8f18f6d99cd0260e1",
+      read: "83acf9f68ef5848d3960fc80a787347a478952dcee56d9ec85a41edad63937d9",
       edit: "36073166c66d6472e6a3ae6f69f37e3eb9c6fe4f63ae36cf772d22a7f3f3a722",
-      grep: "faedaf6195927d2d913ceb59810d482eac2e115222c15efe146af1f8ad05a628",
-      find: "247632b32900649e12b678f0c3f779fc5ceeb690e19b8debbc58ce735638066e",
+      grep: "a100c0a3b5ccdac377ebcdd15419636442732d1c1b0cf7405dab7f8a41360ffd",
+      find: "fc7164a66047ac2bab45e84b6d14d4970c14edd1f0ceb899834c583dbc074ba9",
       ls: "89a12ee46fb16c17afc09daa8fabe30fb8b9fc5775cd2c3eb51c94b0e8aa5155",
       write: "8f384a7a9aa8f7500557000862e272ca3bcb4a46186e51fd315df48d9524cabb",
       ast_search: "fd80e4f7aba79c5defd94f20193a90298420d1b19065e06f66c9e2eed3ca513c",

@@ -1,9 +1,13 @@
 import { getCapabilities, hyperlink, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { keyHint, keyText } from "@earendil-works/pi-coding-agent";
 import { pathToFileURL } from "node:url";
 import { resolveToCwd } from "./path-utils.js";
 
 export const SUMMARY_PREFIX = "↳";
-export const EXPAND_HINT = " • Ctrl+O to expand";
+export function getExpandHint(): string {
+  if (!keyText("app.tools.expand")) return "";
+  return ` • ${keyHint("app.tools.expand", "to expand")}`;
+}
 
 export type RendererTheme = {
   fg(style: string, text: string): string;
@@ -26,7 +30,7 @@ export function linkToolPath(styledText: string, rawPath: string, cwd: string): 
 }
 
 export function appendExpandHint(text: string, hidden: boolean): string {
-  return hidden ? `${text}${EXPAND_HINT}` : text;
+  return hidden ? `${text}${getExpandHint()}` : text;
 }
 
 export function summaryLine(summary: string, options: { hidden?: boolean } = {}): string {
@@ -150,7 +154,10 @@ export function buildCollapsedPreview(
     ? wrapReadHashlinesForWidth(tail.join("\n"), width).split("\n")
     : clampLinesToWidth(tail, width);
   const hint = hiddenCount > 0
-    ? `… (${hiddenCount} earlier ${hiddenCount === 1 ? "line" : "lines"}${EXPAND_HINT})`
+    ? clampLineToWidth(
+        `… (${hiddenCount} earlier ${hiddenCount === 1 ? "line" : "lines"}${getExpandHint()})`,
+        width,
+      )
     : null;
   return { hint, lines };
 }

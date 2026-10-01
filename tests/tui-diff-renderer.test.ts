@@ -1,7 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { renderTuiDiff } from "../src/tui-diff-renderer.js";
 import type { DiffData } from "../src/diff-data.js";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { pathToFileURL } from "node:url";
+import { stripVTControlCharacters as plain } from "node:util";
+import { vi } from "vitest";
+import { initTheme, keyHint } from "@earendil-works/pi-coding-agent";
+
+vi.unmock("@earendil-works/pi-coding-agent");
+initTheme("dark", false);
+const hostEntry = import.meta.resolve("@earendil-works/pi-coding-agent");
+const hostTui = await import(pathToFileURL(
+  createRequire(hostEntry).resolve("@earendil-works/pi-tui")
+).href);
+const { KeybindingsManager: HostKeybindingsManager } = await import(
+  new URL("./core/keybindings.js", hostEntry).href
+);
+const previousBindings = hostTui.getKeybindings();
+beforeEach(() => hostTui.setKeybindings(new HostKeybindingsManager()));
+afterEach(() => hostTui.setKeybindings(previousBindings));
 
 const theme = { fg: (_: string, text: string) => text, bold: (text: string) => text };
 const diffData: DiffData = { version: 1, stats: { added: 2, removed: 1, context: 1 }, entries: [
@@ -87,7 +106,9 @@ describe("renderTuiDiff", () => {
   it("renders collapsed progressive hidden-content hints", () => {
     const collapsed = renderTuiDiff({ diffData, width: 80, theme, expanded: false });
     expect(collapsed.lines[0]).toBe("↳ diff +2 -1 • 1 hunk • 1 file • unified");
-    expect(collapsed.lines[1]).toBe("… (4 more diff lines • 1 more hunk • Ctrl+O to expand)");
+    expect(collapsed.lines[1]).toBe(
+      `… (4 more diff lines • 1 more hunk • ${keyHint("app.tools.expand", "to expand")})`,
+    );
     expect(renderTuiDiff({ diffData, width: 36, theme, expanded: false }).lines.at(-1)).toMatch(/^… \(/);
     expect(renderTuiDiff({ diffData, width: 8, theme, expanded: false }).lines.at(-1)).toBe("…");
   });
@@ -157,4 +178,42 @@ describe("renderTuiDiff", () => {
     const contextMatches = text.match(/<toolOutput>[^<]*▌\s{2}2 │ two[^<]*<\/toolOutput>/g) ?? [];
     expect(contextMatches.length).toBeGreaterThanOrEqual(2);
   });
+});
+
+it("updates collapsed diff hints when the active host shortcut changes", () => {
+  const previous = hostTui.getKeybindings();
+  const bindings = new HostKeybindingsManager();
+  hostTui.setKeybindings(bindings);
+  try {
+    const defaultHint = keyHint("app.tools.expand", "to expand");
+    const first = renderTuiDiff({ diffData, width: 120, theme, expanded: false });
+    bindings.setUserBindings({ "app.tools.expand": ["ctrl+shift+alt+x", "ctrl+alt+enter"] });
+    const customHint = keyHint("app.tools.expand", "to expand");
+    const second = renderTuiDiff({ diffData, width: 120, theme, expanded: false });
+    assert.ok(plain(second.lines[1] ?? "").includes(plain(customHint)),
+      "collapsed diff uses a stale expansion shortcut");
+    assert.equal(first.lines[1], `… (4 more diff lines • 1 more hunk • ${defaultHint})`);
+    assert.equal(plain(defaultHint), "ctrl+o to expand");
+    assert.equal(second.lines[1], `… (4 more diff lines • 1 more hunk • ${customHint})`);
+    assert.notEqual(plain(second.lines[1]), plain(first.lines[1]));
+    assert.equal(second.lines.length, 2);
+    assert.ok(!second.lines.join("\n").includes("▌+"));
+    for (const config of [{}, { "app.tools.expand": ["ctrl+shift+alt+x", "ctrl+alt+enter"] }]) {
+      bindings.setUserBindings(config);
+      for (const width of [8, 24, 36, 80, 120, 200]) {
+        for (const expanded of [false, true]) {
+          const out = renderTuiDiff({ diffData, width, theme, expanded });
+          assert.ok(out.lines.every(line => visibleWidth(line) <= width));
+        }
+      }
+      assert.equal(renderTuiDiff({ diffData, width: 36, theme, expanded: false }).lines[1],
+        "… (4 more lines • 1 hunks)");
+      assert.equal(renderTuiDiff({ diffData, width: 8, theme, expanded: false }).lines[1], "…");
+      const expanded = renderTuiDiff({ diffData, width: 80, theme, expanded: true });
+      assert.ok(expanded.lines.join("\n").includes("▌+ 2 │ TWO"));
+      assert.ok(!expanded.lines.some(line => plain(line).includes("to expand")));
+    }
+  } finally {
+    hostTui.setKeybindings(previous);
+  }
 });

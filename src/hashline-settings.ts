@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { SettingsManager } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, SettingsManager } from "@earendil-works/pi-coding-agent";
 
 export interface HashlineJsonSettings {
   grep?: { maxLines?: number; maxBytes?: number };
@@ -29,8 +29,12 @@ function readPiShellPath(): string | undefined {
     return undefined;
   }
 }
-function defaultGlobalSettingsPath(): string { return join(homedir(), ".pi/agent/hashline-readmap/settings.json"); }
-function defaultProjectSettingsPath(): string { return join(process.cwd(), ".pi/hashline-readmap/settings.json"); }
+function defaultGlobalSettingsPath(): string {
+  return join(homedir(), CONFIG_DIR_NAME, "agent", "hashline-readmap", "settings.json");
+}
+function defaultProjectSettingsPath(): string {
+  return join(process.cwd(), CONFIG_DIR_NAME, "hashline-readmap", "settings.json");
+}
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function invalid(source: string, path: string): HashlineSettingsWarning { return { source, path, message: `Invalid hashline setting at ${path}` }; }
 function readJsonObjectEnd(text: string, open: number): number {

@@ -2,7 +2,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import type { DiffData } from "./diff-data.js";
 import { renderTuiDiff } from "./tui-diff-renderer.js";
-import { clampLineToWidth, normalizeWidth, type RendererTheme } from "./tui-render-utils.js";
+import { clampLineToWidth, getExpandHint, normalizeWidth, type RendererTheme } from "./tui-render-utils.js";
 
 export interface DiffPreviewComponentOptions {
 	/**
@@ -45,6 +45,7 @@ export class DiffPreviewComponent implements Component {
 	private options: DiffPreviewComponentOptions;
 	private cachedWidth: number | undefined;
 	private cachedLines: string[] | undefined;
+	private cachedExpandHint: string | undefined;
 
 	constructor(options: DiffPreviewComponentOptions) {
 		this.options = options;
@@ -58,11 +59,17 @@ export class DiffPreviewComponent implements Component {
 	invalidate(): void {
 		this.cachedWidth = undefined;
 		this.cachedLines = undefined;
+		this.cachedExpandHint = undefined;
 	}
 
 	render(width: number): string[] {
 		const normalized = normalizeWidth(width, this.options.fallbackWidth ?? 80);
-		if (this.cachedLines && this.cachedWidth === normalized) return this.cachedLines;
+		const expandHint = this.options.expanded ? undefined : getExpandHint();
+		if (
+			this.cachedLines &&
+			this.cachedWidth === normalized &&
+			this.cachedExpandHint === expandHint
+		) return this.cachedLines;
 		const lines: string[] = [];
 		for (const prefix of this.options.prefixLines ?? []) {
 			for (const line of prefix.split("\n")) lines.push(clampLineToWidth(line, normalized));
@@ -77,10 +84,12 @@ export class DiffPreviewComponent implements Component {
 		for (const suffix of this.options.suffixLines ?? []) {
 			for (const line of suffix.split("\n")) lines.push(clampLineToWidth(line, normalized));
 		}
-		// Final safety clamp: each rendered line must fit within the viewport.
-		const clamped = lines.map((line) => (visibleWidth(line) <= normalized ? line : clampLineToWidth(line, normalized)));
+		const clamped = lines.map(line =>
+			visibleWidth(line) <= normalized ? line : clampLineToWidth(line, normalized),
+		);
 		this.cachedLines = clamped;
 		this.cachedWidth = normalized;
+		this.cachedExpandHint = expandHint;
 		return clamped;
 	}
 }

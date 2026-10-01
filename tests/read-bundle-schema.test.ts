@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import assert from "node:assert/strict";
+import { validateToolArguments } from "@earendil-works/pi-ai";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,7 +30,7 @@ describe("read bundle schema validation", () => {
   it("composes a capped symbol, local support, and an explicit map with reusable anchors", async () => {
     const tool = await getReadTool();
     expect(tool.parameters.properties.bundle).toBeDefined();
-    expect(tool.parameters.properties.bundle.const).toBe("local");
+    expect(tool.parameters.properties.bundle.enum).toEqual(["local"]);
     expect(tool.parameters.required ?? []).not.toContain("bundle");
 
     const filePath = resolve(fixturesDir, "small.ts");
@@ -81,4 +83,26 @@ describe("read bundle schema validation", () => {
     expect(edited.content).toContain("// requested-anchor");
     expect(edited.content).toContain("// support-anchor");
   });
+});
+
+it("read.bundle uses a Google-compatible optional string enum", async () => {
+  const tool = await getReadTool();
+  const schema = tool.parameters.properties.bundle;
+  assert.deepEqual(schema.enum, ["local"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(schema)), {
+    type: "string",
+    enum: ["local"],
+    description: "local; requires symbol; valid with limit and map",
+  });
+  assert.ok(!(tool.parameters.required ?? []).includes("bundle"));
+  assert.deepEqual(tool.parameters.required, ["path"]);
+  const validate = (args: Record<string, unknown>) =>
+    validateToolArguments(tool, { type: "toolCall", id: "enum", name: tool.name, arguments: args });
+  const base = { path: "sample.ts" };
+  assert.doesNotThrow(() => validate(base));
+  assert.doesNotThrow(() => validate({ ...base, bundle: "local" }));
+  for (const bundle of ["other", "", 42, false]) {
+    assert.throws(() => validate({ ...base, bundle }));
+  }
+  assert.throws(() => validate({ bundle: "local" }));
 });

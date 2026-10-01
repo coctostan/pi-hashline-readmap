@@ -1,5 +1,7 @@
 // tests/grep-symbol-scope-schema.test.ts
 import { describe, it, expect } from "vitest";
+import assert from "node:assert/strict";
+import { validateToolArguments } from "@earendil-works/pi-ai";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { registerGrepTool } from "../src/grep.js";
@@ -34,7 +36,7 @@ describe("grep scope schema passthrough", () => {
   it("adds optional scope while preserving summary mode and default output", async () => {
     const tool = await getGrepTool();
     expect(tool.parameters.properties.scope).toBeDefined();
-    expect(tool.parameters.properties.scope.const).toBe("symbol");
+    expect(tool.parameters.properties.scope.enum).toEqual(["symbol"]);
     expect(tool.parameters.required ?? []).not.toContain("scope");
 
     const filePath = resolve(fixturesDir, "small.ts");
@@ -75,4 +77,26 @@ describe("grep scope schema passthrough", () => {
     expect(tool.parameters.properties.scopeContext.anyOf).toBeDefined();
     expect(tool.parameters.required ?? []).not.toContain("scopeContext");
   });
+});
+
+it("grep.scope uses a Google-compatible optional string enum", async () => {
+  const tool = await getGrepTool();
+  const schema = tool.parameters.properties.scope;
+  assert.deepEqual(schema.enum, ["symbol"]);
+  assert.deepEqual(JSON.parse(JSON.stringify(schema)), {
+    type: "string",
+    enum: ["symbol"],
+    description: "symbol only; enables scopeContext",
+  });
+  assert.ok(!(tool.parameters.required ?? []).includes("scope"));
+  assert.deepEqual(tool.parameters.required, ["pattern"]);
+  const validate = (args: Record<string, unknown>) =>
+    validateToolArguments(tool, { type: "toolCall", id: "enum", name: tool.name, arguments: args });
+  const base = { pattern: "needle" };
+  assert.doesNotThrow(() => validate(base));
+  assert.doesNotThrow(() => validate({ ...base, scope: "symbol" }));
+  for (const scope of ["other", "", 42, false]) {
+    assert.throws(() => validate({ ...base, scope }));
+  }
+  assert.throws(() => validate({ scope: "symbol" }));
 });
