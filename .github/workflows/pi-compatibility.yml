@@ -39,6 +39,14 @@ jobs:
           npm --version
       - name: Install locked development dependencies
         run: npm ci
+      - name: Warm Go mapper build cache
+        # Cold standard-library compilation exceeds the packaged mapper's test budget.
+        # Keep the warm-up binary outside the repo; tests still compile the packaged source.
+        run: |
+          go version
+          warmup_binary="$RUNNER_TEMP/go-outline-cache-warmup"
+          trap 'rm -f -- "$warmup_binary"' EXIT
+          go build -o "$warmup_binary" ./scripts/go_outline.go
       - name: Verify locked host and full suite
         run: |
           npm test
