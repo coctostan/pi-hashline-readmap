@@ -544,15 +544,6 @@ export interface RegisterContextHygieneDebugToolOptions {
   enabled?: boolean;
 }
 
-const CONTEXT_HYGIENE_DEBUG_TOOL_PTC = {
-  callable: true,
-  enabled: true,
-  policy: "read-only" as const,
-  readOnly: true,
-  pythonName: "context_hygiene_report",
-  defaultExposure: "safe-by-default" as const,
-};
-
 export function isContextHygieneDebugEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.PI_CONTEXT_HYGIENE_DEBUG === "1";
 }
@@ -571,7 +562,6 @@ export function registerContextHygieneDebugTool(
     description:
       "Debug-only read-only tool. Returns Phase 0 context-hygiene telemetry, stale candidates, and retirement candidates without mutating tracker state.",
     parameters: Type.Object({}),
-    ptc: CONTEXT_HYGIENE_DEBUG_TOOL_PTC,
     async execute() {
       const report = tracker.generateReport();
       return {
@@ -579,7 +569,7 @@ export function registerContextHygieneDebugTool(
         details: { ptcValue: report },
       };
     },
-  } satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof CONTEXT_HYGIENE_DEBUG_TOOL_PTC };
+  } satisfies Parameters<ExtensionAPI["registerTool"]>[0];
 
   pi.registerTool(tool);
   return tool;

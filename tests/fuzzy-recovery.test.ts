@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { ensureHashInit, computeLineHash, applyHashlineEdits } from "../src/hashline.js";
 
-describe("fuzzy content-based recovery", () => {
+describe("no content-similarity recovery for stale anchors", () => {
   beforeAll(async () => {
     await ensureHashInit();
   });
 
-  it("auto-relocates when one candidate has similarity > 0.8", () => {
+  it("refuses a stale anchor even when the changed line is very similar", () => {
     // File with a line that was slightly modified (trailing comma added)
     const originalLine = "const result = processData(input, options, config)";
     const modifiedLine = "const result = processData(input, options, config),";
@@ -28,15 +28,13 @@ describe("fuzzy content-based recovery", () => {
     modifiedLines[2] = modifiedLine;
     const modifiedContent = modifiedLines.join("\n");
 
-    // Use anchor with content: "3:HASH|original content"
-    // Hash won't match, but content is similar enough for fuzzy recovery
-    const result = applyHashlineEdits(modifiedContent, [
-      { set_line: { anchor: `3:${hash3}|${originalLine}`, new_text: "edited line" } },
-    ]);
-
-    expect(result.content).toContain("edited line");
-    expect(result.warnings).toBeDefined();
-    expect(result.warnings!.some(w => w.includes("Fuzzy-relocated"))).toBe(true);
+    // A changed line is stale. Editing a "similar" line instead would silently overwrite a
+    // change the model has not seen, so the edit is refused with fresh anchors.
+    expect(() =>
+      applyHashlineEdits(modifiedContent, [
+        { set_line: { anchor: `3:${hash3}|${originalLine}`, new_text: "edited line" } },
+      ]),
+    ).toThrow(/changed since last read/);
   });
 
   it("throws standard error when two candidates exceed 0.8 similarity", () => {
@@ -88,7 +86,7 @@ describe("fuzzy content-based recovery", () => {
     ).toThrow(/changed since last read/);
   });
 
-  it("fuzzy relocation warning includes similarity score", () => {
+  it("refuses a stale anchor whose line gained a token", () => {
     const originalLine = "export const myData = await loadConfig(alpha, beta, gamma, delta, epsilon)";
     const modifiedLine = "export const myData = await loadConfig(alpha, beta, gamma, delta, epsilon, zeta)";
 
@@ -97,14 +95,11 @@ describe("fuzzy content-based recovery", () => {
     const modifiedLines = ["line 1", modifiedLine, "line 3"];
     const modifiedContent = modifiedLines.join("\n");
 
-    const result = applyHashlineEdits(modifiedContent, [
-      { set_line: { anchor: `2:${hash2}|${originalLine}`, new_text: "edited" } },
-    ]);
-
-    expect(result.warnings).toBeDefined();
-    const fuzzyWarning = result.warnings!.find(w => w.includes("Fuzzy-relocated"));
-    expect(fuzzyWarning).toBeDefined();
-    expect(fuzzyWarning).toMatch(/similarity: 0\.\d+/);
+    expect(() =>
+      applyHashlineEdits(modifiedContent, [
+        { set_line: { anchor: `2:${hash2}|${originalLine}`, new_text: "edited" } },
+      ]),
+    ).toThrow(/Did you mean one of these nearby lines\?[\s\S]*zeta/);
   });
 
   it("falls through to standard error when anchor has no content after pipe", () => {

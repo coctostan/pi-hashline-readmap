@@ -30,15 +30,6 @@ const FIND_PROMPT_METADATA = defineToolPromptMetadata({
   ],
 });
 
-export const FIND_PTC = {
-  callable: true,
-  enabled: true,
-  policy: "read-only" as const,
-  readOnly: true,
-  pythonName: "find",
-  defaultExposure: "safe-by-default" as const,
-};
-
 
 export interface FindEntry {
   path: string;
@@ -356,13 +347,12 @@ const FIND_PARAMETERS = withLegacyRequiredOrder(Type.Object(
 ));
 
 export function registerFindTool(pi: ExtensionAPI) {
-  const tool: Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof FIND_PTC } = {
+  const tool: Parameters<ExtensionAPI["registerTool"]>[0] = {
     name: "find",
     label: "find",
     description: FIND_PROMPT_METADATA.description,
     promptSnippet: FIND_PROMPT_METADATA.promptSnippet,
     promptGuidelines: FIND_PROMPT_METADATA.promptGuidelines,
-    ptc: FIND_PTC,
     parameters: FIND_PARAMETERS,
     async execute(
       _toolCallId: string,

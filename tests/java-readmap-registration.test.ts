@@ -76,7 +76,7 @@ describe("Java readmap registration and workflow integration", () => {
     const innerRead = await readTool({ path: qualifiedFixture, symbol: "com.example.qualified.QualifiedOuter.InnerType" });
     const output = text(innerRead);
 
-    expect(output).toMatch(/^\[Symbol: InnerType \(class\) in QualifiedOuter, lines 4-8 of 10\]/);
+    expect(output).toMatch(/^\[Symbol: InnerType \(class\) in QualifiedOuter, lines 4-8 of 9\]/);
     expect(output).toContain("public static class InnerType");
   });
 
@@ -84,7 +84,7 @@ describe("Java readmap registration and workflow integration", () => {
     const outerRead = await readTool({ path: qualifiedFixture, symbol: "com.example.qualified.QualifiedOuter" });
     const output = text(outerRead);
 
-    expect(output).toMatch(/^\[Symbol: QualifiedOuter \(class\), lines 3-9 of 10\]/);
+    expect(output).toMatch(/^\[Symbol: QualifiedOuter \(class\), lines 3-9 of 9\]/);
     expect(output).toContain("public class QualifiedOuter");
     expect(output).toContain("public static class InnerType");
   });

@@ -73,12 +73,12 @@ describe("GDScript read workflows", () => {
 
     clearMapCache();
     const signalResult = await readTool({ path: filePath, symbol: "health_changed" });
-    expect(text(signalResult)).toMatch(/^\[Symbol: health_changed \(signal\), lines 2-2 of 7\]/);
+    expect(text(signalResult)).toMatch(/^\[Symbol: health_changed \(signal\), lines 2-2 of 6\]/);
     expect(text(signalResult)).toContain("signal health_changed(new_value: int)");
 
     clearMapCache();
     const functionResult = await readTool({ path: filePath, symbol: "take_damage" });
-    expect(text(functionResult)).toMatch(/^\[Symbol: take_damage \(function\), lines 5-6 of 7\]/);
+    expect(text(functionResult)).toMatch(/^\[Symbol: take_damage \(function\), lines 5-6 of 6\]/);
     expect(text(functionResult)).toContain("func take_damage(amount: int) -> void:");
 
     vi.resetModules();

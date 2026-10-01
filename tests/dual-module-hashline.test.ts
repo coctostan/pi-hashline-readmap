@@ -6,14 +6,17 @@ import { join } from "node:path";
 
 function createPiHarness(init: any) {
   const handlers: Record<string, Function> = {};
+  const executors: Record<string, any> = {};
   init({
-    registerTool() {},
+    registerTool(definition: any) {
+      executors[definition.name] = definition;
+    },
     on(event: string, handler: Function) {
       handlers[event] = handler;
     },
     events: { emit() {}, on() {} },
   } as any);
-  return { handlers, executors: (globalThis as any).__hashlineToolExecutors };
+  return { handlers, executors };
 }
 
 function firstText(result: any): string {
@@ -89,7 +92,6 @@ describe("hashline singleton state under dual module instances", () => {
       expect(edit.isError).not.toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
-      delete (globalThis as any).__hashlineToolExecutors;
     }
   });
 });

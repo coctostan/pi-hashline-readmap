@@ -107,12 +107,13 @@ field-wise merging, environment precedence, and shell fallback remain intact.
 - npm test
 - npm run typecheck
 - npm test -- tests/pi-extension-load-compatibility.test.ts tests/pi-host-null-pipeline.test.ts
-- Independently install exactly Pi 0.99.1 and its complete pinned Pi graph into
-  temporary storage, then run tests/pi-host-null-pipeline.test.ts with
-  PI_COMPAT_HOST and PI_COMPAT_REQUIRE_NU=1 (see AGENTS.md).
+- Independently install exactly Pi 1.0.0 and its complete pinned Pi graph into
+  temporary storage, then run tests/pi-host-null-pipeline.test.ts and
+  tests/pi-host-codemode.test.ts with PI_COMPAT_HOST and PI_COMPAT_REQUIRE_NU=1
+  (see AGENTS.md).
 
 The locked development-host lane and .github/workflows/pi-compatibility.yml's
-independent Pi 0.99.1 lane are complementary. Keep the npm 11/12 packing matrix,
+independent Pi 1.0.0 lane are complementary. Keep the npm 11/12 packing matrix,
 current-host version checks, optional Nu requirement, and existing loader tests.
 Neither lane may silently fall back to or replace the other. Credentials and a
 live Gemini smoke test are not required.

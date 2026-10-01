@@ -39,8 +39,10 @@ describe("edit ptcValue.error — text-not-found and no-op", () => {
       path: f,
       edits: [{ set_line: { anchor, new_text: lines[0] } }],
     });
-    expect(r.isError).toBe(true);
-    expect(getPtc(r)?.error?.code).toBe("no-op");
+    // A no-op is a successful result: the file already has the content, nothing is written.
+    expect(r.isError).not.toBe(true);
+    expect(getPtc(r)?.ok).toBe(true);
+    expect(getPtc(r)?.noop).toBe(true);
     const text = r.content.find((c: any) => c.type === "text")?.text ?? "";
     expect(text).toMatch(/No changes made/);
   });

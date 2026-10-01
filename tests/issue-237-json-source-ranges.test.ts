@@ -12,6 +12,9 @@ vi.mock("node:child_process", () => ({
 import { clearMapCache } from "../src/map-cache.js";
 import { SymbolKind } from "../src/readmap/enums.js";
 import { jsonMapper } from "../src/readmap/mappers/json.js";
+import { computeLineHash, ensureHashInit } from "../src/hashline.js";
+
+await ensureHashInit();
 
 const JSON_SOURCE = [
   "{",
@@ -101,11 +104,12 @@ describe("issue 237: JSON symbols use source ranges", () => {
 
     const result = await callReadTool({ path: filePath, symbol: "server" });
     const output = text(result);
-    expect(output).toContain("[Symbol: server (property), lines 2-5 of 10]");
-    expect(output).toContain('2:0d4|  "server": {');
-    expect(output).toContain('4:08f|    "port": 8080');
-    expect(output).toContain("5:2f6|  },");
-    expect(output).not.toContain('6:ff2|  "features": {');
+    expect(output).toContain("[Symbol: server (property), lines 2-5 of 9]");
+    const row = (line: number, content: string) => `${line}:${computeLineHash(line, content)}|${content}`;
+    expect(output).toContain(row(2, '  "server": {'));
+    expect(output).toContain(row(4, '    "port": 8080'));
+    expect(output).toContain(row(5, "  },"));
+    expect(output).not.toContain('  "features": {');
   });
 
   it("reads the real package.json dependencies block instead of an unrelated keyword line", async () => {
@@ -121,7 +125,7 @@ describe("issue 237: JSON symbols use source ranges", () => {
     const output = text(result);
 
     expect(output).toContain(
-      `[Symbol: dependencies (property), lines ${startLine}-${endLine} of ${lines.length}]`,
+      `[Symbol: dependencies (property), lines ${startLine}-${endLine} of ${lines.length - (lines.at(-1) === "" ? 1 : 0)}]`,
     );
     expect(output).toContain('"xxhash-wasm"');
     expect(output).not.toContain('"ast-grep"');

@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Pi codemode integration: `read`, `grep`, `ast_search`, `edit`, `write`, `ls`, and `find` declare compact `outputSchema`s and return `structuredContent` (`{ text, ...ptcValue }`) on success. Codemode scripts receive anchors and raw lines instead of rendered text, and `grep` script records include `raw`. Error results keep rejecting in scripts.
+- MCP-style tool `annotations`: the read-only tools are marked `readOnlyHint`, while `edit` and `write` are marked `destructiveHint`. `bash` and `nu` keep Pi's conservative defaults.
+- Real Pi codemode executor test (`tests/pi-host-codemode.test.ts`) chaining `grep` → `edit` → `read` in a script.
+- `edit` refuses to overwrite lines that changed on disk since the model was shown them, including lines inside a `replace_lines` range and lines matched by text `replace` (previously only the named anchor lines were verified). The refusal returns the current rows with fresh anchors, which count as seen for the retry.
+- Small-model input tolerance: anchors pasted without a line number (`HASH` or `HASH|content`) resolve when exactly one line matches; `replace.old_text` pasted with `LINE:HASH|` row prefixes matches those rows as whole lines; CRLF `old_text` matches LF-normalized files; `text-not-found` lists the closest current lines with anchors; `replace_symbol` aimed at a line explains how to use `set_line`.
+- `tests/edit-scenarios.test.ts`: the 34 pi-edit-benchmark scenarios as deterministic tool-level tests.
+- `scripts/bench/explicit-edit.mjs`: local macOS runner for the Explicit Edit benchmark tasks through headless Pi, comparing arms (`pi-default`, `ref:<git>`, `working`). See `docs/benchmarking.md`.
+
+### Changed
+
+- The independent current-host compatibility lane now pins Pi 1.0.0 (was 0.99.1) and also runs the codemode test.
+- Anchor hashes include whitespace (only a trailing CR is ignored). A reindent or trailing-space change makes an anchor stale instead of letting a stale view be written back.
+- `read` and `write` no longer show a phantom empty last row for files ending in a newline. Anchors on that row from older reads still work, and `insert_after` on the last line keeps the final newline.
+- Replacements are applied literally: wrapped lines are no longer collapsed back, and boundary lines repeated in `new_text` are kept (with a duplicate-line warning) rather than silently dropped.
+- An edit that produces identical content is a successful no-op (`ptcValue.ok: true, noop: true`) instead of a `no-op` error, so models stop retrying it.
+
+### Removed (breaking)
+
+- PTC integration surfaces, which Pi codemode replaced: the `HASHLINE_TOOL_PTC_POLICY` / `getHashlineToolPtcPolicy` exports and their types, per-tool `ptc` metadata (including `LS_PTC`, `FIND_PTC`, and `NU_PTC`), and the executor map published on the `hashline:tool-executors` EventBus channel and `globalThis.__hashlineToolExecutors`. Use `ctx.executeTool()` and tool `annotations` instead. `details.ptcValue` keeps its historical name because sessions persist it and renderers read it.
+- Content-similarity relocation of stale anchors (`Fuzzy-relocated anchor ...`). A changed line is now always refused with fresh anchors rather than matched to a similar line.
+
+### Fixed
+
+- Tool calls issued by codemode scripts (`parentToolCallId`) no longer count toward repeated-call warnings. Doom-loop and context-hygiene notices are no longer prefixed onto (and consumed by) nested results that only scripts see; they go to the next model-visible result. Context-hygiene effects of nested calls are still recorded.
+
 ## [0.14.1]
 
 ### Fixed

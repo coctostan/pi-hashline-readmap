@@ -63,18 +63,20 @@ If anchors no longer match, `edit` fails with a hash mismatch (`hash-mismatch`) 
 >>> 41:b34|  const renamed = 3;
 ```
 
-Copy the updated `LINE:HASH` and retry. If the target moved farther away, re-run `read`, `grep`, `ast_search`, or `write` for fresh anchors.
+Copy the updated `LINE:HASH` and retry; the rows shown in a refusal count as seen, so no re-read is needed. If the target moved farther away, re-run `read`, `grep`, `ast_search`, or `write` for fresh anchors.
 
-If `edit` auto-relocates an anchor, check the warning and verify the edit landed in the intended place.
+Anchor hashes include whitespace: a reindented line is a changed line. An unchanged line that only moved is auto-relocated with a warning; a changed line is never matched to a "similar" line.
+
+`edit` also refuses to overwrite any line it would replace or delete, including lines inside a `replace_lines` range or matched by `replace`, that changed on disk since you were last shown it. The refusal shows the current rows (`>>>` marks changed ones) with fresh anchors.
 
 ## Validation and warnings
 
 - Files containing NUL bytes or malformed UTF-8 are rejected as binary before any mutation; the original bytes remain unchanged.
 - All edits are checked before writing; if a hard validation fails, nothing is written.
 - Anchored edits are validated against their resolved original-file targets before bottom-up application. Unsafe overlapping replacement/deletion targets, or an `insert_after` boundary consumed by another edit, fail with `overlapping-edit`; nothing is written. Submit disjoint edits, or put dependent changes in separate `edit` calls. A one-line replacement plus `insert_after` at that same stable line remains valid. Distinct `insert_after` operations sharing the same resolved anchor retain request-array order; identical duplicate insertions are applied once.
-- `no-op` means the requested edit matched the current file already or produced identical content.
+- An edit that produces the file's current content is a successful no-op: nothing is written and the result says `No changes made`. Do not retry it.
 - A whitespace-only warning means formatting changed but behavior probably did not.
-- Anchored edits honor your `new_text` indentation. If your replacement adds its own leading whitespace, that is used verbatim. As a convenience for replacements that collapse a wrapped/split line back to one line, the original line's indentation is restored only when no indentation was supplied; a plain 1:1 single-line replacement (`set_line`, or `replace_lines` with one target line) that starts at column 0 is honored as-is, so you can dedent a line to the left margin by setting `new_text` to column-0 content.
+- `new_text` is applied literally, including its indentation and line breaks. A replacement that repeats the untouched line just above or below its range duplicates that line (with a warning); an `insert_after` text that starts with a copy of its anchor line has that copy dropped (with a warning).
 - A `replace`-only success may include a reminder to prefer anchored edits next time.
 - Edits are written atomically (temp file + rename); symlinks are written through to their real target and preserved, and hard links are updated in place.
 

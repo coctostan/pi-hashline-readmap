@@ -22,15 +22,6 @@ const LS_PROMPT_METADATA = defineToolPromptMetadata({
   ],
 });
 
-export const LS_PTC = {
-  callable: true,
-  enabled: true,
-  policy: "read-only" as const,
-  readOnly: true,
-  pythonName: "ls",
-  defaultExposure: "safe-by-default" as const,
-};
-
 export interface LsEntry {
   name: string;
   type: "file" | "dir";
@@ -146,13 +137,12 @@ const LS_PARAMETERS = Type.Object({
 });
 
 export function registerLsTool(pi: ExtensionAPI) {
-  const tool: Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof LS_PTC } = {
+  const tool: Parameters<ExtensionAPI["registerTool"]>[0] = {
     name: "ls",
     label: "ls",
     description: LS_PROMPT_METADATA.description,
     promptSnippet: LS_PROMPT_METADATA.promptSnippet,
     promptGuidelines: LS_PROMPT_METADATA.promptGuidelines,
-    ptc: LS_PTC,
     parameters: LS_PARAMETERS,
     async execute(
       _toolCallId: string,

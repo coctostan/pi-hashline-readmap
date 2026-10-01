@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import { NU_GUIDELINES, NU_PTC } from "../src/nu.js";
+import { NU_GUIDELINES } from "../src/nu.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -33,25 +33,6 @@ describe("NU_GUIDELINES", () => {
   });
 });
 
-describe("NU_PTC", () => {
-  it("is callable and read-only", () => {
-    expect(NU_PTC.callable).toBe(true);
-    expect(NU_PTC.readOnly).toBe(true);
-  });
-
-  it("has pythonName 'nu'", () => {
-    expect(NU_PTC.pythonName).toBe("nu");
-  });
-
-  it("has read-only policy", () => {
-    expect(NU_PTC.policy).toBe("read-only");
-  });
-
-  it("is opt-in by default", () => {
-    expect(NU_PTC.defaultExposure).toBe("opt-in");
-  });
-});
-
 afterEach(() => {
   vi.resetModules();
   vi.doUnmock("node:child_process");
@@ -73,7 +54,6 @@ describe("registerNuTool", () => {
     expect(tool).toMatchObject({
       name: "nu",
       label: "nushell",
-      ptc: NU_PTC,
     });
     expect(pi.registerTool).toHaveBeenCalledWith(tool);
   });
@@ -95,13 +75,5 @@ describe("registerNuTool", () => {
 
     expect(registerNuTool(pi as any)).toBe(false);
     expect(pi.registerTool).not.toHaveBeenCalled();
-  });
-});
-
-describe("tool registration includes PTC metadata", () => {
-  it("tool definition includes ptc: NU_PTC", () => {
-    const src = readFileSync(resolve(__dirname, "../src/nu.ts"), "utf-8");
-    expect(src).toMatch(/ptc:\s*NU_PTC/);
-    expect(src).toContain("pi.registerTool(tool)");
   });
 });

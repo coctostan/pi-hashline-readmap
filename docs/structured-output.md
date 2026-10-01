@@ -1,4 +1,4 @@
-# Structured output and PTC policy
+# Structured output and codemode
 
 `pi-hashline-readmap` keeps user-facing output readable, but tool results also carry structured metadata for integrations that should not parse display text.
 
@@ -6,7 +6,7 @@
 
 ## `details.ptcValue`
 
-Tool implementations attach a `details.ptcValue` object where the host supports tool result details. The value is additive: rendered text remains the compatibility surface, while `ptcValue` gives downstream code typed access to paths, ranges, anchors, warnings, summaries, and errors.
+Tool implementations attach a `details.ptcValue` object where the host supports tool result details. The value is additive: rendered text remains the compatibility surface, while `ptcValue` gives downstream code typed access to paths, ranges, anchors, warnings, summaries, and errors. The field name is historical (it predates Pi codemode); it is kept because sessions persist it and renderers read it. Codemode scripts receive the same data as `structuredContent` (see [codemode integration](#codemode-integration)).
 
 Common structured pieces include:
 
@@ -54,13 +54,13 @@ interface PtcError {
 
 ## Required nulls at the host boundary
 
-A required parameter supplied as JSON `null` is rejected before Pi's schema conversion can turn it into a valid-looking scalar such as the string `"null"`. Registered Hashline tools use a shared `prepareArguments` guard. Direct executor/PTC callers retain the execute-time guard. Optional nulls behave like omission, and documented numeric strings remain accepted. The literal string `"null"` is not a null value and remains a valid path or content string.
+A required parameter supplied as JSON `null` is rejected before Pi's schema conversion can turn it into a valid-looking scalar such as the string `"null"`. Registered Hashline tools use a shared `prepareArguments` guard. Direct `execute()` callers that bypass Pi's pipeline retain the execute-time guard. Optional nulls behave like omission, and documented numeric strings remain accepted. The literal string `"null"` is not a null value and remains a valid path or content string.
 
 The actionable error text is unchanged, for example `Invalid path: expected string, received null.`. Error metadata depends on the boundary:
 
 | Boundary | Failure representation |
 |---|---|
-| Direct executor | `isError: true` with `details.ptcValue.error.code: "invalid-null"` |
+| Direct `execute()` call | `isError: true` with `details.ptcValue.error.code: "invalid-null"` |
 | Raw argument guard | Throws an `Error` with `code: "invalid-null"` and the same message |
 | Pi preparation pipeline | Host reports `isError: true` with the same message, but its generic preparation-error result drops custom error metadata |
 
@@ -68,38 +68,31 @@ Do not assume Pi's preparation-error result contains `details.ptcValue`. Preserv
 
 The guard applies to every tool registered by the extension entry point, including optional Nu and the debug tool when enabled. `ls` has no required parameters; its optional-null behavior is tested separately. Compatibility checks audit every registered top-level required parameter and a representative nested edit replacement. They also run valid read/write controls through the real `tool_call` and `tool_result` handlers using `ExtensionRunner`; the `context` handler's registration is audited but the regression does not additionally exercise `emitContext`/context-hygiene staleness, which is a separate observable behavior from null rejection and is out of scope here. This is not exhaustive coverage of every union branch, event lifecycle, cancellation path, or provider integration.
 
-## Exported PTC policy
+## Codemode integration
 
-The extension exports a static `HASHLINE_TOOL_PTC_POLICY` for downstream integrations:
+Pi 0.99+ (verified against 1.0.0) ships a `codemode` tool whose JavaScript scripts call other tools through `ctx.executeTool()`. A tool that declares `outputSchema` resolves inside scripts to its `structuredContent`; other tools resolve to their text. Hashline registers every tool through a codemode integration layer (`src/codemode-integration.ts`) that:
 
-```ts
-import {
-  HASHLINE_TOOL_PTC_POLICY,
-  getHashlineToolPtcPolicy,
-} from "pi-hashline-readmap";
+- declares a compact `outputSchema` for `read`, `grep`, `ast_search`, `edit`, `write`, `ls`, and `find`, so codemode descriptions say what a call resolves to (for example, `tools.read(args)` resolves to `{ text, path, range, lines, continuation, warnings }`);
+- sets `structuredContent` on successful results to `{ text, ...details.ptcValue }`, where `text` is the exact model-facing output, so `await tools.read({ path })` gives scripts `lines[*].anchor` and `lines[*].raw` without reparsing `LINE:HASH|` text;
+- adds raw source text to `grep` script records (`records[*].raw`) only in `structuredContent`. Persisted `details.ptcValue.records` stay compact, and `structuredContent` is neither persisted in the session nor sent to the model;
+- leaves error results without `structuredContent`, so failed script calls keep rejecting with the tool's error text;
+- declares MCP-style `annotations`: `read`, `grep`, `ast_search`, `ls`, `find`, and the debug `context_hygiene_report` are `readOnlyHint: true, openWorldHint: false`, and `edit` and `write` are `destructiveHint: true`. `bash` and `nu` run arbitrary commands, so they keep Pi's conservative defaults (not read-only, possibly destructive, open world). Permission extensions can rely on these hints.
+
+Calls that a script makes carry `parentToolCallId`. Hashline still records their context-hygiene effects, so a script's `edit` marks earlier model-visible reads stale. It does not count them toward repeated-call (doom-loop) warnings, and it does not prefix model-facing notices onto their results: scripts receive clean values, and pending notices go to the next result the model actually sees.
+
+Example script:
+
+```js
+const g = await tools.grep({ pattern: "TODO", path: "src", literal: true });
+for (const r of g.records.filter((r) => r.kind === "match")) {
+  await tools.edit({ path: r.path, edits: [{ set_line: { anchor: r.anchor, new_text: r.raw.replace(/\s*\/\/ TODO$/, "") } }] });
+}
+return `${g.totalMatches} TODOs cleaned`;
 ```
 
-Policy entries describe:
+With `codemode.mode: "only"`, these declarations are listed in the codemode description within `codemode.inlineBudget`. The compact schemas keep all Hashline tools within the default budget.
 
-- tool name
-- helper name
-- whether the tool overrides a built-in pi tool
-- mutability (`read-only` or `mutating`)
-- default exposure (`safe-by-default`, `opt-in`, or `not-safe-by-default`)
-
-Current policy summary:
-
-| Tool | Helper | Overrides built-in | Mutability | Default exposure |
-|---|---|---:|---|---|
-| `read` | `read` | Yes | `read-only` | `safe-by-default` |
-| `grep` | `grep` | Yes | `read-only` | `safe-by-default` |
-| `ast_search` | `ast_search` | No | `read-only` | `opt-in` |
-| `edit` | `edit` | Yes | `mutating` | `not-safe-by-default` |
-| `write` | `write` | Yes | `mutating` | `not-safe-by-default` |
-| `ls` | `ls` | Yes | `read-only` | `safe-by-default` |
-| `find` | `find` | Yes | `read-only` | `safe-by-default` |
-| `nu` | `nu` | No | `read-only` | `opt-in` |
-
+The `HASHLINE_TOOL_PTC_POLICY` export, per-tool `ptc` metadata, and the `hashline:tool-executors` / `globalThis.__hashlineToolExecutors` executor map served the separate PTC extension, which codemode replaced. They were removed; use `annotations` and `ctx.executeTool()` instead.
 ## Editing safety
 
 Copy fresh anchors from `read`, `grep`, `ast_search`, or `write`. Replacement text is plain content: never include `LINE:HASH|`, hash-only, or diff prefixes. `edit` strips them defensively when they dominate the replacement, but callers should omit them. Set `new_text` to `""` to delete anchored lines and use `"\n"` for an intentionally blank line.
@@ -142,5 +135,5 @@ On supported files, direct symbol reads can target functions, classes, methods, 
 
 - Treat `ptcValue` as additive metadata, not a replacement for rendered text.
 - Use stable fields such as `tool`, `path`, `lines`, `anchor`, `warnings`, and `error.code` when available.
-- Avoid parsing rendered text when the same data exists in `ptcValue`.
-- Mutating consumers should honor the exported policy: `edit` and `write` are mutating and not safe-by-default, while `read`, `grep`, `ls`, and `find` are read-only.
+- Avoid parsing rendered text when the same data exists in `ptcValue` or `structuredContent`.
+- Decide confirmation and exposure from tool `annotations`: `edit` and `write` are destructive, while `read`, `grep`, `ast_search`, `ls`, and `find` are read-only.

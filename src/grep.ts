@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ToolRenderResultOptions } from "@earendil-works/pi-coding-agent";
 import { createGrepTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import { toScriptJson } from "./codemode-integration.js";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { readFile as fsReadFile, stat as fsStat } from "fs/promises";
 import path from "path";
@@ -319,21 +320,11 @@ interface GrepToolOptions {
 }
 
 export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}) {
-	const ptc = {
-		callable: true,
-		enabled: true,
-		policy: "read-only" as const,
-		readOnly: true,
-		pythonName: "grep",
-		defaultExposure: "safe-by-default" as const,
-	};
-
 	const tool = {
 		name: "grep",
 		label: "grep",
 		description: GREP_PROMPT_METADATA.description,
 		parameters: grepSchema,
-		ptc,
 		promptSnippet: GREP_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: options.astSearchGuideline
 			? [GREP_PROMPT_METADATA.promptGuidelines[0], options.astSearchGuideline]
@@ -796,6 +787,16 @@ if (p.scope === "symbol" && !summary) {
 					ptcValue: builtOutput.ptcValue,
 					contextHygiene: builtOutput.contextHygiene,
 				},
+				// Script-facing value for codemode (never persisted or sent to the model): the
+				// compact persisted records plus each line's raw text, so scripts need not parse
+				// rendered output. Codemode integration adds the rendered `text`.
+				structuredContent: toScriptJson({
+					...builtOutput.ptcValue,
+					records: builtOutput.ptcValue.records.map((record, index) => ({
+						...record,
+						raw: ptcRecords[index]?.raw ?? "",
+					})),
+				}),
 			};
 		},
 		renderCall(args: any, theme: any, ...rest: any[]) {
@@ -883,7 +884,7 @@ if (p.scope === "symbol" && !summary) {
 			}
 			return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
 		},
-	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
+	} satisfies Parameters<ExtensionAPI["registerTool"]>[0];
 
 	pi.registerTool(tool);
 	return tool;

@@ -5,7 +5,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff.js";
-import { ensureHashInit } from "./hashline.js";
+import { ensureHashInit, splitDisplayLines } from "./hashline.js";
 import { buildPtcError, buildPtcWarning, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { resolveToCwd } from "./path-utils.js";
@@ -171,15 +171,6 @@ function isSupportedImageBuffer(buffer: Buffer): boolean {
 
 
 export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}) {
-	const ptc = {
-		callable: true,
-		enabled: true,
-		policy: "read-only" as const,
-		readOnly: true,
-		pythonName: "read",
-		defaultExposure: "safe-by-default" as const,
-	};
-
 	const tool = {
 		name: "read",
 		label: "Read",
@@ -187,7 +178,6 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 		promptSnippet: READ_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: READ_PROMPT_METADATA.promptGuidelines,
 		parameters: READ_PARAMETERS,
-		ptc,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const normalizedParams = normalizeToolParameters(READ_PARAMETERS, params);
 			if (normalizedParams.requiredNull) {
@@ -436,7 +426,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			const hasBinaryContent = looksLikeBinary(rawBuffer);
 			throwIfAborted(signal);
 			const normalized = normalizeToLF(stripBom(rawBuffer.toString("utf-8")).text);
-			const allLines = normalized.split("\n");
+			const allLines = splitDisplayLines(normalized);
 			const total = allLines.length;
 			const structuredWarnings: PtcWarning[] = [];
 			let startLine = p.offset !== undefined ? p.offset : 1;
@@ -817,7 +807,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			const out = [summaryRow, ...(preview.hint ? [preview.hint] : []), ...preview.lines];
 			return new Text(clampLinesToWidth(out, width).join("\n"), 0, 0);
 		},
-	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
+	} satisfies Parameters<ExtensionAPI["registerTool"]>[0];
 
 	pi.registerTool(tool);
 	return tool;

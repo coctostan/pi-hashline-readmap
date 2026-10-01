@@ -164,15 +164,6 @@ const SG_PARAMETERS = Type.Object({
 });
 
 export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
-  const ptc = {
-    callable: true,
-    enabled: true,
-    policy: "read-only" as const,
-    readOnly: true,
-    pythonName: "ast_search",
-    defaultExposure: "opt-in" as const,
-  };
-
   const tool = {
     name: "ast_search",
     label: "AST Search",
@@ -180,7 +171,6 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
     promptSnippet: SG_PROMPT_METADATA.promptSnippet,
     promptGuidelines: SG_PROMPT_METADATA.promptGuidelines,
     parameters: SG_PARAMETERS,
-    ptc,
     async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const normalized = normalizeToolParameters(SG_PARAMETERS, params);
       if (normalized.requiredNull) {
@@ -508,7 +498,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
       }
       return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
     },
-  } satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
+  } satisfies Parameters<ExtensionAPI["registerTool"]>[0];
 
   pi.registerTool(tool);
   return tool;

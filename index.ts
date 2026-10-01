@@ -9,7 +9,10 @@ import { registerLsTool } from "./src/ls.js";
 import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
 import { withRawArgumentGuard } from "./src/raw-argument-guard.js";
+import { isNestedToolEvent, withCodemodeIntegration } from "./src/codemode-integration.js";
 import { resolveShellPath } from "./src/hashline-settings.js";
+import { ServedLines, recordServedFromResult } from "./src/served-lines.js";
+import { resolveToCwd } from "./src/path-utils.js";
 import { filterBashOutput } from "./src/rtk/bash-filter.js";
 import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
@@ -132,17 +135,6 @@ function hasAppliedEffects(effects: ContextHygieneAppliedEffects): boolean {
   return effects.retired.count > 0 || effects.stale.count > 0;
 }
 
-export {
-  HASHLINE_TOOL_PTC_POLICY,
-  getHashlineToolPtcPolicy,
-} from "./src/ptc-tool-policy.js";
-export type {
-  HashlineToolDefaultExposure,
-  HashlineToolMutability,
-  HashlineToolName,
-  HashlineToolPtcPolicy,
-  HashlineToolPtcPolicyEntry,
-} from "./src/ptc-tool-policy.js";
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   return `${(bytes / 1024).toFixed(1)} KB`;
@@ -172,7 +164,9 @@ function willBashContextGuardTrim(text: string, config: BashContextGuardConfig):
 }
 
 export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
-  pi = withRawArgumentGuard(pi);
+  // Codemode integration wraps outermost so annotations/outputSchema are set before the raw
+  // argument guard forwards the (same, mutated) definition to Pi.
+  pi = withCodemodeIntegration(withRawArgumentGuard(pi));
   // readTurns maps an absolute path to the tracker event id of the most recent
   // live-anchor tool result for that path (read / grep / ast_search / write).
   // When the provider-context handler masks a prior live-anchor read into a
@@ -198,37 +192,30 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   };
   const wasReadInSession = (absolutePath: string) => readTurns.has(readTurnKey(absolutePath));
 
-  const readTool = registerReadTool(pi, { onSuccessfulRead: noteRead });
-  const editTool = registerEditTool(pi, { wasReadInSession });
+  // Programmatic callers (Pi codemode scripts) reach these tools through Pi's own
+  // ctx.executeTool(); see src/codemode-integration.ts. No side-channel executor map is published.
+  registerReadTool(pi, { onSuccessfulRead: noteRead });
+  // What each file looked like when the model last saw it; edit refuses to overwrite lines that
+  // changed since (range interiors and text replacements, beyond what anchors verify).
+  const served = new ServedLines();
+  registerEditTool(pi, { wasReadInSession, served });
   const sgAvailable = isSgAvailable();
   const astSearchGuideline = sgAvailable
     ? "Use grep summary for counts; use ast_search for structural code patterns."
     : "Use grep summary for counts; install ast-grep to enable ast_search.";
 
-  const grepTool = registerGrepTool(pi, { astSearchGuideline, onFileAnchored: noteRead });
-  const sgTool = registerSgTool(pi, { onFileAnchored: noteRead });
-  const nuTool = registerNuTool(pi);
-  const writeTool = registerWriteTool(pi, { onFileAnchored: noteRead });
-  const lsTool = registerLsTool(pi);
-  const findTool = registerFindTool(pi);
+  registerGrepTool(pi, { astSearchGuideline, onFileAnchored: noteRead });
+  registerSgTool(pi, { onFileAnchored: noteRead });
+  registerNuTool(pi);
+  registerWriteTool(pi, { onFileAnchored: noteRead });
+  registerLsTool(pi);
+  registerFindTool(pi);
   registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath() });
-  const contextHygieneDebugTool = registerContextHygieneDebugTool(pi);
-  const toolExecutors = {
-    read: readTool,
-    edit: editTool,
-    grep: grepTool,
-    ast_search: sgTool,
-    write: writeTool,
-    ls: lsTool,
-    find: findTool,
-    ...(nuTool ? { nu: nuTool } : {}),
-    ...(contextHygieneDebugTool ? { context_hygiene_report: contextHygieneDebugTool } : {}),
-  };
-
-  (globalThis as any).__hashlineToolExecutors = toolExecutors;
-  pi.events.emit("hashline:tool-executors", toolExecutors);
-
+  registerContextHygieneDebugTool(pi);
   pi.on("tool_call", (event: any) => {
+    // Calls issued by codemode scripts (parentToolCallId set) are programmatic loops, not the
+    // model repeating itself; counting them would raise false doom-loop warnings.
+    if (isNestedToolEvent(event)) return undefined;
     recordToolCall(
       doomLoopState,
       event.toolName,
@@ -267,11 +254,19 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   });
 
   (pi as any).on("tool_result", (event: any, ctx?: { cwd?: string }) => {
-    const doomLoop = consumeDoomLoopWarning(doomLoopState, event.toolCallId);
+    // Nested results only reach the calling script, never the model. Keep recording their
+    // context-hygiene effects (a script's edit still stales earlier reads), but do not prefix or
+    // consume model-facing notices there: they would corrupt the script's text and be lost.
+    const nested = isNestedToolEvent(event);
+    const doomLoop = nested ? undefined : consumeDoomLoopWarning(doomLoopState, event.toolCallId);
     if (!isBashToolResult(event)) {
       const contextHygiene = contextHygieneFromDetails(event.details);
       if (contextHygiene) recordContextHygiene(contextHygiene, event.toolCallId);
-      if (!Array.isArray(event.content)) {
+      if (event.isError !== true) {
+        const cwd = ctx?.cwd ?? process.cwd();
+        recordServedFromResult(served, event.toolName, event.details, (path) => resolveToCwd(path, cwd));
+      }
+      if (nested || !Array.isArray(event.content)) {
         return undefined;
       }
       const staleNotice = consumeContextHygieneNotice(getContextHygieneTracker().generateReport());
@@ -362,7 +357,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
       ? { ...contextHygiene, appliedEffects }
       : contextHygiene;
-    const staleNotice = consumeContextHygieneNotice(getContextHygieneTracker().generateReport());
+    const staleNotice = nested ? null : consumeContextHygieneNotice(getContextHygieneTracker().generateReport());
     const applyWarning = (body: string): string => {
       const prefixParts: string[] = [];
       if (doomLoop) prefixParts.push(formatDoomLoopMessage(doomLoop));

@@ -33,16 +33,14 @@ describe("issue 216 — dedent a line to column 0 via anchored edits", () => {
     expect(result.content.split("\n")[1]).toBe("topLevel();");
   });
 
-  it("still restores indentation when a wrapped (multi-line) new_text collapses back to one line", () => {
-    // Wrap/split case: original is one indented line; model emits it across 2 lines with no indent.
-    // restoreOldWrappedLines collapses them, and restoreIndentPaired must keep the original indent.
+  it("applies a wrapped (multi-line) new_text literally", () => {
+    // Replacements are literal: an intentional rewrap is kept, not collapsed back to the original.
     const origContent = ["function f() {", "\tconst summary = alpha + beta + gamma;", "}"].join("\n");
     const anchor = `2:${computeLineHash(2, "\tconst summary = alpha + beta + gamma;")}`;
     const newText = ["const summary = alpha + beta +", "gamma;"].join("\n");
     const result = applyHashlineEdits(origContent, [
       { set_line: { anchor, new_text: newText } },
     ]);
-    // The wrap is restored to the original single indented line (no-op).
-    expect(result.content.split("\n")[1]).toBe("\tconst summary = alpha + beta + gamma;");
+    expect(result.content.split("\n")).toEqual(["function f() {", "const summary = alpha + beta +", "gamma;", "}"]);
   });
 });

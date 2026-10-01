@@ -54,20 +54,20 @@ jobs:
       - name: Install independent current host
         # Pi's internal dependencies use caret ranges; pin the complete Pi graph too.
         run: |
-          npm install --prefix "$RUNNER_TEMP/pi-0.99.1" --no-save --package-lock=false --no-audit --no-fund \
-            @earendil-works/pi-coding-agent@0.99.1 \
-            @earendil-works/pi-agent-core@0.99.1 \
-            @earendil-works/pi-ai@0.99.1 \
-            @earendil-works/pi-tui@0.99.1 \
-            @earendil-works/pi-mcp@0.99.1 \
-            @earendil-works/pi-codemode@0.99.1 \
-            @earendil-works/pi-telemetry@0.99.1 \
-            @earendil-works/chord@0.99.1
-      - name: Verify real current-host pipeline
+          npm install --prefix "$RUNNER_TEMP/pi-1.0.0" --no-save --package-lock=false --no-audit --no-fund \
+            @earendil-works/pi-coding-agent@1.0.0 \
+            @earendil-works/pi-agent-core@1.0.0 \
+            @earendil-works/pi-ai@1.0.0 \
+            @earendil-works/pi-tui@1.0.0 \
+            @earendil-works/pi-mcp@1.0.0 \
+            @earendil-works/pi-codemode@1.0.0 \
+            @earendil-works/pi-telemetry@1.0.0 \
+            @earendil-works/chord@1.0.0
+      - name: Verify real current-host pipeline and codemode
         env:
-          PI_COMPAT_HOST: ${{ runner.temp }}/pi-0.99.1/node_modules/@earendil-works/pi-coding-agent
+          PI_COMPAT_HOST: ${{ runner.temp }}/pi-1.0.0/node_modules/@earendil-works/pi-coding-agent
           PI_COMPAT_REQUIRE_NU: "1"
-        run: npm test -- tests/pi-host-null-pipeline.test.ts
+        run: npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts
       - name: Remove independently provisioned host
         if: always()
-        run: rm -rf -- "$RUNNER_TEMP/pi-0.99.1"
+        run: rm -rf -- "$RUNNER_TEMP/pi-1.0.0"

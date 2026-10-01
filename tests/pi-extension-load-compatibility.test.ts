@@ -63,7 +63,6 @@ describe("locked Pi extension-loader compatibility", () => {
       }
     } finally {
       rmSync(sandbox, { recursive: true, force: true });
-      delete (globalThis as any).__hashlineToolExecutors;
     }
   });
 });

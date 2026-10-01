@@ -1,5 +1,6 @@
 /**
- * PTC error code taxonomy — single source of truth.
+ * Structured error code taxonomy (`details.ptcValue.error.code`) — single source of truth.
+ * The `Ptc` prefix is historical; these codes are what tool_result handlers and renderers see.
  *
  * Every error returned via `ptcValue.error.code` MUST be a key in this map.
  * To add a new error: extend this object with a kebab-case code, a one-line

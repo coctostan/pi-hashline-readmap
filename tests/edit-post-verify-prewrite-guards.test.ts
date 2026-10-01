@@ -55,8 +55,8 @@ describe("edit postEditVerify pre-write guards", () => {
       { cwd: process.cwd() },
     );
 
-    expect(result.isError).toBe(true);
-    expect(result.details.ptcValue.error.code).toBe("no-op");
+    expect(result.isError).not.toBe(true);
+    expect(result.details.ptcValue.noop).toBe(true);
     expect(atomicMock.writeFileAtomically).not.toHaveBeenCalled();
     expect(fsMock.readFile).toHaveBeenCalledTimes(1);
   });

@@ -16,6 +16,8 @@ import {
 	type HashlineEditItem,
 	escapeControlCharsForDisplay,
 } from "./hashline.js";
+import { formatStaleRows, overwrittenLines, type ServedLines } from "./served-lines.js";
+import type { PtcLine } from "./ptc-value.js";
 import { resolveToCwd } from "./path-utils.js";
 import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
 import { throwIfAborted } from "./runtime.js";
@@ -363,7 +365,11 @@ async function resolveReplaceSymbols(input: {
 			newBody: edit.replace_symbol.new_body,
 		});
 		if (probe.type !== "ok") {
-			return buildEditError(input.absolutePath, "invalid-edit-variant", probe.message);
+			const message =
+				probe.type === "not-found"
+					? `${probe.message}\n${describeLineTargetForSymbolSlip(input.originalNormalized, edit.replace_symbol.symbol)}`
+					: probe.message;
+			return buildEditError(input.absolutePath, "invalid-edit-variant", message);
 		}
 		probes.push(probe);
 	}
@@ -480,6 +486,109 @@ function applyAnchorEdits(input: {
 	}
 }
 
+/** A row as tools display it, `LINE:HASH|content` or the bare `HASH|content` slip. */
+const SHOWN_ROW_RE = /^(?:\d+:)?([0-9a-f]{3})\|(.*)$/;
+const SHOWN_TERMINATOR_ROW_RE = /^(?:\d+:)?([0-9a-f]{3})\|?$/;
+
+function splitTextRows(text: string): string[] {
+	return normalizeToLF(text).replace(/\n$/, "").split("\n");
+}
+
+/**
+ * Models often paste displayed rows into `replace.old_text`. When every row carries a prefix whose
+ * hash matches its own content, the rows are a verified copy of shown lines: return their content.
+ */
+function stripVerifiedRowPrefixes(text: string): string[] | undefined {
+	const rows = splitTextRows(text);
+	const emptyHash = computeLineHash(0, "");
+	const last = rows[rows.length - 1];
+	const terminator = last !== undefined ? SHOWN_TERMINATOR_ROW_RE.exec(last) : null;
+	if (rows.length > 1 && terminator && terminator[1] === emptyHash) rows.pop();
+	const out: string[] = [];
+	for (const row of rows) {
+		const match = SHOWN_ROW_RE.exec(row);
+		if (!match || computeLineHash(0, match[2]) !== match[1]) return undefined;
+		out.push(match[2]);
+	}
+	return out.length ? out : undefined;
+}
+
+/** Replacement rows for a prefixed `old_text`: drop any pasted row prefixes, keep the rest literal. */
+function stripPastedRowPrefixes(text: string): string[] {
+	if (text === "") return [];
+	return splitTextRows(text).map((row) => SHOWN_ROW_RE.exec(row)?.[2] ?? row);
+}
+
+/** Replace whole lines equal to `oldRows` (exact, line-aligned). */
+function replaceLineBlock(
+	content: string,
+	oldRows: string[],
+	newRows: string[],
+	all: boolean,
+): { content: string; count: number } {
+	const lines = content.split("\n");
+	const starts: number[] = [];
+	for (let start = 0; start + oldRows.length <= lines.length; start++) {
+		if (oldRows.every((row, offset) => lines[start + offset] === row)) {
+			starts.push(start);
+			start += oldRows.length - 1;
+		}
+	}
+	if (starts.length === 0 || (!all && starts.length > 1)) return { content, count: starts.length > 1 ? -starts.length : 0 };
+	for (const start of [...starts].reverse()) lines.splice(start, oldRows.length, ...newRows);
+	return { content: lines.join("\n"), count: starts.length };
+}
+
+function lineSimilarity(needle: string, line: string): number {
+	const a = needle.trim();
+	const b = line.trim();
+	if (!a || !b) return 0;
+	if (b.includes(a) || a.includes(b)) return 1;
+	const tokens = (s: string) => new Set(s.split(/[^\p{L}\p{N}_]+/u).filter(Boolean));
+	const ta = tokens(a);
+	const tb = tokens(b);
+	if (!ta.size || !tb.size) return 0;
+	let overlap = 0;
+	for (const token of ta) if (tb.has(token)) overlap++;
+	return overlap / Math.max(ta.size, tb.size);
+}
+
+/** Current rows most like `needle`, as fresh `LINE:HASH|content` anchors. */
+function closestRows(content: string, needle: string, max = 4): PtcLine[] {
+	const lines = content.split("\n");
+	return lines
+		.map((raw, index) => ({ raw, line: index + 1, score: lineSimilarity(needle, raw) }))
+		.filter((candidate) => candidate.score >= 0.5)
+		.sort((a, b) => b.score - a.score || a.line - b.line)
+		.slice(0, max)
+		.sort((a, b) => a.line - b.line)
+		.map(({ raw, line }) => {
+			const hash = computeLineHash(line, raw);
+			const display = escapeControlCharsForDisplay(raw);
+			return { line, hash, anchor: `${line}:${hash}`, raw, display };
+		});
+}
+
+function formatRows(rows: readonly PtcLine[]): string {
+	return rows.map((row) => `  ${row.anchor}|${row.display}`).join("\n");
+}
+
+/** Guidance when replace_symbol names a line, an anchor, or a file instead of a declaration. */
+function describeLineTargetForSymbolSlip(content: string, symbol: string): string {
+	const row = SHOWN_ROW_RE.exec(symbol.trim().split("\n")[0] ?? "");
+	const needle = row ? row[2] : symbol.replace(/^\d+:[0-9a-f]{3}\|?/, "");
+	const rows = needle.trim() ? closestRows(content, needle, 3) : [];
+	const example = rows[0]
+		? `{"set_line": {"anchor": "${rows[0].anchor}", "new_text": "..."}}`
+		: `{"set_line": {"anchor": "LINE:HASH", "new_text": "..."}}`;
+	return [
+		"replace_symbol only replaces a named declaration (function, class, method). To change lines, use set_line, replace_lines, or insert_after with LINE:HASH anchors from read, for example " +
+			example +
+			".",
+		...(rows.length ? ["Matching lines:", formatRows(rows)] : []),
+	].join("\n");
+}
+
 function applyReplaceEdits(input: {
 	absolutePath: string;
 	displayPath: string;
@@ -494,25 +603,89 @@ function applyReplaceEdits(input: {
 		if (!edit.replace.old_text.length) {
 			return buildEditError(input.absolutePath, "invalid-edit-variant", "replace.old_text must not be empty.");
 		}
-		const replacement = replaceText(content, edit.replace.old_text, edit.replace.new_text, {
-			all: edit.replace.all ?? false,
+		// Files are compared LF-normalized; a CRLF-typed old_text would otherwise never match.
+		const oldText = edit.replace.old_text.replace(/\r\n/g, "\n");
+		const all = edit.replace.all ?? false;
+		const replacement = replaceText(content, oldText, edit.replace.new_text, {
+			all,
 			fuzzy: edit.replace.fuzzy ?? false,
 		});
-		if (!replacement.count) {
-			const message = `Could not find exact text to replace in ${input.displayPath}.`;
-			const hint =
-				"Re-read the file and prefer set_line/replace_lines/insert_after for hash-verified edits. " +
-				"The replace variant is exact-only by default because fuzzy fallback is unverified.";
-			return buildEditError(input.absolutePath, "text-not-found", message, hint);
+		if (replacement.count) {
+			if (replacement.usedFuzzyMatch) {
+				warnings.push(
+					"replace used fuzzy matching because exact old_text was not found; re-read the file and prefer set_line/replace_lines/insert_after for hash-verified edits.",
+				);
+			}
+			content = replacement.content;
+			continue;
 		}
-		if (replacement.usedFuzzyMatch) {
-			warnings.push(
-				"replace used fuzzy matching because exact old_text was not found; re-read the file and prefer set_line/replace_lines/insert_after for hash-verified edits.",
+
+		// old_text pasted as displayed rows (`2:467|bbb` or `467|bbb`): every prefix hash verifies
+		// its own row, so match those rows as whole lines. A row that changed since it was shown
+		// no longer exists and the edit is refused below instead of matching a substring.
+		const shownRows = stripVerifiedRowPrefixes(oldText);
+		if (shownRows) {
+			const block = replaceLineBlock(content, shownRows, stripPastedRowPrefixes(edit.replace.new_text), all);
+			if (block.count > 0) {
+				warnings.push(
+					"replace.old_text contained LINE:HASH| row prefixes; matched those rows as whole lines. Next time, use set_line/replace_lines with the anchors, or pass old_text without prefixes.",
+				);
+				content = block.content;
+				continue;
+			}
+			if (block.count < 0) {
+				return buildEditError(
+					input.absolutePath,
+					"text-not-found",
+					`replace.old_text matches ${-block.count} places in ${input.displayPath}. Use set_line or replace_lines with the LINE:HASH anchor of the one you mean.`,
+				);
+			}
+		}
+
+		const needle = (shownRows ?? splitTextRows(oldText)).find((row) => row.trim().length > 0) ?? oldText;
+		const rows = closestRows(content, needle);
+		const lines = [`Could not find exact text to replace in ${input.displayPath}.`];
+		if (rows.length) {
+			lines.push("Closest current lines:", formatRows(rows));
+			lines.push(
+				`To change a line, use set_line with its anchor, for example {"set_line": {"anchor": "${rows[0].anchor}", "new_text": "..."}}.`,
 			);
+		} else {
+			lines.push("No similar line exists; the text may have changed. Re-read the file.");
 		}
-		content = replacement.content;
+		lines.push("old_text must match the file exactly and must not include LINE:HASH| prefixes.");
+		const hint =
+			"Re-read the file if unsure and prefer set_line/replace_lines/insert_after for hash-verified edits. " +
+			"The replace variant is exact-only by default because fuzzy fallback is unverified.";
+		return buildEditError(input.absolutePath, "text-not-found", lines.join("\n"), hint, rows.length ? { updatedAnchors: rows } : undefined);
 	}
 	return { content, warnings };
+}
+
+/**
+ * An edit whose result equals the current file is reported as a successful no-op, not an error:
+ * the file already has the requested content, so retrying cannot help. Nothing is written.
+ */
+function buildNoopResult(path: string, message: string, noopEdits: unknown[]) {
+	return {
+		content: [{ type: "text" as const, text: message }],
+		details: {
+			diff: "",
+			patch: "",
+			firstChangedLine: undefined,
+			ptcValue: {
+				tool: "edit",
+				ok: true,
+				noop: true,
+				path,
+				summary: message,
+				diff: "",
+				firstChangedLine: undefined,
+				warnings: [],
+				noopEdits,
+			},
+		} as EditToolDetails & { ptcValue: any },
+	};
 }
 
 function detectNoop(input: {
@@ -522,9 +695,9 @@ function detectNoop(input: {
 	result: string;
 	edits: EditItem[];
 	anchorResult: AnchorEditResult;
-}): EditErrorResult | undefined {
+}): ReturnType<typeof buildNoopResult> | undefined {
 	if (input.originalNormalized !== input.result) return undefined;
-	let diagnostic = `No changes made to ${input.displayPath}. The edits produced identical content.`;
+	let diagnostic = `No changes made to ${input.displayPath}: the file already has this content. Nothing was written.`;
 	if (input.anchorResult.noopEdits?.length) {
 		diagnostic +=
 			"\n" +
@@ -534,7 +707,6 @@ function detectNoop(input: {
 						`Edit ${edit.editIndex}: replacement for ${edit.loc} is identical to current content:\n  ${edit.loc}| ${escapeControlCharsForDisplay(edit.currentContent)}`,
 				)
 				.join("\n");
-		diagnostic += "\nRe-read the file to see the current state.";
 	} else {
 		const lines = input.result.split("\n");
 		const targetLines: string[] = [];
@@ -561,12 +733,54 @@ function detectNoop(input: {
 			diagnostic += `\nThe file currently contains:\n${preview}\nYour edits were normalized back to the original content. Ensure your replacement changes actual code, not just formatting.`;
 		}
 	}
-	return buildEditError(input.absolutePath, "no-op", diagnostic);
+	return buildNoopResult(input.absolutePath, diagnostic, input.anchorResult.noopEdits ?? []);
+}
+
+/** Rows shown in error feedback count as seen: the retry needs no re-read. */
+function recordErrorFeedback<T extends EditErrorResult>(served: ServedLines | undefined, absolutePath: string, error: T): T {
+	const shown = (error.details.ptcValue as any)?.error?.details?.updatedAnchors as PtcLine[] | undefined;
+	if (shown?.length) served?.record(absolutePath, shown);
+	return error;
+}
+
+/**
+ * Every line an edit overwrites or removes must still be what the model was shown. Anchors verify
+ * only the lines they name; this also covers range interiors, text replacements, and symbol
+ * bodies. Refuses with the current rows, which then count as shown.
+ */
+function rejectStaleOverwrites(
+	served: ServedLines | undefined,
+	absolutePath: string,
+	originalNormalized: string,
+	result: string,
+): EditErrorResult | undefined {
+	if (!served?.has(absolutePath)) return undefined;
+	const originalLines = originalNormalized.split("\n");
+	const stale = served.findStale(absolutePath, originalLines, overwrittenLines(originalLines, result.split("\n")));
+	if (!stale.length) return undefined;
+	const feedback = formatStaleRows(originalLines, stale);
+	served.record(absolutePath, feedback.rows);
+	const count = stale.length === 1 ? "1 line" : `${stale.length} lines`;
+	return buildEditError(
+		absolutePath,
+		"hash-mismatch",
+		[
+			`Edit rejected — nothing was written. ${count} this edit would overwrite changed on disk since you last saw ${stale.length === 1 ? "it" : "them"} (>>> marks changed lines):`,
+			"",
+			feedback.text,
+			"",
+			"Decide against the current content above and re-issue the edit with these LINE:HASH anchors; no re-read is needed.",
+		].join("\n"),
+		undefined,
+		{ updatedAnchors: feedback.rows },
+	);
 }
 
 export interface EditToolOptions {
 	wasReadInSession?: (absolutePath: string) => boolean;
 	syntaxValidate?: SyntaxValidateOptions["syntaxValidate"];
+	/** What the model was shown of each file; refuses writes over lines that changed since. */
+	served?: ServedLines;
 }
 
 async function validateEditSyntax(input: {
@@ -740,14 +954,6 @@ async function buildEditResult(input: {
 // ─── Registration ───────────────────────────────────────────────────────
 
 export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}) {
-	const ptc = {
-		callable: true,
-		enabled: true,
-		policy: "mutating" as const,
-		readOnly: false,
-		pythonName: "edit",
-		defaultExposure: "not-safe-by-default" as const,
-	};
 	const tool = {
 		name: "edit",
 		label: "Edit",
@@ -755,7 +961,6 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 		promptSnippet: EDIT_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: EDIT_PROMPT_METADATA.promptGuidelines,
 		parameters: hashlineEditSchema,
-		ptc,
 		renderShell: "default" as const,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const normalized = normalizeToolParameters(hashlineEditSchema, params);
@@ -815,7 +1020,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					let result = symbolApplication.content;
 
 					const anchorResult = applyAnchorEdits({ absolutePath, content: result, anchorEdits, signal });
-					if (isEditErrorResult(anchorResult)) return anchorResult;
+					if (isEditErrorResult(anchorResult)) return recordErrorFeedback(options.served, absolutePath, anchorResult);
 					result = anchorResult.content;
 
 					const replacementResult = applyReplaceEdits({
@@ -825,7 +1030,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						replaceEdits,
 						signal,
 					});
-					if (isEditErrorResult(replacementResult)) return replacementResult;
+					if (isEditErrorResult(replacementResult)) return recordErrorFeedback(options.served, absolutePath, replacementResult);
 					result = replacementResult.content;
 					const replaceWarnings = replacementResult.warnings;
 
@@ -838,6 +1043,9 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						anchorResult,
 					});
 					if (noopError) return noopError;
+
+					const staleError = rejectStaleOverwrites(options.served, absolutePath, originalNormalized, result);
+					if (staleError) return staleError;
 
 					throwIfAborted(signal);
 
@@ -859,6 +1067,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						postEditVerify: input.postEditVerify === true,
 					});
 					if (isEditErrorResult(writeResult)) return writeResult;
+					options.served?.remapAfterWrite(absolutePath, originalNormalized.split("\n"), result.split("\n"));
 
 					return await buildEditResult({
 						absolutePath,
@@ -1002,7 +1211,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 			}
 			return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
 		},
-	} satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
+	} satisfies Parameters<ExtensionAPI["registerTool"]>[0];
 
 	pi.registerTool(tool);
 	return tool;

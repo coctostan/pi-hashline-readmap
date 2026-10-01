@@ -34,6 +34,10 @@ describe("grep post-transform budgeting", () => {
 
     const text = getText(result);
     expect(text).toContain("[Output truncated:");
-    expect(Buffer.byteLength(JSON.stringify(result))).toBeLessThan(100_000);
+    // Budget applies to what is persisted and shown to the model. structuredContent is the
+    // script-only codemode value (raw lines) and is neither persisted nor sent to the model.
+    const { structuredContent, ...persisted } = result;
+    expect(Buffer.byteLength(JSON.stringify(persisted))).toBeLessThan(100_000);
+    expect(structuredContent.records.every((record: any) => typeof record.raw === "string")).toBe(true);
   });
 });

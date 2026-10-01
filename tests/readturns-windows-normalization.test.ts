@@ -6,10 +6,14 @@ import init from "../index.js";
 import { buildContextHygieneMetadata, buildFileResource } from "../src/context-hygiene.js";
 import { computeLineHash, ensureHashInit } from "../src/hashline.js";
 
+const executors: Record<string, any> = {};
+
 function createHarness() {
   const handlers: Record<string, Function> = {};
   init({
-    registerTool() {},
+    registerTool(definition: any) {
+      executors[definition.name] = definition;
+    },
     on(event: string, handler: Function) {
       handlers[event] = handler;
     },
@@ -19,9 +23,6 @@ function createHarness() {
 }
 
 describe("Windows-style readTurns stale expiry", () => {
-  afterEach(() => {
-    delete (globalThis as any).__hashlineToolExecutors;
-  });
 
   it("expires read-before-edit guard entries when stale keys are slash-normalized", async () => {
     await ensureHashInit();
@@ -31,7 +32,6 @@ describe("Windows-style readTurns stale expiry", () => {
       writeFileSync(filePath, "const value = 1;\n", "utf8");
 
       const handlers = createHarness();
-      const executors = (globalThis as any).__hashlineToolExecutors;
 
       const readResult = await executors.read.execute(
         "read-call",

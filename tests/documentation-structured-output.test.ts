@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("structured-output reference", () => {
-  it("retains editing, reads, writes, structural search, exploration, and PTC policy", () => {
+  it("retains editing, reads, writes, structural search, exploration, and codemode contracts", () => {
     const text = readFileSync("docs/structured-output.md", "utf8");
     expect(text).toContain("pi-hashline-readmap"); expect(text).toContain("[Back to README](../README.md)");
     for (const value of [
@@ -31,7 +31,9 @@ describe("structured-output reference", () => {
       "includes hidden files",
       "details.ptcValue",
       "PtcError",
-      "HASHLINE_TOOL_PTC_POLICY",
+      "## Codemode integration",
+      "structuredContent",
+      "annotations",
       "jpg`, `jpeg`, `png`, `gif`, and `webp",
       "magic bytes",
       "creates parent directories automatically",

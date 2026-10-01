@@ -93,7 +93,7 @@ describe("edit replace hint", () => {
     edits: [{ replace: { old_text: "const value = 1;", new_text: "const value = 1;" } }],
   });
 
-  expect(result.isError).toBe(true);
+  expect(result.isError).not.toBe(true);
   const text = getTextContent(result);
   expect(text).toContain("No changes made to");
   expect(text).not.toContain(INFO_HINT);

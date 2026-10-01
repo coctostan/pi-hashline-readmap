@@ -28,7 +28,7 @@ npm test -- tests/pi-extension-load-compatibility.test.ts tests/pi-host-null-pip
 npm run typecheck
 ```
 
-The suite exercises the real locked-host tool pipeline as well as extension loading. [Compatibility CI](https://github.com/coctostan/pi-hashline-readmap/actions/workflows/pi-compatibility.yml) independently provisions exactly Pi 0.99.1 and checks required-null rejection through its loader, wrapper, agent-core pipeline, and `ExtensionRunner`. An npm 11/12 matrix verifies both array and keyed-object `npm pack --json` output. This runtime lane does not replace the locked development baseline or typecheck; see [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md) to reproduce it.
+The suite exercises the real locked-host tool pipeline as well as extension loading. [Compatibility CI](https://github.com/coctostan/pi-hashline-readmap/actions/workflows/pi-compatibility.yml) independently provisions exactly Pi 1.0.0. Through that host's loader, wrapper, agent-core pipeline, and `ExtensionRunner`, it checks required-null rejection, `structuredContent` passthrough, and real codemode scripts. An npm 11/12 matrix verifies both array and keyed-object `npm pack --json` output. This runtime lane does not replace the locked development baseline or typecheck; see [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md) to reproduce it.
 
 The extension and the exact Pi host version resolved by `package-lock.json` share one Node.js engine baseline, currently Node.js 22.19 or newer. The loader compatibility test verifies that this package's `engines.node` declaration stays identical to the installed locked Pi host package's declaration.
 
@@ -117,7 +117,9 @@ Most users need none. Global settings live at `~/.pi/agent/hashline-readmap/sett
 
 ## Structured output and integrations
 
-Results retain readable text and additive `details.ptcValue` records. See [structured output and PTC policy](docs/structured-output.md). Executors are announced through EventBus and `globalThis`; see [integration surfaces](docs/integrations.md).
+Results retain readable text and additive `details.ptcValue` records. See [structured output and codemode](docs/structured-output.md) and [integration surfaces](docs/integrations.md).
+
+With Pi's `codemode` enabled (`"defaultTools": ["+codemode"]`), scripts get structured values instead of rendered text. For example, `await tools.read({ path })` resolves to `{ text, lines, ... }` with `LINE:HASH` anchors, and `tools.grep` records include each line's raw text. Scripts can chain `grep` → `edit` without parsing output. Tools also declare MCP-style read-only and destructive `annotations` for permission extensions. See [codemode integration](docs/structured-output.md#codemode-integration).
 
 Required JSON `null` arguments are rejected before Pi can coerce them into strings or other scalars; optional nulls behave like omission, and the literal string `"null"` remains valid. Pi's preparation errors preserve the message and `isError`, but not custom structured error metadata. See [host-boundary null contracts](docs/structured-output.md#required-nulls-at-the-host-boundary).
 

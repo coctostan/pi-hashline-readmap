@@ -111,7 +111,7 @@ describe("issue 125: replace_lines blank-line collapse in new_text", () => {
     ].join("\n"));
   });
 
-  it("still restores a true soft wrap when no blank lines are involved", () => {
+  it("applies a multi-line rewrap literally instead of collapsing it back", () => {
     const origContent = [
       "const summary = alpha + beta + gamma;",
       "tail();",
@@ -127,13 +127,7 @@ describe("issue 125: replace_lines blank-line collapse in new_text", () => {
       { replace_lines: { start_anchor: anchor, end_anchor: anchor, new_text: newText } },
     ]);
 
-    expect(result.content).toBe(origContent);
-    expect(result.noopEdits).toEqual([
-      {
-        editIndex: 0,
-        loc: anchor,
-        currentContent: "const summary = alpha + beta + gamma;",
-      },
-    ]);
+    expect(result.content).toBe(["const summary = alpha + beta +", "gamma;", "tail();"].join("\n"));
+    expect(result.noopEdits).toBeUndefined();
   });
 });

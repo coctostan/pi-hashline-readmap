@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 function createMockPi() {
   return {
@@ -71,63 +71,12 @@ describe("register functions return tool definitions", () => {
   });
 });
 
-describe("index.ts emits and stashes tool executors", () => {
-  beforeEach(() => {
-    delete (globalThis as any).__hashlineToolExecutors;
-  });
-
-  it("stashes executors on globalThis.__hashlineToolExecutors", async () => {
+describe("index.ts does not publish a side-channel executor map", () => {
+  it("neither stashes executors on globalThis nor emits hashline:tool-executors", async () => {
     const pi = createMockPi();
     const { default: init } = await import("../index.js");
     init(pi as any);
-    const stash = (globalThis as any).__hashlineToolExecutors;
-    expect(stash).toBeDefined();
-    expect(stash.read).toBeDefined();
-    expect(stash.edit).toBeDefined();
-    expect(stash.grep).toBeDefined();
-    expect(stash.ast_search).toBeDefined();
-    expect(stash.write).toBeDefined();
-    expect(stash.ls).toBeDefined();
-    expect(stash.find).toBeDefined();
-  });
-  it("emits on hashline:tool-executors channel", async () => {
-    const pi = createMockPi();
-    const { default: init } = await import("../index.js");
-    init(pi as any);
-    expect(pi.events.emit).toHaveBeenCalledWith(
-      "hashline:tool-executors",
-      expect.objectContaining({
-        read: expect.objectContaining({ name: "read" }),
-        edit: expect.objectContaining({ name: "edit" }),
-        grep: expect.objectContaining({ name: "grep" }),
-        ast_search: expect.objectContaining({ name: "ast_search" }),
-        write: expect.objectContaining({ name: "write" }),
-        ls: expect.objectContaining({ name: "ls" }),
-        find: expect.objectContaining({ name: "find" }),
-      })
-    );
-  });
-  it("all stashed tools have callable execute functions", async () => {
-    const pi = createMockPi();
-    const { default: init } = await import("../index.js");
-    init(pi as any);
-    const stash = (globalThis as any).__hashlineToolExecutors;
-    for (const key of ["read", "edit", "grep", "ast_search", "write", "ls", "find"]) {
-      expect(typeof stash[key].execute).toBe("function");
-    }
-  });
-  it("emitted payload includes full tool definitions with description and parameters", async () => {
-    const pi = createMockPi();
-    const { default: init } = await import("../index.js");
-    init(pi as any);
-    const payload = pi.events.emit.mock.calls.find(
-      (c: any[]) => c[0] === "hashline:tool-executors"
-    )?.[1] as Record<string, any>;
-    expect(payload).toBeDefined();
-    for (const key of ["read", "edit", "grep", "ast_search", "write", "ls", "find"]) {
-      expect(typeof payload[key].description).toBe("string");
-      expect(payload[key].parameters).toBeDefined();
-      expect(typeof payload[key].execute).toBe("function");
-    }
+    expect((globalThis as any).__hashlineToolExecutors).toBeUndefined();
+    expect(pi.events.emit).not.toHaveBeenCalledWith("hashline:tool-executors", expect.anything());
   });
 });

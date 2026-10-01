@@ -18,7 +18,6 @@ describe("sg tool schema", () => {
     const tool = await getSgTool();
 
     expect(tool.name).toBe("ast_search");
-    expect(tool.ptc.pythonName).toBe("ast_search");
     expect(tool.parameters).toBeTruthy();
 
     expect(tool.parameters.properties.pattern.type).toBe("string");

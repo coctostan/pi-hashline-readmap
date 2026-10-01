@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { relative } from "node:path";
 import { resolveToCwd } from "./path-utils.js";
 import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
-import { ensureHashInit, formatHashlineDisplay } from "./hashline.js";
+import { ensureHashInit, formatHashlineDisplay, splitDisplayLines } from "./hashline.js";
 import { buildPtcError, buildPtcLine, buildPtcWarning, type PtcLine, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { getOrGenerateMap } from "./map-cache.js";
@@ -241,7 +241,7 @@ export async function executeWrite(opts: {
   }
 
   // Compute hashlines
-  const rawLines = content.split("\n");
+  const rawLines = splitDisplayLines(content);
   const ptcLines: PtcLine[] = [];
   const displayLines: string[] = [];
 
@@ -317,21 +317,12 @@ const WRITE_PARAMETERS = Type.Object({
 });
 
 export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = {}) {
-  const ptc = {
-    callable: true,
-    enabled: true,
-    policy: "mutating" as const,
-    readOnly: false,
-    pythonName: "write",
-    defaultExposure: "not-safe-by-default" as const,
-  };
   const tool = {
     name: "write",
     label: "write",
     description: WRITE_PROMPT_METADATA.description,
     promptSnippet: WRITE_PROMPT_METADATA.promptSnippet,
     promptGuidelines: WRITE_PROMPT_METADATA.promptGuidelines,
-    ptc,
     parameters: WRITE_PARAMETERS,
     async execute(_toolCallId: string, params: { path: string; content: string; map?: boolean }, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<any> {
       const normalized = normalizeToolParameters(WRITE_PARAMETERS, params);
@@ -536,7 +527,7 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
       }
       return new Text(clampLinesToWidth(text.split("\n"), width).join("\n"), 0, 0);
     },
-  } satisfies Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof ptc };
+  } satisfies Parameters<ExtensionAPI["registerTool"]>[0];
   pi.registerTool(tool);
   return tool;
 }

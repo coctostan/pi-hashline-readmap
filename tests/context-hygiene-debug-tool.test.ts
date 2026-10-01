@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import init from "../index.js";
 import {
   buildCommandResource,
@@ -41,16 +41,11 @@ function createHarness(debugEnv?: string) {
   });
 }
 
-afterEach(() => {
-  delete (globalThis as any).__hashlineToolExecutors;
-});
-
 describe("context_hygiene_report debug tool", () => {
   it("is not registered by default", () => {
     const { tools } = createHarness(undefined);
 
     expect(tools.has("context_hygiene_report")).toBe(false);
-    expect((globalThis as any).__hashlineToolExecutors?.context_hygiene_report).toBeUndefined();
   });
 
   it("is registered only when PI_CONTEXT_HYGIENE_DEBUG is explicitly 1", () => {
@@ -59,9 +54,7 @@ describe("context_hygiene_report debug tool", () => {
 
     const enabled = createHarness("1");
     expect(enabled.tools.has("context_hygiene_report")).toBe(true);
-    expect((globalThis as any).__hashlineToolExecutors.context_hygiene_report).toBe(
-      enabled.tools.get("context_hygiene_report"),
-    );
+    expect(enabled.tools.get("context_hygiene_report").annotations).toMatchObject({ readOnlyHint: true });
   });
 
   it("returns deterministic stale and retirement fields without mutating tracker state", async () => {

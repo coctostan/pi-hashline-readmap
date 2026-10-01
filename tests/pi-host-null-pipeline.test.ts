@@ -3,6 +3,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
+/** Exact Pi release the independent current-host lane pins (see .github/workflows/pi-compatibility.yml). */
+const PI_COMPAT_VERSION = "1.0.0";
+
 it("rejects required nulls through the real selected host pipeline", () => {
   const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
   const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
@@ -17,10 +20,10 @@ import { pathToFileURL } from "node:url";
 const host = process.env.PI_TEST_HOST;
 const version = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).version;
 const lockedVersion = JSON.parse(readFileSync("package-lock.json", "utf8")).packages["node_modules/@earendil-works/pi-coding-agent"].version;
-assert.equal(version, process.env.PI_COMPAT_HOST ? "0.99.1" : lockedVersion, "selected host version must match the lane");
+assert.equal(version, process.env.PI_COMPAT_HOST ? process.env.PI_COMPAT_EXPECTED_VERSION : lockedVersion, "selected host version must match the lane");
 
-// Resolve agent-core through its declared "./package.json" export, not a bare specifier: both
-// 0.84.2 and 0.99.1 only expose "." under "types"/"import", so a bare require/resolve throws
+// Resolve agent-core through its declared "./package.json" export, not a bare specifier: 0.84.2,
+// 0.99.x and 1.0.0 only expose "." under "types"/"import", so a bare require/resolve throws
 // ERR_PACKAGE_PATH_NOT_EXPORTED. Root the lookup at the selected host (not repo-local resolution)
 // so a hoisted or nested agent-core is found either way.
 const hostRequire = createRequire(join(host, "package.json"));
@@ -31,7 +34,7 @@ assert.equal(coreVersion, version, "agent-core must come from the selected host 
 const { discoverAndLoadExtensions, wrapRegisteredTool, ExtensionRunner, SessionManager } = await import(pathToFileURL(join(host, "dist/index.js")));
 const coreLoop = await import(pathToFileURL(join(coreRoot, "dist/agent-loop.js")));
 
-// 0.99.1's agent-core exports runToolCall directly. 0.84.2's agent-core does not (it only has
+// The current-host agent-core (>= 0.99) exports runToolCall directly. 0.84.2's agent-core does not (it only has
 // agentLoop/agentLoopContinue/runAgentLoop/runAgentLoopContinue), so the locked lane drives one
 // real turn through runAgentLoop with an injected deterministic stream whose assistant message
 // carries exactly the one tool call under test. shouldStopAfterTurn ends the loop after that
@@ -215,20 +218,34 @@ try {
   const validWrite = await invoke("write", { path: "null", content: "fresh\n", map: null });
   assert.equal(validWrite.isError, false);
   assert.equal(readFileSync(join(cwd, "null"), "utf8"), "fresh\n");
+
+  // Codemode contract: hosts that support outputSchema keep structuredContent through the real
+  // tool_result pipeline, so scripts receive { text, ...ptcValue } instead of rendered text.
+  const registeredRead = extension.tools.get("read").definition;
+  assert.equal(registeredRead.annotations?.readOnlyHint, true);
+  assert.ok(registeredRead.outputSchema, "read must declare an outputSchema for codemode");
+  if (typeof coreLoop.runToolCall === "function") {
+    const structuredRead = await invoke("read", { path: "null" });
+    assert.equal(structuredRead.isError, false);
+    const structured = structuredRead.result.structuredContent;
+    assert.ok(structured, "structuredContent must survive the host pipeline");
+    assert.equal(structured.tool, "read");
+    assert.equal(structured.lines[0].raw, "fresh");
+    assert.equal(structured.text, structuredRead.result.content.find((item) => item.type === "text").text);
+  }
   assert.deepEqual(handlerErrors, []);
   console.log("host-version=" + version + "; null-pipeline=PASS; nu=" + extension.tools.has("nu"));
 } finally {
   rmSync(root, { recursive: true, force: true });
-  delete globalThis.__hashlineToolExecutors;
 }
 `;
   const stdout = execFileSync(process.execPath, ["--input-type=module", "-e", source], {
     cwd: process.cwd(),
-    env: { ...process.env, PI_TEST_HOST: host },
+    env: { ...process.env, PI_TEST_HOST: host, PI_COMPAT_EXPECTED_VERSION: PI_COMPAT_VERSION },
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,
   });
   expect(stdout).toContain("null-pipeline=PASS");
-  if (process.env.PI_COMPAT_HOST) expect(stdout).toContain("host-version=0.99.1;");
+  if (process.env.PI_COMPAT_HOST) expect(stdout).toContain(`host-version=${PI_COMPAT_VERSION};`);
 }, 130_000);

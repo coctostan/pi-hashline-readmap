@@ -48,7 +48,7 @@ describe("repro 241: fuzzy replace whitespace normalization", () => {
       newText: "omega",
       all: false,
       expected: "label = omega\n",
-      expectFuzzy: true,
+      expectFuzzy: false, // CRLF old_text is normalized to LF before exact matching,
     },
     {
       name: "bare-CR old_text against LF content",
@@ -84,7 +84,7 @@ describe("repro 241: fuzzy replace whitespace normalization", () => {
       newText: "omega",
       all: true,
       expected: "omega|omega\n",
-      expectFuzzy: true,
+      expectFuzzy: false, // CRLF old_text is normalized to LF before exact matching,
     },
     {
       name: "confusable smart quotes",

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import init from "../index.js";
 import { buildContextHygieneMetadata, buildFileResource } from "../src/context-hygiene.js";
 
@@ -27,10 +27,6 @@ function toolResult(toolCallId: string, toolName: string, text: string, details:
     timestamp: 1,
   };
 }
-
-afterEach(() => {
-  delete (globalThis as any).__hashlineToolExecutors;
-});
 
 describe("context hygiene provider context handler", () => {
   it("masks stale prior tool results in the provider-context copy without mutating source messages", async () => {

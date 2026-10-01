@@ -291,19 +291,8 @@ const NU_PROMPT_METADATA = defineToolPromptMetadata({
   promptGuidelines: NU_GUIDELINES,
 });
 
-export const NU_PTC = {
-  callable: true,
-  enabled: true,
-  policy: "read-only" as const,
-  readOnly: true,
-  pythonName: "nu",
-  defaultExposure: "opt-in" as const,
-};
-
-/**
- * Register the `nu` tool with pi. Returns the tool definition if registered, false if nu is not available.
- */
-export type NuToolDefinition = Parameters<ExtensionAPI["registerTool"]>[0] & { ptc: typeof NU_PTC };
+/** The registered `nu` tool definition. */
+export type NuToolDefinition = Parameters<ExtensionAPI["registerTool"]>[0];
 
 const NU_PARAMETERS = Type.Object({
   command: Type.String({ description: "Nushell script" }),
@@ -312,6 +301,9 @@ const NU_PARAMETERS = Type.Object({
   ),
 });
 
+/**
+ * Register the `nu` tool with pi. Returns the tool definition if registered, false if nu is not available.
+ */
 export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
   if (!isNuAvailable()) {
     return false;
@@ -322,7 +314,6 @@ export function registerNuTool(pi: ExtensionAPI): NuToolDefinition | false {
     description: NU_PROMPT_METADATA.description,
     promptSnippet: NU_PROMPT_METADATA.promptSnippet,
     promptGuidelines: NU_PROMPT_METADATA.promptGuidelines,
-    ptc: NU_PTC,
     parameters: NU_PARAMETERS,
     async execute(_toolCallId, params: { command: string; timeout?: number }, signal, onUpdate, ctx) {
       const normalized = normalizeToolParameters(NU_PARAMETERS, params);

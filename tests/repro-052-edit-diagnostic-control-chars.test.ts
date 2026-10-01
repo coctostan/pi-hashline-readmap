@@ -33,7 +33,7 @@ describe("Bug #052: edit no-op diagnostics escape control characters", () => {
       edits: [{ set_line: { anchor, new_text: "line with \x07 bell" } }],
     });
 
-    expect(result.isError).toBe(true);
+    expect(result.isError).not.toBe(true);
     const text = result.content.find((c: any) => c.type === "text")?.text ?? "";
     expect(text).toContain("No changes made");
     expect(text).toContain("\\u0007");

@@ -97,7 +97,8 @@ it("read.bundle uses a Google-compatible optional string enum", async () => {
   assert.ok(!(tool.parameters.required ?? []).includes("bundle"));
   assert.deepEqual(tool.parameters.required, ["path"]);
   const validate = (args: Record<string, unknown>) =>
-    validateToolArguments(tool, { type: "toolCall", id: "enum", name: tool.name, arguments: args });
+    // Pi >= 0.86 types ToolCall.arguments as JSON; these probes are JSON values.
+    validateToolArguments(tool, { type: "toolCall", id: "enum", name: tool.name, arguments: args as any });
   const base = { path: "sample.ts" };
   assert.doesNotThrow(() => validate(base));
   assert.doesNotThrow(() => validate({ ...base, bundle: "local" }));

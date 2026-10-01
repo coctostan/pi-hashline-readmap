@@ -153,7 +153,7 @@ The present test suite covers, at minimum:
 - binary / control-character handling regressions
 - map cache behavior
 - RTK / bash filter routing, Bash context guard recoverability, guard configuration, and compressor-specific behavior
-- public PTC policy/value contracts
+- structured result (`ptcValue` / codemode `structuredContent`) contracts and tool annotations
 - context-hygiene metadata and debug-tool registration
 - configurable grep output budgets
 - README / prompts / scripts file integrity checks

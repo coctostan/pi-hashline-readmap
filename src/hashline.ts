@@ -109,10 +109,26 @@ function xxh32(input: string): number {
 	return state.h32Fn(input, 0) >>> 0;
 }
 
+/**
+ * Hash of one line's exact content. Only a trailing CR is ignored (CRLF files hash like LF files).
+ * Whitespace is significant: a reindent or trailing-space change is a content change, so an
+ * anchor served before a formatter run no longer verifies and the edit is refused instead of
+ * writing back the stale view.
+ */
 export function computeLineHash(_idx: number, line: string): string {
 	if (line.endsWith("\r")) line = line.slice(0, -1);
-	line = line.replace(/\s+/g, "");
 	return DICT[xxh32(line) % HASH_MOD];
+}
+
+/**
+ * Lines as tools display them: a trailing newline terminates the last line instead of starting
+ * an extra empty one, so `"aaa\nbbb\n"` shows two rows. An empty file shows one empty row, which
+ * anchors the first insertion.
+ */
+export function splitDisplayLines(content: string): string[] {
+	const lines = content.split("\n");
+	if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+	return lines;
 }
 
 const DISPLAY_CONTROL_CHAR_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
@@ -140,16 +156,26 @@ export function hashLines(content: string): string {
 
 // ─── Parsing ────────────────────────────────────────────────────────────
 
+const LINE_REF_RE = new RegExp(`^(?:(\\d+):)?([0-9a-fA-F]{${HASH_LEN}})$`);
+
+/**
+ * Parse an anchor. Accepts the canonical `LINE:HASH` and the slips models make when copying it:
+ * a trailing `|content`, several pasted rows (the first is used), diff or grep markers (`>>>`,
+ * `>>`, `+`, `-`), and a bare `HASH` or `HASH|content` without the line number. A missing line
+ * number is reported as `line: 0`; the edit resolves it against the current file, by hash and
+ * the pasted content, and refuses it unless exactly one line matches.
+ */
 export function parseLineRef(ref: string): { line: number; hash: string; content?: string } {
-	const contentMatch = ref.match(/^[^|]*\|(.*)$/);
-	const contentAfterPipe = contentMatch ? contentMatch[1] : undefined;
-	const cleaned = ref.replace(/\|.*$/, "").replace(/ {2}.*$/, "").trim();
-	const normalized = cleaned.replace(/\s*:\s*/, ":");
-	const match = normalized.match(new RegExp(`^(\\d+):([0-9a-fA-F]{${HASH_LEN}})$`));
+	const firstRow = ref.replace(/\r/g, "").split("\n").find((row) => row.trim().length > 0) ?? "";
+	const row = firstRow.replace(/^\s*(?:>>>|>>|[+-](?=\s*\d*:?[0-9a-fA-F]{3}\|?))?\s*/, "");
+	const pipe = row.indexOf("|");
+	const content = pipe >= 0 ? row.slice(pipe + 1) : undefined;
+	const head = (pipe >= 0 ? row.slice(0, pipe) : row).replace(/ {2}.*$/, "").trim().replace(/\s*:\s*/, ":");
+	const match = head.match(LINE_REF_RE);
 	if (!match) throw new Error(`Invalid line reference "${ref}". Expected "LINE:HASH" (e.g. "5:abc").`);
-	const line = Number.parseInt(match[1], 10);
-	if (line < 1) throw new Error(`Line number must be >= 1, got ${line} in "${ref}".`);
-	return { line, hash: match[2], content: contentAfterPipe };
+	const line = match[1] === undefined ? 0 : Number.parseInt(match[1], 10);
+	if (match[1] !== undefined && line < 1) throw new Error(`Line number must be >= 1, got ${line} in "${ref}".`);
+	return { line, hash: match[2].toLowerCase(), content };
 }
 
 // ─── Mismatch formatting ────────────────────────────────────────────────
@@ -259,9 +285,17 @@ function splitDst(dst: string): string[] {
 	return normalized.split("\n");
 }
 
-function stripNewLinePrefixes(lines: string[]): string[] {
+/**
+ * Remove anchor prefixes models paste into replacement text. `LINE:HASH|` prefixes are stripped
+ * when they dominate. Bare `HASH|` prefixes are stripped when they dominate a multi-line text, or
+ * on a single line when the hash is one this file actually serves (`knownHashes`): a pasted
+ * `467|BBB` copied from the `2:467|bbb` row is a slip, while real content rarely starts with
+ * three hex digits, a pipe, and a hash of this exact file.
+ */
+function stripNewLinePrefixes(lines: string[], knownHashes?: ReadonlySet<string>): string[] {
 	let hashCount = 0;
 	let hashOnlyCount = 0;
+	let knownHashOnlyCount = 0;
 	let plusCount = 0;
 	let nonEmpty = 0;
 
@@ -269,13 +303,19 @@ function stripNewLinePrefixes(lines: string[]): string[] {
 		if (!l.length) continue;
 		nonEmpty++;
 		if (HASHLINE_PREFIX_RE.test(l)) hashCount++;
-		else if (HASH_ONLY_PREFIX_RE.test(l)) hashOnlyCount++;
+		else if (HASH_ONLY_PREFIX_RE.test(l)) {
+			hashOnlyCount++;
+			if (knownHashes?.has(l.slice(0, HASH_LEN).toLowerCase())) knownHashOnlyCount++;
+		}
 		if (DIFF_PLUS_RE.test(l)) plusCount++;
 	}
 
 	if (!nonEmpty) return lines;
 	const stripHash = hashCount > 0 && hashCount >= nonEmpty * 0.5;
-	const stripHashOnly = !stripHash && nonEmpty >= 2 && hashOnlyCount > 0 && hashOnlyCount >= nonEmpty * 0.5;
+	const stripHashOnly =
+		!stripHash &&
+		hashOnlyCount > 0 &&
+		((nonEmpty >= 2 && hashOnlyCount >= nonEmpty * 0.5) || knownHashOnlyCount === nonEmpty);
 	const stripPlus = !stripHash && !stripHashOnly && plusCount > 0 && plusCount >= nonEmpty * 0.5;
 	if (!stripHash && !stripHashOnly && !stripPlus) return lines;
 
@@ -330,85 +370,58 @@ function restoreIndentPaired(old: string[], next: string[]): string[] {
 	return changed ? out : next;
 }
 
+// ─── Echo handling ──────────────────────────────────────────────────────
+
+/** An insertion that starts by repeating its anchor line re-inserts that line; drop the echo. */
+function stripInsertAnchorEcho(anchorLine: string, dst: string[]): { lines: string[]; stripped: boolean } {
+	if (dst.length > 1 && dst[0] === anchorLine) return { lines: dst.slice(1), stripped: true };
+	return { lines: dst, stripped: false };
+}
+
 /**
- * When a model splits a single original line into multiple lines (e.g. wrapping
- * a long expression), detect this and restore the original single-line form.
- * Ported from oh-my-pi.
+ * Replacements are applied literally, so a replacement that repeats the untouched line above or
+ * below its range duplicates that line. That is sometimes intended, so warn instead of guessing.
  */
-function restoreOldWrappedLines(oldLines: string[], newLines: string[]): string[] {
-	if (oldLines.length === 0 || newLines.length < 2) return newLines;
-
-	const canonToOld = new Map<string, { line: string; count: number }>();
-	for (const line of oldLines) {
-		const canon = stripAllWhitespace(line);
-		const bucket = canonToOld.get(canon);
-		if (bucket) bucket.count++;
-		else canonToOld.set(canon, { line, count: 1 });
+function describeBoundaryDuplicates(fileLines: string[], start: number, end: number, dst: string[]): string[] {
+	if (dst.length === 0) return [];
+	const warnings: string[] = [];
+	const above = start >= 2 ? fileLines[start - 2] : undefined;
+	const below = end < fileLines.length ? fileLines[end] : undefined;
+	if (above !== undefined && above.trim().length > 0 && dst[0] === above) {
+		warnings.push(
+			`Replacement for lines ${start}-${end} starts with a copy of line ${start - 1} above it, so that line now appears twice. If unintended, delete the duplicate.`,
+		);
 	}
-	const candidates: { start: number; len: number; replacement: string; canon: string }[] = [];
-	for (let start = 0; start < newLines.length; start++) {
-		for (let len = 2; len <= 10 && start + len <= newLines.length; len++) {
-			const span = newLines.slice(start, start + len);
-			if (span.some((line) => line.trim().length === 0)) continue;
-			const canonSpan = stripAllWhitespace(span.join(""));
-			const old = canonToOld.get(canonSpan);
-			if (old && old.count === 1 && canonSpan.length >= 6) {
-				candidates.push({ start, len, replacement: old.line, canon: canonSpan });
-			}
-		}
+	if (below !== undefined && below.trim().length > 0 && dst[dst.length - 1] === below) {
+		warnings.push(
+			`Replacement for lines ${start}-${end} ends with a copy of line ${end + 1} below it, so that line now appears twice. If unintended, delete the duplicate.`,
+		);
 	}
-	if (candidates.length === 0) return newLines;
-	const canonCounts = new Map<string, number>();
-	for (const c of candidates) {
-		canonCounts.set(c.canon, (canonCounts.get(c.canon) ?? 0) + 1);
-	}
-	const uniqueCandidates = candidates.filter((c) => (canonCounts.get(c.canon) ?? 0) === 1);
-	if (uniqueCandidates.length === 0) return newLines;
-	uniqueCandidates.sort((a, b) => b.start - a.start);
-	const out = [...newLines];
-	for (const c of uniqueCandidates) {
-		out.splice(c.start, c.len, c.replacement);
-	}
-	return out;
-}
-
-// ─── Echo stripping ─────────────────────────────────────────────────────
-
-function stripInsertAnchorEcho(anchorLine: string, dst: string[]): string[] {
-	if (dst.length > 1 && wsEq(dst[0], anchorLine)) return dst.slice(1);
-	return dst;
-}
-
-function stripRangeBoundaryEcho(fileLines: string[], start: number, end: number, dst: string[]): string[] {
-	const count = end - start + 1;
-	if (dst.length <= 1 || dst.length <= count) return dst;
-	let out = dst;
-	if (start - 2 >= 0 && wsEq(out[0], fileLines[start - 2])) out = out.slice(1);
-	if (end < fileLines.length && out.length > 0 && wsEq(out[out.length - 1], fileLines[end])) out = out.slice(0, -1);
-	return out;
+	return warnings;
 }
 
 // ─── Edit parser ────────────────────────────────────────────────────────
 
-function parseHashlineEditItem(edit: HashlineEditItem): ParsedEdit {
+function parseHashlineEditItem(edit: HashlineEditItem, knownHashes?: ReadonlySet<string>): ParsedEdit {
 	if ("set_line" in edit) {
 		return {
 			spec: { kind: "single", ref: parseLineRef(edit.set_line.anchor) },
-			dstLines: stripNewLinePrefixes(splitDst(edit.set_line.new_text)),
+			dstLines: stripNewLinePrefixes(splitDst(edit.set_line.new_text), knownHashes),
 		};
 	}
 	if ("replace_lines" in edit) {
 		const start = parseLineRef(edit.replace_lines.start_anchor);
 		const end = parseLineRef(edit.replace_lines.end_anchor);
+		const sameRef = start.line === end.line && start.hash === end.hash;
 		return {
-			spec: start.line === end.line ? { kind: "single", ref: start } : { kind: "range", start, end },
-			dstLines: stripNewLinePrefixes(splitDst(edit.replace_lines.new_text)),
+			spec: sameRef ? { kind: "single", ref: start } : { kind: "range", start, end },
+			dstLines: stripNewLinePrefixes(splitDst(edit.replace_lines.new_text), knownHashes),
 		};
 	}
 	if ("insert_after" in edit) {
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
-			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text ?? edit.insert_after.text ?? "")),
+			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text ?? edit.insert_after.text ?? ""), knownHashes),
 		};
 	}
 	throw new Error("replace edits are applied separately");
@@ -506,8 +519,26 @@ export function applyHashlineEdits(
 	let firstChanged: number | undefined;
 	const noopEdits: NoopEdit[] = [];
 
+	// A trailing newline yields a final empty element. Read does not show it as a row, but an
+	// anchor on it (from an older read) still verifies; edits on it are mapped to the end of file.
+	const terminatorLine = fileLines.length > 1 && fileLines[fileLines.length - 1] === "" ? fileLines.length : 0;
+
+	// Build hash index for verification, relocation, and line-number-free anchors
+	const lineHashes: string[] = [];
+	const hashToLines = new Map<string, number[]>();
+	for (let i = 0; i < fileLines.length; i++) {
+		throwIfAborted(signal);
+		const lineNumber = i + 1;
+		const h = computeLineHash(lineNumber, fileLines[i]);
+		lineHashes.push(h);
+		const lines = hashToLines.get(h);
+		if (lines) lines.push(lineNumber);
+		else hashToLines.set(h, [lineNumber]);
+	}
+	const knownHashes = new Set(lineHashes);
+
 	const parsed: IndexedParsedEdit[] = edits.map((edit, idx) => ({
-		...parseHashlineEditItem(edit),
+		...parseHashlineEditItem(edit, knownHashes),
 		idx,
 	}));
 
@@ -521,19 +552,6 @@ export function applyHashlineEdits(
 		return touched;
 	}
 	let explicitlyTouchedLines = collectExplicitlyTouchedLines();
-
-	// Build hash index for local-window relocation
-	const lineHashes: string[] = [];
-	const hashToLines = new Map<string, number[]>();
-	for (let i = 0; i < fileLines.length; i++) {
-		throwIfAborted(signal);
-		const lineNumber = i + 1;
-		const h = computeLineHash(lineNumber, fileLines[i]);
-		lineHashes.push(h);
-		const lines = hashToLines.get(h);
-		if (lines) lines.push(lineNumber);
-		else hashToLines.set(h, [lineNumber]);
-	}
 
 	const relocationNotes = new Set<string>();
 
@@ -552,17 +570,43 @@ export function applyHashlineEdits(
 		return match;
 	}
 
+	/**
+	 * Resolve an anchor pasted without its line number (`HASH` or `HASH|content`). Exactly one
+	 * line must carry that hash (and the pasted content, when given); otherwise refuse.
+	 */
+	function resolveLineFreeRef(ref: ParsedRef): void {
+		const byHash = (hashToLines.get(ref.hash) ?? []).filter((line) => line !== terminatorLine);
+		const pasted = ref.content?.replace(/\r$/, "");
+		const candidates = pasted === undefined ? byHash : byHash.filter((line) => fileLines[line - 1].replace(/\r$/, "") === pasted);
+		const shown = ref.content === undefined ? ref.hash : `${ref.hash}|${ref.content}`;
+		if (candidates.length === 1) {
+			ref.line = candidates[0];
+			relocationNotes.add(`Anchor "${shown}" had no line number; resolved to ${ref.line}:${ref.hash}. Copy anchors as LINE:HASH.`);
+			return;
+		}
+		const rows = candidates
+			.slice(0, 5)
+			.map((line) => `  ${line}:${lineHashes[line - 1]}|${escapeControlCharsForDisplay(fileLines[line - 1])}`);
+		throw new Error(
+			candidates.length === 0
+				? `Anchor "${shown}" has no line number and no current line matches it. Anchors are LINE:HASH, for example "5:abc" from the row "5:abc|text". Re-read the file for current anchors.`
+				: `Anchor "${shown}" has no line number and matches ${candidates.length} lines. Use the full LINE:HASH anchor of the one you mean:\n${rows.join("\n")}`,
+		);
+	}
+
 	// Validate all refs before mutation
 	const mismatches: HashMismatch[] = [];
 
 	function validate(ref: ParsedRef): boolean {
-		if (ref.line < 1 || ref.line > fileLines.length)
-			throw new Error(`Line ${ref.line} does not exist (file has ${fileLines.length} lines)`);
+		if (ref.line === 0) {
+			resolveLineFreeRef(ref);
+			return true;
+		}
 		const expected = ref.hash.toLowerCase();
 		const originalLine = ref.line;
-		const actual = lineHashes[originalLine - 1];
+		const actual = originalLine <= fileLines.length ? lineHashes[originalLine - 1] : undefined;
 		if (actual === expected) return true;
-		const relocated = findRelocationLine(expected, originalLine, relocationWindow);
+		const relocated = findRelocationLine(expected, Math.min(originalLine, fileLines.length), relocationWindow);
 		if (relocated !== undefined) {
 			ref.line = relocated;
 			relocationNotes.add(
@@ -570,34 +614,12 @@ export function applyHashlineEdits(
 			);
 			return true;
 		}
-		// Fuzzy content-based recovery: if anchor includes content after pipe,
-		// look for a nearby line with high token similarity
-		if (ref.content) {
-			const FUZZY_THRESHOLD = 0.8;
-			const FUZZY_SCAN = 50;
-			const scanStart = Math.max(0, originalLine - 1 - FUZZY_SCAN);
-			const scanEnd = Math.min(fileLines.length, originalLine - 1 + FUZZY_SCAN + 1);
-			const fuzzyHits: { line: number; score: number }[] = [];
-			for (let i = scanStart; i < scanEnd; i++) {
-				const lineContent = fileLines[i];
-				if (!lineContent.trim()) continue;
-				const score = tokenSimilarity(ref.content, lineContent);
-				if (score > FUZZY_THRESHOLD) {
-					fuzzyHits.push({ line: i + 1, score });
-				}
-			}
-			if (fuzzyHits.length === 1) {
-				const hit = fuzzyHits[0];
-				const newHash = computeLineHash(hit.line, fileLines[hit.line - 1]);
-				ref.line = hit.line;
-				ref.hash = newHash;
-				relocationNotes.add(
-					`Fuzzy-relocated anchor ${originalLine}:${expected} \u2192 ${hit.line}:${newHash} (similarity: ${hit.score.toFixed(2)})`,
-				);
-				return true;
-			}
+		if (originalLine > fileLines.length) {
+			throw new Error(`Line ${originalLine} does not exist (file has ${terminatorLine ? fileLines.length - 1 : fileLines.length} lines). Re-read the file for current anchors.`);
 		}
-		mismatches.push({ line: originalLine, expected: ref.hash, actual, expectedContent: ref.content });
+		// No content-similarity fallback: a line whose hash changed is stale, and editing a
+		// "similar" line instead would silently overwrite a change the model has not seen.
+		mismatches.push({ line: originalLine, expected: ref.hash, actual: actual ?? "", expectedContent: ref.content });
 		return false;
 	}
 
@@ -608,8 +630,9 @@ export function applyHashlineEdits(
 		} else if (spec.kind === "insertAfter") {
 			validate(spec.after);
 		} else {
+			const numbered = spec.start.line > 0 && spec.end.line > 0;
 			// Range: validate start > end before relocation
-			if (spec.start.line > spec.end.line) {
+			if (numbered && spec.start.line > spec.end.line) {
 				throw new Error(`Range start line ${spec.start.line} must be <= end line ${spec.end.line}`);
 			}
 
@@ -620,12 +643,13 @@ export function applyHashlineEdits(
 			const startOk = validate(spec.start);
 			const endOk = validate(spec.end);
 
-			// If both validated but relocation invalidated the range, revert and report mismatch
 			if (startOk && endOk) {
+				if (spec.start.line > spec.end.line) {
+					throw new Error(`Range start line ${spec.start.line} must be <= end line ${spec.end.line}`);
+				}
+				// Relocation that changes the range size means lines were added or removed inside it.
 				const relocatedCount = spec.end.line - spec.start.line + 1;
-				const invalidRange = spec.start.line > spec.end.line;
-				const scopeChanged = relocatedCount !== originalCount;
-				if (invalidRange || scopeChanged) {
+				if (numbered && relocatedCount !== originalCount) {
 					spec.start.line = originalStart;
 					spec.end.line = originalEnd;
 					mismatches.push(
@@ -639,6 +663,25 @@ export function applyHashlineEdits(
 	if (mismatches.length) {
 		const formatted = formatMismatchError(mismatches, fileLines, relocationWindow);
 		throw new HashlineMismatchError(formatted.message, formatted.updatedAnchors);
+	}
+
+	// Edits on the line-terminator row append before it, so the file keeps its final newline:
+	// "aaa\nbbb\n" + insert after the terminator row = "aaa\nbbb\nCCC\n", not "aaa\nbbb\n\nCCC".
+	if (terminatorLine) {
+		const lastReal = terminatorLine - 1;
+		const lastRealRef = (): ParsedRef => ({ line: lastReal, hash: lineHashes[lastReal - 1] });
+		for (const p of parsed) {
+			const spec = p.spec;
+			if (spec.kind === "insertAfter" && spec.after.line === terminatorLine) {
+				p.spec = { kind: "insertAfter", after: lastRealRef() };
+			} else if (spec.kind === "single" && spec.ref.line === terminatorLine) {
+				p.spec = { kind: "insertAfter", after: lastRealRef() };
+			} else if (spec.kind === "range" && spec.end.line === terminatorLine) {
+				p.spec = spec.start.line === lastReal
+					? { kind: "single", ref: spec.start }
+					: { kind: "range", start: spec.start, end: lastRealRef() };
+			}
+		}
 	}
 
 	// Recompute after potential relocation
@@ -709,6 +752,7 @@ export function applyHashlineEdits(
 			return a.idx - b.idx;
 		});
 	let insertedAtSyntheticEmptyAnchor = false;
+	const boundaryWarnings: string[] = [];
 
 	function track(line: number) {
 		if (firstChanged === undefined || line < firstChanged) firstChanged = line;
@@ -785,13 +829,8 @@ export function applyHashlineEdits(
 			}
 
 			const orig = origLines.slice(spec.ref.line - 1, spec.ref.line);
-			let stripped = stripRangeBoundaryEcho(origLines, spec.ref.line, spec.ref.line, dstLines);
-			const beforeWrap = stripped;
-			stripped = restoreOldWrappedLines(orig, stripped);
-			// Only auto-restore indentation when a wrapped/split span was actually collapsed
-			// back to one line. For a genuine 1:1 anchored replacement, honor the requested
-			// column (e.g. an intentional dedent to column 0). See issue #216.
-			let newL = stripped !== beforeWrap ? restoreIndentPaired(orig, stripped) : stripped;
+			// Applied literally (issue #216 kept: an intentional dedent to column 0 is honored).
+			let newL = dstLines;
 			if (orig.join("\n") === newL.join("\n") && orig.some((line) => CONFUSABLE_HYPHENS_RE.test(line))) {
 				newL = normalizeConfusableHyphensInLines(newL);
 			}
@@ -799,16 +838,13 @@ export function applyHashlineEdits(
 				noopEdits.push({ editIndex: idx, loc: `${spec.ref.line}:${spec.ref.hash}`, currentContent: orig.join("\n") });
 				continue;
 			}
+			boundaryWarnings.push(...describeBoundaryDuplicates(origLines, spec.ref.line, spec.ref.line, newL));
 			fileLines.splice(spec.ref.line - 1, 1, ...newL);
 			track(spec.ref.line);
 		} else if (spec.kind === "range") {
 			const count = spec.end.line - spec.start.line + 1;
 			const orig = origLines.slice(spec.start.line - 1, spec.start.line - 1 + count);
-			let stripped = stripRangeBoundaryEcho(origLines, spec.start.line, spec.end.line, dstLines);
-			const beforeWrap = stripped;
-			stripped = restoreOldWrappedLines(orig, stripped);
-			// See issue #216 — only restore indent after a real wrap collapse.
-			let newL = stripped !== beforeWrap ? restoreIndentPaired(orig, stripped) : stripped;
+			let newL = dstLines;
 			if (orig.join("\n") === newL.join("\n") && orig.some((line) => CONFUSABLE_HYPHENS_RE.test(line))) {
 				newL = normalizeConfusableHyphensInLines(newL);
 			}
@@ -816,11 +852,18 @@ export function applyHashlineEdits(
 				noopEdits.push({ editIndex: idx, loc: `${spec.start.line}:${spec.start.hash}`, currentContent: orig.join("\n") });
 				continue;
 			}
+			boundaryWarnings.push(...describeBoundaryDuplicates(origLines, spec.start.line, spec.end.line, newL));
 			fileLines.splice(spec.start.line - 1, count, ...newL);
 			track(spec.start.line);
 		} else {
 			const anchor = origLines[spec.after.line - 1];
-			const inserted = stripInsertAnchorEcho(anchor, dstLines);
+			const echo = stripInsertAnchorEcho(anchor, dstLines);
+			const inserted = echo.lines;
+			if (echo.stripped) {
+				boundaryWarnings.push(
+					`insert_after text began with a copy of anchor line ${spec.after.line}; that copy was dropped. new_text holds only the new lines.`,
+				);
+			}
 			if (!inserted.length) {
 				noopEdits.push({ editIndex: idx, loc: `${spec.after.line}:${spec.after.hash}`, currentContent: anchor });
 				continue;
@@ -845,7 +888,7 @@ export function applyHashlineEdits(
 		}
 	}
 
-	const warnings: string[] = [...relocationNotes, ...duplicateTargetWarnings];
+	const warnings: string[] = [...relocationNotes, ...duplicateTargetWarnings, ...boundaryWarnings];
 	const diff = countChangedLines(origLines, fileLines);
 	if (diff > edits.length * 4) {
 		warnings.push(`Edit changed ${diff} lines across ${edits.length} operations — verify no unintended reformatting.`);
