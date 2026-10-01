@@ -27,6 +27,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.24.0"
+      - name: Install raw-rg integration prerequisite
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes ripgrep
+          rg --version
       - name: Select npm output contract
         run: |
           npm install --global npm@${{ matrix.npm }}

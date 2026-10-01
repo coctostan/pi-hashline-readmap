@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { writeFileSync, mkdirSync, rmSync } from "fs";
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { registerReadTool } from "../src/read.js";
@@ -17,6 +17,13 @@ import { registerGrepTool } from "../src/grep.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const tmpDir = join(__dirname, ".tmp-050");
+
+// Raw-rg integration checks are optional locally; CI explicitly provisions rg.
+const rgProbe = spawnSync("rg", ["--version"], { encoding: "utf8" });
+const rgAvailable = (rgProbe.error as NodeJS.ErrnoException | undefined)?.code !== "ENOENT";
+if (rgAvailable && (rgProbe.error || rgProbe.status !== 0)) {
+  throw rgProbe.error ?? new Error(`rg --version exited with status ${rgProbe.status}: ${rgProbe.stderr}`);
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -114,17 +121,13 @@ describe("Issue #046: grep anchors/snippets wrong on bare-CR files", () => {
     expect(output).not.toContain(">>1:");
   });
 
-  it("ripgrep raw behavior: bare-CR file is treated as single line by rg", () => {
-    // Directly verify rg's behavior — it reports line 1 for the whole bare-CR file
-    let rawOutput: Buffer;
-    try {
-      rawOutput = execFileSync("rg", ["--line-number", "line2", join(tmpDir, "cr-only.txt")]);
-    } catch (e: any) {
-      rawOutput = e.stdout ?? Buffer.alloc(0);
-    }
-    const text = rawOutput.toString("binary"); // raw, no CR→LF translation
-    // rg outputs "1:line1\rline2\rline3\r\n" — everything on line 1 because no \n in file
-    expect(text).toMatch(/^1:/); // entire file is "line 1" to rg
+  it.skipIf(!rgAvailable)("ripgrep raw behavior: bare-CR file is treated as single line by rg", () => {
+    const result = spawnSync("rg", ["--line-number", "line2", join(tmpDir, "cr-only.txt")]);
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBeNull();
+    expect(result.status).toBe(0);
+    expect(result.stderr.toString()).toBe("");
+    expect(result.stdout.toString("binary")).toBe("1:line1\rline2\rline3\r\n");
   });
 
   it("read tool shows line2 at line 2 (confirms mismatch with grep anchor)", async () => {
@@ -164,19 +167,13 @@ describe("Issue #047: grep silently returns 0 matches on non-NUL binary with ASC
     expect(output.toLowerCase()).toMatch(/binary|warning/);
   });
 
-  it("ripgrep raw behavior: non-NUL binary silently exits 1 with no output", () => {
-    // Directly verify rg silently returns no match for non-UTF8 non-NUL binary
-    let rawStdout = "";
-    let rawStderr = "";
-    try {
-      rawStdout = execFileSync("rg", ["--line-number", "NEEDLE", join(tmpDir, "binary-needle.bin")], { encoding: "utf8" });
-    } catch (e: any) {
-      rawStdout = e.stdout ?? "";
-      rawStderr = e.stderr ?? "";
-    }
-    // rg produces no stdout, no stderr, exit 1 — completely silent skip
-    expect(rawStdout).toBe("");
-    expect(rawStderr).toBe("");
+  it.skipIf(!rgAvailable)("ripgrep raw behavior: non-NUL binary silently exits 1 with no output", () => {
+    const result = spawnSync("rg", ["--line-number", "NEEDLE", join(tmpDir, "binary-needle.bin")], { encoding: "utf8" });
+    expect(result.status).toBe(1);
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBeNull();
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
   });
 });
 
