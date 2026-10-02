@@ -31,7 +31,7 @@ Arms:
 
 Each run starts Pi with `--no-extensions --no-skills --no-prompt-templates --no-context-files`, loads only the arm and the model provider extension, and checks the whole workspace byte for byte against the benchmark's expected tree. Arms are interleaved per task so provider drift affects all arms alike. A run fails if the model that answered differs from `--model`.
 
-Output goes to `tmp/bench-results/<timestamp>/`: `results.jsonl` (one line per run, appended as it goes; `--resume` continues from it), `run.json`, and `summary.md` with pass rates, tool calls, tokens, cost, per-family results, and the tasks where arms disagree.
+Output goes to `tmp/bench-results/<timestamp>/`: `results.jsonl` (one line per run, appended as it goes; `--resume` continues from it), `run.json`, and `traces/<arm>/<task>#<n>.jsonl` (the full Pi event stream of each run), and `summary.md` with pass rates, tool calls, tokens, cost, per-family results, and the tasks where arms disagree.
 
 Model providers:
 

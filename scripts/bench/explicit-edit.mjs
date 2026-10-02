@@ -303,6 +303,10 @@ async function runOne({ task, arm, attempt, opts, extraExtensions }) {
 			timeoutMs: opts.timeout * 1000,
 		});
 		const events = summarizeEvents(proc.stdout);
+		// Full Pi event stream, for reading why a run failed.
+		const traceDir = join(opts.out, "traces", arm.name.replace(/[^\w.-]+/g, "_"));
+		mkdirSync(traceDir, { recursive: true });
+		writeFileSync(join(traceDir, `${task.id}#${attempt}.jsonl`), proc.stdout + (proc.stderr ? `\n${JSON.stringify({ type: "stderr", text: proc.stderr })}\n` : ""));
 		const diffs = verifyTree(workspace, task.expected);
 		const wrongModel = events.models.some((m) => m !== opts.model);
 		const failure = proc.timedOut ? "timeout"
