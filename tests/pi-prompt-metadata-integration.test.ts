@@ -54,7 +54,7 @@ describe("Pi system prompt metadata integration", () => {
     const result = await collectHashlineSystemPromptMetadata([...EXPECTED_TOOLS]);
     expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, value.description]))).toEqual({
       read: "Read text files/images by path; text has LINE:HASH anchors, images return attachments.",
-      edit: "Edit existing text files using fresh LINE:HASH anchors from read, grep, ast_search, or write.",
+      edit: "Edit files with fresh LINE:HASH anchors; copy or move existing lines with copy_lines/move_lines.",
       grep: "Search file contents; non-summary results include LINE:HASH anchors for edits.",
       find: "Find files by glob, respecting .gitignore.",
       ls: "List one directory.",
@@ -95,7 +95,7 @@ describe("Pi system prompt metadata integration", () => {
         "$.properties.edits.items.anyOf[4].properties.replace_symbol.properties.new_body": "Non-blank complete symbol body",
         "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.after_anchor": "Insert the copy after this line of path (LINE:HASH)",
         "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.end_anchor": "Last source line (LINE:HASH)",
-        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.from_path": "Source file; default path",
+        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.from_path": "Source file to copy from; default path",
         "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.start_anchor": "First source line (LINE:HASH)",
         "$.properties.edits.items.anyOf[6].properties.move_lines.properties.after_anchor": "Move the lines after this line (LINE:HASH)",
         "$.properties.edits.items.anyOf[6].properties.move_lines.properties.end_anchor": "Last line to move (LINE:HASH)",

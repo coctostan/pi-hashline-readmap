@@ -110,7 +110,7 @@ const hashlineEditItemSchema = Type.Union([
 			start_anchor: Type.String({ description: "First source line (LINE:HASH)" }),
 			end_anchor: Type.String({ description: "Last source line (LINE:HASH)" }),
 			after_anchor: Type.String({ description: "Insert the copy after this line of path (LINE:HASH)" }),
-			from_path: Type.Optional(Type.String({ description: "Source file; default path" })),
+			from_path: Type.Optional(Type.String({ description: "Source file to copy from; default path" })),
 		}),
 	}, { additionalProperties: true })),
 	withLegacyObjectOrder(Type.Object({

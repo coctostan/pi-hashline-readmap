@@ -485,6 +485,14 @@ describe("small-model slips observed in the benchmark traces", () => {
     expect(s.bytes()).toBe("// Keep this comment unchanged.\n/^(\\d+)\\..*\\.log$/\n");
   });
 
+  it("insert_after with the `text` alias inserts even when Pi filled new_text with an empty string", async () => {
+    const s = session("alias.ts", "aaa\nbbb\n");
+    const r = await s.read();
+    const result = await s.edit([{ insert_after: { anchor: anchor(r.text, "aaa"), new_text: "", text: "inserted" } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe("aaa\ninserted\nbbb\n");
+  });
+
   it("anchored edits still require a read", async () => {
     const s = session("unread.txt", "aaa\nbbb\n");
     const result = await s.edit([{ set_line: { anchor: `2:${computeLineHash(2, "bbb")}`, new_text: "BBB" } }]);

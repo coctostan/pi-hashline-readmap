@@ -135,7 +135,7 @@ describe("compact provider-visible descriptions", () => {
     };
 
     expect(tools.read.description).toBe("Read text files/images by path; text has LINE:HASH anchors, images return attachments.");
-    expect(tools.edit.description).toBe("Edit existing text files using fresh LINE:HASH anchors from read, grep, ast_search, or write.");
+    expect(tools.edit.description).toBe("Edit files with fresh LINE:HASH anchors; copy or move existing lines with copy_lines/move_lines.");
     expect(tools.grep.description).toBe("Search file contents; non-summary results include LINE:HASH anchors for edits.");
     expect(tools.find.description).toBe("Find files by glob, respecting .gitignore.");
     expect(tools.ls.description).toBe("List one directory.");

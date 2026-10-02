@@ -430,7 +430,8 @@ function parseHashlineEditItem(edit: HashlineEditItem, knownHashes?: ReadonlySet
 	if ("insert_after" in edit) {
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
-			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text ?? edit.insert_after.text ?? ""), knownHashes),
+			// `text` is an accepted alias; Pi fills a missing required new_text with "", so prefer whichever is non-empty.
+			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text || edit.insert_after.text || ""), knownHashes),
 		};
 	}
 	if ("copy_lines" in edit) {
