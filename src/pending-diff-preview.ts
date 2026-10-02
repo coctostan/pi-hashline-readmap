@@ -150,6 +150,14 @@ async function applyReplaceSymbolPreview(filePath: string, content: string, edit
 function applyReplacePreview(content: string, edit: ReplaceEdit): { type: "ok"; content: string } | { type: "skip"; reason: string } {
 	const { old_text, new_text } = edit.replace;
 	if (!old_text.length) return { type: "skip", reason: "replace old_text is empty" };
+	if (!edit.replace.all) {
+		const exact = old_text.replace(/\r\n/g, "\n");
+		const first = content.indexOf(exact);
+		// Execution refuses ambiguous matches, so do not preview a first-occurrence edit.
+		if (first !== -1 && content.indexOf(exact, first + exact.length) !== -1) {
+			return { type: "skip", reason: "replace old_text occurs more than once" };
+		}
+	}
 	const replacement = replaceText(content, old_text, new_text, {
 		all: edit.replace.all ?? false,
 		fuzzy: edit.replace.fuzzy ?? false,

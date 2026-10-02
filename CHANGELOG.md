@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `read` and `write` no longer show a phantom empty last row for files ending in a newline. Anchors on that row from older reads still work, and `insert_after` on the last line keeps the final newline.
 - Replacements are applied literally: wrapped lines are no longer collapsed back, and boundary lines repeated in `new_text` are kept (with a duplicate-line warning) rather than silently dropped.
 - An edit that produces identical content is a successful no-op (`ptcValue.ok: true, noop: true`) instead of a `no-op` error, so models stop retrying it.
+- A text `replace` with an exact, unique `old_text` no longer requires a prior `read`. A non-unique `old_text` without `all: true` is refused with `ambiguous-match` and the matching lines' anchors, instead of silently editing the first occurrence. Rows shown in edit refusals count as read, so their anchors can be used directly.
 
 ### Removed (breaking)
 

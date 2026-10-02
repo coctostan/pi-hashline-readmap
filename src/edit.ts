@@ -573,6 +573,34 @@ function formatRows(rows: readonly PtcLine[]): string {
 	return rows.map((row) => `  ${row.anchor}|${row.display}`).join("\n");
 }
 
+/**
+ * An exact `old_text` that occurs more than once would silently edit the first occurrence. Refuse
+ * and show the line each occurrence starts on, so the model can add context or use an anchor.
+ */
+function describeAmbiguousReplace(content: string, oldText: string, displayPath: string): { message: string; rows: PtcLine[] } | undefined {
+	const starts: number[] = [];
+	for (let index = content.indexOf(oldText); index !== -1; index = content.indexOf(oldText, index + oldText.length)) {
+		starts.push(index);
+	}
+	if (starts.length < 2) return undefined;
+	const lines = content.split("\n");
+	const lineNumbers = [...new Set(starts.map((index) => content.slice(0, index).split("\n").length))];
+	const rows: PtcLine[] = lineNumbers.slice(0, 10).map((line) => {
+		const raw = lines[line - 1] ?? "";
+		const hash = computeLineHash(line, raw);
+		return { line, hash, anchor: `${line}:${hash}`, raw, display: escapeControlCharsForDisplay(raw) };
+	});
+	const more = lineNumbers.length > rows.length ? `\n  ... and ${lineNumbers.length - rows.length} more lines` : "";
+	return {
+		message: [
+			`replace.old_text occurs ${starts.length} times in ${displayPath}; nothing was written. Matches start on:`,
+			formatRows(rows) + more,
+			"Add surrounding text to old_text so it matches once, set all: true to replace every occurrence, or use set_line with the anchor of the line you mean.",
+		].join("\n"),
+		rows,
+	};
+}
+
 /** Guidance when replace_symbol names a line, an anchor, or a file instead of a declaration. */
 function describeLineTargetForSymbolSlip(content: string, symbol: string): string {
 	const row = SHOWN_ROW_RE.exec(symbol.trim().split("\n")[0] ?? "");
@@ -606,6 +634,12 @@ function applyReplaceEdits(input: {
 		// Files are compared LF-normalized; a CRLF-typed old_text would otherwise never match.
 		const oldText = edit.replace.old_text.replace(/\r\n/g, "\n");
 		const all = edit.replace.all ?? false;
+		if (!all) {
+			const ambiguous = describeAmbiguousReplace(content, oldText, input.displayPath);
+			if (ambiguous) {
+				return buildEditError(input.absolutePath, "ambiguous-match", ambiguous.message, undefined, { updatedAnchors: ambiguous.rows });
+			}
+		}
 		const replacement = replaceText(content, oldText, edit.replace.new_text, {
 			all,
 			fuzzy: edit.replace.fuzzy ?? false,
@@ -736,10 +770,38 @@ function detectNoop(input: {
 	return buildNoopResult(input.absolutePath, diagnostic, input.anchorResult.noopEdits ?? []);
 }
 
+/**
+ * Anchored and symbol edits need fresh anchors from this session. Text `replace` does not: an
+ * exact, unique match already proves the model knows the current content, and ambiguous or
+ * missing matches are refused before anything is written.
+ */
+function requireReadForAnchors(
+	options: EditToolOptions,
+	absolutePath: string,
+	rawPath: string,
+	usesAnchors: boolean,
+): EditErrorResult | undefined {
+	if (!usesAnchors || !options.wasReadInSession || options.wasReadInSession(absolutePath)) return undefined;
+	const readHint = `Call read(${JSON.stringify(rawPath)}) first, or use grep, ast_search, or write to produce fresh anchors for this file.`;
+	return buildEditError(
+		absolutePath,
+		"file-not-read",
+		[
+			`You must get fresh anchors for ${absolutePath} before editing it.`,
+			readHint,
+			"edit requires fresh LINE:HASH anchors from read, grep, ast_search, or write so the hashes match the current file contents.",
+			"A text replace with an exact, unique old_text does not need a read.",
+		].join(" "),
+		readHint,
+	);
+}
 /** Rows shown in error feedback count as seen: the retry needs no re-read. */
-function recordErrorFeedback<T extends EditErrorResult>(served: ServedLines | undefined, absolutePath: string, error: T): T {
+function recordErrorFeedback<T extends EditErrorResult>(options: EditToolOptions, absolutePath: string, error: T): T {
 	const shown = (error.details.ptcValue as any)?.error?.details?.updatedAnchors as PtcLine[] | undefined;
-	if (shown?.length) served?.record(absolutePath, shown);
+	if (shown?.length) {
+		options.served?.record(absolutePath, shown);
+		options.onFileAnchored?.(absolutePath);
+	}
 	return error;
 }
 
@@ -781,6 +843,8 @@ export interface EditToolOptions {
 	syntaxValidate?: SyntaxValidateOptions["syntaxValidate"];
 	/** What the model was shown of each file; refuses writes over lines that changed since. */
 	served?: ServedLines;
+	/** Called when an edit result shows fresh anchors for a file (refusal feedback). */
+	onFileAnchored?: (absolutePath: string) => void;
 }
 
 async function validateEditSyntax(input: {
@@ -978,23 +1042,11 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 				const queueKey = await resolveMutationTargetPath(absolutePath);
 				return await withFileMutationQueue(queueKey, async () => {
 					throwIfAborted(signal);
-					if (options.wasReadInSession && !options.wasReadInSession(absolutePath)) {
-						const message = [
-							`You must get fresh anchors for ${absolutePath} before editing it.`,
-							`Call read(${JSON.stringify(rawPath)}) first, or use grep, ast_search, or write to produce fresh anchors for this file.`,
-							"edit requires fresh LINE:HASH anchors from read, grep, ast_search, or write so the hashes match the current file contents.",
-						].join(" ");
-						return buildEditError(
-							absolutePath,
-							"file-not-read",
-							message,
-							`Call read(${JSON.stringify(rawPath)}) first, or use grep, ast_search, or write to produce fresh anchors for this file.`,
-						);
-					}
-
 					const validated = validateEdits({ parsed, rawInput: input, absolutePath, signal });
 					if (isEditErrorResult(validated)) return validated;
 					const { edits, anchorEdits, replaceEdits, replaceSymbolEdits, legacyNormalizationWarning } = validated;
+					const notRead = requireReadForAnchors(options, absolutePath, rawPath, anchorEdits.length + replaceSymbolEdits.length > 0);
+					if (notRead) return notRead;
 
 					const loaded = await loadEditSource({ absolutePath, displayPath: path, signal });
 					if (isEditErrorResult(loaded)) return loaded;
@@ -1020,7 +1072,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					let result = symbolApplication.content;
 
 					const anchorResult = applyAnchorEdits({ absolutePath, content: result, anchorEdits, signal });
-					if (isEditErrorResult(anchorResult)) return recordErrorFeedback(options.served, absolutePath, anchorResult);
+					if (isEditErrorResult(anchorResult)) return recordErrorFeedback(options, absolutePath, anchorResult);
 					result = anchorResult.content;
 
 					const replacementResult = applyReplaceEdits({
@@ -1030,7 +1082,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						replaceEdits,
 						signal,
 					});
-					if (isEditErrorResult(replacementResult)) return recordErrorFeedback(options.served, absolutePath, replacementResult);
+					if (isEditErrorResult(replacementResult)) return recordErrorFeedback(options, absolutePath, replacementResult);
 					result = replacementResult.content;
 					const replaceWarnings = replacementResult.warnings;
 
@@ -1045,6 +1097,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					if (noopError) return noopError;
 
 					const staleError = rejectStaleOverwrites(options.served, absolutePath, originalNormalized, result);
+					if (staleError) options.onFileAnchored?.(absolutePath);
 					if (staleError) return staleError;
 
 					throwIfAborted(signal);

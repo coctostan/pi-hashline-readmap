@@ -12,7 +12,7 @@ function makeFixture(content: string): { cwd: string; filePath: string } {
 }
 
 describe("pending edit replace preview", () => {
-	it("projects plain repeated replace as the first occurrence", async () => {
+	it("does not project an ambiguous plain replace", async () => {
 		const { cwd, filePath } = makeFixture("const one = 1;\nconst two = 2;\n");
 
 		const preview = await buildPendingEditPreviewData({
@@ -20,9 +20,6 @@ describe("pending edit replace preview", () => {
 			edits: [{ replace: { old_text: "const", new_text: "let" } }],
 		}, cwd);
 
-		expect(preview.type).toBe("ok");
-		if (preview.type !== "ok") throw new Error(`preview skipped: ${preview.reason}`);
-		expect(preview.data.headerLabel).toBe("pending edit");
-		expect(preview.data.nextContent).toBe("let one = 1;\nconst two = 2;\n");
+		expect(preview).toEqual({ type: "skip", reason: "replace old_text occurs more than once" });
 	});
 });

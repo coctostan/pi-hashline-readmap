@@ -19,6 +19,8 @@ Prefer `set_line`, `replace_lines`, and `insert_after`: they verify the file sti
 
 `replace` is exact-only by default: missing `old_text` fails with `text-not-found`. Wrap old_text/new_text in {replace: ...} — a bare top-level `{old_text, new_text}` inside `edits[]` is rejected with guidance. `fuzzy: true` is a narrow fallback that only normalizes whitespace and confusable Unicode (e.g. smart hyphens) after exact matching fails; it is **not approximate or Levenshtein/semantic matching** and will not find renamed or reworded text. When fuzzy matching is used, the response warns that exact text was not found.
 
+A `replace` whose exact `old_text` occurs once needs no prior `read`. If it occurs more than once and `all` is not set, the edit is refused with `ambiguous-match` and the matching lines with anchors; add surrounding text, set `all: true`, or use `set_line` with one of those anchors. Anchored edits and `replace_symbol` still need fresh anchors from this session.
+
 ## Input shape
 
 ```json

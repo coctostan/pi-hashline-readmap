@@ -22,11 +22,11 @@ const theme = {
 
 describe("edit renderCall preview fallback", () => {
 	afterEach(() => vi.unstubAllEnvs());
-	it("projects first-occurrence replace preview and executes the same change", async () => {
+	it("projects a unique replace preview and executes the same change", async () => {
 		vi.stubEnv("PI_HASHLINE_EDIT_DIFF_DISPLAY", "collapsed");
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-edit-pending-fallback-"));
 		const filePath = resolve(cwd, "sample.ts");
-		writeFileSync(filePath, "const value = 1;\nconst value = 1;\n", "utf-8");
+		writeFileSync(filePath, "const value = 1;\nconst other = 1;\n", "utf-8");
 		const tool = getEditTool();
 		const context: any = { argsComplete: false, executionStarted: false, cwd, state: {}, invalidate: vi.fn(), lastComponent: undefined };
 		const args = { path: filePath, edits: [{ replace: { old_text: "const value = 1;", new_text: "const value = 2;" } }] };
@@ -39,6 +39,6 @@ describe("edit renderCall preview fallback", () => {
 
 		const result = await tool.execute("edit-call", args, new AbortController().signal, undefined, { cwd });
 		expect(result.isError).not.toBe(true);
-		expect(readFileSync(filePath, "utf-8")).toBe("const value = 2;\nconst value = 1;\n");
+		expect(readFileSync(filePath, "utf-8")).toBe("const value = 2;\nconst other = 1;\n");
 	});
 });

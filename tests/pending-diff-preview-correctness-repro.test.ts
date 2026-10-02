@@ -39,7 +39,7 @@ describe("pending diff preview correctness regression", () => {
 		expect(preview.data.nextContent).toBe("created\n");
 	});
 
-	it("previews plain replace the same way final edit applies it: first occurrence only", async () => {
+	it("skips previewing an ambiguous plain replace, which execution refuses", async () => {
 		const cwd = mkdtempSync(resolve(tmpdir(), "pi-pending-replace-first-repro-"));
 		const filePath = resolve(cwd, "sample.ts");
 		writeFileSync(filePath, "const one = 1;\nconst two = 2;\n", "utf-8");
@@ -49,8 +49,7 @@ describe("pending diff preview correctness regression", () => {
 			edits: [{ replace: { old_text: "const", new_text: "let" } }],
 		}, cwd);
 
-		expectOk(preview);
-		expect(preview.data.nextContent).toBe("let one = 1;\nconst two = 2;\n");
+		expect(preview).toEqual({ type: "skip", reason: "replace old_text occurs more than once" });
 	});
 
 	it("previews replace with all:true across repeated matches", async () => {

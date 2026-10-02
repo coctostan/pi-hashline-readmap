@@ -78,7 +78,7 @@ function session(fileName: string, fixture: string) {
 function rows(text: string): Array<{ anchor: string; content: string }> {
   const out: Array<{ anchor: string; content: string }> = [];
   for (const line of text.split("\n")) {
-    const match = /^(?:>>> |    )?(\d+:[0-9a-f]{3})\|(.*)$/.exec(line);
+    const match = /^(?:>>> | {2,4})?(\d+:[0-9a-f]{3})\|(.*)$/.exec(line);
     if (match) out.push({ anchor: match[1], content: match[2] });
   }
   return out;
@@ -387,6 +387,32 @@ describe("staleness and concurrency", () => {
 });
 
 describe("small-model slips observed in the benchmark traces", () => {
+  it("a unique exact text replace works without a prior read (Explicit Edit literal-1-regex trace)", async () => {
+    const s = session("sample.txt", "// Keep this comment unchanged.\n/^(\\d*)\\..*\\.log$/\n");
+    const result = await s.edit([{ replace: { old_text: "/^(\\d*)\\..*\\.log$/", new_text: "/^(\\d+)\\..*\\.log$/" } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe("// Keep this comment unchanged.\n/^(\\d+)\\..*\\.log$/\n");
+  });
+
+  it("anchored edits still require a read", async () => {
+    const s = session("unread.txt", "aaa\nbbb\n");
+    const result = await s.edit([{ set_line: { anchor: `2:${computeLineHash(2, "bbb")}`, new_text: "BBB" } }]);
+    expect(result.isError).toBe(true);
+    expect(result.details.ptcValue.error.code).toBe("file-not-read");
+    expect(s.bytes()).toBe("aaa\nbbb\n");
+  });
+
+  it("an ambiguous text replace is refused with the matching lines instead of editing the first", async () => {
+    const s = session("dup.ts", "import { a } from 'x';\nimport { b } from 'y';\nimport { a } from 'x';\n");
+    const result = await s.edit([{ replace: { old_text: "import { a } from 'x';", new_text: "import { a2 } from 'x';" } }]);
+    expect(result.isError).toBe(true);
+    expect(result.details.ptcValue.error.code).toBe("ambiguous-match");
+    expect(result.text).toMatch(/occurs 2 times[\s\S]*1:[0-9a-f]{3}\|import \{ a \}[\s\S]*3:[0-9a-f]{3}\|import \{ a \}/);
+    expect(s.bytes()).toBe("import { a } from 'x';\nimport { b } from 'y';\nimport { a } from 'x';\n");
+    // The listed rows count as seen: the model can retarget the second one by anchor.
+    await s.edit([{ set_line: { anchor: anchor(result.text, "import { a } from 'x';", 2), new_text: "import { a2 } from 'x';" } }]);
+    expect(s.bytes()).toBe("import { a } from 'x';\nimport { b } from 'y';\nimport { a2 } from 'x';\n");
+  });
   it("an anchor pasted without its line number resolves when exactly one line matches", async () => {
     const s = session("slip.ts", "aaa\nbbb\nccc\n");
     const r = await s.read();

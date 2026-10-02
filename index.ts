@@ -198,7 +198,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   // What each file looked like when the model last saw it; edit refuses to overwrite lines that
   // changed since (range interiors and text replacements, beyond what anchors verify).
   const served = new ServedLines();
-  registerEditTool(pi, { wasReadInSession, served });
+  registerEditTool(pi, { wasReadInSession, served, onFileAnchored: noteRead });
   const sgAvailable = isSgAvailable();
   const astSearchGuideline = sgAvailable
     ? "Use grep summary for counts; use ast_search for structural code patterns."
