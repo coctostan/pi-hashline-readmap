@@ -79,7 +79,7 @@ If the file changed between `read` and `edit`, the edit reports a mismatch inste
 
 ### Edit safely
 
-Get fresh anchors from `read`, `grep`, `ast_search`, or `write`, then use `set_line`, `replace_lines`, or `insert_after`. `replace` is an exact-text escape hatch. Deletion, overlap rejection, whole-symbol replacement, syntax checks, atomic writes, and structured diffs live in [tool behavior and structured output](docs/structured-output.md).
+Get fresh anchors from `read`, `grep`, `ast_search`, or `write`, then use `set_line`, `replace_lines`, or `insert_after`. Copy or move existing lines, within a file or from another file, with `copy_lines` and `move_lines` instead of retyping them. `replace` is an exact-text escape hatch. Deletion, overlap rejection, whole-symbol replacement, syntax checks, atomic writes, and structured diffs live in [tool behavior and structured output](docs/structured-output.md).
 
 ### Navigate large files
 
@@ -142,6 +142,7 @@ Advanced behavior and integration contracts are documented in the references bel
 - [Structured output and tool behavior](docs/structured-output.md)
 - [Provider-visible metadata and diagnosis](docs/tool-metadata.md)
 - [Exploratory functional testing](docs/exploratory-functional-testing.md)
+- [Benchmarking edits](docs/benchmarking.md)
 - [Tool prompt references](prompts/)
 - [Changelog](CHANGELOG.md)
 

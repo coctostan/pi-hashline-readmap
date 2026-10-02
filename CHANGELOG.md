@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-02
+
 ### Added
 
 - Pi codemode integration: `read`, `grep`, `ast_search`, `edit`, `write`, `ls`, and `find` declare compact `outputSchema`s and return `structuredContent` (`{ text, ...ptcValue }`) on success. Codemode scripts receive anchors and raw lines instead of rendered text, and `grep` script records include `raw`. Error results keep rejecting in scripts.
