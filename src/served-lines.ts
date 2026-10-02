@@ -49,6 +49,10 @@ export class ServedLines {
 		if (rows.length) this.record(path, rows);
 	}
 
+	/** Paths with recorded rows, most recently recorded last. */
+	paths(): string[] {
+		return [...this.files.keys()].filter((path) => this.has(path));
+	}
 	has(path: string): boolean {
 		return (this.files.get(path)?.size ?? 0) > 0;
 	}

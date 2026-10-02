@@ -16,6 +16,7 @@ import {
 	type HashlineEditItem,
 	escapeControlCharsForDisplay,
 } from "./hashline.js";
+import { findCorruptedRetype } from "./retype-guard.js";
 import { formatStaleRows, overwrittenLines, type ServedLines } from "./served-lines.js";
 import type { PtcLine } from "./ptc-value.js";
 import { resolveToCwd } from "./path-utils.js";
@@ -1144,6 +1145,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					});
 					if (noopError) return noopError;
 
+					const retype = await findCorruptedRetype({ edits: anchorEdits, absolutePath, currentContent: originalNormalized, candidatePaths: options.served?.paths() ?? [], cwd: ctx.cwd });
+					if (retype) return buildEditError(absolutePath, "corrupted-retype", retype.message);
 					const staleError = rejectStaleOverwrites(options.served, absolutePath, originalNormalized, result);
 					if (staleError) options.onFileAnchored?.(absolutePath);
 					if (staleError) return staleError;

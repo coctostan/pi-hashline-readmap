@@ -468,6 +468,41 @@ describe("block copy and move without retyping (Explicit Edit block families)", 
     expect(s.bytes()).toBe(TARGET);
   });
 
+  it("a cross-file retype that drops invisible characters is refused with a ready copy_lines call", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    const retyped = "\n" + BLOCK.map((line) => line.replace(/\u00a0/g, " ").replace(/\u200b/g, "")).join("\n");
+    const after = anchor(dst.text, "const x = 1;");
+    const refused = await s.edit([{ insert_after: { anchor: after, new_text: retyped } }]);
+    expect(refused.isError).toBe(true);
+    expect(refused.details.ptcValue.error.code).toBe("corrupted-retype");
+    expect(refused.text).toContain("U+00A0 became \" \"");
+    expect(s.bytes()).toBe(TARGET);
+    const call = JSON.parse(refused.text.match(/use (\{"copy_lines".*\})\./)![1]);
+    expect(call.copy_lines).toEqual({ from_path: "source.ts", start_anchor: anchor(src.text, BLOCK[0]), end_anchor: anchor(src.text, BLOCK[3]), after_anchor: after });
+    await s.edit([call]);
+    expect(s.bytes()).toBe(TARGET + BLOCK.join("\n") + "\n");
+  });
+
+  it("a byte-identical retype is allowed", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    await s.read("source.ts");
+    const dst = await s.read();
+    const result = await s.edit([{ insert_after: { anchor: anchor(dst.text, "const x = 1;"), new_text: BLOCK.join("\n") } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe(TARGET + BLOCK.join("\n") + "\n");
+  });
+
+  it("rewriting a range in place with deliberate lookalike fixes is allowed", async () => {
+    const lines = ["a\u00a0one", "b\u00a0two", "c\u00a0three"];
+    const s = session("fix.txt", lines.join("\n") + "\n");
+    const r = await s.read();
+    const result = await s.edit([{ replace_lines: { start_anchor: anchor(r.text, lines[0]), end_anchor: anchor(r.text, lines[2]), new_text: "a one\nb two\nc three" } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe("a one\nb two\nc three\n");
+  });
+
   it("a copy from a missing file is refused", async () => {
     const s = session("target.ts", TARGET);
     const dst = await s.read();
