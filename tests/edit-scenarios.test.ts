@@ -434,6 +434,52 @@ describe("block copy and move without retyping (Explicit Edit block families)", 
     expect(s.bytes()).toBe(["// PREFIX", ...BLOCK, "// mid"].join("\n") + "\n");
   });
 
+  it("move-between: move_lines with from_path moves the block across files in one call", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    const result = await s.edit([
+      { move_lines: { from_path: "source.ts", start_anchor: anchor(src.text, BLOCK[0]), end_anchor: anchor(src.text, BLOCK[3]), after_anchor: anchor(dst.text, "const x = 1;") } },
+    ]);
+    expect(result.isError).toBe(false);
+    expect(result.text).toContain("out of source.ts");
+    expect(s.bytes()).toBe(TARGET + BLOCK.join("\n") + "\n");
+    expect(s.bytes("source.ts")).toBe("// head\n// tail\n");
+  });
+
+  it("a cross-file move from an unread source is refused and writes nothing", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const dst = await s.read();
+    const lines = SOURCE.split("\n");
+    const a = (n: number) => `${n}:${computeLineHash(n, lines[n - 1])}`;
+    const result = await s.edit([{ move_lines: { from_path: "source.ts", start_anchor: a(2), end_anchor: a(5), after_anchor: anchor(dst.text, "const x = 1;") } }]);
+    expect(result.isError).toBe(true);
+    expect(result.details.ptcValue.error.code).toBe("file-not-read");
+    expect(s.bytes()).toBe(TARGET);
+    expect(s.bytes("source.ts")).toBe(SOURCE);
+  });
+
+  it("a cross-file move whose source changed is refused and writes nothing", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    const changed = SOURCE.replace("const feature", "const feature2");
+    s.mutate(changed, "source.ts");
+    const result = await s.edit([
+      { move_lines: { from_path: "source.ts", start_anchor: anchor(src.text, BLOCK[0]), end_anchor: anchor(src.text, BLOCK[3]), after_anchor: anchor(dst.text, "const x = 1;") } },
+    ]);
+    expect(result.isError).toBe(true);
+    expect(s.bytes()).toBe(TARGET);
+    expect(s.bytes("source.ts")).toBe(changed);
+  });
+
+  it("move_lines with from_path naming the edited file is a plain move", async () => {
+    const s = session("blocks.ts", ["// PREFIX", ...BLOCK, "// SUFFIX"].join("\n") + "\n");
+    const r = await s.read();
+    await s.edit([{ move_lines: { from_path: "blocks.ts", start_anchor: anchor(r.text, BLOCK[0]), end_anchor: anchor(r.text, BLOCK[3]), after_anchor: anchor(r.text, "// SUFFIX") } }]);
+    expect(s.bytes()).toBe(["// PREFIX", "// SUFFIX", ...BLOCK].join("\n") + "\n");
+  });
+
   it("move-between: copy to the target, then delete from the source", async () => {
     const s = session("target.ts", TARGET, { "source.ts": SOURCE });
     const src = await s.read("source.ts");

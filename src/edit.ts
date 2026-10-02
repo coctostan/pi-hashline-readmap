@@ -119,6 +119,7 @@ const hashlineEditItemSchema = Type.Union([
 			start_anchor: Type.String({ description: "First line to move (LINE:HASH)" }),
 			end_anchor: Type.String({ description: "Last line to move (LINE:HASH)" }),
 			after_anchor: Type.String({ description: "Move the lines after this line (LINE:HASH)" }),
+			from_path: Type.Optional(Type.String({ description: "Move from this file into path; default path" })),
 		}),
 	}, { additionalProperties: true })),
 	withLegacyObjectOrder(Type.Object(
@@ -484,6 +485,79 @@ function applyResolvedReplaceSymbols(
 
 type AnchorEditResult = ReturnType<typeof applyHashlineEdits>;
 
+/** The `from_path` of a copy or move, trimmed; undefined when the edit reads only the edited file. */
+function crossFilePath(edit: HashlineEditItem): string | undefined {
+	const fromPath = "copy_lines" in edit ? edit.copy_lines.from_path : "move_lines" in edit ? edit.move_lines.from_path : undefined;
+	return fromPath?.trim() || undefined;
+}
+
+interface SourceRemoval {
+	absolutePath: string;
+	displayPath: string;
+	originalNormalized: string;
+	result: string;
+	bom: string;
+	originalEnding: ReturnType<typeof detectLineEnding>;
+	ranges: string[];
+}
+
+/**
+ * For `move_lines` with a `from_path` in another file: verify and compute the source file with the
+ * moved range removed, before anything is written. The source needs fresh anchors like any edit.
+ */
+async function planSourceRemovals(input: {
+	anchorEdits: HashlineEditItem[];
+	absolutePath: string;
+	cwd: string;
+	options: EditToolOptions;
+	signal?: AbortSignal;
+}): Promise<EditPhaseResult<SourceRemoval[]>> {
+	const bySource = new Map<string, { displayPath: string; edits: HashlineEditItem[]; ranges: string[] }>();
+	for (const edit of input.anchorEdits) {
+		if (!("move_lines" in edit)) continue;
+		const fromPath = crossFilePath(edit);
+		if (fromPath === undefined) continue;
+		const sourcePath = resolveToCwd(fromPath.replace(/^@/, ""), input.cwd);
+		if (sourcePath === input.absolutePath) continue;
+		const entry = bySource.get(sourcePath) ?? { displayPath: fromPath, edits: [], ranges: [] };
+		entry.edits.push({ replace_lines: { start_anchor: edit.move_lines.start_anchor, end_anchor: edit.move_lines.end_anchor, new_text: "" } });
+		entry.ranges.push(`${edit.move_lines.start_anchor}..${edit.move_lines.end_anchor}`);
+		bySource.set(sourcePath, entry);
+	}
+	const removals: SourceRemoval[] = [];
+	for (const [sourcePath, entry] of bySource) {
+		const notRead = requireReadForAnchors(input.options, sourcePath, entry.displayPath, true);
+		if (notRead) return notRead;
+		const loaded = await loadEditSource({ absolutePath: sourcePath, displayPath: entry.displayPath, signal: input.signal });
+		if (isEditErrorResult(loaded)) return loaded;
+		const applied = await applyAnchorEdits({ absolutePath: sourcePath, content: loaded.originalNormalized, anchorEdits: entry.edits, cwd: input.cwd, signal: input.signal });
+		if (isEditErrorResult(applied)) return recordErrorFeedback(input.options, sourcePath, applied);
+		const stale = rejectStaleOverwrites(input.options.served, sourcePath, loaded.originalNormalized, applied.content);
+		if (stale) {
+			input.options.onFileAnchored?.(sourcePath);
+			return stale;
+		}
+		removals.push({ absolutePath: sourcePath, displayPath: entry.displayPath, ...loaded, result: applied.content, ranges: entry.ranges });
+	}
+	return removals;
+}
+
+/** Write planned source removals after the target was written. A failure names the half-done state. */
+async function commitSourceRemovals(removals: SourceRemoval[], options: EditToolOptions, targetDisplayPath: string): Promise<EditPhaseResult<string[]>> {
+	const notes: string[] = [];
+	for (const removal of removals) {
+		const written = await withFileMutationQueue(await resolveMutationTargetPath(removal.absolutePath), () =>
+			finalizeWrite({ ...removal, postEditVerify: false }),
+		);
+		if (isEditErrorResult(written)) {
+			const text = `${written.content[0].text}\n${targetDisplayPath} was already written with the moved lines; they are still in ${removal.displayPath} too. Delete them there to finish the move.`;
+			return { ...written, content: [{ type: "text", text }] };
+		}
+		options.served?.remapAfterWrite(removal.absolutePath, removal.originalNormalized.split("\n"), removal.result.split("\n"));
+		notes.push(`Moved lines ${removal.ranges.join(", ")} out of ${removal.displayPath}; read it again for fresh anchors there.`);
+	}
+	return notes;
+}
 /** Read the other files `copy_lines.from_path` names, LF-normalized, keyed by the given string. */
 async function loadCopySources(
 	anchorEdits: HashlineEditItem[],
@@ -493,8 +567,8 @@ async function loadCopySources(
 ): Promise<EditPhaseResult<Map<string, string>>> {
 	const sources = new Map<string, string>();
 	for (const edit of anchorEdits) {
-		if (!("copy_lines" in edit)) continue;
-		const fromPath = edit.copy_lines.from_path?.trim();
+		const fromPath = crossFilePath(edit);
+		if (fromPath === undefined) continue;
 		if (!fromPath || sources.has(fromPath)) continue;
 		const sourcePath = resolveToCwd(fromPath.replace(/^@/, ""), cwd);
 		if (sourcePath === absolutePath) continue;
@@ -514,12 +588,14 @@ async function applyAnchorEdits(input: {
 }): Promise<EditPhaseResult<AnchorEditResult>> {
 	const sources = await loadCopySources(input.anchorEdits, input.absolutePath, input.cwd, input.signal);
 	if (isEditErrorResult(sources)) return sources;
-	// A from_path naming the edited file itself is a copy within the file.
-	const anchorEdits = input.anchorEdits.map((edit) =>
-		"copy_lines" in edit && edit.copy_lines.from_path && !sources.has(edit.copy_lines.from_path.trim())
-			? { copy_lines: { ...edit.copy_lines, from_path: undefined } }
-			: edit,
-	);
+	// A from_path naming the edited file itself is a copy or move within the file.
+	const anchorEdits = input.anchorEdits.map((edit) => {
+		const fromPath = crossFilePath(edit);
+		if (fromPath === undefined || sources.has(fromPath)) return edit;
+		if ("copy_lines" in edit) return { copy_lines: { ...edit.copy_lines, from_path: undefined } };
+		if ("move_lines" in edit) return { move_lines: { ...edit.move_lines, from_path: undefined } };
+		return edit;
+	});
 	try {
 		return applyHashlineEdits(input.content, anchorEdits, input.signal, { sources });
 	} catch (err) {
@@ -999,6 +1075,8 @@ async function buildEditResult(input: {
 	replaceWarnings: string[];
 	replaceSymbolWarnings: string[];
 	syntaxWarning?: string;
+	/** Notes about lines a cross-file move_lines removed from its source file. */
+	moveNotes?: string[];
 }): Promise<EditSuccessResult> {
 	const diffResult = generateCompactOrFullDiff(input.originalNormalized, input.result);
 	const patch = createPatch(input.displayPath, input.originalNormalized, input.result);
@@ -1020,6 +1098,7 @@ async function buildEditResult(input: {
 	if (input.replaceWarnings.length) warnings.push(...input.replaceWarnings);
 	if (input.replaceSymbolWarnings.length) warnings.push(...input.replaceSymbolWarnings);
 	if (input.syntaxWarning) warnings.push(input.syntaxWarning);
+	if (input.moveNotes?.length) warnings.push(...input.moveNotes);
 
 	const internalClassification = classifyEdit(input.originalNormalized, input.result);
 	const difftAvailable = await isDifftAvailable();
@@ -1150,6 +1229,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					const staleError = rejectStaleOverwrites(options.served, absolutePath, originalNormalized, result);
 					if (staleError) options.onFileAnchored?.(absolutePath);
 					if (staleError) return staleError;
+					const sourceRemovals = await planSourceRemovals({ anchorEdits, absolutePath, cwd: ctx.cwd, options, signal });
+					if (isEditErrorResult(sourceRemovals)) return sourceRemovals;
 
 					throwIfAborted(signal);
 
@@ -1172,6 +1253,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					});
 					if (isEditErrorResult(writeResult)) return writeResult;
 					options.served?.remapAfterWrite(absolutePath, originalNormalized.split("\n"), result.split("\n"));
+					const moveNotes = await commitSourceRemovals(sourceRemovals, options, path);
+					if (isEditErrorResult(moveNotes)) return moveNotes;
 
 					return await buildEditResult({
 						absolutePath,
@@ -1185,6 +1268,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						replaceWarnings,
 						replaceSymbolWarnings,
 						syntaxWarning,
+						moveNotes,
 					});
 				});
 			} catch (err: any) {

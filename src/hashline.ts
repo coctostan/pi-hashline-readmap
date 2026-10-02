@@ -17,7 +17,7 @@ export type HashlineEditItem =
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
 	| { insert_after: { anchor: string; new_text: string; text?: string } }
 	| { copy_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
-	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string } }
+	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
 	| { replace: { old_text: string; new_text: string; all?: boolean } };
 
 /** Content of other files that `copy_lines.from_path` names, keyed by that exact string (LF-normalized). */
@@ -449,6 +449,15 @@ function parseHashlineEditItem(edit: HashlineEditItem, knownHashes?: ReadonlySet
 function parseHashlineEditItems(edit: HashlineEditItem, knownHashes?: ReadonlySet<string>): ParsedEdit[] {
 	if ("move_lines" in edit) {
 		const { start_anchor, end_anchor, after_anchor } = edit.move_lines;
+		const fromPath = edit.move_lines.from_path?.trim() || undefined;
+		// From another file: the copy lands here; the caller deletes the range in the source file.
+		if (fromPath) {
+			return [{
+				spec: { kind: "insertAfter", after: parseLineRef(after_anchor) },
+				dstLines: [],
+				copy: { start: parseLineRef(start_anchor), end: parseLineRef(end_anchor), fromPath },
+			}];
+		}
 		const start = parseLineRef(start_anchor);
 		const end = parseLineRef(end_anchor);
 		const sameRef = start.line === end.line && start.hash === end.hash;

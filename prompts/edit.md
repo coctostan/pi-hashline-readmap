@@ -12,7 +12,7 @@ Surgically edit existing text files. Prefer hash-verified anchored edits from fr
 | `replace_lines` | Replace/delete a contiguous range | 2 |
 | `insert_after` | Insert after an existing line | 1 |
 | `copy_lines` | Copy existing lines (from `path`, or another file via `from_path`) to after a line of `path` | 3 |
-| `move_lines` | Move existing lines of `path` to after another line of `path` | 3 |
+| `move_lines` | Move existing lines (from `path`, or another file via `from_path`) to after a line of `path` | 3 |
 | `replace_symbol` | Replace one function/class/method/etc. | 0 (`symbol`) |
 | `replace` | String replacement escape hatch; one match by default, all with `all: true` | 0 |
 
@@ -23,7 +23,7 @@ Prefer `set_line`, `replace_lines`, and `insert_after`: they verify the file sti
 
 A `replace` whose exact `old_text` occurs once needs no prior `read`. If it occurs more than once and `all` is not set, the edit is refused with `ambiguous-match` and the matching lines with anchors; add surrounding text, set `all: true`, or use `set_line` with one of those anchors. Anchored edits and `replace_symbol` still need fresh anchors from this session.
 
-To copy or move existing text, never retype it: use `copy_lines` or `move_lines`. They take the source range (`start_anchor`..`end_anchor`, inclusive) and `after_anchor` in the edited file, and write the source lines byte for byte, including invisible characters. To insert at the end of a file, use its last line as `after_anchor`. To move lines to another file, `copy_lines` with `from_path` into the target, then delete the range in the source with `replace_lines` and `new_text: ""`. A copy whose source lines changed since they were read is refused with fresh anchors.
+To copy or move existing text, never retype it: use `copy_lines` or `move_lines`. They take the source range (`start_anchor`..`end_anchor`, inclusive) and `after_anchor` in the edited file, and write the source lines byte for byte, including invisible characters. To insert at the end of a file, use its last line as `after_anchor`. With `from_path`, the source range is in another file: `copy_lines` leaves it there, `move_lines` also deletes it from that file in the same call. Source anchors need a read of that file too. A copy or move whose source lines changed since they were read is refused with fresh anchors, and nothing is written.
 
 ## Input shape
 
