@@ -16,7 +16,14 @@ export type HashlineEditItem =
 	| { set_line: { anchor: string; new_text: string } }
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
 	| { insert_after: { anchor: string; new_text: string; text?: string } }
+	| { copy_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
+	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string } }
 	| { replace: { old_text: string; new_text: string; all?: boolean } };
+
+/** Content of other files that `copy_lines.from_path` names, keyed by that exact string (LF-normalized). */
+export interface HashlineEditOptions {
+	sources?: ReadonlyMap<string, string>;
+}
 
 interface HashMismatch {
 	line: number;
@@ -52,6 +59,8 @@ type ParsedSpec =
 interface ParsedEdit {
 	spec: ParsedSpec;
 	dstLines: string[];
+	/** Lines copied verbatim from a source range; resolved after validation, never echo-stripped. */
+	copy?: { start: ParsedRef; end: ParsedRef; fromPath?: string };
 }
 
 type IndexedParsedEdit = ParsedEdit & { idx: number };
@@ -424,7 +433,34 @@ function parseHashlineEditItem(edit: HashlineEditItem, knownHashes?: ReadonlySet
 			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text ?? edit.insert_after.text ?? ""), knownHashes),
 		};
 	}
+	if ("copy_lines" in edit) {
+		const fromPath = edit.copy_lines.from_path?.trim() || undefined;
+		return {
+			spec: { kind: "insertAfter", after: parseLineRef(edit.copy_lines.after_anchor) },
+			dstLines: [],
+			copy: { start: parseLineRef(edit.copy_lines.start_anchor), end: parseLineRef(edit.copy_lines.end_anchor), fromPath },
+		};
+	}
 	throw new Error("replace edits are applied separately");
+}
+
+/** `move_lines` is a copy of the range after the target plus deletion of the range. */
+function parseHashlineEditItems(edit: HashlineEditItem, knownHashes?: ReadonlySet<string>): ParsedEdit[] {
+	if ("move_lines" in edit) {
+		const { start_anchor, end_anchor, after_anchor } = edit.move_lines;
+		const start = parseLineRef(start_anchor);
+		const end = parseLineRef(end_anchor);
+		const sameRef = start.line === end.line && start.hash === end.hash;
+		return [
+			{
+				spec: { kind: "insertAfter", after: parseLineRef(after_anchor) },
+				dstLines: [],
+				copy: { start: parseLineRef(start_anchor), end: parseLineRef(end_anchor) },
+			},
+			{ spec: sameRef ? { kind: "single", ref: start } : { kind: "range", start, end }, dstLines: [] },
+		];
+	}
+	return [parseHashlineEditItem(edit, knownHashes)];
 }
 
 interface DestructiveSpan {
@@ -501,29 +537,28 @@ function countChangedLines(before: string[], after: string[]): number {
 	return Math.max(added, removed);
 }
 
-// ─── Main edit engine ───────────────────────────────────────────────────
+// ─── Anchor resolution ──────────────────────────────────────────────────
 
-export function applyHashlineEdits(
-	content: string,
-	edits: HashlineEditItem[],
-	signal?: AbortSignal,
-): { content: string; firstChangedLine: number | undefined; warnings?: string[]; noopEdits?: NoopEdit[] } {
-	throwIfAborted(signal);
-	if (!edits.length) return { content, firstChangedLine: undefined };
+interface AnchorResolver {
+	fileLines: string[];
+	lineHashes: string[];
+	/** Index of the empty element after a final newline (1-based), or 0. */
+	terminatorLine: number;
+	notes: Set<string>;
+	mismatches: HashMismatch[];
+	/** Verify one anchor, relocating an unchanged line that moved. False records a mismatch. */
+	validate(ref: ParsedRef): boolean;
+	/** Verify both ends of a range; a relocation that changes the range size is a mismatch. */
+	validateRange(start: ParsedRef, end: ParsedRef): void;
+}
 
-	// Compute adaptive relocation window based on edit batch size
-	const relocationWindow = Math.min(Math.max(HASH_RELOCATION_WINDOW_BASE, edits.length * 5), HASH_RELOCATION_WINDOW_CAP);
-
-	const fileLines = content.split("\n");
-	const origLines = [...fileLines];
-	let firstChanged: number | undefined;
-	const noopEdits: NoopEdit[] = [];
-
-	// A trailing newline yields a final empty element. Read does not show it as a row, but an
-	// anchor on it (from an older read) still verifies; edits on it are mapped to the end of file.
+/**
+ * Verifies `LINE:HASH` anchors against one file's lines: exact match, relocation of an unchanged
+ * line within the window, or a line-free anchor that matches exactly one line. A changed line is
+ * never matched to a similar one.
+ */
+function createAnchorResolver(fileLines: string[], relocationWindow: number, signal?: AbortSignal): AnchorResolver {
 	const terminatorLine = fileLines.length > 1 && fileLines[fileLines.length - 1] === "" ? fileLines.length : 0;
-
-	// Build hash index for verification, relocation, and line-number-free anchors
 	const lineHashes: string[] = [];
 	const hashToLines = new Map<string, number[]>();
 	for (let i = 0; i < fileLines.length; i++) {
@@ -535,30 +570,12 @@ export function applyHashlineEdits(
 		if (lines) lines.push(lineNumber);
 		else hashToLines.set(h, [lineNumber]);
 	}
-	const knownHashes = new Set(lineHashes);
+	const notes = new Set<string>();
+	const mismatches: HashMismatch[] = [];
 
-	const parsed: IndexedParsedEdit[] = edits.map((edit, idx) => ({
-		...parseHashlineEditItem(edit, knownHashes),
-		idx,
-	}));
-
-	function collectExplicitlyTouchedLines(): Set<number> {
-		const touched = new Set<number>();
-		for (const { spec } of parsed) {
-			if (spec.kind === "single") touched.add(spec.ref.line);
-			else if (spec.kind === "insertAfter") touched.add(spec.after.line);
-			else for (let line = spec.start.line; line <= spec.end.line; line++) touched.add(line);
-		}
-		return touched;
-	}
-	let explicitlyTouchedLines = collectExplicitlyTouchedLines();
-
-	const relocationNotes = new Set<string>();
-
-	function findRelocationLine(expectedHash: string, hintLine: number, relocationWindow: number): number | undefined {
+	function findRelocationLine(expectedHash: string, hintLine: number): number | undefined {
 		const candidates = hashToLines.get(expectedHash);
 		if (!candidates?.length) return undefined;
-
 		const minLine = Math.max(1, hintLine - relocationWindow);
 		const maxLine = Math.min(fileLines.length, hintLine + relocationWindow);
 		let match: number | undefined;
@@ -581,7 +598,7 @@ export function applyHashlineEdits(
 		const shown = ref.content === undefined ? ref.hash : `${ref.hash}|${ref.content}`;
 		if (candidates.length === 1) {
 			ref.line = candidates[0];
-			relocationNotes.add(`Anchor "${shown}" had no line number; resolved to ${ref.line}:${ref.hash}. Copy anchors as LINE:HASH.`);
+			notes.add(`Anchor "${shown}" had no line number; resolved to ${ref.line}:${ref.hash}. Copy anchors as LINE:HASH.`);
 			return;
 		}
 		const rows = candidates
@@ -594,9 +611,6 @@ export function applyHashlineEdits(
 		);
 	}
 
-	// Validate all refs before mutation
-	const mismatches: HashMismatch[] = [];
-
 	function validate(ref: ParsedRef): boolean {
 		if (ref.line === 0) {
 			resolveLineFreeRef(ref);
@@ -606,12 +620,10 @@ export function applyHashlineEdits(
 		const originalLine = ref.line;
 		const actual = originalLine <= fileLines.length ? lineHashes[originalLine - 1] : undefined;
 		if (actual === expected) return true;
-		const relocated = findRelocationLine(expected, Math.min(originalLine, fileLines.length), relocationWindow);
+		const relocated = findRelocationLine(expected, Math.min(originalLine, fileLines.length));
 		if (relocated !== undefined) {
 			ref.line = relocated;
-			relocationNotes.add(
-				`Auto-relocated anchor ${originalLine}:${ref.hash} -> ${relocated}:${ref.hash} (window ±${relocationWindow}).`,
-			);
+			notes.add(`Auto-relocated anchor ${originalLine}:${ref.hash} -> ${relocated}:${ref.hash} (window ±${relocationWindow}).`);
 			return true;
 		}
 		if (originalLine > fileLines.length) {
@@ -623,43 +635,108 @@ export function applyHashlineEdits(
 		return false;
 	}
 
-	for (const { spec } of parsed) {
+	function validateRange(start: ParsedRef, end: ParsedRef): void {
+		const numbered = start.line > 0 && end.line > 0;
+		if (numbered && start.line > end.line) {
+			throw new Error(`Range start line ${start.line} must be <= end line ${end.line}`);
+		}
+		const originalStart = start.line;
+		const originalEnd = end.line;
+		const startOk = validate(start);
+		const endOk = validate(end);
+		if (!startOk || !endOk) return;
+		if (start.line > end.line) throw new Error(`Range start line ${start.line} must be <= end line ${end.line}`);
+		// Relocation that changes the range size means lines were added or removed inside it.
+		if (numbered && end.line - start.line !== originalEnd - originalStart) {
+			start.line = originalStart;
+			end.line = originalEnd;
+			mismatches.push(
+				{ line: originalStart, expected: start.hash, actual: lineHashes[originalStart - 1] },
+				{ line: originalEnd, expected: end.hash, actual: lineHashes[originalEnd - 1] },
+			);
+		}
+	}
+
+	return { fileLines, lineHashes, terminatorLine, notes, mismatches, validate, validateRange };
+}
+
+// ─── Main edit engine ───────────────────────────────────────────────────
+
+export function applyHashlineEdits(
+	content: string,
+	edits: HashlineEditItem[],
+	signal?: AbortSignal,
+	options: HashlineEditOptions = {},
+): { content: string; firstChangedLine: number | undefined; warnings?: string[]; noopEdits?: NoopEdit[] } {
+	throwIfAborted(signal);
+	if (!edits.length) return { content, firstChangedLine: undefined };
+
+	// Compute adaptive relocation window based on edit batch size
+	const relocationWindow = Math.min(Math.max(HASH_RELOCATION_WINDOW_BASE, edits.length * 5), HASH_RELOCATION_WINDOW_CAP);
+
+	const fileLines = content.split("\n");
+	const origLines = [...fileLines];
+	let firstChanged: number | undefined;
+	const noopEdits: NoopEdit[] = [];
+
+	// A trailing newline yields a final empty element. Read does not show it as a row, but an
+	// anchor on it (from an older read) still verifies; edits on it are mapped to the end of file.
+	const terminatorLine = fileLines.length > 1 && fileLines[fileLines.length - 1] === "" ? fileLines.length : 0;
+
+	const resolver = createAnchorResolver(fileLines, relocationWindow, signal);
+	const { lineHashes, validate, validateRange } = resolver;
+	const relocationNotes = resolver.notes;
+	const mismatches = resolver.mismatches;
+	const knownHashes = new Set(lineHashes);
+
+	const parsed: IndexedParsedEdit[] = edits.flatMap((edit, idx) =>
+		parseHashlineEditItems(edit, knownHashes).map((item) => ({ ...item, idx })),
+	);
+
+	function collectExplicitlyTouchedLines(): Set<number> {
+		const touched = new Set<number>();
+		for (const { spec } of parsed) {
+			if (spec.kind === "single") touched.add(spec.ref.line);
+			else if (spec.kind === "insertAfter") touched.add(spec.after.line);
+			else for (let line = spec.start.line; line <= spec.end.line; line++) touched.add(line);
+		}
+		return touched;
+	}
+	let explicitlyTouchedLines = collectExplicitlyTouchedLines();
+
+	// Other files named by copy_lines.from_path are verified with their own resolver.
+	const sourceResolvers = new Map<string, AnchorResolver>();
+	function sourceResolver(fromPath: string): AnchorResolver {
+		let found = sourceResolvers.get(fromPath);
+		if (!found) {
+			const sourceContent = options.sources?.get(fromPath);
+			if (sourceContent === undefined) throw new Error(`copy_lines.from_path "${fromPath}" could not be read.`);
+			found = createAnchorResolver(sourceContent.split("\n"), relocationWindow, signal);
+			sourceResolvers.set(fromPath, found);
+		}
+		return found;
+	}
+
+	for (const p of parsed) {
 		throwIfAborted(signal);
+		const spec = p.spec;
 		if (spec.kind === "single") {
 			validate(spec.ref);
 		} else if (spec.kind === "insertAfter") {
 			validate(spec.after);
 		} else {
-			const numbered = spec.start.line > 0 && spec.end.line > 0;
-			// Range: validate start > end before relocation
-			if (numbered && spec.start.line > spec.end.line) {
-				throw new Error(`Range start line ${spec.start.line} must be <= end line ${spec.end.line}`);
-			}
-
-			const originalStart = spec.start.line;
-			const originalEnd = spec.end.line;
-			const originalCount = originalEnd - originalStart + 1;
-
-			const startOk = validate(spec.start);
-			const endOk = validate(spec.end);
-
-			if (startOk && endOk) {
-				if (spec.start.line > spec.end.line) {
-					throw new Error(`Range start line ${spec.start.line} must be <= end line ${spec.end.line}`);
-				}
-				// Relocation that changes the range size means lines were added or removed inside it.
-				const relocatedCount = spec.end.line - spec.start.line + 1;
-				if (numbered && relocatedCount !== originalCount) {
-					spec.start.line = originalStart;
-					spec.end.line = originalEnd;
-					mismatches.push(
-						{ line: originalStart, expected: spec.start.hash, actual: lineHashes[originalStart - 1] },
-						{ line: originalEnd, expected: spec.end.hash, actual: lineHashes[originalEnd - 1] },
-					);
-				}
+			validateRange(spec.start, spec.end);
+		}
+		if (p.copy) {
+			const source = p.copy.fromPath ? sourceResolver(p.copy.fromPath) : resolver;
+			source.validateRange(p.copy.start, p.copy.end);
+			if (source !== resolver && source.mismatches.length) {
+				const formatted = formatMismatchError(source.mismatches, source.fileLines, relocationWindow);
+				throw new Error(`copy_lines source ${p.copy.fromPath}: ${formatted.message}`);
 			}
 		}
 	}
+	for (const source of sourceResolvers.values()) for (const note of source.notes) relocationNotes.add(note);
 	if (mismatches.length) {
 		const formatted = formatMismatchError(mismatches, fileLines, relocationWindow);
 		throw new HashlineMismatchError(formatted.message, formatted.updatedAnchors);
@@ -682,6 +759,16 @@ export function applyHashlineEdits(
 					: { kind: "range", start: spec.start, end: lastRealRef() };
 			}
 		}
+	}
+
+	// Copied lines are the source range verbatim. A range ending on a source's terminator row
+	// stops at its last real line, so a copy never brings an extra empty line.
+	for (const p of parsed) {
+		if (!p.copy) continue;
+		const source = p.copy.fromPath ? sourceResolvers.get(p.copy.fromPath)! : resolver;
+		const lastReal = source.terminatorLine ? source.terminatorLine - 1 : source.fileLines.length;
+		if (p.copy.start.line > lastReal) throw new Error("copy_lines start_anchor is past the last line of the source.");
+		p.dstLines = source.fileLines.slice(p.copy.start.line - 1, Math.min(p.copy.end.line, lastReal));
 	}
 
 	// Recompute after potential relocation
@@ -809,7 +896,7 @@ export function applyHashlineEdits(
 	}
 
 	// Apply edits bottom-up
-	for (const { spec, dstLines, idx } of sorted) {
+	for (const { spec, dstLines, idx, copy } of sorted) {
 		throwIfAborted(signal);
 		if (spec.kind === "single") {
 			const merged = maybeExpandSingleLineMerge(spec.ref.line, dstLines);
@@ -857,7 +944,7 @@ export function applyHashlineEdits(
 			track(spec.start.line);
 		} else {
 			const anchor = origLines[spec.after.line - 1];
-			const echo = stripInsertAnchorEcho(anchor, dstLines);
+			const echo = copy ? { lines: dstLines, stripped: false } : stripInsertAnchorEcho(anchor, dstLines);
 			const inserted = echo.lines;
 			if (echo.stripped) {
 				boundaryWarnings.push(

@@ -15,6 +15,8 @@ describe("countEditTypes", () => {
       set_line: 2,
       replace_lines: 1,
       insert_after: 1,
+      copy_lines: 0,
+      move_lines: 0,
       replace: 1,
       total: 5,
     });
@@ -26,6 +28,8 @@ describe("countEditTypes", () => {
       set_line: 0,
       replace_lines: 0,
       insert_after: 0,
+      copy_lines: 0,
+      move_lines: 0,
       replace: 0,
       total: 0,
     });
@@ -37,6 +41,8 @@ describe("countEditTypes", () => {
       set_line: 0,
       replace_lines: 0,
       insert_after: 0,
+      copy_lines: 0,
+      move_lines: 0,
       replace: 0,
       total: 0,
     });
@@ -52,6 +58,8 @@ describe("countEditTypes", () => {
       set_line: 1,
       replace_lines: 0,
       insert_after: 0,
+      copy_lines: 0,
+      move_lines: 0,
       replace: 0,
       total: 2,
     });

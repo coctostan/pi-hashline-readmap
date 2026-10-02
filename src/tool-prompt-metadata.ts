@@ -21,7 +21,7 @@ const COMPACT_GUIDELINES: Record<string, string[]> = {
   ],
   "edit.md": [
     "Use edit with fresh LINE:HASH anchors for existing files.",
-    "Use edit replace only when anchored edits are impractical.",
+    "Copy/move lines with edit copy_lines/move_lines; use edit replace only if anchors fail.",
   ],
   "grep.md": [
     "Use grep for text search and edit-ready matching anchors.",

@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `edit` refuses to overwrite lines that changed on disk since the model was shown them, including lines inside a `replace_lines` range and lines matched by text `replace` (previously only the named anchor lines were verified). The refusal returns the current rows with fresh anchors, which count as seen for the retry.
 - Small-model input tolerance: anchors pasted without a line number (`HASH` or `HASH|content`) resolve when exactly one line matches; `replace.old_text` pasted with `LINE:HASH|` row prefixes matches those rows as whole lines; CRLF `old_text` matches LF-normalized files; `text-not-found` lists the closest current lines with anchors; `replace_symbol` aimed at a line explains how to use `set_line`.
 - `tests/edit-scenarios.test.ts`: the 34 pi-edit-benchmark scenarios as deterministic tool-level tests.
+- `copy_lines` and `move_lines` edit variants: copy an anchored line range (from the edited file, or another file via `from_path`) or move a range within the file, to after an anchor, byte for byte. Models no longer retype blocks, which dropped invisible characters and added stray blank lines. A source range that changed since it was read is refused with fresh anchors.
 - `scripts/bench/explicit-edit.mjs`: local macOS runner for the Explicit Edit benchmark tasks through headless Pi, comparing arms (`pi-default`, `ref:<git>`, `working`). See `docs/benchmarking.md`.
 
 ### Changed

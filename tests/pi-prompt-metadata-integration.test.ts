@@ -64,7 +64,7 @@ describe("Pi system prompt metadata integration", () => {
     });
     expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, shapeHash(value.parameters)]))).toEqual({
       read: "83acf9f68ef5848d3960fc80a787347a478952dcee56d9ec85a41edad63937d9",
-      edit: "36073166c66d6472e6a3ae6f69f37e3eb9c6fe4f63ae36cf772d22a7f3f3a722",
+      edit: "bbd254053c4fbf06f322bc95dcfafe5c552ff97f46f7250f0a3727af190c71c4",
       grep: "a100c0a3b5ccdac377ebcdd15419636442732d1c1b0cf7405dab7f8a41360ffd",
       find: "fc7164a66047ac2bab45e84b6d14d4970c14edd1f0ceb899834c583dbc074ba9",
       ls: "89a12ee46fb16c17afc09daa8fabe30fb8b9fc5775cd2c3eb51c94b0e8aa5155",
@@ -93,7 +93,14 @@ describe("Pi system prompt metadata integration", () => {
         "$.properties.edits.items.anyOf[2].properties.insert_after.properties.anchor": "Fresh LINE:HASH anchor",
         "$.properties.edits.items.anyOf[3].properties.replace.properties.old_text": "Non-empty exact target text",
         "$.properties.edits.items.anyOf[4].properties.replace_symbol.properties.new_body": "Non-blank complete symbol body",
-        "$.properties.edits.items.anyOf[5]": "Do not use — Wrap as { replace: {old_text, new_text} }.",
+        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.after_anchor": "Insert the copy after this line of path (LINE:HASH)",
+        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.end_anchor": "Last source line (LINE:HASH)",
+        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.from_path": "Source file; default path",
+        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.start_anchor": "First source line (LINE:HASH)",
+        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.after_anchor": "Move the lines after this line (LINE:HASH)",
+        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.end_anchor": "Last line to move (LINE:HASH)",
+        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.start_anchor": "First line to move (LINE:HASH)",
+        "$.properties.edits.items.anyOf[7]": "Do not use — Wrap as { replace: {old_text, new_text} }.",
         "$.properties.postEditVerify": "Verify persisted content after write",
       },
       grep: {

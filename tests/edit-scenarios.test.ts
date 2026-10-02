@@ -19,10 +19,11 @@ interface CallResult {
   details: any;
 }
 
-function session(fileName: string, fixture: string) {
+function session(fileName: string, fixture: string, others: Record<string, string> = {}) {
   const dir = mkdtempSync(join(tmpdir(), "edit-scenario-"));
   const file = join(dir, fileName);
   writeFileSync(file, Buffer.from(fixture, "utf8"));
+  for (const [name, content] of Object.entries(others)) writeFileSync(join(dir, name), Buffer.from(content, "utf8"));
   const tools = new Map<string, any>();
   const handlers: Record<string, Function> = {};
   init({
@@ -67,10 +68,10 @@ function session(fileName: string, fixture: string) {
   }
 
   return {
-    read: () => call("read", { path: fileName }),
-    edit: (edits: unknown[]) => call("edit", { path: fileName, edits }),
-    bytes: () => readFileSync(file, "utf8"),
-    mutate: (next: string) => writeFileSync(file, next, "utf8"),
+    read: (path = fileName) => call("read", { path }),
+    edit: (edits: unknown[], path = fileName) => call("edit", { path, edits }),
+    bytes: (path = fileName) => readFileSync(join(dir, path), "utf8"),
+    mutate: (next: string, path = fileName) => writeFileSync(join(dir, path), next, "utf8"),
   };
 }
 
@@ -386,6 +387,96 @@ describe("staleness and concurrency", () => {
   });
 });
 
+describe("block copy and move without retyping (Explicit Edit block families)", () => {
+  // Invisible and lookalike characters a model drops or normalizes when it retypes a block.
+  const BLOCK = ["// BEGIN checkout\u2011payload\u00a00042", "const feature = \"legacy\u200bCheckout\";", "", "// END checkout\u2011payload\u00a00042"];
+  const SOURCE = ["// head", ...BLOCK, "// tail"].join("\n") + "\n";
+  const TARGET = "// TARGET\nconst x = 1;\n";
+
+  it("copy-block: copy_lines from_path appends the exact block to the end of another file", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    const result = await s.edit([
+      { copy_lines: { from_path: "source.ts", start_anchor: anchor(src.text, BLOCK[0]), end_anchor: anchor(src.text, BLOCK[3]), after_anchor: anchor(dst.text, "const x = 1;") } },
+    ]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe(TARGET + BLOCK.join("\n") + "\n");
+    expect(s.bytes("source.ts")).toBe(SOURCE);
+  });
+
+  it("copy-within: copy_lines without from_path copies inside the file", async () => {
+    const s = session("blocks.ts", SOURCE);
+    const r = await s.read();
+    await s.edit([{ copy_lines: { start_anchor: anchor(r.text, BLOCK[0]), end_anchor: anchor(r.text, BLOCK[3]), after_anchor: anchor(r.text, "// tail") } }]);
+    expect(s.bytes()).toBe(SOURCE + BLOCK.join("\n") + "\n");
+  });
+
+  it("copy right after an identical line keeps every copied line (no echo stripping)", async () => {
+    const s = session("dup.ts", "x\nx\ny\n");
+    const r = await s.read();
+    await s.edit([{ copy_lines: { start_anchor: anchor(r.text, "x", 2), end_anchor: anchor(r.text, "y"), after_anchor: anchor(r.text, "x") } }]);
+    expect(s.bytes()).toBe("x\nx\ny\nx\ny\n");
+  });
+
+  it("move-block: move_lines moves the block after a marker in one call", async () => {
+    const s = session("blocks.ts", ["// PREFIX", ...BLOCK, "// SUFFIX", "// tail"].join("\n") + "\n");
+    const r = await s.read();
+    const result = await s.edit([{ move_lines: { start_anchor: anchor(r.text, BLOCK[0]), end_anchor: anchor(r.text, BLOCK[3]), after_anchor: anchor(r.text, "// SUFFIX") } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe(["// PREFIX", "// SUFFIX", ...BLOCK, "// tail"].join("\n") + "\n");
+  });
+
+  it("move-block upward works too", async () => {
+    const s = session("blocks.ts", ["// PREFIX", "// mid", ...BLOCK].join("\n") + "\n");
+    const r = await s.read();
+    await s.edit([{ move_lines: { start_anchor: anchor(r.text, BLOCK[0]), end_anchor: anchor(r.text, BLOCK[3]), after_anchor: anchor(r.text, "// PREFIX") } }]);
+    expect(s.bytes()).toBe(["// PREFIX", ...BLOCK, "// mid"].join("\n") + "\n");
+  });
+
+  it("move-between: copy to the target, then delete from the source", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    const start = anchor(src.text, BLOCK[0]);
+    const end = anchor(src.text, BLOCK[3]);
+    await s.edit([{ copy_lines: { from_path: "source.ts", start_anchor: start, end_anchor: end, after_anchor: anchor(dst.text, "const x = 1;") } }]);
+    await s.edit([{ replace_lines: { start_anchor: start, end_anchor: end, new_text: "" } }], "source.ts");
+    expect(s.bytes()).toBe(TARGET + BLOCK.join("\n") + "\n");
+    expect(s.bytes("source.ts")).toBe("// head\n// tail\n");
+  });
+
+  it("a move target inside the moved range is refused", async () => {
+    const s = session("blocks.ts", SOURCE);
+    const r = await s.read();
+    const result = await s.edit([{ move_lines: { start_anchor: anchor(r.text, BLOCK[0]), end_anchor: anchor(r.text, BLOCK[3]), after_anchor: anchor(r.text, BLOCK[1]) } }]);
+    expect(result.isError).toBe(true);
+    expect(s.bytes()).toBe(SOURCE);
+  });
+
+  it("a copy whose source changed since it was read is refused with the source's current rows", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    s.mutate(SOURCE.replace("// END", "// END!"), "source.ts");
+    const result = await s.edit([
+      { copy_lines: { from_path: "source.ts", start_anchor: anchor(src.text, BLOCK[0]), end_anchor: anchor(src.text, BLOCK[3]), after_anchor: anchor(dst.text, "const x = 1;") } },
+    ]);
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain("copy_lines source source.ts");
+    expect(result.text).toContain("// END!");
+    expect(s.bytes()).toBe(TARGET);
+  });
+
+  it("a copy from a missing file is refused", async () => {
+    const s = session("target.ts", TARGET);
+    const dst = await s.read();
+    const a = anchor(dst.text, "const x = 1;");
+    const result = await s.edit([{ copy_lines: { from_path: "nope.ts", start_anchor: a, end_anchor: a, after_anchor: a } }]);
+    expect(result.isError).toBe(true);
+    expect(result.text).toContain("File not found: nope.ts");
+  });
+});
 describe("small-model slips observed in the benchmark traces", () => {
   it("a unique exact text replace works without a prior read (Explicit Edit literal-1-regex trace)", async () => {
     const s = session("sample.txt", "// Keep this comment unchanged.\n/^(\\d*)\\..*\\.log$/\n");

@@ -1,9 +1,11 @@
-const VARIANT_KEYS = ["set_line", "replace_lines", "insert_after", "replace"] as const;
+const VARIANT_KEYS = ["set_line", "replace_lines", "insert_after", "copy_lines", "move_lines", "replace"] as const;
 
 export type EditTypeCounts = {
   set_line: number;
   replace_lines: number;
   insert_after: number;
+  copy_lines: number;
+  move_lines: number;
   replace: number;
   total: number;
 };
@@ -13,6 +15,8 @@ export function countEditTypes(edits: unknown[] | undefined): EditTypeCounts {
     set_line: 0,
     replace_lines: 0,
     insert_after: 0,
+    copy_lines: 0,
+    move_lines: 0,
     replace: 0,
     total: 0,
   };
@@ -67,7 +71,7 @@ export function formatEditCallText(
   if (Array.isArray(args?.edits) && args!.edits.length > 0) {
     const counts = countEditTypes(args!.edits as unknown[]);
     const parts: string[] = [];
-    for (const key of ["set_line", "replace_lines", "insert_after", "replace"] as const) {
+    for (const key of VARIANT_KEYS) {
       if (counts[key] > 0) {
         parts.push(`${counts[key]} ${key}`);
       }

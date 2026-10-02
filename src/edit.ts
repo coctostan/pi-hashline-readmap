@@ -105,6 +105,21 @@ const hashlineEditItemSchema = Type.Union([
 			new_body: Type.String({ description: "Non-blank complete symbol body" }),
 		}),
 	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object({
+		copy_lines: Type.Object({
+			start_anchor: Type.String({ description: "First source line (LINE:HASH)" }),
+			end_anchor: Type.String({ description: "Last source line (LINE:HASH)" }),
+			after_anchor: Type.String({ description: "Insert the copy after this line of path (LINE:HASH)" }),
+			from_path: Type.Optional(Type.String({ description: "Source file; default path" })),
+		}),
+	}, { additionalProperties: true })),
+	withLegacyObjectOrder(Type.Object({
+		move_lines: Type.Object({
+			start_anchor: Type.String({ description: "First line to move (LINE:HASH)" }),
+			end_anchor: Type.String({ description: "Last line to move (LINE:HASH)" }),
+			after_anchor: Type.String({ description: "Move the lines after this line (LINE:HASH)" }),
+		}),
+	}, { additionalProperties: true })),
 	withLegacyObjectOrder(Type.Object(
 		{ old_text: Type.String(), new_text: Type.String() },
 		{ additionalProperties: true, description: "Do not use — Wrap as { replace: {old_text, new_text} }." },
@@ -271,20 +286,23 @@ function validateEdits(input: {
 			Number("set_line" in edit) +
 			Number("replace_lines" in edit) +
 			Number("insert_after" in edit) +
+			Number("copy_lines" in edit) +
+			Number("move_lines" in edit) +
 			Number("replace" in edit) +
 			Number("replace_symbol" in edit);
 		if (variantCount !== 1) {
 			return buildEditError(
 				absolutePath,
 				"invalid-edit-variant",
-				`edits[${i}] must contain exactly one of: 'set_line', 'replace_lines', 'insert_after', 'replace', 'replace_symbol'. Got: [${Object.keys(edit).join(", ")}].`,
+				`edits[${i}] must contain exactly one of: 'set_line', 'replace_lines', 'insert_after', 'copy_lines', 'move_lines', 'replace', 'replace_symbol'. Got: [${Object.keys(edit).join(", ")}].`,
 			);
 		}
 	}
 
 	const anchorEdits = edits.filter(
-		(edit): edit is HashlineEditItem => "set_line" in edit || "replace_lines" in edit || "insert_after" in edit,
-	);
+		(edit): edit is Extract<EditItem, HashlineEditItem> =>
+			"set_line" in edit || "replace_lines" in edit || "insert_after" in edit || "copy_lines" in edit || "move_lines" in edit,
+	) as HashlineEditItem[];
 	const replaceEdits = edits.filter(
 		(edit): edit is ReplaceEditItem => "replace" in edit,
 	);
@@ -465,14 +483,44 @@ function applyResolvedReplaceSymbols(
 
 type AnchorEditResult = ReturnType<typeof applyHashlineEdits>;
 
-function applyAnchorEdits(input: {
+/** Read the other files `copy_lines.from_path` names, LF-normalized, keyed by the given string. */
+async function loadCopySources(
+	anchorEdits: HashlineEditItem[],
+	absolutePath: string,
+	cwd: string,
+	signal?: AbortSignal,
+): Promise<EditPhaseResult<Map<string, string>>> {
+	const sources = new Map<string, string>();
+	for (const edit of anchorEdits) {
+		if (!("copy_lines" in edit)) continue;
+		const fromPath = edit.copy_lines.from_path?.trim();
+		if (!fromPath || sources.has(fromPath)) continue;
+		const sourcePath = resolveToCwd(fromPath.replace(/^@/, ""), cwd);
+		if (sourcePath === absolutePath) continue;
+		const loaded = await loadEditSource({ absolutePath: sourcePath, displayPath: fromPath, signal });
+		if (isEditErrorResult(loaded)) return loaded;
+		sources.set(fromPath, loaded.originalNormalized);
+	}
+	return sources;
+}
+
+async function applyAnchorEdits(input: {
 	absolutePath: string;
 	content: string;
 	anchorEdits: HashlineEditItem[];
+	cwd: string;
 	signal?: AbortSignal;
-}): EditPhaseResult<AnchorEditResult> {
+}): Promise<EditPhaseResult<AnchorEditResult>> {
+	const sources = await loadCopySources(input.anchorEdits, input.absolutePath, input.cwd, input.signal);
+	if (isEditErrorResult(sources)) return sources;
+	// A from_path naming the edited file itself is a copy within the file.
+	const anchorEdits = input.anchorEdits.map((edit) =>
+		"copy_lines" in edit && edit.copy_lines.from_path && !sources.has(edit.copy_lines.from_path.trim())
+			? { copy_lines: { ...edit.copy_lines, from_path: undefined } }
+			: edit,
+	);
 	try {
-		return applyHashlineEdits(input.content, input.anchorEdits, input.signal);
+		return applyHashlineEdits(input.content, anchorEdits, input.signal, { sources });
 	} catch (err) {
 		if (err instanceof HashlineMismatchError) {
 			return buildEditError(input.absolutePath, "hash-mismatch", err.message, undefined, {
@@ -1071,7 +1119,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					const replaceSymbolWarnings = symbolApplication.warnings;
 					let result = symbolApplication.content;
 
-					const anchorResult = applyAnchorEdits({ absolutePath, content: result, anchorEdits, signal });
+					const anchorResult = await applyAnchorEdits({ absolutePath, content: result, anchorEdits, cwd: ctx.cwd, signal });
 					if (isEditErrorResult(anchorResult)) return recordErrorFeedback(options, absolutePath, anchorResult);
 					result = anchorResult.content;
 

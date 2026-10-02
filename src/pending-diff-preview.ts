@@ -110,10 +110,13 @@ function isReplaceEdit(edit: unknown): edit is ReplaceEdit {
 type AnchorEdit =
 	| { set_line: { anchor: string; new_text: string } }
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
-	| { insert_after: { anchor: string; new_text: string; text?: string } };
+	| { insert_after: { anchor: string; new_text: string; text?: string } }
+	| { copy_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
+	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string } };
 
+/** Cross-file copies (`copy_lines.from_path`) are not projected; the preview is skipped for them. */
 function isAnchorEdit(edit: unknown): edit is AnchorEdit {
-	return !!edit && typeof edit === "object" && ("set_line" in edit || "replace_lines" in edit || "insert_after" in edit);
+	return !!edit && typeof edit === "object" && ("set_line" in edit || "replace_lines" in edit || "insert_after" in edit || "copy_lines" in edit || "move_lines" in edit);
 }
 
 function applyAnchoredPreview(content: string, edits: AnchorEdit[]): { type: "ok"; content: string } | { type: "skip"; reason: string } {

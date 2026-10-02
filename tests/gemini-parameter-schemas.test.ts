@@ -117,7 +117,7 @@ it("checks six Google JSON Schema declarations against the audited portable subs
   }
   const editSchema = declarations.find(d => d.name === "edit").parametersJsonSchema;
   assert.deepEqual(editSchema.properties.edits.items.anyOf.map((s: any) => s.required),
-    [["set_line"], ["replace_lines"], ["insert_after"], ["replace"], ["replace_symbol"], ["old_text", "new_text"]]);
+    [["set_line"], ["replace_lines"], ["insert_after"], ["replace"], ["replace_symbol"], ["copy_lines"], ["move_lines"], ["old_text", "new_text"]]);
 });
 
 it("retains all ten numeric/string schemas and accepted inputs", async () => {
@@ -170,17 +170,19 @@ it("preserves optional and required top-level null preparation for six tools", (
     }
   }
 });
-it("preserves six edit variants and nested required-null diagnostics", () => {
+it("preserves eight edit variants and nested required-null diagnostics", () => {
   const edit = registeredTools().find(tool => tool.name === "edit");
   const branches = edit.parameters.properties.edits.items.anyOf;
   assert.deepEqual(branches.map((s: any) => s.required),
-    [["set_line"], ["replace_lines"], ["insert_after"], ["replace"], ["replace_symbol"], ["old_text", "new_text"]]);
+    [["set_line"], ["replace_lines"], ["insert_after"], ["replace"], ["replace_symbol"], ["copy_lines"], ["move_lines"], ["old_text", "new_text"]]);
   const items = [
     { set_line: { anchor: "1:abc", new_text: "beta" } },
     { replace_lines: { start_anchor: "1:abc", end_anchor: "2:def", new_text: "beta" } },
     { insert_after: { anchor: "1:abc", new_text: "beta", text: null } },
     { replace: { old_text: "alpha", new_text: "beta", all: null, fuzzy: null } },
     { replace_symbol: { symbol: "demo", new_body: "function demo() {}" } },
+    { copy_lines: { start_anchor: "1:abc", end_anchor: "2:def", after_anchor: "3:abc", from_path: null } },
+    { move_lines: { start_anchor: "1:abc", end_anchor: "2:def", after_anchor: "3:abc" } },
     { old_text: "alpha", new_text: "beta" },
   ];
   for (const [index, item] of items.entries()) {
@@ -222,7 +224,7 @@ it("preserves schema serialization and order outside the four enum slots", () =>
   const hashes: Record<string, string> = {
     read: "718b9697cd227aa4c46bafeb86095ea78641a6290f2e98131dcfe528048c57a2",
     grep: "aa55ce8f4607f8e3e87f0edcbb7b407f5795b2ca84b8f72f723343ed0b7e5fd3",
-    edit: "f4e96f90cf75191050ba69e0aa760bffc461d4b2c77718c2cb838fc584834d31",
+    edit: "4ca57afd557de2725fadc29736dcda9d72dc69325a9d17b4d2eabb3285044b2c",
     find: "55e357e9e6d0695269d493def3d8e5af78d670ad16dc1472b42e1ee83c0e6b58",
     ls: "9ecf497c631527ff13de80c6eae5983d8de868ceed01ea750c406dcf057be77e",
     ast_search: "341c5cd7c9a3ddb13cdb1067e04d802c8f5c29f4d3fb6d75b77429a36f9648f7",
