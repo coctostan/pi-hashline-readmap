@@ -23,7 +23,7 @@ Prefer `set_line`, `replace_lines`, and `insert_after`: they verify the file sti
 
 A `replace` whose exact `old_text` occurs once needs no prior `read`. If it occurs more than once and `all` is not set, the edit is refused with `ambiguous-match` and the matching lines with anchors; add surrounding text, set `all: true`, or use `set_line` with one of those anchors. Anchored edits and `replace_symbol` still need fresh anchors from this session.
 
-To copy or move existing text, never retype it: use `copy_lines` or `move_lines`. They take the source range (`start_anchor`..`end_anchor`, inclusive) and `after_anchor` in the edited file, and write the source lines byte for byte, including invisible characters. To insert at the end of a file, use its last line as `after_anchor`. With `from_path`, the source range is in another file: `copy_lines` leaves it there, `move_lines` also deletes it from that file in the same call. Source anchors need a read of that file too. A copy or move whose source lines changed since they were read is refused with fresh anchors, and nothing is written.
+To copy or move existing text, never retype it: use `copy_lines` or `move_lines`. They take the source range (`start_anchor`..`end_anchor`, inclusive) and `after_anchor` in the edited file, and preserve source row text, invisible characters, and internal line separators (the join back to target text uses the target boundary policy below). To insert at the end of a file, use its last line as `after_anchor`. With `from_path`, the source range is in another file: `copy_lines` leaves it there, `move_lines` also deletes it from that file in the same call. Source anchors need a read of that file too. A copy or move whose source lines changed since they were read is refused with fresh anchors, and nothing is written.
 
 ## Input shape
 
@@ -44,11 +44,23 @@ To copy or move existing text, never retype it: use `copy_lines` or `move_lines`
 
 Use only the variant(s) needed for the task; the example shows all shapes together for reference. Each `edits[]` entry must contain exactly one variant key. `new_text` / `new_body` is plain file content — no hash prefixes or diff markers.
 
+## Line breaks and byte preservation
+
+`replace` splices physical text: untouched regions retain their original UTF-8 bytes, and `new_text` retains the LF/CRLF sequences supplied in the request. Mixed-ending files are not converted to one file-wide newline style. A replacement that changes only a separator is a real mutation, not a no-op.
+
+Matching first selects byte-exact `old_text` occurrences. Only when none exist, CRLF/LF-equivalent matching remains available for compatibility with read views; logical offsets are mapped back to original physical spans. `all: true` applies to the selected matching tier. A non-`all` request with multiple matches in that tier is refused. `fuzzy: true` remains an explicit whitespace/confusable-Unicode fallback and does not normalize untouched content or replacement payloads.
+
+Anchored edits, `replace_symbol`, and verified pasted-row recovery operate on logical rows. Untouched rows keep their physical separators. Introduced internal boundaries use the first replaced row's separator, or the insertion anchor's separator, with the file's first ending (LF for files without endings) as fallback. The outgoing boundary of a replaced range retains the last removed row's separator. Existing blank-line and final-newline conventions are unchanged; no global trim is applied.
+
+`copy_lines` and `move_lines` retain source row text and internal separators. The boundary joining the inserted block back to target text follows the target's local style. Copying from a BOM-prefixed file does not copy its BOM into the target. Cross-file source removals preserve untouched source regions and the source BOM.
+
+Pending previews preserve physical candidate content for supported homogeneous edit families. Mixed-family, multiple-symbol, cross-file or otherwise unsupported projections may be skipped rather than showing a candidate inconsistent with execution. A skipped preview does not reject execution.
+
 ## Optional post-edit verification
 
 `postEditVerify: true` opts into post-write persisted-content verification for this one call. It is default off: when omitted or false, successful edits use the normal fast path and do not perform an extra read-back check.
 
-When enabled, `edit` first runs the normal validation and write path. Only after the write succeeds, it reads the file back from disk and compares the persisted content to the exact intended content, including BOM restoration and original line-ending restoration. This is not syntax validation; syntax validation is the separate pre-write `syntaxValidate` / `PI_HASHLINE_SYNTAX_VALIDATE` guard described below.
+When enabled, `edit` first runs the normal validation and write path. Only after the write succeeds, it reads the file back from disk and compares persisted content to the exact physical candidate, including the original BOM. Verification does not convert line breaks or weaken byte-exact comparison. This is not syntax validation; syntax validation is the separate pre-write `syntaxValidate` / `PI_HASHLINE_SYNTAX_VALIDATE` guard described below.
 
 ## `replace_symbol`
 
@@ -84,7 +96,7 @@ Anchor hashes include whitespace: a reindented line is a changed line. An unchan
 - Anchored edits are validated against their resolved original-file targets before bottom-up application. Unsafe overlapping replacement/deletion targets, or an `insert_after` boundary consumed by another edit, fail with `overlapping-edit`; nothing is written. Submit disjoint edits, or put dependent changes in separate `edit` calls. A one-line replacement plus `insert_after` at that same stable line remains valid. Distinct `insert_after` operations sharing the same resolved anchor retain request-array order; identical duplicate insertions are applied once.
 - An edit that produces the file's current content is a successful no-op: nothing is written and the result says `No changes made`. Do not retry it.
 - A whitespace-only warning means formatting changed but behavior probably did not.
-- `new_text` is applied literally, including its indentation and line breaks. A replacement that repeats the untouched line just above or below its range duplicates that line (with a warning); an `insert_after` text that starts with a copy of its anchor line has that copy dropped (with a warning).
+- Payload indentation is literal. Literal `replace` payloads also preserve their requested line breaks; row-based variants use the separator policy above. A replacement that repeats the untouched row just above or below its range duplicates that row (with a warning); an `insert_after` payload beginning with a copy of its anchor row has that copy dropped (with a warning).
 - A `replace`-only success may include a reminder to prefer anchored edits next time.
 - Edits are written atomically (temp file + rename); symlinks are written through to their real target and preserved, and hard links are updated in place.
 

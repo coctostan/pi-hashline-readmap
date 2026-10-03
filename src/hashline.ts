@@ -23,6 +23,8 @@ export type HashlineEditItem =
 /** Content of other files that `copy_lines.from_path` names, keyed by that exact string (LF-normalized). */
 export interface HashlineEditOptions {
 	sources?: ReadonlyMap<string, string>;
+	/** Observe validated, resolved row mutations without changing logical anchor semantics. */
+	onSplice?: (index: number, deleteCount: number, newLines: readonly string[], copy?: { fromPath?: string; startLine: number }) => void;
 }
 
 interface HashMismatch {
@@ -686,6 +688,10 @@ export function applyHashlineEdits(
 
 	const fileLines = content.split("\n");
 	const origLines = [...fileLines];
+	function splice(index: number, deleteCount: number, newLines: string[], copy?: { fromPath?: string; startLine: number }): void {
+		options.onSplice?.(index, deleteCount, newLines, copy);
+		fileLines.splice(index, deleteCount, ...newLines);
+	}
 	let firstChanged: number | undefined;
 	const noopEdits: NoopEdit[] = [];
 
@@ -920,7 +926,7 @@ export function applyHashlineEdits(
 					noopEdits.push({ editIndex: idx, loc: `${spec.ref.line}:${spec.ref.hash}`, currentContent: orig.join("\n") });
 					continue;
 				}
-				fileLines.splice(merged.startLine - 1, merged.deleteCount, ...newL);
+				splice(merged.startLine - 1, merged.deleteCount, newL);
 				track(merged.startLine);
 				continue;
 			}
@@ -936,7 +942,7 @@ export function applyHashlineEdits(
 				continue;
 			}
 			boundaryWarnings.push(...describeBoundaryDuplicates(origLines, spec.ref.line, spec.ref.line, newL));
-			fileLines.splice(spec.ref.line - 1, 1, ...newL);
+			splice(spec.ref.line - 1, 1, newL);
 			track(spec.ref.line);
 		} else if (spec.kind === "range") {
 			const count = spec.end.line - spec.start.line + 1;
@@ -950,7 +956,7 @@ export function applyHashlineEdits(
 				continue;
 			}
 			boundaryWarnings.push(...describeBoundaryDuplicates(origLines, spec.start.line, spec.end.line, newL));
-			fileLines.splice(spec.start.line - 1, count, ...newL);
+			splice(spec.start.line - 1, count, newL);
 			track(spec.start.line);
 		} else {
 			const anchor = origLines[spec.after.line - 1];
@@ -968,19 +974,19 @@ export function applyHashlineEdits(
 			if (content === "" && spec.after.line === 1 && anchor === "") {
 				if (insertedAtSyntheticEmptyAnchor) {
 					// Same-boundary insertions are being applied in reverse request order.
-					fileLines.splice(0, 0, ...inserted);
+					splice(0, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 				} else if (fileLines.length === 1 && fileLines[0] === "") {
 					// Consume the synthetic empty-line sentinel exactly once.
-					fileLines.splice(0, 1, ...inserted);
+					splice(0, 1, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 					insertedAtSyntheticEmptyAnchor = true;
 				} else {
 					// A set/range edit already consumed the sentinel; insert after its line.
-					fileLines.splice(spec.after.line, 0, ...inserted);
+					splice(spec.after.line, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 				}
 				track(1);
 				continue;
 			}
-			fileLines.splice(spec.after.line, 0, ...inserted);
+			splice(spec.after.line, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 			track(spec.after.line + 1);
 		}
 	}

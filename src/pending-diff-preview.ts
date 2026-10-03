@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
-import { generateDiffString, normalizeToLF, replaceText } from "./edit-diff.js";
+import { generateDiffString, normalizeToLF, findPhysicalTextSpans, replacePhysicalText, stripBom } from "./edit-diff.js";
+import { PhysicalLineBuffer } from "./physical-lines.js";
 import { applyHashlineEdits, type HashlineEditItem } from "./hashline.js";
 import { replaceSymbol } from "./replace-symbol.js";
 
@@ -121,7 +122,13 @@ function isAnchorEdit(edit: unknown): edit is AnchorEdit {
 
 function applyAnchoredPreview(content: string, edits: AnchorEdit[]): { type: "ok"; content: string } | { type: "skip"; reason: string } {
 	try {
-		return { type: "ok", content: applyHashlineEdits(content, edits as HashlineEditItem[]).content };
+		if (edits.some(edit => ("copy_lines" in edit && edit.copy_lines.from_path) || ("move_lines" in edit && (edit.move_lines as any).from_path))) return { type: "skip", reason: "cross-file projection requires execution" };
+		const physical = new PhysicalLineBuffer(content);
+		const original = new PhysicalLineBuffer(content);
+		applyHashlineEdits(normalizeToLF(content), edits as HashlineEditItem[], undefined, {
+			onSplice: (index, count, lines, copy) => physical.splice(index, count, lines, copy ? original.endings.slice(copy.startLine - 1, copy.startLine - 1 + lines.length) : undefined),
+		});
+		return { type: "ok", content: physical.toString() };
 	} catch (err: any) {
 		return { type: "skip", reason: `anchor projection failed: ${err?.message ?? String(err)}` };
 	}
@@ -136,14 +143,11 @@ function isReplaceSymbolEdit(edit: unknown): edit is ReplaceSymbolEdit {
 async function applyReplaceSymbolPreview(filePath: string, content: string, edit: ReplaceSymbolEdit): Promise<{ type: "ok"; content: string } | { type: "skip"; reason: string }> {
 	try {
 		if (!edit.replace_symbol.new_body.trim()) return { type: "skip", reason: "replace_symbol new_body is empty" };
-		const probe = await replaceSymbol({
-			filePath,
-			content,
-			symbol: edit.replace_symbol.symbol,
-			newBody: edit.replace_symbol.new_body,
-		});
+		const probe = await replaceSymbol({ filePath, content: normalizeToLF(content), symbol: edit.replace_symbol.symbol, newBody: normalizeToLF(edit.replace_symbol.new_body) });
 		if (probe.type !== "ok") return { type: "skip", reason: `symbol projection failed: ${probe.message}` };
-		return { type: "ok", content: probe.content };
+		const physical = new PhysicalLineBuffer(content);
+		physical.splice(probe.range.start - 1, probe.range.end - probe.range.start + 1, normalizeToLF(probe.replacement).split("\n"));
+		return { type: "ok", content: physical.toString() };
 	} catch (err: any) {
 		return { type: "skip", reason: `symbol projection failed: ${err?.message ?? String(err)}` };
 	}
@@ -153,18 +157,8 @@ async function applyReplaceSymbolPreview(filePath: string, content: string, edit
 function applyReplacePreview(content: string, edit: ReplaceEdit): { type: "ok"; content: string } | { type: "skip"; reason: string } {
 	const { old_text, new_text } = edit.replace;
 	if (!old_text.length) return { type: "skip", reason: "replace old_text is empty" };
-	if (!edit.replace.all) {
-		const exact = old_text.replace(/\r\n/g, "\n");
-		const first = content.indexOf(exact);
-		// Execution refuses ambiguous matches, so do not preview a first-occurrence edit.
-		if (first !== -1 && content.indexOf(exact, first + exact.length) !== -1) {
-			return { type: "skip", reason: "replace old_text occurs more than once" };
-		}
-	}
-	const replacement = replaceText(content, old_text, new_text, {
-		all: edit.replace.all ?? false,
-		fuzzy: edit.replace.fuzzy ?? false,
-	});
+	if (!edit.replace.all && findPhysicalTextSpans(content, old_text).length > 1) return { type: "skip", reason: "replace old_text occurs more than once" };
+	const replacement = replacePhysicalText(content, old_text, new_text, { all: edit.replace.all ?? false, fuzzy: edit.replace.fuzzy ?? false });
 	if (!replacement.count) return { type: "skip", reason: "replace old_text was not found" };
 	return { type: "ok", content: replacement.content };
 }
@@ -195,51 +189,29 @@ export function buildPendingWritePreviewData(input: { path?: unknown; content?: 
 
 export async function buildPendingEditPreviewData(input: PendingEditInput, cwd: string): Promise<PendingDiffPreviewResult> {
 	const edits = normalizeReplaceOnlyEdits(input);
-	if (edits.length === 0) return skip("missing edits");
+	if (!edits.length) return skip("missing edits");
 	const resolved = resolveWorkspacePreviewPath(input.path, cwd, false);
 	if (resolved.type === "skip") return resolved;
 	const previous = readUtf8File(resolved.path);
 	if (previous.type === "skip") return previous;
-	let next = normalizeToLF(previous.content);
-	const anchorBatch: AnchorEdit[] = [];
-
-	for (const edit of edits) {
-		if (isReplaceEdit(edit)) {
-			if (anchorBatch.length > 0) {
-				const anchored = applyAnchoredPreview(next, anchorBatch);
-				if (anchored.type === "skip") return anchored;
-				next = anchored.content;
-				anchorBatch.length = 0;
-			}
-			const projected = applyReplacePreview(next, edit);
+	const families = new Set(edits.map(edit => isReplaceEdit(edit) ? "replace" : isAnchorEdit(edit) ? "anchor" : isReplaceSymbolEdit(edit) ? "symbol" : "unsupported"));
+	if (families.has("unsupported")) return skip("unsupported edit variant");
+	if (families.size > 1) return skip("mixed edit families require execution");
+	if (families.has("symbol") && edits.length > 1) return skip("multiple symbol edits require execution");
+	const { bom, text } = stripBom(previous.content);
+	let next = text;
+	if (families.has("anchor")) {
+		const projected = applyAnchoredPreview(next, edits as AnchorEdit[]);
+		if (projected.type === "skip") return projected;
+		next = projected.content;
+	} else {
+		for (const edit of edits) {
+			const projected = isReplaceEdit(edit) ? applyReplacePreview(next, edit) : await applyReplaceSymbolPreview(resolved.path, next, edit as ReplaceSymbolEdit);
 			if (projected.type === "skip") return projected;
 			next = projected.content;
-			continue;
 		}
-		if (isAnchorEdit(edit)) {
-			anchorBatch.push(edit);
-			continue;
-		}
-		if (isReplaceSymbolEdit(edit)) {
-			if (anchorBatch.length > 0) {
-				const anchored = applyAnchoredPreview(next, anchorBatch);
-				if (anchored.type === "skip") return anchored;
-				next = anchored.content;
-				anchorBatch.length = 0;
-			}
-			const projected = await applyReplaceSymbolPreview(resolved.path, next, edit);
-			if (projected.type === "skip") return projected;
-			next = projected.content;
-			continue;
-		}
-		return skip("unsupported edit variant");
 	}
-
-	if (anchorBatch.length > 0) {
-		const anchored = applyAnchoredPreview(next, anchorBatch);
-		if (anchored.type === "skip") return anchored;
-		next = anchored.content;
-	}
+	next = bom + next;
 	if (pendingDiffTooComplex(previous.content, next)) return skip("diff too complex");
 	return buildData(resolved.path, previous.content, next, true, "pending edit");
 }

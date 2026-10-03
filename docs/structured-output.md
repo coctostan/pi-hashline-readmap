@@ -137,3 +137,9 @@ On supported files, direct symbol reads can target functions, classes, methods, 
 - Use stable fields such as `tool`, `path`, `lines`, `anchor`, `warnings`, and `error.code` when available.
 - Avoid parsing rendered text when the same data exists in `ptcValue` or `structuredContent`.
 - Decide confirmation and exposure from tool `annotations`: `edit` and `write` are destructive, while `read`, `grep`, `ast_search`, `ls`, and `find` are read-only.
+
+## Physical edit patches
+
+Successful edit results keep `details.diff` and `details.diffData` as logical, line-oriented render data. `details.patch` (also present in the edit structured value) is a unified patch between the actual pre-write and persisted physical file contents, including BOM and LF/CRLF separators. Integrations needing byte-preserving replay should use the patch with newline conversion disabled in their patch consumer, rather than reconstructing bytes from the rendered diff. A newline-only mutation can have an empty logical diff while its physical patch still records a real change.
+
+`postEditVerify: true` verifies persisted content against this physical candidate. It is not a second interpretation of payloads or a newline normalization pass.

@@ -227,6 +227,80 @@ export function replaceText(
 	};
 }
 
+/** Select nonoverlapping byte-exact spans, or CRLF/LF-equivalent spans only if none exist. */
+export function findPhysicalTextSpans(content: string, oldText: string): Array<{ index: number; matchLength: number }> {
+	if (!oldText.length) return [];
+	const collect = (text: string, needle: string) => {
+		const spans: Array<{ index: number; matchLength: number }> = [];
+		for (let index = text.indexOf(needle); index !== -1; index = text.indexOf(needle, index + needle.length)) spans.push({ index, matchLength: needle.length });
+		return spans;
+	};
+	const exact = collect(content, oldText);
+	if (exact.length) return exact;
+	let logical = "";
+	const starts: number[] = [];
+	const ends: number[] = [];
+	for (let index = 0; index < content.length; index++) {
+		starts.push(index);
+		if (content[index] === "\r" && content[index + 1] === "\n") {
+			logical += "\n";
+			ends.push(index + 2);
+			index++;
+		} else {
+			logical += content[index];
+			ends.push(index + 1);
+		}
+	}
+	return collect(logical, oldText.replace(/\r\n/g, "\n")).map(span => ({
+		index: starts[span.index],
+		matchLength: ends[span.index + span.matchLength - 1] - starts[span.index],
+	}));
+}
+
+/** Build one fuzzy source map, retaining complete whitespace runs in physical spans. */
+export function findFuzzyTextSpans(content: string, oldText: string, all: boolean): Array<{ index: number; matchLength: number }> {
+	if (isSemanticallyEmptyFuzzyNeedle(oldText)) return [];
+	const needle = normalizeForFuzzyMatch(oldText);
+	if (!needle.length) return [];
+	const { normalized, indexMap, endMap } = buildNormalizedWithMap(content);
+	const spans: Array<{ index: number; matchLength: number }> = [];
+	let from = 0;
+	while (from <= normalized.length - needle.length) {
+		const pos = normalized.indexOf(needle, from);
+		if (pos === -1) break;
+		const mapped = mapNormalizedSpanToOriginal(indexMap, endMap, pos, needle.length);
+		if (mapped) {
+			const previous = spans[spans.length - 1];
+			if (!previous || mapped.index >= previous.index + previous.matchLength) {
+				spans.push(mapped);
+				if (!all) break;
+			}
+		}
+		from = pos + Math.max(1, needle.length);
+	}
+	return spans;
+}
+
+/** Splice physical spans with the literal payload; never normalize the stored candidate. */
+export function replacePhysicalText(content: string, oldText: string, newText: string, opts: { all?: boolean; fuzzy?: boolean }): ReplaceTextResult {
+	if (!oldText.length) return { content, count: 0, usedFuzzyMatch: false };
+	let spans = findPhysicalTextSpans(content, oldText);
+	let usedFuzzyMatch = false;
+	if (!spans.length && opts.fuzzy && oldText.trim().length) {
+		spans = findFuzzyTextSpans(content, oldText, opts.all ?? false);
+		usedFuzzyMatch = spans.length > 0;
+	}
+	if (!opts.all) spans = spans.slice(0, 1);
+	const chunks: string[] = [];
+	let cursor = 0;
+	for (const span of spans) {
+		chunks.push(content.slice(cursor, span.index), newText);
+		cursor = span.index + span.matchLength;
+	}
+	chunks.push(content.slice(cursor));
+	return { content: chunks.join(""), count: spans.length, usedFuzzyMatch };
+}
+
 // ─── Diff generation ────────────────────────────────────────────────────
 
 export function generateDiffString(
