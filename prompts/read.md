@@ -8,6 +8,8 @@ Read text files with `LINE:HASH|content` anchors usable by `edit`. Default cap: 
 - `map: true` — append a full-file structural map even for small files. May combine with `offset` / `limit`, `symbol`, and `bundle`.
 - `symbol: "Name"` — read one symbol range by name, with hash anchors. Supports `ClassName.method`, Java package-relative names, and `Name@<line>` disambiguation. May combine with `limit`, `map: true`, and `bundle: "local"`; cannot combine with `offset`.
 - `bundle: "local"` — with `symbol`, also include direct same-file local support when available. May combine with `limit` and `map: true`; cannot be used without `symbol`.
+- `strictSymbol: true` — requires a non-empty `symbol`. Accepts the lookup's exact and normalized-exact tiers, including qualified, Java package-relative and `@line` selectors. It rejects missing, ambiguous, fuzzy and unmappable lookups rather than silently falling back.
+- `errorMode: "value"` — opt into coded extension-owned failure values in codemode; host preparation/permission/abort failures may still reject. Default is `"throw"`.
 
 Empty-string `symbol` / `offset` / `limit` values and numeric or base-10 string zero (`0` / `"0"`) `offset` / `limit` values are treated as omitted placeholders before the read mode is selected. Every omission is reported in a leading `[Read params adjusted: ...]` notice and structured `params-adjusted` warning. Meaningful conflicts still fail instead of guessing: a non-empty `symbol` cannot combine with a positive `offset`, and `bundle` still requires a surviving `symbol`.
 
@@ -39,5 +41,9 @@ Result behavior:
 - **Ambiguous**: displays at most five parent-qualified candidate rows and states the exact omitted count. Accurate dotted / `name@line` selectors are provided for shown and every omitted candidate. Structured metadata contains `tier`, `totalCandidates`, `displayedCandidates`, `omittedCandidates`, `omittedSelectors`, and `omittedCount`.
 - **Not found**: falls back to normal read with a warning listing available symbols.
 - **Unmappable**: falls back to normal read with a warning.
+
+With `strictSymbol: true`, the failure codes are `symbol-not-found`, `symbol-ambiguous`, `symbol-fuzzy`, and `symbol-unmappable`. Fuzzy includes prefix, camelCase and substring matches. Omitted/blank symbol with strict mode is `invalid-params-combo`. When present, `error.details` contains the lookup result with tier/candidates. Without strict mode, the interactive behaviors above are unchanged.
+
+Image successes expose script-forwardable `{ type: "image", data, mimeType, note, text }`; call `image(result)`. Omitted/missing attachments return `{ kind: "notice", text, warnings }`, not image bytes. Interactive ambiguity remains a successful choice response. See [structured output](../docs/structured-output.md#read-success-variants).
 
 Hash anchors from symbol and bundled reads are valid for `edit`.

@@ -55,11 +55,20 @@ export interface GrepOutputGroup {
   };
 }
 
+export interface GrepCompleteness {
+  search: "complete" | "unknown";
+  limitReached: boolean;
+  nativeTruncated: boolean;
+  omittedMatches: number | null;
+  displayTruncated: boolean;
+}
 export interface BuildGrepOutputInput {
   summary: boolean;
   totalMatches: number;
   groups: GrepOutputGroup[];
   limit?: number;
+  native?: { limitReached: boolean; truncated: boolean; linesTruncated: boolean };
+  searchUnknown?: boolean;
   records: GrepOutputRecord[];
   scopeMode?: "symbol";
   scopeWarnings?: GrepScopeWarning[];
@@ -73,6 +82,7 @@ export interface GrepOutputResult {
     tool: "grep";
     summary: boolean;
     totalMatches: number;
+    completeness: GrepCompleteness;
     records: GrepOutputPtcRecord[];
     scopes?: {
       mode: "symbol";
@@ -145,8 +155,8 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
   if ((input.passthroughLines?.length ?? 0) > 0) {
     text += `\n\n${input.passthroughLines!.join("\n")}`;
   }
-  if (input.limit !== undefined && input.totalMatches === input.limit) {
-    text += `\n\n[Results truncated at ${input.limit} matches — refine pattern or increase limit]`;
+  if (input.native?.limitReached ?? (input.limit !== undefined && input.totalMatches >= input.limit)) {
+    text += `\n\n[Search stopped at ${input.limit ?? input.totalMatches} matches; completeness unknown — refine pattern or increase limit]`;
   }
   if (!input.summary && input.scopeMode === "symbol" && (input.scopeWarnings?.length ?? 0) > 0) {
     text = `${input.scopeWarnings!.map((warning) => warning.message).join("\n\n")}\n\n${text}`;
@@ -159,10 +169,23 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
   if (truncated.truncated) {
     text = `${truncated.content}\n\n[Output truncated: showing ${truncated.outputLines} of ${truncated.totalLines} lines (${formatSize(truncated.outputBytes)} of ${formatSize(truncated.totalBytes)}). Refine pattern or increase limit.]`;
   }
+  const limitReached = input.native?.limitReached
+    ?? (input.limit !== undefined && input.totalMatches >= input.limit);
+  const nativeTruncated = input.native?.truncated ?? false;
+  const returnedMatches = new Set(input.records.filter((record) => record.kind === "match")
+    .map((record) => JSON.stringify([record.path, record.line]))).size;
+  const completeness: GrepCompleteness = {
+    search: limitReached || nativeTruncated || input.searchUnknown ? "unknown" : "complete",
+    limitReached,
+    nativeTruncated,
+    omittedMatches: input.searchUnknown ? null : Math.max(0, input.totalMatches - returnedMatches),
+    displayTruncated: truncated.truncated || (!input.summary && (input.native?.linesTruncated ?? false)),
+  };
   const ptcValue: GrepOutputResult["ptcValue"] = {
     tool: "grep",
     summary: input.summary,
     totalMatches: input.totalMatches,
+    completeness,
     records: input.records.map((record) => ({
       path: record.path,
       line: record.line,

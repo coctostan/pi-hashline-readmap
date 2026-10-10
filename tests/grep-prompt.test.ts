@@ -41,7 +41,7 @@ describe("prompts/grep.md", () => {
     expect(content).toContain("summary");
     expect(content).toContain("scope");
     expect(content).toContain("literal");
-    expect(content).toContain("Results truncated at");
+    expect(content).toContain("Search stopped at");
     expect(content).toContain("head-truncate");
   });
 

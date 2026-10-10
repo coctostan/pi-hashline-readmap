@@ -25,7 +25,11 @@ Obvious base-10 numeric strings are accepted for `context`, `limit`, and `scopeC
 
 ## Truncation and guidance
 
-If matches hit `limit`, output appends one canonical `[Results truncated at N matches — refine pattern or increase limit]` notice. Dependency and wrapper notices are deduplicated. Large non-summary results may cap displayed matches per file and/or head-truncate by output budget; narrow with `summary`, `path`, `glob`, or a more specific pattern.
+If matches hit `limit`, output appends one canonical `[Search stopped at N matches; completeness unknown — refine pattern or increase limit]` notice. The exact-limit case does not prove additional matches exist. Dependency and wrapper notices are deduplicated. Large results may cap returned match records per file and/or head-truncate displayed text by output budget; narrow with `summary`, `path`, `glob`, or a more specific pattern.
+
+Scripts receive `completeness: { search, limitReached, nativeTruncated, omittedMatches, displayTruncated }`. `totalMatches` is the observed/admitted count, not a guaranteed repository total. `omittedMatches` counts known observed matches missing from structured records (or is null for uninterpreted/binary-warning responses); `displayTruncated` only describes text clipping. Raw script lines and compact persisted records are unchanged. See [grep completeness](../docs/structured-output.md#grep-completeness).
+
+`errorMode: "value"` opts into coded extension-owned failure values; host preparation/permission/abort failures can still reject.
 
 Long source lines may be display-truncated in non-summary output while retaining full hash/edit values. Summary mode never reports source-line display truncation because summary output contains no source lines; other relevant diagnostics remain available.
 

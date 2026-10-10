@@ -43,6 +43,7 @@ interface ReadParams {
 	offset?: number | string;
 	limit?: number | string;
 	symbol?: string;
+	strictSymbol?: boolean;
 	map?: boolean;
 	bundle?: "local";
 }
@@ -113,6 +114,9 @@ const READ_PARAMETERS = Type.Object({
 		]),
 	),
 	symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
+	strictSymbol: Type.Optional(Type.Boolean({
+		description: "Require symbol; exact/normalized-exact only; no fallback",
+	})),
 	map: Type.Optional(Type.Boolean({ description: "Append map; valid with symbol, limit, and local bundle" })),
 	bundle: Type.Optional(
 		StringEnum(["local"] as const, {
@@ -306,6 +310,17 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				}
 				return finished;
 			};
+			const strictFailure = (code: string, message: string, details?: unknown) => finish({
+				content: [{ type: "text" as const, text: message }],
+				isError: true,
+				details: { ptcValue: {
+					tool: "read", ok: false, path: rawParams.path,
+					error: buildPtcError(code, message, undefined, details),
+				} },
+			});
+			if (p.strictSymbol && !p.symbol) {
+				return strictFailure("invalid-params-combo", "strictSymbol requires a non-empty symbol.");
+			}
 
 			throwIfAborted(signal);
 			if (p.symbol && p.offset !== undefined) {
@@ -342,6 +357,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			throwIfAborted(signal);
 			const ext = rawPath.split(".").pop()?.toLowerCase() ?? "";
 			if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
+				if (p.strictSymbol) return strictFailure("symbol-unmappable", "Symbol lookup is not available for images.");
 				const builtinRead: any = createReadTool(ctx.cwd);
 				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate, ctx));
 			}
@@ -420,6 +436,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			}
 
 			if (isSupportedImageBuffer(rawBuffer)) {
+				if (p.strictSymbol) return strictFailure("symbol-unmappable", "Symbol lookup is not available for images.");
 				const builtinRead: any = createReadTool(ctx.cwd);
 				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate, ctx));
 			}
@@ -471,10 +488,18 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			if (p.symbol) {
 				symbolFileMap = await getOrGenerateMap(absolutePath);
 				if (!symbolFileMap) {
+					if (p.strictSymbol) return strictFailure("symbol-unmappable", `Symbol lookup is not available for .${ext || "unknown"} files.`);
 					const extLabel = ext || "unknown";
 					symbolWarning = `[Warning: symbol lookup not available for .${extLabel} files — showing full file]\n\n`;
 				} else {
 					const lookup = findSymbol(symbolFileMap, p.symbol);
+					if (p.strictSymbol && lookup.type !== "found") {
+						return strictFailure(
+							`symbol-${lookup.type}`,
+							`Strict symbol lookup for '${p.symbol}' failed: ${lookup.type}.`,
+							lookup,
+						);
+					}
 					if (lookup.type === "ambiguous") {
 						const summary = summarizeAmbiguity(lookup.candidates);
 						return succeed({

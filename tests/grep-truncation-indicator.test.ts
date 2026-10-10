@@ -10,16 +10,13 @@ import {
 
 describe("grep truncation indicator", () => {
 	it("appends truncation message when result count equals limit", () => {
-		const lines: GrepIRLine[] = Array.from({ length: 5 }, (_, i) => ({
-			kind: "match" as const,
-			raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
-		}));
-		const ir: GrepIR = {
-			totalMatches: 5,
-			files: [{ path: "src/foo.ts", matchCount: 5, lines }],
-		};
-		const output = formatGrepOutput(ir, { limit: 5 });
-		expect(output).toContain("[Results truncated at 5 matches — refine pattern or increase limit]");
+    const lines: GrepIRLine[] = Array.from({ length: 5 }, (_, i) => ({
+      kind: "match" as const, raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
+    }));
+    const ir: GrepIR = { totalMatches: 5, files: [{ path: "src/foo.ts", matchCount: 5, lines }] };
+    const output = formatGrepOutput(ir, { limit: 5 });
+    if (!output.includes("completeness unknown")) throw new Error("Legacy grep formatter overstates completeness");
+    expect(output).toContain("[Search stopped at 5 matches; completeness unknown — refine pattern or increase limit]");
 	});
 
 	it("does not append truncation message when results are under limit", () => {
@@ -32,7 +29,7 @@ describe("grep truncation indicator", () => {
 			files: [{ path: "src/foo.ts", matchCount: 3, lines }],
 		};
 		const output = formatGrepOutput(ir, { limit: 5 });
-		expect(output).not.toContain("[Results truncated");
+		expect(output).not.toContain("[Search stopped");
 	});
 
 	it("does not append truncation message when no limit is specified and results < 100", () => {
@@ -45,7 +42,7 @@ describe("grep truncation indicator", () => {
 			files: [{ path: "src/foo.ts", matchCount: 3, lines }],
 		};
 		const output = formatGrepOutput(ir);
-		expect(output).not.toContain("[Results truncated");
+		expect(output).not.toContain("[Search stopped");
 	});
 
 	it("appends truncation message at default limit of 100", () => {
@@ -59,7 +56,7 @@ describe("grep truncation indicator", () => {
 		};
 		// No limit option passed — should use default of 100
 		const output = formatGrepOutput(ir, { limit: 100 });
-		expect(output).toContain("[Results truncated at 100 matches — refine pattern or increase limit]");
+		expect(output).toContain("[Search stopped at 100 matches; completeness unknown — refine pattern or increase limit]");
 	});
 
 	it("appends truncation message in summary mode when results hit limit", () => {
@@ -76,7 +73,7 @@ describe("grep truncation indicator", () => {
 		expect(output).toContain("[5 matches in 1 files]");
 		expect(output).toContain("src/foo.ts: 5 matches");
 		// Truncation indicator also appears
-		expect(output).toContain("[Results truncated at 5 matches — refine pattern or increase limit]");
+		expect(output).toContain("[Search stopped at 5 matches; completeness unknown — refine pattern or increase limit]");
 		// No hashline anchors in summary mode
 		expect(output).not.toMatch(/\d+:[0-9a-f]{3}\|/);
 	});
@@ -116,6 +113,6 @@ describe("grep truncation indicator integration", () => {
 			limit: 2,
 		});
 		const text = getTextContentT(result);
-		expect(text).toContain("[Results truncated at 2 matches — refine pattern or increase limit]");
+		expect(text).toContain("[Search stopped at 2 matches; completeness unknown — refine pattern or increase limit]");
 	});
 });

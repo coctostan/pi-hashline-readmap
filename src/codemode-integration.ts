@@ -54,18 +54,40 @@ const RANGE = Type.Object({ startLine: Type.Number(), endLine: Type.Number() });
  * Compact output schemas. Codemode lists top-level field names in tool descriptions, so keep
  * them short; results may carry additional `ptcValue` fields (see docs/structured-output.md).
  */
-export const HASHLINE_TOOL_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = {
-  read: Type.Object({
-    text: TEXT,
-    path: Type.String(),
-    range: Type.Object({ startLine: Type.Number(), endLine: Type.Number(), totalLines: Type.Number() }),
-    lines: Type.Array(LINE),
-    continuation: Type.Union([Type.Object({ nextOffset: Type.Number() }), Type.Null()]),
-    warnings: Type.Array(WARNING),
-  }),
+const HASHLINE_SUCCESS_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = {
+  read: Type.Union([
+    Type.Object({
+      text: TEXT,
+      path: Type.String(),
+      range: Type.Object({ startLine: Type.Number(), endLine: Type.Number(), totalLines: Type.Number() }),
+      lines: Type.Array(LINE),
+      continuation: Type.Union([Type.Object({ nextOffset: Type.Number() }), Type.Null()]),
+      warnings: Type.Array(WARNING),
+    }),
+    Type.Object({
+      text: TEXT,
+      type: Type.Literal("image"),
+      data: Type.String({ minLength: 1 }),
+      mimeType: Type.String({ minLength: 1 }),
+      note: Type.String(),
+    }),
+    Type.Object({
+      text: TEXT,
+      path: Type.String(),
+      ambiguity: Type.Object({ query: Type.String(), totalCandidates: Type.Number() }),
+    }),
+    Type.Object({ text: TEXT, kind: Type.Literal("notice"), warnings: Type.Array(WARNING) }),
+  ]),
   grep: Type.Object({
     text: TEXT,
-    totalMatches: Type.Number(),
+    totalMatches: Type.Number({ description: "Observed matches, not a repository-wide total when search is unknown" }),
+    completeness: Type.Object({
+      search: Type.Union([Type.Literal("complete"), Type.Literal("unknown")]),
+      limitReached: Type.Boolean(),
+      nativeTruncated: Type.Boolean(),
+      omittedMatches: Type.Union([Type.Number(), Type.Null()]),
+      displayTruncated: Type.Boolean(),
+    }),
     records: Type.Array(
       Type.Object({
         path: Type.String(),
@@ -106,6 +128,22 @@ export const HASHLINE_TOOL_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = {
     truncated: Type.Boolean(),
   }),
 };
+
+const FAILURE_VALUE = Type.Object({
+  text: TEXT,
+  tool: Type.String(),
+  ok: Type.Literal(false),
+  error: Type.Object({
+    code: Type.String(),
+    message: Type.String(),
+    hint: Type.Optional(Type.String()),
+    details: Type.Optional(Type.Unknown()),
+  }),
+});
+
+export const HASHLINE_TOOL_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = Object.fromEntries(
+  Object.entries(HASHLINE_SUCCESS_OUTPUT_SCHEMAS).map(([name, schema]) => [name, Type.Union([schema, FAILURE_VALUE])]),
+);
 
 /** True when another tool (for example a codemode script) issued this call. */
 export function isNestedToolEvent(event: unknown): boolean {
@@ -166,6 +204,26 @@ export function buildStructuredContent(result: unknown): Record<string, unknown>
   return Object.assign({ text }, structured as Record<string, unknown>, { text });
 }
 
+function buildReadStructuredContent(result: unknown): Record<string, unknown> | undefined {
+  const value = buildStructuredContent(result);
+  if (!value || !result || typeof result !== "object") return value;
+  const input = result as { content?: unknown; details?: { ptcValue?: { warnings?: unknown[] } } };
+  const attachment = Array.isArray(input.content)
+    ? input.content.find((item) => item?.type === "image"
+        && typeof item.data === "string" && item.data.length > 0
+        && typeof item.mimeType === "string" && item.mimeType.length > 0)
+    : undefined;
+  if (attachment) {
+    return { ...value, type: "image", data: attachment.data, mimeType: attachment.mimeType, note: value.text };
+  }
+  if (Array.isArray(value.lines) || value.ambiguity) return value;
+  return {
+    text: value.text,
+    kind: "notice",
+    warnings: toScriptJson(input.details?.ptcValue?.warnings ?? []),
+  };
+}
+
 type AnyDefinition = Parameters<ExtensionAPI["registerTool"]>[0] & {
   annotations?: HashlineToolAnnotations;
   outputSchema?: TSchema;
@@ -183,12 +241,42 @@ export function applyCodemodeIntegration<T extends AnyDefinition>(definition: T)
   const outputSchema = HASHLINE_TOOL_OUTPUT_SCHEMAS[name];
   if (!outputSchema || definition.outputSchema !== undefined) return definition;
   definition.outputSchema = outputSchema;
+  // Preserve TypeBox's non-enumerable kind marker for the raw argument guard.
+  if (Type.IsObject(definition.parameters)) {
+    definition.parameters.properties = {
+      ...definition.parameters.properties,
+      errorMode: Type.Optional(Type.Union([Type.Literal("throw"), Type.Literal("value")], {
+        description: "throw default; value returns coded tool failures only",
+      })),
+    };
+  }
 
   const originalExecute = definition.execute;
   const execute = async function (this: unknown, ...args: Parameters<typeof originalExecute>) {
+    const input = args[1] as Record<string, unknown> | undefined;
+    const errorAsValue = input?.errorMode === "value";
+    if (input && Object.prototype.hasOwnProperty.call(input, "errorMode")) {
+      const { errorMode: _mode, ...rest } = input;
+      args[1] = rest as typeof args[1];
+    }
     const result = await originalExecute.apply(this === undefined ? definition : this, args);
     if (!result || typeof result !== "object") return result;
-    const structuredContent = buildStructuredContent(result);
+    const owned = (result as { isError?: boolean; details?: { ptcValue?: { error?: unknown } } });
+    const error = owned.details?.ptcValue?.error;
+    if (errorAsValue && owned.isError === true && error && typeof error === "object"
+        && typeof (error as { code?: unknown }).code === "string"
+        && typeof (error as { message?: unknown }).message === "string") {
+      return {
+        ...result,
+        structuredContent: {
+          text: joinText(result.content),
+          tool: name,
+          ok: false,
+          error: toScriptJson(error),
+        },
+      };
+    }
+    const structuredContent = name === "read" ? buildReadStructuredContent(result) : buildStructuredContent(result);
     if (structuredContent !== undefined) return { ...result, structuredContent };
     // Error results: drop any structuredContent so codemode rejects with the error text.
     if ((result as { structuredContent?: unknown }).structuredContent === undefined) return result;
