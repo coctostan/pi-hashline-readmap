@@ -235,7 +235,7 @@ export function formatGrepOutput(ir: GrepIR, options?: { summary?: boolean; limi
 	}
 
 	if (options?.limit !== undefined && ir.totalMatches === options.limit) {
-		output += `\n\n[Results truncated at ${options.limit} matches — refine pattern or increase limit]`;
+		output += `\n\n[Search stopped at ${options.limit} matches; completeness unknown — refine pattern or increase limit]`;
 	}
 
 	return output;
@@ -447,11 +447,34 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 				ctx,
 			);
 
+			if ((result as { isError?: boolean }).isError === true) return result;
+			const incomplete = (value: typeof result): typeof result => {
+				const details = value.details && typeof value.details === "object" ? value.details as Record<string, any> : {};
+				const ptcValue = {
+					tool: "grep",
+					summary: !!p.summary,
+					totalMatches: 0,
+					records: [],
+					completeness: {
+						search: "unknown",
+						limitReached: details.matchLimitReached === true
+							|| (typeof details.matchLimitReached === "number" && details.matchLimitReached > 0),
+						nativeTruncated: details.truncation?.truncated === true,
+						omittedMatches: null,
+						displayTruncated: !p.summary && details.linesTruncated === true,
+					},
+				};
+				return {
+					...value,
+					details: { ...details, ptcValue },
+					structuredContent: toScriptJson(ptcValue),
+				} as typeof result;
+			};
 			const textBlock = result.content?.find(
 				(item): item is { type: "text"; text: string } =>
 					item.type === "text" && "text" in item && typeof (item as { text?: unknown }).text === "string",
 			);
-			if (!textBlock?.text) return result;
+			if (!textBlock?.text) return incomplete(result);
 
 			const dependencyLinesTruncated =
 				typeof result.details === "object" &&
@@ -475,7 +498,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 					const buf = await fsReadFile(searchPath);
 					if (looksLikeBinary(buf)) {
 						const warning = `[Warning: '${p.path ?? searchPath}' appears to be a binary file — grep skips binary files by default. Use a hex tool or the read tool to inspect it.]`;
-						return {
+						return incomplete({
 							...result,
 							content: result.content.map((item) =>
 								item === textBlock ? ({ ...item, text: warning } as typeof item) : item,
@@ -489,7 +512,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 									records: [],
 								},
 							},
-						};
+						});
 					}
 				} catch {
 					// can't read file — let normal flow continue
@@ -529,6 +552,9 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 			let parsedCount = 0;
 			let candidateUnparsedCount = 0;
 			const candidateLinePattern = /^.+(?::|-)\d+(?::|-)\s/;
+			const recognizedNoMatches = textBlock.text.trim() === "No matches found";
+			let unrecognizedContent = false;
+			const nativeByteNotice = /^\[\d+(?:\.\d+)?\s*(?:B|KB|MB|GB) limit reached(?:\. Some lines truncated to \d+ chars\. Use read tool to see full lines)?\]$/;
 
 			for (const line of textBlock.text.split("\n")) {
 				throwIfAborted(signal);
@@ -559,20 +585,23 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 				}
 
 				if (!parsed || absolute === undefined || fileLines === undefined) {
-					if (candidateLinePattern.test(line)) {
-						candidateUnparsedCount++;
-					}
+					if (candidateLinePattern.test(line)) candidateUnparsedCount++;
 					const trimmed = line.trim();
+					const recognizedNonRecordLine =
+						trimmed === "" || trimmed === "--"
+						|| (recognizedNoMatches && trimmed === "No matches found")
+						|| BUILTIN_MATCH_LIMIT_NOTICE_RE.test(trimmed)
+						|| BUILTIN_LINE_TRUNCATION_NOTICE_RE.test(trimmed)
+						|| nativeByteNotice.test(trimmed);
+					if (!recognizedNonRecordLine) unrecognizedContent = true;
 					const irrelevantSummaryLineNotice =
-						p.summary === true &&
-						dependencyLinesTruncated &&
-						BUILTIN_LINE_TRUNCATION_NOTICE_RE.test(trimmed);
-					if (
-						trimmed.startsWith("[") &&
-						trimmed.endsWith("]") &&
-						!BUILTIN_MATCH_LIMIT_NOTICE_RE.test(trimmed) &&
-						!irrelevantSummaryLineNotice
-					) {
+						p.summary === true && dependencyLinesTruncated
+						&& BUILTIN_LINE_TRUNCATION_NOTICE_RE.test(trimmed);
+					if (!recognizedNonRecordLine || (
+						trimmed.startsWith("[") && trimmed.endsWith("]")
+						&& !BUILTIN_MATCH_LIMIT_NOTICE_RE.test(trimmed)
+						&& !irrelevantSummaryLineNotice
+					)) {
 						passthroughLines.push(trimmed);
 					}
 					transformed.push(line);
@@ -638,14 +667,14 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 				});
 			}
 
-			if (parsedCount === 0 && candidateUnparsedCount > 0) {
+			if (parsedCount === 0 && !recognizedNoMatches) {
 				const warning =
 					"[hashline grep passthrough] Unparsed grep format; returned original output.";
 				const passthroughDetails =
 					typeof result.details === "object" && result.details !== null
 						? (result.details as Record<string, unknown>)
 						: {};
-				return {
+				return incomplete({
 					...result,
 					content: result.content.map((item) =>
 						item === textBlock ? ({ ...item, text: `${textBlock.text}\n\n${warning}` } as typeof item) : item,
@@ -661,7 +690,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 							records: [],
 						},
 					},
-				};
+				});
 			}
 
 			const grepIR = parseGrepIR(transformed);
@@ -743,11 +772,22 @@ if (p.scope === "symbol" && !summary) {
 		),
 	);
 }
+			const nativeDetails = result.details as {
+				matchLimitReached?: number | boolean;
+				truncation?: { truncated?: boolean };
+			} | undefined;
 			const builtOutput = buildGrepOutput({
 				summary: !!summary,
 				totalMatches: grepIR.totalMatches,
 				groups: renderedGroups,
 				limit: effectiveLimit,
+				native: {
+					limitReached: nativeDetails?.matchLimitReached === true
+						|| (typeof nativeDetails?.matchLimitReached === "number" && nativeDetails.matchLimitReached > 0),
+					truncated: nativeDetails?.truncation?.truncated === true,
+					linesTruncated: dependencyLinesTruncated,
+				},
+				searchUnknown: candidateUnparsedCount > 0 || unrecognizedContent,
 				records: ptcRecords,
 				scopeMode: p.scope === "symbol" && !summary ? "symbol" : undefined,
 				scopeWarnings,

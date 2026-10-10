@@ -92,6 +92,14 @@ The guard uses raw byte counts. Environment values must be positive base-10 inte
 
 ## Structured result contract
 
+### Script value versus presentation
+
+On hosts with a native Bash output schema, `tools.bash(args)` returns the native `{ output, truncated, full_output_path?, exit_code, wall_time_seconds }` value. Hashline preserves that object through its result hook. `output` is native raw command output, subject to the host's own raw-output budget; `truncated` and `full_output_path` describe that budget, not RTK compression or the model-facing context guard. Nonzero exit codes remain native values; check `exit_code`.
+
+RTK and the context guard modify `content` for model presentation. Their flags and recovery paths in `details` are integration metadata, not additional fields automatically supplied to codemode scripts. No compressed-output script field is introduced. A script printing `result.output` therefore prints raw data; filter it intentionally before `text()`.
+
+`PI_RTK_BYPASS=1` bypasses RTK presentation processing; it does not disable native raw-output bounds or the context guard. Identical `output` values with and without that prefix are expected. Legacy hosts without a native structured schema keep their existing text-return behavior. Host abort/error/permission failures are not reclassified as successful Bash results.
+
 The `bash` result exposes the public RTK compaction record at `details.rtkCompaction`, mirrored at `details.ptcValue.rtkCompaction`. Consumers should use that stable contract rather than private reducer fields. It identifies the technique, input/output sizes, bypass state, and recovery metadata.
 
 Guard metadata remains at `details.bashContextGuard`. When trimming occurs, use the full post-RTK path for the complete guarded result and the `Original/pre-RTK output` path for command output before route compression.

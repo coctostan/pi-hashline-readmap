@@ -98,10 +98,11 @@ describe("grep ptcValue", () => {
     const ptc = result.details?.ptcValue;
     expect(text).toContain("appears to be a binary file");
     expect(ptc).toEqual({
-      tool: "grep",
-      summary: false,
-      totalMatches: 0,
-      records: [],
+      tool: "grep", summary: false, totalMatches: 0, records: [],
+      completeness: {
+        search: "unknown", limitReached: false, nativeTruncated: false,
+        omittedMatches: null, displayTruncated: false,
+      },
     });
   });
 });

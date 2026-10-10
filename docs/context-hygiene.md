@@ -35,6 +35,14 @@ Read-like outputs can also carry a rehydrate descriptor that tells the agent how
 
 The tracker keeps a bounded in-memory event history. The current default maximum is `1000` events.
 
+### Nested-call visibility
+
+The tracker records whether a result was model-visible. A non-empty `parentToolCallId` means the result was delivered to a calling script, so it is private for notice eligibility. Legacy tracker callers that omit visibility retain visible-by-default behavior.
+
+Private events still contribute to telemetry, resource invalidation and anchor/read-turn safety. Stale candidate IDs can include private reads for expiry bookkeeping, but `staleResults` and `retiredResults` contain only model-context lifecycle records. Nested edits, writes and Bash mutations still invalidate prior genuinely visible context, even if a private reread intervened.
+
+Pending visible notices wait for an outer result and retain the existing monotonic deduplication/detail cap. Printing arbitrary transformed nested values does not provide reliable field-level visibility provenance and does not promote the source result automatically.
+
 ## Stale context signalling
 
 The extension never rewrites tool-result messages that have already been sent to

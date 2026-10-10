@@ -71,7 +71,7 @@ npm run typecheck
 
 ### Independent current-host compatibility
 
-`npm test` runs the loader smoke test and real tool-pipeline regression against the locked development host. `.github/workflows/pi-compatibility.yml` separately installs exactly Pi 1.0.0 into runner temporary storage and runs `tests/pi-host-null-pipeline.test.ts` and `tests/pi-host-codemode.test.ts` through that installation's loader, wrapper, agent-core pipeline, ExtensionRunner, and real codemode executor. Its npm 11/12 matrix also verifies both `npm pack --json` result shapes. Do not replace either host lane with the other. The pinned version lives in `PI_COMPAT_VERSION` in `tests/pi-host-null-pipeline.test.ts`; bump it together with the workflow and the commands below.
+`npm test` runs the loader smoke test and real tool-pipeline regression against the locked development host. `.github/workflows/pi-compatibility.yml` separately installs exactly Pi 1.0.0 into runner temporary storage and runs `tests/pi-host-null-pipeline.test.ts`, `tests/pi-host-codemode.test.ts`, and `tests/pi-host-codemode-boundaries.test.ts` through that installation's loader, wrapper, agent-core pipeline, ExtensionRunner, and real codemode executor. Its npm 11/12 matrix also verifies both `npm pack --json` result shapes. Do not replace either host lane with the other. The pinned version lives in `PI_COMPAT_VERSION` in `tests/pi-host-null-pipeline.test.ts`; bump it together with the workflow and the commands below.
 
 Reproduce the independent lane locally (no global Pi, credentials, or provider needed). Pin the Pi dependency graph as well as the host because its internal caret ranges otherwise allow newer versions:
 
@@ -87,10 +87,12 @@ npm install --prefix "$host_prefix" --no-save --package-lock=false --no-audit --
   @earendil-works/pi-codemode@1.0.0 \
   @earendil-works/pi-telemetry@1.0.0 \
   @earendil-works/chord@1.0.0
-PI_COMPAT_HOST="$host_prefix/node_modules/@earendil-works/pi-coding-agent" PI_COMPAT_REQUIRE_NU=1 npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts
+PI_COMPAT_HOST="$host_prefix/node_modules/@earendil-works/pi-coding-agent" PI_COMPAT_REQUIRE_NU=1 npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts tests/pi-host-codemode-boundaries.test.ts
 ```
 
 An explicitly supplied host must be exactly 1.0.0; wrong/missing installations fail without local fallback. `PI_COMPAT_REQUIRE_NU=1` requires the optional Nu tool to register in this lane. `tests/pi-host-codemode.test.ts` skips on the locked 0.84.2 host, which has no codemode. Current-host checks are deterministic runtime checks; `npm run typecheck` still uses the locked development declarations. See [structured-output null contracts](docs/structured-output.md#required-nulls-at-the-host-boundary) for Pi's preparation-error metadata limitation and [codemode integration](docs/structured-output.md#codemode-integration) for the script-facing contract.
+
+`tests/pi-host-codemode-boundaries.test.ts` runs a separate Node process that loads the extension with the selected host's loader, wraps its registrations with the selected ExtensionRunner, drives agent-core hooks, and executes real codemode/QuickJS scripts. It covers native image attachments and magic-byte dispatch, image forwarding, grep completeness, private/visible hygiene controls, native Bash raw/presentation separation, coded execute failures, required-null rejections and anchor-edit baseline chains. It supplements rather than replaces the older codemode test, whose extension registrations use locked-host imports. Only the actual loaded extension in a fresh Pi session can verify live-session behavior after edits.
 
 Follow-up scope: exhaustive nested-union input auditing, all ExtensionRunner lifecycle branches, AgentSession/provider integration, and a separate current-host declaration typecheck are not claimed by these checks. No registered tool is deliberately excluded from the shared guard.
 

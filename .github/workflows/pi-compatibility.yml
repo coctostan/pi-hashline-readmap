@@ -67,7 +67,7 @@ jobs:
         env:
           PI_COMPAT_HOST: ${{ runner.temp }}/pi-1.0.0/node_modules/@earendil-works/pi-coding-agent
           PI_COMPAT_REQUIRE_NU: "1"
-        run: npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts
+        run: npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts tests/pi-host-codemode-boundaries.test.ts
       - name: Remove independently provisioned host
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/pi-1.0.0"

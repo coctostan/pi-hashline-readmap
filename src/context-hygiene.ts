@@ -474,11 +474,13 @@ export function buildContextHygieneMetadata(
 
 export interface ContextHygieneRecordOptions {
   resultId?: string;
+  modelVisible?: boolean;
 }
 
 export interface ContextHygieneEvent {
   id: number;
   resultId?: string;
+  modelVisible?: boolean;
   tool: string;
   classification: ContextHygieneClassification;
   resources: ContextHygieneResource[];
@@ -638,6 +640,7 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
       classification: metadata.classification,
       resources: metadata.resources.map((resource) => ({ ...resource } as ContextHygieneResource)),
     };
+    if (options.modelVisible !== undefined) event.modelVisible = options.modelVisible;
     if (options.resultId) event.resultId = options.resultId;
     if (metadata.rehydrate) event.rehydrate = cloneContextHygieneRehydrateDescriptor(metadata.rehydrate);
     if (metadata.commandState) event.commandState = cloneBashCommandState(metadata.commandState);
@@ -917,6 +920,20 @@ class DefaultContextHygieneTracker implements ContextHygieneTracker {
       },
     };
 
+    // Candidate IDs remain available to telemetry and readTurns expiry.
+    const privateIds = new Set(this.events.filter((event) => event.modelVisible === false).map((event) => event.id));
+    for (const candidate of report.staleCandidates) {
+      candidate.staleResults = candidate.staleResults.filter(
+        (record) => record.originalEventId === undefined || !privateIds.has(record.originalEventId),
+      );
+    }
+    for (const candidate of report.retirementCandidates) {
+      if (candidate.retiredResults) {
+        candidate.retiredResults = candidate.retiredResults.filter(
+          (record) => record.originalEventId === undefined || !privateIds.has(record.originalEventId),
+        );
+      }
+    }
     this.cachedReport = report;
     return report;
   }

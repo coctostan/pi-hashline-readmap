@@ -82,9 +82,10 @@ function contextHygieneFromDetails(details: unknown): ContextHygieneMetadata | u
   return isContextHygieneMetadata(metadata) ? metadata : undefined;
 }
 
-function recordContextHygiene(metadata: ContextHygieneMetadata, toolCallId: unknown): ContextHygieneEvent {
+function recordContextHygiene(metadata: ContextHygieneMetadata, toolCallId: unknown, modelVisible = true): ContextHygieneEvent {
   return getContextHygieneTracker().record(metadata, {
     resultId: typeof toolCallId === "string" ? toolCallId : undefined,
+    modelVisible,
   });
 }
 
@@ -261,7 +262,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const doomLoop = nested ? undefined : consumeDoomLoopWarning(doomLoopState, event.toolCallId);
     if (!isBashToolResult(event)) {
       const contextHygiene = contextHygieneFromDetails(event.details);
-      if (contextHygiene) recordContextHygiene(contextHygiene, event.toolCallId);
+      if (contextHygiene) recordContextHygiene(contextHygiene, event.toolCallId, !nested);
       if (event.isError !== true) {
         const cwd = ctx?.cwd ?? process.cwd();
         recordServedFromResult(served, event.toolName, event.details, (path) => resolveToCwd(path, cwd));
@@ -345,7 +346,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       resources: contextHygieneResources,
       commandState,
     });
-    const recordedContextHygieneEvent = recordContextHygiene(contextHygiene, event.toolCallId);
+    const recordedContextHygieneEvent = recordContextHygiene(contextHygiene, event.toolCallId, !nested);
     if (
       event.isError !== true &&
       commandState?.stateKind === "shell-file-mutation" &&

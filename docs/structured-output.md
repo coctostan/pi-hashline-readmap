@@ -39,7 +39,7 @@ Example line shape:
 
 ## Error envelopes
 
-Tools use structured error envelopes when a failure should be machine-readable. Consumers should key off stable error `code` values where available and treat display text as explanatory context.
+Tools attach structured error envelopes to extension-owned failures in `details.ptcValue`. Direct integrations can consume stable `error.code` values there. Codemode rejects by default and does not copy those codes to VM `Error` objects; use the explicitly scoped `errorMode: "value"` option described below.
 
 `PtcError` shape:
 
@@ -70,29 +70,64 @@ The guard applies to every tool registered by the extension entry point, includi
 
 ## Codemode integration
 
-Pi 0.99+ (verified against 1.0.0) ships a `codemode` tool whose JavaScript scripts call other tools through `ctx.executeTool()`. A tool that declares `outputSchema` resolves inside scripts to its `structuredContent`; other tools resolve to their text. Hashline registers every tool through a codemode integration layer (`src/codemode-integration.ts`) that:
+Pi 0.99+ (independently verified on 1.0.0) exposes declared tool output schemas to scripts. Hashline `read`/`grep`/`ast_search`/`edit`/`write`/`ls`/`find` successes retain structured fields plus rendered `text`. Grep raw source lives only in script records, not compact persisted records. Native Bash keeps its own raw-output schema. Tool annotations retain their read-only/destructive meanings; no alternate execution channel bypasses host guards or permissions.
 
-- declares a compact `outputSchema` for `read`, `grep`, `ast_search`, `edit`, `write`, `ls`, and `find`, so codemode descriptions say what a call resolves to (for example, `tools.read(args)` resolves to `{ text, path, range, lines, continuation, warnings }`);
-- sets `structuredContent` on successful results to `{ text, ...details.ptcValue }`, where `text` is the exact model-facing output, so `await tools.read({ path })` gives scripts `lines[*].anchor` and `lines[*].raw` without reparsing `LINE:HASH|` text;
-- adds raw source text to `grep` script records (`records[*].raw`) only in `structuredContent`. Persisted `details.ptcValue.records` stay compact, and `structuredContent` is neither persisted in the session nor sent to the model;
-- leaves error results without `structuredContent`, so failed script calls keep rejecting with the tool's error text;
-- declares MCP-style `annotations`: `read`, `grep`, `ast_search`, `ls`, `find`, and the debug `context_hygiene_report` are `readOnlyHint: true, openWorldHint: false`, and `edit` and `write` are `destructiveHint: true`. `bash` and `nu` run arbitrary commands, so they keep Pi's conservative defaults (not read-only, possibly destructive, open world). Permission extensions can rely on these hints.
+### Failure values are opt-in
 
-Calls that a script makes carry `parentToolCallId`. Hashline still records their context-hygiene effects, so a script's `edit` marks earlier model-visible reads stale. It does not count them toward repeated-call (doom-loop) warnings, and it does not prefix model-facing notices onto their results: scripts receive clean values, and pending notices go to the next result the model actually sees.
+The seven Hashline schema-owned tools accept `errorMode: "throw" | "value"`. Omission means `"throw"`: failed script calls reject with the error text. An `Error` inside the VM is not promised a custom `code` property.
 
-Example script:
+With `errorMode: "value"`, an extension-owned execute result containing a coded error resolves to `{ text, tool, ok: false, error: { code, message, hint?, details? } }`. Successful values are unchanged. The underlying tool result still has `isError: true`, so direct interactive rendering remains an error.
 
-```js
-const g = await tools.grep({ pattern: "TODO", path: "src", literal: true });
-for (const r of g.records.filter((r) => r.kind === "match")) {
-  await tools.edit({ path: r.path, edits: [{ set_line: { anchor: r.anchor, new_text: r.raw.replace(/\s*\/\/ TODO$/, "") } }] });
+Required-null/schema preparation, permission blocking, aborts, and arbitrary thrown host exceptions can still reject even in value mode. Do not remove `try/catch` or `Promise.allSettled` when those failures matter. Hashline does not invent codes by parsing prose or patch the sandbox rejection transport.
+
+### Read success variants
+
+- Text: `path`, `range`, `lines`, `continuation` and `warnings`, plus `text`.
+- Image attachment: `type: "image"`, `data`, `mimeType`, `note` and `text`. Pass the value to `image(result)`; do not `text()` the base64. Bytes come from the actual attachment, including host resize output. Adjustment/resize notes survive. Attachment-only Pi 1.0.0 and newer native structured-image hosts share this contract.
+- Ambiguous interactive symbol: `path`, `ambiguity` and `text`; it is a successful choice response, not a file range.
+- Other delegated text-only/omitted-image success: `kind: "notice"`, `text` and `warnings`. It is not image-forwardable and has no fabricated anchors.
+
+### Grep completeness
+
+`totalMatches` counts observed match lines admitted into Hashline's normalized search IR, not a repository-wide total when search completeness is unknown. Bare-CR remapping retains its existing normalized-line count semantics.
+
+`completeness` separates independent limits:
+
+| Field | Meaning |
+|---|---|
+| `search` | `"complete"` means the native result was interpreted without a known native bound or parse gap; `"unknown"` means completeness is not established. This describes the requested search, not ignored or binary repository contents. |
+| `limitReached` | Native search reached its match cap. Exact-limit and over-limit inputs are indistinguishable; this is not proof of another match. |
+| `nativeTruncated` | The native byte/output budget cut the result; missing repository matches cannot be counted from that response. |
+| `omittedMatches` | Known observed match lines missing from structured records after record capping/scoping; `null` for uninterpreted/binary-warning results. Counts unique path/line match records, not context lines or undiscovered matches. |
+| `displayTruncated` | Final Hashline display budget or native non-summary line clipping shortened text. Raw script records can still be complete. This does not imply record omission. |
+
+The per-file cap can leave `totalMatches: 60` with 10 returned match records and `omittedMatches: 50` even when `search` is `"complete"`. Summary/scoped results retain these semantics. No extra unbounded count pass is performed. Narrow path/pattern/glob or raise a deliberate match limit when needed.
+
+### Visibility
+
+Calls with `parentToolCallId` record effects and anchor provenance but are not presumed model-visible. Private read/search/Bash results do not acquire stale/retired model-context lifecycle records merely because they executed. Private mutations and successful command reruns still invalidate earlier visible context. Notices for genuinely visible context are emitted once on an outer result.
+
+There is no field-level taint tracking: printing or transforming a nested value does not automatically promote its source call to a tracked visible read. The outer codemode output is the model-visible object. Served anchors and read-before-edit checks remain separate from notice eligibility.
+
+### Example
+
+The following is a codemode script:
+
+~~~js
+const r = await tools.read({
+  path: "src/read.ts", symbol: "registerReadTool",
+  strictSymbol: true, errorMode: "value"
+});
+if (r.ok === false) {
+  text({ code: r.error.code, message: r.error.message });
+} else if (r.type === "image") {
+  image(r);
+} else {
+  text(r.lines.map(line => ({ anchor: line.anchor, raw: line.raw })));
 }
-return `${g.totalMatches} TODOs cleaned`;
-```
+~~~
 
-With `codemode.mode: "only"`, these declarations are listed in the codemode description within `codemode.inlineBudget`. The compact schemas keep all Hashline tools within the default budget.
-
-The `HASHLINE_TOOL_PTC_POLICY` export, per-tool `ptc` metadata, and the `hashline:tool-executors` / `globalThis.__hashlineToolExecutors` executor map served the separate PTC extension, which codemode replaced. They were removed; use `annotations` and `ctx.executeTool()` instead.
+Compact output unions remain discoverable through `describeTool`. The pinned selected-host test verifies core Hashline declarations fit codemode's default 3000-token inline budget. The former `HASHLINE_TOOL_PTC_POLICY` export and side-channel executor maps remain removed.
 ## Editing safety
 
 Copy fresh anchors from `read`, `grep`, `ast_search`, or `write`. Replacement text is plain content: never include `LINE:HASH|`, hash-only, or diff prefixes. `edit` strips them defensively when they dominate the replacement, but callers should omit them. Set `new_text` to `""` to delete anchored lines and use `"\n"` for an intentionally blank line.

@@ -222,7 +222,7 @@ it("preserves eight edit variants and nested required-null diagnostics", () => {
 
 it("preserves schema serialization and order outside the four enum slots", () => {
   const hashes: Record<string, string> = {
-    read: "718b9697cd227aa4c46bafeb86095ea78641a6290f2e98131dcfe528048c57a2",
+    read: "86d448b580acb9ce6e56bb8e229f71eb85f86b29b4589ac6d30c6032f980934a",
     grep: "aa55ce8f4607f8e3e87f0edcbb7b407f5795b2ca84b8f72f723343ed0b7e5fd3",
     edit: "369a7de1cc9436e0949f6c93c4da98ce6db1151ebee9d000cd2edb3904940ed3",
     find: "55e357e9e6d0695269d493def3d8e5af78d670ad16dc1472b42e1ee83c0e6b58",
