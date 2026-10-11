@@ -178,3 +178,9 @@ On supported files, direct symbol reads can target functions, classes, methods, 
 Successful edit results keep `details.diff` and `details.diffData` as logical, line-oriented render data. `details.patch` (also present in the edit structured value) is a unified patch between the actual pre-write and persisted physical file contents, including BOM and LF/CRLF separators. Integrations needing byte-preserving replay should use the patch with newline conversion disabled in their patch consumer, rather than reconstructing bytes from the rendered diff. A newline-only mutation can have an empty logical diff while its physical patch still records a real change.
 
 `postEditVerify: true` verifies persisted content against this physical candidate. It is not a second interpretation of payloads or a newline normalization pass.
+
+## Read snapshot consistency
+
+For a successful symbol read, `range`, `symbol`, `lines`, local-support anchors, and any appended map describe the same captured source bytes. This is an internally coherent snapshot, not a promise that the file cannot change after capture. Path identity remains the original requested file; private mapper staging paths are not exposed as result paths.
+
+The extension-owned error `read-snapshot-unavailable` means symbol-map snapshot acquisition failed. It has the standard read error envelope and no source-line records. In codemode, default mode rejects; `errorMode: "value"` exposes `{ tool: "read", ok: false, error: { code, message }, text }` with this code. The failure does not invoke the successful-read callback or establish a fresh served-line baseline. Ordinary unmappable and strict symbol-lookup classifications are unchanged.
