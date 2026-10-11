@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.15.1]
+
+### Fixed
+
+- Keep symbol ranges, selected source lines, local support, and appended maps on the same captured snapshot during concurrent writes; isolate snapshot-map caches and return `read-snapshot-unavailable` without an edit baseline if snapshot acquisition fails (#228).
+
 ## [0.15.0] - 2026-10-02
 
 ### Added
