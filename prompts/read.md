@@ -47,3 +47,11 @@ With `strictSymbol: true`, the failure codes are `symbol-not-found`, `symbol-amb
 Image successes expose script-forwardable `{ type: "image", data, mimeType, note, text }`; call `image(result)`. Omitted/missing attachments return `{ kind: "notice", text, warnings }`, not image bytes. Interactive ambiguity remains a successful choice response. See [structured output](../docs/structured-output.md#read-success-variants).
 
 Hash anchors from symbol and bundled reads are valid for `edit`.
+
+## Snapshot consistency
+
+A symbol read selects its range from the same captured bytes used for its returned lines. Local support and an appended structural map use that snapshot too. A concurrent write may make the result older than the current file, but must not mix one revision's symbol ranges with another revision's lines. Re-read after a known file change before editing.
+
+Read maps are bound to captured content. On a cache miss, mapping uses a private temporary copy with the original filename and extension so existing language mappers and fallbacks remain available. The temporary source is removed after mapping; returned paths and anchors refer to the requested file. Snapshot-map cache entries are separate from legacy path-map entries and contain structural metadata, not source buffers.
+
+If a symbol read cannot acquire its snapshot map because temporary staging or mapping infrastructure fails, it returns the coded error `read-snapshot-unavailable`, without anchors or a successful-read baseline. Retry after checking temporary-storage availability. A normal unmappable source retains the existing ordinary fallback or strict `symbol-unmappable` behavior. An optional map on a non-symbol read may still be omitted on mapping failure.

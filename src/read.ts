@@ -486,7 +486,15 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				  }
 				| null = null;
 			if (p.symbol) {
-				symbolFileMap = await getOrGenerateMap(absolutePath);
+				try {
+					symbolFileMap = await getOrGenerateMap(absolutePath, rawBuffer);
+				} catch {
+					throwIfAborted(signal);
+					return strictFailure(
+						"read-snapshot-unavailable",
+						"Could not map the captured file snapshot. Retry read.",
+					);
+				}
 				if (!symbolFileMap) {
 					if (p.strictSymbol) return strictFailure("symbol-unmappable", `Symbol lookup is not available for .${ext || "unknown"} files.`);
 					const extLabel = ext || "unknown";
@@ -643,7 +651,9 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			let mapText: string | null = null;
 			if (shouldAppendMap) {
 				try {
-					const fileMap = await getOrGenerateMap(absolutePath);
+					const fileMap = p.symbol
+						? symbolFileMap
+						: await getOrGenerateMap(absolutePath, rawBuffer);
 					if (fileMap) {
 						mapText = formatFileMapWithBudget(fileMap);
 						appendedMap = true;

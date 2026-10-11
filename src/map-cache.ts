@@ -1,4 +1,7 @@
-import { stat } from "node:fs/promises";
+import { stat, mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { basename, join } from "node:path";
+import { createHash } from "node:crypto";
 import type { FileMap } from "./readmap/types.js";
 import { generateMap, generateMapWithIdentity, ALL_MAPPER_IDENTITIES } from "./readmap/mapper.js";
 import { detectLanguage } from "./readmap/language-detect.js";
@@ -59,11 +62,82 @@ async function stableContentHash(
 	return currentHash;
 }
 
+async function generateSnapshotMap(
+  absPath: string,
+  snapshot: Buffer,
+): Promise<import("./readmap/mapper.js").MapResultWithIdentity> {
+  const directory = await mkdtemp(join(tmpdir(), "pi-readmap-snapshot-"));
+  try {
+    const stagedPath = join(directory, basename(absPath));
+    await writeFile(stagedPath, snapshot, { mode: 0o600, flag: "wx" });
+    const result = await generateMapWithIdentity(stagedPath);
+    return {
+      ...result,
+      map: result.map ? { ...result.map, path: absPath } : null,
+    };
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+async function getCachedSnapshotMap(absPath: string, snapshot: Buffer): Promise<FileMap | null> {
+  const lang = detectLanguage(absPath);
+  if (lang?.id === "gdscript") return (await generateSnapshotMap(absPath, snapshot)).map;
+
+  const candidates = [
+    ...(lang && ALL_MAPPER_IDENTITIES[lang.id] ? [ALL_MAPPER_IDENTITIES[lang.id]] : []),
+    ALL_MAPPER_IDENTITIES.ctags,
+    ALL_MAPPER_IDENTITIES.fallback,
+  ].filter((identity): identity is import("./readmap/mapper.js").MapperIdentity => Boolean(identity));
+  const digest = "snapshot-v1:" + createHash("sha256").update(snapshot).digest("hex");
+  const memoryHash = digest + ":" + JSON.stringify(candidates);
+  const memoryKey = "snapshot-v1:" + absPath;
+  const state = getMapCacheState();
+  const cached = state.cache.get(memoryKey);
+  if (cached?.contentHash === memoryHash && (cached.map === null || isUsefulMap(cached.map))) {
+    rememberInMemory(memoryKey, cached);
+    return cached.map;
+  }
+  if (persistenceEnabled()) {
+    for (const identity of candidates) {
+      try {
+        const key = computeKey(absPath, 0, digest, identity.mapperName, identity.mapperVersion);
+        const map = await readCached(key);
+        if (map && map.path === absPath && map.totalBytes === snapshot.length && isUsefulMap(map)) {
+          rememberInMemory(memoryKey, { mtimeMs: 0, contentHash: memoryHash, map });
+          return map;
+        }
+      } catch {
+        // A cache miss must not prevent mapping the captured bytes.
+      }
+    }
+  }
+  const result = await generateSnapshotMap(absPath, snapshot);
+  const map = result.map;
+  if (map === null || isUsefulMap(map)) {
+    rememberInMemory(memoryKey, { mtimeMs: 0, contentHash: memoryHash, map });
+  }
+  if (map && isUsefulMap(map) && persistenceEnabled()) {
+    const identity = ALL_MAPPER_IDENTITIES[result.mapperName] ?? result;
+    try {
+      await writeCached(computeKey(absPath, 0, digest, identity.mapperName, identity.mapperVersion), map);
+    } catch {
+      // Returning a coherent snapshot does not depend on persistence.
+    }
+  }
+  return map;
+}
+
 /**
- * Get or generate a structural file map, with mtime-based caching.
- * Returns null on any failure — never throws.
+ * Without snapshot: get or generate a path map with existing mtime/hash caching;
+ * return null on failure.
+ * With snapshot: map a private copy of these exact bytes, preserving absPath as
+ * identity. Infrastructure failures reject; a normal unmappable source is null.
  */
-export async function getOrGenerateMap(absPath: string): Promise<FileMap | null> {
+export async function getOrGenerateMap(absPath: string, snapshot?: Buffer): Promise<FileMap | null> {
+  if (snapshot !== undefined) {
+    return getCachedSnapshotMap(absPath, Buffer.from(snapshot));
+  }
 	try {
 		const fileStat = await stat(absPath);
 		const { mtimeMs } = fileStat;
