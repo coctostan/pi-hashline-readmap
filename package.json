@@ -40,7 +40,8 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:pi-host": "node scripts/typecheck-pi-host.mjs"
   },
   "engines": {
     "node": ">=22.19.0"

@@ -70,7 +70,9 @@ The guard applies to every tool registered by the extension entry point, includi
 
 ## Codemode integration
 
-Pi 0.99+ (independently verified on 1.0.0) exposes declared tool output schemas to scripts. Hashline `read`/`grep`/`ast_search`/`edit`/`write`/`ls`/`find` successes retain structured fields plus rendered `text`. Grep raw source lives only in script records, not compact persisted records. Native Bash keeps its own raw-output schema. Tool annotations retain their read-only/destructive meanings; no alternate execution channel bypasses host guards or permissions.
+Pi 0.99+ (independently verified on 1.1.0) exposes declared tool output schemas to scripts. Hashline `read`/`grep`/`ast_search`/`edit`/`write`/`ls`/`find` successes retain structured fields plus rendered `text`. Grep raw source lives only in script records, not compact persisted records. Native Bash keeps its own raw-output schema. Tool annotations retain their read-only/destructive meanings; no alternate execution channel bypasses host guards or permissions.
+
+The independent Pi 1.1.0 lane uses the actual selected-host loader and execution pipeline. It verifies image forwarding and saved-image bytes/MIME, nested permission blocking, and nested cancellation with deterministic fixtures. The separate current-host declaration check compiles extension sources and typed boundary fixtures; legacy loose compatibility adapters and exhaustive provider/session lifecycle checks are not covered by a blanket type-safety claim. See [AGENTS.md](../AGENTS.md#independent-current-host-compatibility) for both reproducible lanes.
 
 ### Failure values are opt-in
 

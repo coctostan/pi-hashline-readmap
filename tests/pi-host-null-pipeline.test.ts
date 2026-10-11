@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 /** Exact Pi release the independent current-host lane pins (see .github/workflows/pi-compatibility.yml). */
-const PI_COMPAT_VERSION = "1.0.0";
+const PI_COMPAT_VERSION = "1.1.0";
 
 it("rejects required nulls through the real selected host pipeline", () => {
   const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");

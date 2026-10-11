@@ -12,6 +12,10 @@ import init from "../index.js";
  */
 const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
 const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
+if (process.env.PI_COMPAT_HOST) {
+  const { assertCompatHost } = await import(new URL("../scripts/pi-compat-host.mjs", import.meta.url).href);
+  assertCompatHost(process.env.PI_COMPAT_HOST);
+}
 const executorPath = join(host, "dist/extensions/codemode/execute.js");
 const hostVersion = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).version as string;
 
