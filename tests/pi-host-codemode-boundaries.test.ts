@@ -167,6 +167,18 @@ const cases: BoundaryCase[] = [
     `,
   },
   {
+    name: "200,000-line write resolves compactly without exhausting sandbox memory",
+    code: String.raw`
+      const content = "abcd\n".repeat(199999) + "abcd";
+      const w = await tools.write({path:"large.txt",content});
+      check(w.truncated === true && w.totalLines === 200000 && w.lines.length === 0, "compact large write");
+      check(/\bread\b/.test(w.text) && !w.text.includes("ptcValue"), "large write hint");
+      check(w.warnings.some(x => x.code === "anchors-omitted"), "anchors-omitted warning");
+      const tail = await tools.read({path:"large.txt",offset:200000});
+      check(tail.lines[0].raw === "abcd", "large write persisted");
+    `,
+  },
+  {
     name: "native Bash raw output survives RTK and bypass",
     bash: true,
     code: String.raw`

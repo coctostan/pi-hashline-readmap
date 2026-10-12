@@ -163,4 +163,30 @@ describe("sg cli args", () => {
     expect(langIdx).toBeGreaterThan(-1);
     expect(calls[0][langIdx + 1]).toBe("typescript");
   });
+
+  it("passes the pattern as a single --pattern= argument so leading dashes are not parsed as flags (#272)", async () => {
+    const tool = await getSgTool();
+
+    const calls: string[][] = [];
+    vi.mocked(cp.execFile).mockImplementation((_cmd: any, args: any, _opts: any, cb: any) => {
+      calls.push(args);
+      cb(null, "[]", "");
+      return {} as any;
+    });
+
+    for (const pattern of ["--$A", "-$A", "--help", "console.log($X)"]) {
+      await tool.execute("tc", { pattern, lang: "javascript" }, new AbortController().signal, () => {}, { cwd: process.cwd() });
+    }
+
+    expect(calls).toHaveLength(4);
+    expect(calls[0]).toContain("--pattern=--$A");
+    expect(calls[1]).toContain("--pattern=-$A");
+    expect(calls[2]).toContain("--pattern=--help");
+    expect(calls[3]).toContain("--pattern=console.log($X)");
+    for (const args of calls) {
+      expect(args).not.toContain("-p");
+      expect(args.slice(0, 3)).toEqual(["run", "--json", args[2]]);
+      expect(args[2].startsWith("--pattern=")).toBe(true);
+    }
+  });
 });

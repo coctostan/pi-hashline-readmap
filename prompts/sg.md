@@ -4,7 +4,7 @@ AST-aware structural code search. Use when text search is too broad or brittle a
 
 ## Parameters
 
-- `pattern` — ast-grep pattern to match.
+- `pattern` — ast-grep pattern to match; must be non-empty (empty or whitespace-only patterns are rejected with `invalid-pattern` before ast-grep runs). Patterns starting with `-` (for example `--$A`, `-$A`) are passed safely as a single `--pattern=` argument.
 - `lang` — language hint such as `typescript`, `tsx`, `javascript`, `jsx`, `rust`, or `python`; set it when syntax is ambiguous.
 - `path` — file or directory, default cwd.
 - `limit` — positive integer maximum number of raw ast-grep match records, default 100. Obvious base-10 numeric strings are accepted; zero, negatives, fractions, and malformed strings are errors.
@@ -33,4 +33,4 @@ Visible text contains only admitted complete merged blocks. Structured `ptcValue
 
 ## Tips
 
-Patterns are parsed as code, not text: formatting is mostly ignored, but syntax must be valid for `lang`. Include semicolons in languages that require them. Use `grep` for plain text and `ast_search` for structure. Narrow `path` or make `pattern` more specific before raising `limit` for broad searches. Anchors in visible blocks can be passed directly to `edit`.
+Patterns are parsed as code, not text: formatting is mostly ignored, but syntax must be valid for `lang`. Include semicolons in languages that require them. Use `grep` for plain text and `ast_search` for structure. Narrow `path` or make `pattern` more specific before raising `limit` for broad searches. Anchors in visible blocks can be passed directly to `edit`. If ast-grep reports that the pattern contains a syntax ERROR node and nothing matched, `ast_search` returns a `pattern-parse-error` (`Pattern failed to parse: …`) instead of "No matches found"; fix the pattern so it is a complete, valid fragment for `lang`. A valid pattern that simply matches nothing still returns `No matches found for pattern: …`. ast-grep diagnostics are surfaced without the `@ast-grep/cli` "postinstall script did not run" install banner.

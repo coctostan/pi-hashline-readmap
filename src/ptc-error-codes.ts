@@ -29,6 +29,10 @@ export const PTC_ERROR_CODES = {
     description: "A required parameter was supplied as JSON null",
     trigger: "a schema-required parameter is present with value null after optional-null normalization",
   },
+  "invalid-type": {
+    description: "A required parameter has the wrong JSON type",
+    trigger: "a schema-typed parameter (e.g. write path/content) reaches the tool with a different type, such as a number or boolean where a string is required",
+  },
 
   // edit
   "file-not-read": { description: "edit called on a path that was not read in this session", trigger: "wasReadInSession returned false" },
@@ -51,6 +55,8 @@ export const PTC_ERROR_CODES = {
   // ast_search
   "sg-not-installed": { description: "ast-grep CLI is not installed", trigger: "ENOENT on `sg` invocation" },
   "sg-execution-error": { description: "ast-grep process exited with an error", trigger: "non-zero exit or stderr output" },
+  "invalid-pattern": { description: "ast_search pattern is empty or not a string", trigger: "pattern missing, non-string, or whitespace-only before ast-grep is spawned" },
+  "pattern-parse-error": { description: "ast_search pattern does not parse as valid code for the language", trigger: "ast-grep warned the pattern contains an ERROR node and nothing matched" },
 
   // find / ls (shared shape)
   "path-not-found": { description: "search/target path does not exist", trigger: "stat failed on path" },

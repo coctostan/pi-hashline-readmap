@@ -6,7 +6,7 @@ Write full file content. Creates new files and parent directories, overwrites ex
 
 Use `write` to create a file or intentionally replace a whole file. For small changes or appends, `read` first and use `edit` (`insert_after` for appends).
 
-Existing files are overwritten without confirmation. Binary-looking content is written, but hashlines are not generated, so there are no anchors to feed into `edit`.
+Existing files are overwritten without confirmation. Binary-looking content (NUL bytes or invalid UTF-8) is written and reported as a successful write with a `binary-content` warning, but hashlines are not generated, so there are no anchors to feed into `edit`.
 
 Content containing bare carriage returns (`\r` not paired as `\r\n`) is refused before mutation because read/edit normalization could not produce trustworthy anchors.
 
@@ -14,17 +14,19 @@ Writes are atomic: content is written to a temporary file in the same directory 
 
 ## Parameters
 
-- `path` — relative or absolute file path.
-- `content` — complete file contents.
+- `path` — relative or absolute file path (string).
+- `content` — complete file contents (string). Non-string `path`/`content` that reach the tool are rejected with an `invalid-type` error and nothing is written; `null` is rejected with `invalid-null`. Pi hosts convert numbers and booleans to strings during argument validation before the tool runs (for example `42` → `"42"`), and the same host conversion applies to every tool's string parameters; the extension cannot observe or undo it.
 - `map` — optional; append a structural map when possible. Map append is best-effort and write still succeeds if map generation fails.
 
 ## Output
 
-Successful text writes return `LINE:HASH|content`; display hashlines escape control characters for safe rendering. Visible output is capped at 2000 lines or 50 KB, but full anchors remain available in `ptcValue`.
+Successful text writes return `LINE:HASH|content`; display hashlines escape control characters for safe rendering.
+
+Large writes (more than 2000 lines, or more than 50 KB of anchor text) return a compact summary instead: `Wrote <path> (<N> lines, <B> bytes). Anchors omitted for writes over 2000 lines or 50 KB of anchors; use read with offset/limit to get anchors before editing.` The structured value then has `lines: []`, `truncated: true`, `totalLines`, `bytes`, and an `anchors-omitted` warning; `diff`/`diffData` are omitted. Because no anchors were returned, the file is not marked as read for `edit`: `read` it (with `offset`/`limit`) first. Smaller writes are unchanged.
 
 ## Diff data contract
 
-Successful text `write` results include additive final `details.diff`, `details.ptcValue.diff`, `details.diffData`, and `details.ptcValue.diffData` fields. The string fields remain the backward-compatible human-readable fallback.
+Successful text `write` results below the large-write threshold include additive final `details.diff`, `details.ptcValue.diff`, `details.diffData`, and `details.ptcValue.diffData` fields (large and binary writes omit them). The string fields remain the backward-compatible human-readable fallback.
 
 `diffData` is a stable versioned contract:
 
