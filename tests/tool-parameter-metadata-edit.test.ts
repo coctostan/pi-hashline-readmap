@@ -6,6 +6,27 @@ import { registerEditTool } from "../src/edit.js";
 const execute = (tool: any, input: Record<string, unknown>, cwd: string) => tool.execute("metadata", input, new AbortController().signal, undefined, { cwd });
 
 describe("provider-visible edit constraints", () => {
+  it("exposes optional literal on set_line, replace_lines, and insert_after", async () => {
+    const edit = registerEditTool({ registerTool() {} } as any) as any;
+    const variants = edit.parameters.properties.edits.items.anyOf;
+    for (const [index, key] of [[0, "set_line"], [1, "replace_lines"], [2, "insert_after"]] as const) {
+      const shape = variants[index].properties[key];
+      expect(shape.properties.literal?.type).toBe("boolean");
+      expect(shape.properties.literal?.description).toBe("Write new_text exactly; skip anchor-prefix cleanup");
+      expect(shape.required).not.toContain("literal");
+    }
+
+    const cwd = mkdtempSync(join(tmpdir(), "hashline-edit-literal-"));
+    const target = join(cwd, "target.txt");
+    writeFileSync(target, "alpha\nbeta\n");
+    const { computeLineHash, ensureHashInit } = await import("../src/hashline.js");
+    await ensureHashInit();
+    const anchor = `2:${computeLineHash(2, "beta")}`;
+    const tool = registerEditTool({ registerTool() {} } as any, { wasReadInSession: () => true }) as any;
+    const result = await execute(tool, { path: target, edits: [{ set_line: { anchor, new_text: `${anchor}|BETA`, literal: true } }] }, cwd);
+    expect(result.isError).toBeFalsy();
+    expect(readFileSync(target, "utf8")).toBe(`alpha\n${anchor}|BETA\n`);
+  });
   it("states preflight rules and preserves rejection-before-mutation", async () => {
     const edit = registerEditTool({ registerTool() {} } as any) as any;
     const p = edit.parameters.properties; const variants = p.edits.items.anyOf;

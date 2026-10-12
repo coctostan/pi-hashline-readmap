@@ -13,9 +13,9 @@ import type { PtcLine } from "./ptc-value.js";
 // ─── Types ──────────────────────────────────────────────────────────────
 
 export type HashlineEditItem =
-	| { set_line: { anchor: string; new_text: string } }
-	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
-	| { insert_after: { anchor: string; new_text: string; text?: string } }
+	| { set_line: { anchor: string; new_text: string; literal?: boolean } }
+	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string; literal?: boolean } }
+	| { insert_after: { anchor: string; new_text: string; text?: string; literal?: boolean } }
 	| { copy_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
 	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
 	| { replace: { old_text: string; new_text: string; all?: boolean } };
@@ -61,6 +61,10 @@ type ParsedSpec =
 interface ParsedEdit {
 	spec: ParsedSpec;
 	dstLines: string[];
+	/** Pasted anchor prefixes removed from this edit's new_text. */
+	strippedPrefixes?: number;
+	/** `literal: true`: new_text is written exactly as given (no prefix removal, no echo drop). */
+	literal?: boolean;
 	/** Lines copied verbatim from a source range; resolved after validation, never echo-stripped. */
 	copy?: { start: ParsedRef; end: ParsedRef; fromPath?: string };
 }
@@ -80,8 +84,7 @@ const RADIX = 16;
 const HASH_MOD = RADIX ** HASH_LEN;
 const DICT = Array.from({ length: HASH_MOD }, (_, i) => i.toString(RADIX).padStart(HASH_LEN, "0"));
 
-const HASHLINE_PREFIX_RE = /^\d+:[0-9a-zA-Z]{1,16}\|/;
-const DIFF_PLUS_RE = /^\+(?!\+)/;
+const HASHLINE_PREFIX_RE = /^(\d+):([0-9a-f]{3})\|/;
 const HASH_ONLY_PREFIX_RE = /^[0-9a-f]{3}\|/;
 const CONFUSABLE_HYPHENS_RE = /[\u2010\u2011\u2012\u2013\u2014\u2212\uFE63\uFF0D]/g;
 const HASH_RELOCATION_WINDOW_BASE = 20;
@@ -296,49 +299,57 @@ function splitDst(dst: string): string[] {
 	return normalized.split("\n");
 }
 
+/** Current-file data used to recognise anchor rows pasted into replacement text. */
+interface PrefixContext {
+	/** Hash of each current file line; index = line - 1. */
+	lineHashes: readonly string[];
+	/** Every hash the current file carries. */
+	knownHashes: ReadonlySet<string>;
+}
+
+/** A `LINE:HASH|` prefix counts as a pasted row only when that LINE:HASH is a real anchor of the file. */
+function hasServedRowPrefix(line: string, lineHashes: readonly string[]): boolean {
+	const match = HASHLINE_PREFIX_RE.exec(line);
+	return match !== null && lineHashes[Number(match[1]) - 1] === match[2];
+}
+
 /**
- * Remove anchor prefixes models paste into replacement text. `LINE:HASH|` prefixes are stripped
- * when they dominate. Bare `HASH|` prefixes are stripped when they dominate a multi-line text, or
- * on a single line when the hash is one this file actually serves (`knownHashes`): a pasted
- * `467|BBB` copied from the `2:467|bbb` row is a slip, while real content rarely starts with
- * three hex digits, a pipe, and a hash of this exact file.
+ * Remove anchor prefixes models paste into replacement text. A `LINE:HASH|` prefix is removed from
+ * each line whose LINE:HASH is a real anchor of the current file, so look-alike content such as
+ * `12:30|meeting` is kept. Bare `HASH|` prefixes are removed only when every non-empty line carries
+ * one and each of those hashes belongs to this file (`knownHashes`): a pasted `467|BBB` copied from
+ * the `2:467|bbb` row is a slip, while `abc|def` content is not. Leading `+` is never removed:
+ * it is indistinguishable from markdown lists, signed values, and patch content.
  */
-function stripNewLinePrefixes(lines: string[], knownHashes?: ReadonlySet<string>): string[] {
-	let hashCount = 0;
-	let hashOnlyCount = 0;
+function stripNewLinePrefixes(lines: string[], prefixContext?: PrefixContext): { lines: string[]; stripped: number } {
+	const lineHashes = prefixContext?.lineHashes ?? [];
+	const knownHashes = prefixContext?.knownHashes;
+	let rowCount = 0;
 	let knownHashOnlyCount = 0;
-	let plusCount = 0;
 	let nonEmpty = 0;
 
 	for (const l of lines) {
 		if (!l.length) continue;
 		nonEmpty++;
-		if (HASHLINE_PREFIX_RE.test(l)) hashCount++;
-		else if (HASH_ONLY_PREFIX_RE.test(l)) {
-			hashOnlyCount++;
-			if (knownHashes?.has(l.slice(0, HASH_LEN).toLowerCase())) knownHashOnlyCount++;
-		}
-		if (DIFF_PLUS_RE.test(l)) plusCount++;
+		if (hasServedRowPrefix(l, lineHashes)) rowCount++;
+		else if (HASH_ONLY_PREFIX_RE.test(l) && knownHashes?.has(l.slice(0, HASH_LEN))) knownHashOnlyCount++;
 	}
 
-	if (!nonEmpty) return lines;
-	const stripHash = hashCount > 0 && hashCount >= nonEmpty * 0.5;
-	const stripHashOnly =
-		!stripHash &&
-		hashOnlyCount > 0 &&
-		((nonEmpty >= 2 && hashOnlyCount >= nonEmpty * 0.5) || knownHashOnlyCount === nonEmpty);
-	const stripPlus = !stripHash && !stripHashOnly && plusCount > 0 && plusCount >= nonEmpty * 0.5;
-	if (!stripHash && !stripHashOnly && !stripPlus) return lines;
+	if (!nonEmpty) return { lines, stripped: 0 };
+	if (rowCount > 0) {
+		return { lines: lines.map((l) => (hasServedRowPrefix(l, lineHashes) ? l.replace(HASHLINE_PREFIX_RE, "") : l)), stripped: rowCount };
+	}
+	if (knownHashOnlyCount === nonEmpty) return { lines: lines.map((l) => l.replace(HASH_ONLY_PREFIX_RE, "")), stripped: nonEmpty };
+	return { lines, stripped: 0 };
+}
 
-	return lines.map((l) =>
-		stripHash
-			? l.replace(HASHLINE_PREFIX_RE, "")
-			: stripHashOnly
-				? l.replace(HASH_ONLY_PREFIX_RE, "")
-				: stripPlus
-					? l.replace(DIFF_PLUS_RE, "")
-					: l,
-	);
+function describePrefixStrip(editIndex: number, count: number): string {
+	return `edits[${editIndex}]: removed ${count} pasted anchor prefix${count === 1 ? "" : "es"} (LINE:HASH| or HASH|) from new_text. Pass literal: true on that edit to keep the text exactly as given.`;
+}
+
+function prepareNewText(text: string, literal: boolean | undefined, prefixContext?: PrefixContext): { lines: string[]; stripped: number } {
+	const lines = splitDst(text);
+	return literal === true ? { lines, stripped: 0 } : stripNewLinePrefixes(lines, prefixContext);
 }
 
 // ─── Whitespace / format helpers ────────────────────────────────────────
@@ -413,27 +424,36 @@ function describeBoundaryDuplicates(fileLines: string[], start: number, end: num
 
 // ─── Edit parser ────────────────────────────────────────────────────────
 
-function parseHashlineEditItem(edit: HashlineEditItem, knownHashes?: ReadonlySet<string>): ParsedEdit {
+function parseHashlineEditItem(edit: HashlineEditItem, prefixContext?: PrefixContext): ParsedEdit {
 	if ("set_line" in edit) {
+		const dst = prepareNewText(edit.set_line.new_text, edit.set_line.literal, prefixContext);
 		return {
 			spec: { kind: "single", ref: parseLineRef(edit.set_line.anchor) },
-			dstLines: stripNewLinePrefixes(splitDst(edit.set_line.new_text), knownHashes),
+			dstLines: dst.lines,
+			strippedPrefixes: dst.stripped,
+			literal: edit.set_line.literal === true,
 		};
 	}
 	if ("replace_lines" in edit) {
 		const start = parseLineRef(edit.replace_lines.start_anchor);
 		const end = parseLineRef(edit.replace_lines.end_anchor);
 		const sameRef = start.line === end.line && start.hash === end.hash;
+		const dst = prepareNewText(edit.replace_lines.new_text, edit.replace_lines.literal, prefixContext);
 		return {
 			spec: sameRef ? { kind: "single", ref: start } : { kind: "range", start, end },
-			dstLines: stripNewLinePrefixes(splitDst(edit.replace_lines.new_text), knownHashes),
+			dstLines: dst.lines,
+			strippedPrefixes: dst.stripped,
+			literal: edit.replace_lines.literal === true,
 		};
 	}
 	if ("insert_after" in edit) {
+		// `text` is an accepted alias; Pi fills a missing required new_text with "", so prefer whichever is non-empty.
+		const dst = prepareNewText(edit.insert_after.new_text || edit.insert_after.text || "", edit.insert_after.literal, prefixContext);
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
-			// `text` is an accepted alias; Pi fills a missing required new_text with "", so prefer whichever is non-empty.
-			dstLines: stripNewLinePrefixes(splitDst(edit.insert_after.new_text || edit.insert_after.text || ""), knownHashes),
+			dstLines: dst.lines,
+			strippedPrefixes: dst.stripped,
+			literal: edit.insert_after.literal === true,
 		};
 	}
 	if ("copy_lines" in edit) {
@@ -448,7 +468,7 @@ function parseHashlineEditItem(edit: HashlineEditItem, knownHashes?: ReadonlySet
 }
 
 /** `move_lines` is a copy of the range after the target plus deletion of the range. */
-function parseHashlineEditItems(edit: HashlineEditItem, knownHashes?: ReadonlySet<string>): ParsedEdit[] {
+function parseHashlineEditItems(edit: HashlineEditItem, prefixContext?: PrefixContext): ParsedEdit[] {
 	if ("move_lines" in edit) {
 		const { start_anchor, end_anchor, after_anchor } = edit.move_lines;
 		const fromPath = edit.move_lines.from_path?.trim() || undefined;
@@ -472,7 +492,7 @@ function parseHashlineEditItems(edit: HashlineEditItem, knownHashes?: ReadonlySe
 			{ spec: sameRef ? { kind: "single", ref: start } : { kind: "range", start, end }, dstLines: [] },
 		];
 	}
-	return [parseHashlineEditItem(edit, knownHashes)];
+	return [parseHashlineEditItem(edit, prefixContext)];
 }
 
 interface DestructiveSpan {
@@ -679,18 +699,21 @@ export function applyHashlineEdits(
 	edits: HashlineEditItem[],
 	signal?: AbortSignal,
 	options: HashlineEditOptions = {},
-): { content: string; firstChangedLine: number | undefined; warnings?: string[]; noopEdits?: NoopEdit[] } {
+): { content: string; firstChangedLine: number | undefined; lineMap: Array<number | undefined>; warnings?: string[]; noopEdits?: NoopEdit[] } {
 	throwIfAborted(signal);
-	if (!edits.length) return { content, firstChangedLine: undefined };
+	if (!edits.length) return { content, firstChangedLine: undefined, lineMap: content.split("\n").map((_, index) => index + 1) };
 
 	// Compute adaptive relocation window based on edit batch size
 	const relocationWindow = Math.min(Math.max(HASH_RELOCATION_WINDOW_BASE, edits.length * 5), HASH_RELOCATION_WINDOW_CAP);
 
 	const fileLines = content.split("\n");
 	const origLines = [...fileLines];
+	/** Original 1-based line of each current row; undefined for rows this call wrote. */
+	const origins: Array<number | undefined> = fileLines.map((_, index) => index + 1);
 	function splice(index: number, deleteCount: number, newLines: string[], copy?: { fromPath?: string; startLine: number }): void {
 		options.onSplice?.(index, deleteCount, newLines, copy);
 		fileLines.splice(index, deleteCount, ...newLines);
+		origins.splice(index, deleteCount, ...newLines.map(() => undefined));
 	}
 	let firstChanged: number | undefined;
 	const noopEdits: NoopEdit[] = [];
@@ -703,11 +726,12 @@ export function applyHashlineEdits(
 	const { lineHashes, validate, validateRange } = resolver;
 	const relocationNotes = resolver.notes;
 	const mismatches = resolver.mismatches;
-	const knownHashes = new Set(lineHashes);
+	const prefixContext: PrefixContext = { lineHashes, knownHashes: new Set(lineHashes) };
 
 	const parsed: IndexedParsedEdit[] = edits.flatMap((edit, idx) =>
-		parseHashlineEditItems(edit, knownHashes).map((item) => ({ ...item, idx })),
+		parseHashlineEditItems(edit, prefixContext).map((item) => ({ ...item, idx })),
 	);
+	const prefixWarnings = parsed.flatMap((p) => (p.strippedPrefixes ? [describePrefixStrip(p.idx, p.strippedPrefixes)] : []));
 
 	function collectExplicitlyTouchedLines(): Set<number> {
 		const touched = new Set<number>();
@@ -912,7 +936,7 @@ export function applyHashlineEdits(
 	}
 
 	// Apply edits bottom-up
-	for (const { spec, dstLines, idx, copy } of sorted) {
+	for (const { spec, dstLines, idx, copy, literal } of sorted) {
 		throwIfAborted(signal);
 		if (spec.kind === "single") {
 			const merged = maybeExpandSingleLineMerge(spec.ref.line, dstLines);
@@ -960,7 +984,7 @@ export function applyHashlineEdits(
 			track(spec.start.line);
 		} else {
 			const anchor = origLines[spec.after.line - 1];
-			const echo = copy ? { lines: dstLines, stripped: false } : stripInsertAnchorEcho(anchor, dstLines);
+			const echo = copy || literal ? { lines: dstLines, stripped: false } : stripInsertAnchorEcho(anchor, dstLines);
 			const inserted = echo.lines;
 			if (echo.stripped) {
 				boundaryWarnings.push(
@@ -991,15 +1015,21 @@ export function applyHashlineEdits(
 		}
 	}
 
-	const warnings: string[] = [...relocationNotes, ...duplicateTargetWarnings, ...boundaryWarnings];
+	const warnings: string[] = [...relocationNotes, ...prefixWarnings, ...duplicateTargetWarnings, ...boundaryWarnings];
 	const diff = countChangedLines(origLines, fileLines);
 	if (diff > edits.length * 4) {
 		warnings.push(`Edit changed ${diff} lines across ${edits.length} operations — verify no unintended reformatting.`);
 	}
 
+	const lineMap: Array<number | undefined> = origLines.map(() => undefined);
+	origins.forEach((origin, index) => {
+		if (origin !== undefined) lineMap[origin - 1] = index + 1;
+	});
+
 	return {
 		content: fileLines.join("\n"),
 		firstChangedLine: firstChanged,
+		lineMap,
 		...(warnings.length ? { warnings } : {}),
 		...(noopEdits.length ? { noopEdits } : {}),
 	};

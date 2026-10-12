@@ -81,7 +81,7 @@ If the file changed between `read` and `edit`, the edit reports a mismatch inste
 
 ### Edit safely
 
-Get fresh anchors from `read`, `grep`, `ast_search`, or `write`, then use `set_line`, `replace_lines`, or `insert_after`. Copy or move existing lines, within a file or from another file, with `copy_lines` and `move_lines` instead of retyping them. `replace` is an exact-text escape hatch. Deletion, overlap rejection, whole-symbol replacement, syntax checks, atomic writes, and structured diffs live in [tool behavior and structured output](docs/structured-output.md).
+Get fresh anchors from `read`, `grep`, `ast_search`, or `write`, then use `set_line`, `replace_lines`, or `insert_after`. Copy or move existing lines, within a file or from another file, with `copy_lines` and `move_lines` instead of retyping them. `replace` is an exact-text escape hatch. Deletion, overlap rejection, whole-symbol replacement, syntax checks, atomic writes, and structured diffs live in [tool behavior and structured output](docs/structured-output.md). Anchor-looking text in `new_text` is kept unless it is a real pasted anchor row (`literal: true` keeps everything), and anchors made stale by your own line-shifting edit are remapped or refused, never applied to a different line.
 
 ### Navigate large files
 

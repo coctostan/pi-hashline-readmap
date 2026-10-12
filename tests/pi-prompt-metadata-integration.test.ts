@@ -64,7 +64,7 @@ describe("Pi system prompt metadata integration", () => {
     });
     expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, shapeHash(value.parameters)]))).toEqual({
       read: "6061be7a64843271e910e1af6357a2bf93e673d6ac6301573bcad560df10d06f",
-      edit: "366254313a5e76561c6f3e98d613b96dfcb941fb4ae474b3520723b2595f318c",
+      edit: "5c1b396d70bc313131e0809a0b19cf9c5d84f7dca197a85df0b6493e05e44e45",
       grep: "6d8ed3ec5dc1c9110e8e3a422ec5798bb4b6b6b5de77a36bcaa98278ebdae646",
       find: "a44a725f23f1229e138fe754031bdfd95e1fde001e18dd1945f1e5b9a0b79322",
       ls: "60a39a7e79ded29cd3756471c6e628e2766483fcb69b5c5a1acdd6299a47171e",
@@ -98,6 +98,9 @@ describe("Pi system prompt metadata integration", () => {
         "$.properties.edits.items.anyOf[1].properties.replace_lines.properties.start_anchor": "Fresh LINE:HASH start anchor",
         "$.properties.edits.items.anyOf[1].properties.replace_lines.properties.end_anchor": "Fresh LINE:HASH end anchor",
         "$.properties.edits.items.anyOf[2].properties.insert_after.properties.anchor": "Fresh LINE:HASH anchor",
+        "$.properties.edits.items.anyOf[0].properties.set_line.properties.literal": "Write new_text exactly; skip anchor-prefix cleanup",
+        "$.properties.edits.items.anyOf[1].properties.replace_lines.properties.literal": "Write new_text exactly; skip anchor-prefix cleanup",
+        "$.properties.edits.items.anyOf[2].properties.insert_after.properties.literal": "Write new_text exactly; skip anchor-prefix cleanup",
         "$.properties.edits.items.anyOf[3].properties.replace.properties.old_text": "Non-empty exact target text",
         "$.properties.edits.items.anyOf[4].properties.replace_symbol.properties.new_body": "Non-blank complete symbol body",
         "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.after_anchor": "Insert the copy after this line of path (LINE:HASH)",
