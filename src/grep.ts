@@ -327,7 +327,11 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 		parameters: grepSchema,
 		promptSnippet: GREP_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: options.astSearchGuideline
-			? [GREP_PROMPT_METADATA.promptGuidelines[0], options.astSearchGuideline]
+			? [
+				GREP_PROMPT_METADATA.promptGuidelines[0],
+				options.astSearchGuideline,
+				...GREP_PROMPT_METADATA.promptGuidelines.slice(2),
+			]
 			: GREP_PROMPT_METADATA.promptGuidelines,
 		async execute(toolCallId, params, signal, onUpdate, ctx) {
 			const normalized = normalizeToolParameters(grepSchema, params);

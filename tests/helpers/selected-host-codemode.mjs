@@ -15,7 +15,8 @@ const { runToolCall } = await import(pathToFileURL(join(dirname(coreManifest), "
 const { discoverAndLoadExtensions, wrapRegisteredTool, ExtensionRunner, SessionManager } =
   await import(pathToFileURL(join(host, "dist/index.js")));
 const { executeCodemode } = await import(pathToFileURL(join(host, "dist/extensions/codemode/execute.js")));
-const { createCodemodeDescription } = await import(pathToFileURL(join(host, "dist/extensions/codemode/tool.js")));
+const { createCodemodeDescription, createCodemodeToolDefinition, DEFAULT_CODEMODE_INLINE_BUDGET } =
+  await import(pathToFileURL(join(host, "dist/extensions/codemode/tool.js")));
 const root = mkdtempSync(join(tmpdir(), "pi-262-host-boundary-"));
 const cwd = join(root, "cwd");
 const agentDir = join(root, "agent");
@@ -96,7 +97,13 @@ try {
     });
   }
   if (process.env.PI_COMPAT_REQUIRE_NU === "1") assert.ok(extension.tools.has("nu"));
-  const sessionManager = SessionManager.inMemory(cwd);
+  const programSettings = process.env.PI_CODEMODE_PROGRAM ? JSON.parse(process.env.PI_CODEMODE_PROGRAM) : undefined;
+  const sessionManager = programSettings?.persist
+    ? SessionManager.create(cwd, join(root, "sessions"))
+    : SessionManager.inMemory(cwd);
+  if (programSettings?.persist) {
+    sessionManager.appendMessage({ role: "user", content: [{ type: "text", text: "Recipe persistence fixture" }], timestamp: 0 });
+  }
   const runner = new ExtensionRunner(loaded.extensions, loaded.runtime, cwd, sessionManager, {});
   const handlerErrors = [];
   runner.onError((error) => handlerErrors.push(error));
@@ -187,56 +194,200 @@ try {
   }
   const ctx = { cwd, tools: declared, sessionManager,
     executeTool: (name, args, options = {}) => invoke(name, args, true, options.signal) };
-  const result = await executeCodemode("script", { code: process.env.PI_CODEMODE_CASE }, cancelMode ? scriptAbort.signal : undefined, undefined, ctx, {});
-  const textOf = value => value.content.filter(c => c.type === "text").map(c => c.text).join("\n");
-  const scriptText = textOf(result);
-  const forwardedImages = result.content.filter(item => item.type === "image");
-  const imageLabels = [...scriptText.matchAll(/\[Image saved to (.+?) \((image\/[^,]+),/g)];
-  // Capture every generated path before assertions, retaining the existing Set-based cleanup.
-  for (const match of imageLabels) imagePaths.add(match[1]);
-  assert.equal(imageLabels.length, forwardedImages.length,
-    "each forwarded image must report a saved file");
-  for (let i = 0; i < forwardedImages.length; i++) {
-    const attachment = forwardedImages[i];
-    const match = imageLabels[i];
-    assert.ok(nativeImages.some(native => native.data === attachment.data
-      && native.mimeType === attachment.mimeType), "forwarded native image identity");
-    assert.equal(match[2], attachment.mimeType, "persisted image MIME");
-    assert.ok(readFileSync(match[1]).equals(Buffer.from(attachment.data, "base64")),
-      "persisted image bytes");
-  }
-  const persistedImages = imageLabels.length;
-  if (cancelMode) {
-    assert.equal(result.isError, true, "cancelled script must fail");
-    assert.ok(scriptText.includes("Script failed"), "cancelled script header");
-    assert.equal(cancelStarted, true, "cancellation fixture started");
-    assert.equal(cancelObserved, true, "nested cancellation observed");
-    assert.ok(result.details.calls.some(call => call.name === "read" && call.status === "cancelled"),
-      "nested call marked cancelled");
+  if (process.env.PI_CODEMODE_PROGRAM) {
+    const program = JSON.parse(process.env.PI_CODEMODE_PROGRAM);
+    for (const [path, content] of Object.entries(program.files ?? {})) {
+      const target = join(cwd, path);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, content);
+    }
+    const results = [];
+    const codemodeOptions = {
+      getMode: () => program.mode ?? "on",
+      getToolGuidelines: () => new Map(declared.map(tool => [tool.name, tool.promptGuidelines ?? []])),
+      appendEntry: (customType, data) => ctx.sessionManager.appendCustomEntry(customType, data),
+    };
+    const codemode = createCodemodeToolDefinition(codemodeOptions);
+    const registered = [...declared, codemode];
+    const prepared = codemode.prepareLoadout({
+      declared: registered, callable: declared, registered,
+      getExposure: name => name === "codemode" ? "model-only" : "direct",
+      getNamespace: () => undefined,
+      getPromptGuidelines: name => registered.find(tool => tool.name === name)?.promptGuidelines ?? [],
+    });
+    const hidden = new Set(prepared.hiddenDeclarations ?? []);
+    const modelTools = registered.filter(tool => !hidden.has(tool.name));
+    const declarations = modelTools.map(tool => ({
+      name: tool.name,
+      description: prepared.descriptions?.[tool.name] ?? tool.description,
+      parameters: tool.parameters,
+    }));
+    const serializedDeclarations = JSON.stringify(declarations);
+    const loadout = {
+      mode: program.mode ?? "on", defaultInlineBudget: DEFAULT_CODEMODE_INLINE_BUDGET,
+      hidden: [...hidden], modelTools: modelTools.map(tool => tool.name),
+      description: prepared.descriptions.codemode,
+      declarationBytes: Buffer.byteLength(serializedDeclarations),
+      estimatedDeclarationTokens: serializedDeclarations.length / 4,
+    };
+    async function direct(name, args) {
+      const started = performance.now();
+      const outcome = await invoke(name, args, false);
+      const text = outcome.result.content.filter(c => c.type === "text").map(c => c.text).join("\n");
+      results.push({
+        direct: true, failed: outcome.isError, text,
+        elapsedMs: performance.now() - started,
+        outputBytes: Buffer.byteLength(text),
+        calls: [{ name, status: outcome.isError ? "error" : "ok" }],
+      });
+      return outcome;
+    }
+    function project(id, outcome) {
+      if (outcome.isError) return {
+        id, status: "rejected",
+        message: outcome.result.content.filter(c => c.type === "text").map(c => c.text).join("\n"),
+      };
+      const value = outcome.result.structuredContent;
+      if (Array.isArray(value.lines)) return {
+        id, status: "fulfilled", path: value.path, range: value.range,
+        continuation: value.continuation, warnings: value.warnings,
+        lines: value.lines.map(line => ({ anchor: line.anchor, raw: line.raw })),
+      };
+      return {
+        id, status: "fulfilled", totalMatches: value.totalMatches, completeness: value.completeness,
+        records: value.records.filter(record => record.kind === "match")
+          .map(record => ({ path: record.path, anchor: record.anchor, raw: record.raw })),
+      };
+    }
+    let task;
+    if (program.normalWorkflow === "independent") {
+      const read = await direct("read", { path: "alpha.txt", limit: 1 });
+      const search = await direct("grep", { path: "search.txt", pattern: "needle", limit: 100 });
+      const missing = await direct("read", { path: "absent.txt" });
+      task = [project("read", read), project("search", search), project("missing", missing)];
+    } else if (program.normalWorkflow === "search-edit") {
+      const search = await direct("grep", { path: "edit-target.txt", pattern: "TODO:", literal: true, limit: 100 });
+      assert.ok(!search.isError);
+      const value = search.result.structuredContent;
+      assert.equal(value.completeness.search, "complete");
+      assert.equal(value.completeness.omittedMatches, 0);
+      const hits = value.records.filter(record => record.kind === "match" && record.raw.startsWith("TODO: change "));
+      assert.ok(hits.length > 0);
+      const outcome = await direct("edit", {
+        path: "edit-target.txt",
+        edits: hits.map(hit => ({ set_line: { anchor: hit.anchor, new_text: hit.raw.replace("TODO: change ", "DONE: ") } })),
+      });
+      assert.ok(!outcome.isError);
+      task = { ok: outcome.result.structuredContent.ok, changed: hits.length, warnings: outcome.result.structuredContent.warnings };
+    }
+    const checkpoints = new Map();
+    for (const step of program.steps) {
+      if (step.checkpoint) {
+        const leaf = ctx.sessionManager.getLeafId();
+        assert.ok(leaf, "Checkpoint needs an existing session entry");
+        checkpoints.set(step.checkpoint, leaf);
+        continue;
+      }
+      if (step.branch) {
+        const target = checkpoints.get(step.branch);
+        assert.ok(target, "Unknown recipe checkpoint");
+        ctx.sessionManager.branch(target);
+        continue;
+      }
+      if (step.resume) {
+        const path = ctx.sessionManager.getSessionFile();
+        assert.ok(path, "Resume needs a persisted session");
+        ctx.sessionManager = SessionManager.open(path);
+        continue;
+      }
+      assert.equal(typeof step.code, "string", "Recipe step needs code");
+      const started = performance.now();
+      const result = await executeCodemode("script", { code: step.code }, undefined, undefined, ctx, codemodeOptions);
+      const text = result.content.filter(c => c.type === "text").map(c => c.text).join("\n");
+      const images = result.content.filter(c => c.type === "image");
+      const labels = [...text.matchAll(/\[Image saved to (.+?) \((image\/[^,]+),/g)];
+      for (const label of labels) imagePaths.add(label[1]);
+      assert.equal(labels.length, images.length, "Each recipe image is saved");
+      for (let i = 0; i < images.length; i++) {
+        assert.equal(labels[i][2], images[i].mimeType);
+        assert.ok(readFileSync(labels[i][1]).equals(Buffer.from(images[i].data, "base64")));
+        assert.ok(!text.includes(images[i].data), "Recipe printed image base64");
+      }
+      const outer = await runner.emitToolResult({
+        type: "tool_result", toolName: "codemode", toolCallId: "script",
+        input: { code: step.code }, ...result, isError: result.isError === true,
+      });
+      const renderedText = (outer ?? result).content.filter(c => c.type === "text").map(c => c.text).join("\n");
+      results.push({
+        failed: result.isError === true,
+        text: renderedText,
+        images: images.map(c => ({ mimeType: c.mimeType })),
+        calls: result.details.calls,
+        elapsedMs: performance.now() - started,
+        outputBytes: Buffer.byteLength(renderedText),
+      });
+    }
+    assert.deepEqual(handlerErrors, []);
+    console.log(JSON.stringify({
+      program: true, version, host, results, loadout, task, cwd,
+      storeEntries: ctx.sessionManager.getBranch()
+        .filter(entry => entry.type === "custom" && entry.customType === "codemode-store")
+        .map(entry => entry.data),
+      files: Object.fromEntries((program.inspect ?? []).map(path => [path, readFileSync(join(cwd, path), "utf8")])),
+    }));
   } else {
-    assert.ok(scriptText.includes("Script completed") && scriptText.includes("case=PASS"), scriptText);
+
+    const result = await executeCodemode("script", { code: process.env.PI_CODEMODE_CASE }, cancelMode ? scriptAbort.signal : undefined, undefined, ctx, {});
+    const textOf = value => value.content.filter(c => c.type === "text").map(c => c.text).join("\n");
+    const scriptText = textOf(result);
+    const forwardedImages = result.content.filter(item => item.type === "image");
+    const imageLabels = [...scriptText.matchAll(/\[Image saved to (.+?) \((image\/[^,]+),/g)];
+    // Capture every generated path before assertions, retaining the existing Set-based cleanup.
+    for (const match of imageLabels) imagePaths.add(match[1]);
+    assert.equal(imageLabels.length, forwardedImages.length,
+      "each forwarded image must report a saved file");
+    for (let i = 0; i < forwardedImages.length; i++) {
+      const attachment = forwardedImages[i];
+      const match = imageLabels[i];
+      assert.ok(nativeImages.some(native => native.data === attachment.data
+        && native.mimeType === attachment.mimeType), "forwarded native image identity");
+      assert.equal(match[2], attachment.mimeType, "persisted image MIME");
+      assert.ok(readFileSync(match[1]).equals(Buffer.from(attachment.data, "base64")),
+        "persisted image bytes");
+    }
+    const persistedImages = imageLabels.length;
+    if (cancelMode) {
+      assert.equal(result.isError, true, "cancelled script must fail");
+      assert.ok(scriptText.includes("Script failed"), "cancelled script header");
+      assert.equal(cancelStarted, true, "cancellation fixture started");
+      assert.equal(cancelObserved, true, "nested cancellation observed");
+      assert.ok(result.details.calls.some(call => call.name === "read" && call.status === "cancelled"),
+        "nested call marked cancelled");
+    } else {
+      assert.ok(scriptText.includes("Script completed") && scriptText.includes("case=PASS"), scriptText);
+    }
+    if (permissionMode) {
+      assert.equal(permissionBlocks, 1, "permission hook count");
+      assert.equal(blockedWriteExecutions, 0, "blocked write executed");
+      assert.equal(readFileSync(join(cwd, "blocked.txt"), "utf8"), "KEEP\n", "blocked write side effect");
+    }
+    const outer = await runner.emitToolResult({ type: "tool_result", toolName: "codemode", toolCallId: "script",
+      input: {}, ...result, isError: result.isError === true });
+    const staleNotice = textOf(outer ?? result).includes("[Stale read result");
+    const duplicate = await runner.emitToolResult({ type: "tool_result", toolName: "codemode", toolCallId: "last",
+      input: {}, content: [{ type: "text", text: "done" }], details: {}, isError: false });
+    const duplicateNotice = !!duplicate && textOf(duplicate).includes("[Stale read result");
+    assert.deepEqual(handlerErrors, []);
+    console.log(JSON.stringify({
+      version, host, completed: result.isError !== true,
+      persistedImages,
+      permissionBlocks, blockedWriteExecutions,
+      cancelStarted, cancelObserved,
+      directBashChecked,
+      images: result.content.filter(c => c.type === "image").length,
+      staleNotice, duplicateNotice, compressed,
+    }));
   }
-  if (permissionMode) {
-    assert.equal(permissionBlocks, 1, "permission hook count");
-    assert.equal(blockedWriteExecutions, 0, "blocked write executed");
-    assert.equal(readFileSync(join(cwd, "blocked.txt"), "utf8"), "KEEP\n", "blocked write side effect");
-  }
-  const outer = await runner.emitToolResult({ type: "tool_result", toolName: "codemode", toolCallId: "script",
-    input: {}, ...result, isError: result.isError === true });
-  const staleNotice = textOf(outer ?? result).includes("[Stale read result");
-  const duplicate = await runner.emitToolResult({ type: "tool_result", toolName: "codemode", toolCallId: "last",
-    input: {}, content: [{ type: "text", text: "done" }], details: {}, isError: false });
-  const duplicateNotice = !!duplicate && textOf(duplicate).includes("[Stale read result");
-  assert.deepEqual(handlerErrors, []);
-  console.log(JSON.stringify({
-    version, host, completed: result.isError !== true,
-    persistedImages,
-    permissionBlocks, blockedWriteExecutions,
-    cancelStarted, cancelObserved,
-    directBashChecked,
-    images: result.content.filter(c => c.type === "image").length,
-    staleNotice, duplicateNotice, compressed,
-  }));
 } finally {
   for (const path of imagePaths) rmSync(path, { force: true });
   rmSync(root, { recursive: true, force: true });

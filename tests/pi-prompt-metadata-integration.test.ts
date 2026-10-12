@@ -139,10 +139,15 @@ describe("Pi system prompt metadata integration", () => {
     for (const [name, value] of Object.entries(result.toolMetadata)) {
       expect(value.description).not.toContain("\n"); expect(value.description.length).toBeLessThanOrEqual(100);
       expect(result.snippets[name]).not.toContain("\n"); expect(result.snippets[name].length).toBeLessThanOrEqual(140);
-      expect(result.guidelinesByTool[name].length).toBeLessThanOrEqual(2);
+      expect(result.guidelinesByTool[name].length).toBeLessThanOrEqual(
+        ["read", "edit", "grep"].includes(name) ? 3 : 2,
+      );
       for (const guideline of result.guidelinesByTool[name]) { expect(guideline).not.toContain("\n"); expect(guideline.length).toBeLessThanOrEqual(96); }
       for (const text of Object.values(value.parameterDescriptions)) expect(text.length).toBeLessThanOrEqual(58);
     }
+    expect(result.guidelinesByTool.grep).toContain(
+      "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+    );
     const fullPromptOnly = "Very long single lines are truncated in the displayed output at 500 characters";
     expect(readFileSync("prompts/read.md", "utf8")).toContain(fullPromptOnly);
     expect(result.systemPrompt).not.toContain(fullPromptOnly);
