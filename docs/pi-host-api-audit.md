@@ -111,9 +111,11 @@ field-wise merging, environment precedence, and shell fallback remain intact.
 
 The locked development-host lane and .github/workflows/pi-compatibility.yml's
 independent Pi 1.1.0 lane are complementary. Keep the npm 11/12 packing matrix,
-current-host version checks, optional Nu requirement, and existing loader tests.
+current-host version checks, mandatory Nu registration when PI_COMPAT_REQUIRE_NU=1, and existing loader tests.
 Neither lane may silently fall back to or replace the other. Credentials and a
 live Gemini smoke test are not required.
+
+Bundled Nu is deprecated but retained. The mandatory assertions in tests/pi-host-null-pipeline.test.ts and tests/helpers/selected-host-codemode.mjs, and PI_COMPAT_REQUIRE_NU=1 in CI, remain active during deprecation. Future removal must deliberately update those assertions using the [Nu release gate and checklist](nu-deprecation.md); do not leave them silently skipped. The conditional structured-Nu codemode-contract proposal is superseded: no new Nu API is introduced.
 
 | Acceptance criteria | Evidence |
 | --- | --- |

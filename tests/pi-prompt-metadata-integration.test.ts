@@ -60,7 +60,7 @@ describe("Pi system prompt metadata integration", () => {
       ls: "List one directory.",
       write: "Create or overwrite a file and return anchors.",
       ast_search: "Search code by AST pattern and return anchored matches.",
-      nu: "Run Nushell for structured data, filesystem metadata, and system inspection.",
+      nu: "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.",
     });
     expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, shapeHash(value.parameters)]))).toEqual({
       read: "e4ceb7e7d32f5dae9d678d19791bf9ba2ec90c8b16017240da6210b063446043",

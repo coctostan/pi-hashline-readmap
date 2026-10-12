@@ -82,19 +82,18 @@ describe("stock pi prompt metadata", () => {
   });
 
   it("keeps nu metadata consistent with stock pi's flat prompt surface", async () => {
-    vi.doMock("node:child_process", async () => {
-      const actual = await vi.importActual<any>("node:child_process");
-      return {
-        ...actual,
-        execFileSync: vi.fn(() => Buffer.from("0.111.0\n")),
-      };
-    });
-
+    vi.doMock("node:child_process", async () => ({
+      ...(await vi.importActual<any>("node:child_process")),
+      execFileSync: vi.fn(() => Buffer.from("0.111.0\n")),
+    }));
     const { registerNuTool } = await import("../src/nu.js");
-    const pi = createMockPi();
+    const pi = { registerTool: vi.fn() };
     const tool = registerNuTool(pi as any);
-
-    expect(tool).not.toBe(false);
+    assert.ok(tool);
+    assert.match(tool.description, /Deprecated/);
+    expect(tool.promptGuidelines).toEqual([
+      "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",
+    ]);
     assertPromptMetadata(tool as ToolDefinition, "prompts/nu.md", "nu");
   });
 });
@@ -143,7 +142,7 @@ describe("compact provider-visible descriptions", () => {
     expect(tools.ls.description).toBe("List one directory.");
     expect(tools.write.description).toBe("Create or overwrite a file and return anchors.");
     expect(tools.ast_search.description).toBe("Search code by AST pattern and return anchored matches.");
-    expect((tools.nu as ToolDefinition).description).toBe("Run Nushell for structured data, filesystem metadata, and system inspection.");
+    expect((tools.nu as ToolDefinition).description).toBe("Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.");
 
     for (const [name, tool] of Object.entries(tools)) {
       expect(typeof (tool as ToolDefinition).description, name).toBe("string");

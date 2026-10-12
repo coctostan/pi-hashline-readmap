@@ -24,7 +24,7 @@ Earlier releases published an executor map on the `hashline:tool-executors` Even
 | `ls` | Single-directory listing. Read-only. |
 | `find` | Recursive file discovery. Read-only. |
 | `bash` | Built-in bash with Hashline rendering and output compression. Conservative default annotations. |
-| `nu` | Present only when the optional Nushell integration registers successfully. Conservative default annotations. |
+| `nu` | Deprecated but retained; present only when Nushell registers successfully. Conservative default annotations. See [Nu migration](nu-deprecation.md). |
 | `context_hygiene_report` | Present only when `PI_CONTEXT_HYGIENE_DEBUG=1`. Read-only. |
 
 ## Recommended consumer behavior
@@ -33,6 +33,8 @@ Earlier releases published an executor map on the `hashline:tool-executors` Even
 - Use `structuredContent` (in codemode scripts) or `details.ptcValue` (in `tool_result` handlers and renderers) instead of parsing rendered output.
 - Be prepared for optional tools such as `nu` and `context_hygiene_report` to be absent.
 - Do not rely on hot reload. Restart the pi session after changing this extension's source.
+
+During deprecation, do not load another extension registering the same `nu` name alongside Hashline's bundled integration. Disabling a tool by name does not disable one registration source selectively. Use the [retention/conflict guidance](nu-deprecation.md#avoid-conflicting-registrations); no maintained replacement package is promised here. Prefer dedicated file tools and codemode for general structured exploration, and Bash for external CLIs. No setting or tool selection is automatically changed.
 
 ## Provider-visible prompt metadata
 

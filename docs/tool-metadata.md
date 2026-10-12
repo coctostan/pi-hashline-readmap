@@ -21,13 +21,15 @@ JSON Schema structure is unchanged. Each runtime-enforced static rule is communi
 | `ls` | `path` is one directory; limit is positive and accepts an obvious base-10 string; globs need balanced brackets and braces. | `path`, `limit`, `glob` descriptions |
 | `find` | `path` is a directory; limit is positive; maxDepth is non-negative; runtime coercion accepts numeric strings where documented. | `path`, `limit`, `maxDepth` descriptions |
 | `find` | Regex mode requires a valid JavaScript regex; dates accept ISO or `Nm`/`Nh`/`Nd`; non-negative sizes accept bytes or B, K, KB, M, MB, G, GB. | `pattern`, `regex`, `modifiedSince`, size descriptions |
-| `nu` | `command` is a Nushell script; timeout is seconds with default 30. No unsupported positivity rule is claimed. | `command`, `timeout` descriptions |
+| `nu` | `command` is a Nushell script; timeout is seconds with default 30. No unsupported positivity rule is claimed. | `command`, `timeout` descriptions (`nu` is deprecated but retained) |
 
 These are text-only metadata changes: no root `oneOf`/`anyOf`, provider-request rewrite, runtime validation change, error change, or structured-result change.
 
 ## What reaches providers
 
 At the real `createAgentSession` boundary, compact descriptions are attached to registered tool definitions. Prompt snippets and guidelines appear in `session.systemPrompt`. The full `prompts/*.md` bodies are detailed references and do not reach the provider. Changing a prompt body alone therefore does not change provider-visible metadata. `tests/pi-prompt-metadata-integration.test.ts` captures all three surfaces.
+
+Bundled `nu` is deprecated but retained. Its compact registered description, snippet, and guideline now route general exploration toward read/grep/ast_search, find/ls, codemode composition, and Bash external commands. Nu parameter descriptions, schema shape, execution, and result contracts are unchanged; detailed specialist syntax remains in prompts/nu.md. See [Nu deprecation and migration](nu-deprecation.md) for the removal gate.
 
 ## Measured diagnosis
 

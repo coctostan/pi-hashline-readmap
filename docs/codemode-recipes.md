@@ -247,3 +247,221 @@ throw new Error("Demonstration failure after a real mutation");
 <!-- /recipe:store-failure -->
 
 See [workflow measurements](codemode-benchmarks.md) for reproducible normal-versus-codemode-only size and overhead evidence. These deterministic measurements are not a recommendation to change your default tool exposure.
+
+## Migrate Nu source inspection
+
+Use read/grep/ast_search for source files rather than Nushell file-opening pipelines. Seed inspect.ts with three lines: console.log("one");, console.log("two");, console.log("three");, each on its own line. sourcePath optionally selects another path; sourceReadOffset optionally selects the read start (default 1). Each input request admits at most two lines or matches. Only independent inspection calls run in parallel.
+
+A match limit does not bound a multiline AST match or raw source string. This projection returns at most two AST files, two ranges and two source lines per file, two grep match records, and two read warnings. Raw is retained only in full, at most 160 UTF-16 code units AND 160 ASCII-JSON content characters; otherwise rawOmitted/rawLength replace raw, never a clipped preview. Paths, failure messages, warning codes/messages and ambiguity queries have the same encoded-string bound and explicit omitted-character counts. Warning/line/record/range/file omissions are counted. No rendered text or image base64 is copied.
+
+Native read truncation and continuation, warning codes/messages, grep completeness, and AST truncation stay separate from projection omissions. projectionComplete refers only to this projection of returned inputs; it does not establish native search/source completeness. Grep's nativeSearchComplete is conservative and exhaustive requires both native completeness and a complete match projection, within the requested path/pattern. Read and AST never claim exhaustive source views here. Non-text reads retain their variant discriminant, warnings and applicable ambiguity metadata; use [the read-union recipe](#handle-the-read-union-before-projecting) for full image/ambiguity handling.
+
+The emitted ASCII JSON is limited to 6000 characters before text(), below the 2000-token recovery cap. If that aggregate budget would be exceeded, source-detail arrays are omitted explicitly with outputBudgetOmitted while bounded failures/warnings, native truncation/continuation and completeness remain. Unexpected oversized metadata fails explicitly instead of silently clipping a raw/anchor pair. Codemode also has a 60-second script deadline.
+
+Omitted raw must be reacquired with a suitably narrowed read before preparing an edit; do not use a preview or omission marker as source content. Reacquire fresh anchors after any mutation and serialize dependent edits. See [Nu deprecation](nu-deprecation.md) for the policy.
+
+<!-- recipe:nu-source -->
+~~~js
+// @options: {"max_output_tokens": 2000, "timeout_ms": 60000}
+const path = load("sourcePath") ?? "inspect.ts";
+const MAX_ITEMS = 2;
+const MAX_RAW_CHARS = 160;
+const MAX_JSON_CHARS = 6000;
+function asciiJson(value) {
+  return JSON.stringify(value).replace(/[\u007f-\uffff]/g,
+    ch => "\\u" + ch.charCodeAt(0).toString(16).padStart(4, "0"));
+}
+function boundedString(value) {
+  const original = String(value ?? "");
+  let shown = original.slice(0, MAX_RAW_CHARS);
+  while (asciiJson(shown).length > MAX_RAW_CHARS + 2) shown = shown.slice(0, -1);
+  return { value: shown, omittedChars: original.length - shown.length };
+}
+function stringField(key, value) {
+  const bounded = boundedString(value);
+  return { [key]: bounded.value, [key + "OmittedChars"]: bounded.omittedChars };
+}
+function sourceLine(line) {
+  return line.raw.length <= MAX_RAW_CHARS && asciiJson(line.raw).length <= MAX_RAW_CHARS + 2
+    ? { anchor: line.anchor, raw: line.raw }
+    : { anchor: line.anchor, rawOmitted: true, rawLength: line.raw.length };
+}
+function projectLines(lines) {
+  const selected = lines.slice(0, MAX_ITEMS).map(sourceLine);
+  return { lines: selected, projection: {
+    omittedLines: lines.length - selected.length,
+    omittedRawStrings: selected.filter(line => line.rawOmitted).length,
+  } };
+}
+function projectWarnings(warnings = []) {
+  const selected = warnings.slice(0, MAX_ITEMS).map(warning => ({
+    ...stringField("code", warning.code), ...stringField("message", warning.message),
+  }));
+  return { warnings: selected, warningProjection: {
+    omittedWarnings: warnings.length - selected.length,
+    omittedWarningChars: selected.reduce((sum, warning) =>
+      sum + warning.codeOmittedChars + warning.messageOmittedChars, 0),
+  } };
+}
+const requests = [
+  { id: "read", call: () => tools.read({ path, offset: load("sourceReadOffset") ?? 1, limit: 2 }) },
+  { id: "grep", call: () => tools.grep({ path, pattern: "console.log", literal: true, limit: 2 }) },
+  { id: "ast", call: () => tools.ast_search({ path, pattern: "console.log($$$ARGS)", lang: "typescript", limit: 2 }) },
+];
+const settled = await Promise.allSettled(requests.map(request => request.call()));
+let rows = settled.map((result, index) => {
+  const id = requests[index].id;
+  if (result.status === "rejected") return { id, status: "rejected", exhaustive: false,
+    ...stringField("message", result.reason.message) };
+  const value = result.value;
+  const location = stringField("path", value.path ?? path);
+  if (id === "read") {
+    const warnings = projectWarnings(value.warnings);
+    if (!Array.isArray(value.lines)) return { id, status: "variant", exhaustive: false,
+      kind: value.kind ?? value.type ?? (value.ambiguity ? "ambiguity" : "unknown"),
+      ...location, ...warnings,
+      ambiguity: value.ambiguity ? {
+        ...stringField("query", value.ambiguity.query), totalCandidates: value.ambiguity.totalCandidates,
+      } : null };
+    const projected = projectLines(value.lines);
+    return { id, status: "fulfilled", ...location, range: value.range, ...warnings,
+      truncation: value.truncation ?? null, continuation: value.continuation,
+      ...projected, exhaustive: false,
+      projectionComplete: location.pathOmittedChars === 0
+        && warnings.warningProjection.omittedWarnings === 0
+        && warnings.warningProjection.omittedWarningChars === 0
+        && projected.projection.omittedLines === 0 && projected.projection.omittedRawStrings === 0 };
+  }
+  if (id === "grep") {
+    const matches = value.records.filter(record => record.kind === "match");
+    const records = matches.slice(0, MAX_ITEMS).map(record => ({
+      kind: record.kind, ...stringField("path", record.path), ...sourceLine(record),
+    }));
+    const projection = {
+      filteredContextRecords: value.records.length - matches.length,
+      omittedRecords: matches.length - records.length,
+      omittedRawStrings: records.filter(record => record.rawOmitted).length,
+      omittedPathChars: records.reduce((sum, record) => sum + record.pathOmittedChars, 0),
+    };
+    const projectionComplete = location.pathOmittedChars === 0
+      && projection.omittedRecords === 0 && projection.omittedRawStrings === 0
+      && projection.omittedPathChars === 0;
+    const nativeSearchComplete = value.completeness.search === "complete"
+      && value.completeness.omittedMatches === 0 && !value.completeness.limitReached
+      && !value.completeness.nativeTruncated && !value.completeness.displayTruncated;
+    return { id, status: "fulfilled", ...location, observed: value.totalMatches,
+      completeness: value.completeness, nativeSearchComplete, records, projection,
+      projectionComplete, exhaustive: nativeSearchComplete && projectionComplete };
+  }
+  const files = value.files.slice(0, MAX_ITEMS).map(file => {
+    const projected = projectLines(file.lines);
+    return { ...stringField("path", file.path), ranges: file.ranges.slice(0, MAX_ITEMS),
+      lines: projected.lines, projection: {
+        ...projected.projection, omittedRanges: file.ranges.length - Math.min(file.ranges.length, MAX_ITEMS),
+      } };
+  });
+  const projection = { omittedFiles: value.files.length - files.length };
+  return { id, status: "fulfilled", ...location, truncation: value.truncation ?? null,
+    exhaustive: false, files, projection,
+    projectionComplete: location.pathOmittedChars === 0 && projection.omittedFiles === 0
+      && files.every(file => file.pathOmittedChars === 0 && file.projection.omittedLines === 0
+        && file.projection.omittedRawStrings === 0 && file.projection.omittedRanges === 0) };
+});
+let output = asciiJson(rows);
+if (output.length > MAX_JSON_CHARS) {
+  rows = rows.map(({ lines, records, files, ...metadata }) => ({
+    ...metadata, exhaustive: false, projectionComplete: false,
+    outputBudgetOmitted: {
+      lines: lines?.length ?? 0, records: records?.length ?? 0, files: files?.length ?? 0,
+    },
+  }));
+  output = asciiJson(rows);
+}
+if (output.length > MAX_JSON_CHARS) throw new Error("Source metadata exceeds 6000 JSON characters; narrow the request.");
+text(output);
+~~~
+<!-- /recipe:nu-source -->
+
+## Migrate Nu discovery summaries
+
+Seed migration/a.ts with a, migration/b.ts with bbb, and migration/c.ts with cccc. This lists at most two direct entries and finds at most two non-empty TypeScript files up to 1KB, within maxDepth 1, largest first. find matches basenames, respects .gitignore, and filters/sorts before its result limit; ls lists one directory including dotfiles. The optional discoveryPath store value changes the shared directory.
+
+The JavaScript filters file entries, joins find's root-relative paths with ls entry names for this same directory, and counts only the returned intersection. It does not stat files or expose a size/mtime value in returned entries. Subdirectory find paths cannot match a direct ls basename in this join. Exhaustive means complete returned inputs within the stated requests/filters, not every repository file. Preserve each input's truncation or rejection; an incomplete or failed input cannot support an exhaustive summary. Output has a 2000-token recovery cap and a 60-second script deadline.
+
+<!-- recipe:nu-discovery -->
+~~~js
+// @options: {"max_output_tokens": 2000, "timeout_ms": 60000}
+const path = load("discoveryPath") ?? "migration";
+const requests = [
+  { id: "ls", call: () => tools.ls({ path, glob: "*.ts", limit: 2 }) },
+  { id: "find", call: () => tools.find({ path, pattern: "*.ts", maxDepth: 1,
+    type: "file", minSize: 1, maxSize: "1KB", sortBy: "size", reverse: true, limit: 2 }) },
+];
+const settled = await Promise.allSettled(requests.map(request => request.call()));
+const inputs = settled.map((result, index) => result.status === "rejected"
+  ? { id: requests[index].id, status: "rejected", message: result.reason.message }
+  : { id: requests[index].id, status: "fulfilled", truncated: result.value.truncated,
+    entries: result.value.entries });
+const listed = settled[0].status === "fulfilled" ? settled[0].value.entries : [];
+const found = settled[1].status === "fulfilled" ? settled[1].value.entries : [];
+const selected = new Set(found.filter(entry => entry.type === "file").map(entry => entry.path));
+const joined = listed.filter(entry => entry.type === "file" && selected.has(entry.name))
+  .map(entry => ({ path: entry.name, type: entry.type }));
+text({ inputs, joined, counts: { joinedFiles: joined.length },
+  exhaustive: inputs.every(input => input.status === "fulfilled" && input.truncated === false) });
+~~~
+<!-- /recipe:nu-discovery -->
+
+## Migrate external CLI JSON
+
+Bash remains the path for external commands. Codemode cannot spawn a process itself. Run a CLI with a timeout, check native exit/truncation metadata, then parse and project its JSON privately. Do not parse RTK/rendered output or print both raw output and summaries.
+
+For a credential-free demonstration, seed migration-report.cjs with:
+```js
+console.log(JSON.stringify([
+  { number: 1, title: "first", state: "OPEN" },
+  { number: 2, title: "second", state: "CLOSED" },
+]));
+```
+The labeled codemode script invokes that Node CLI. Adapt cliCommand deliberately for a real external CLI producing the same bounded shape, for example gh issue list --limit 5 --json number,title,state (requires its own installation/authentication). This fixture verifies the tool/JSON boundary, not a remote GitHub integration or provider credentials. It is not a Bash replacement for reading repository files.
+
+The CLI must return at most five issue rows. Parse at most 65536 output characters and print at most five 120-character titles; the Bash timeout is ten seconds and codemode has a 60-second deadline and 2000-token recovery cap. Counts describe returned rows only, not all remote issues. Failed/rejected, nonzero, truncated, oversized, malformed JSON, and wrong-shape responses are reported before aggregation. Native Bash may retain at most 1 MiB in output; truncated JSON must not be parsed. Retain full_output_path for deliberate recovery. PI_RTK_BYPASS does not bypass native truncation.
+
+<!-- recipe:nu-cli -->
+~~~js
+// @options: {"max_output_tokens": 2000, "timeout_ms": 60000}
+const command = load("cliCommand") ?? "node migration-report.cjs";
+let result;
+try {
+  result = await tools.bash({ command, timeout: 10 });
+} catch (error) {
+  text({ status: "rejected", message: error.message });
+  exit();
+}
+const metadata = { exit_code: result.exit_code, truncated: result.truncated,
+  full_output_path: result.full_output_path ?? null, wall_time_seconds: result.wall_time_seconds };
+if (result.exit_code !== 0) {
+  text({ status: "nonzero-exit", ...metadata });
+} else if (result.truncated) {
+  text({ status: "truncated", ...metadata });
+} else if (result.output.length > 65536) {
+  text({ status: "output-too-large", ...metadata });
+} else {
+  let rows;
+  try { rows = JSON.parse(result.output); }
+  catch (error) { text({ status: "invalid-json", ...metadata, message: error.message }); exit(); }
+  if (!Array.isArray(rows) || rows.length > 5
+    || rows.some(row => !row || typeof row.number !== "number"
+      || typeof row.title !== "string" || typeof row.state !== "string")) {
+    text({ status: "invalid-shape", ...metadata });
+    exit();
+  }
+  const open = rows.filter(row => row.state === "OPEN");
+  text({ status: "ok", ...metadata, returned: rows.length, openCount: open.length,
+    issues: open.map(row => ({ number: row.number, title: row.title.slice(0, 120) })),
+    scope: "returned CLI rows only" });
+}
+~~~
+<!-- /recipe:nu-cli -->
+
+The test removes the generated native Bash recovery log in finally. Do not print large raw subprocess output into the model context or add a replacement structured shell API.

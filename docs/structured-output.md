@@ -21,6 +21,8 @@ Common structured pieces include:
 
 The exact `ptcValue.tool` value identifies the producer, such as `read`, `grep`, `ast_search`, `edit`, `write`, `ls`, `find`, or `nu`.
 
+Bundled `nu` is deprecated but retained, including its existing `details.ptcValue` success/error metadata. This deprecation adds no Nu `outputSchema`, no new structured Nu API, and no notices to execution or script results. The seven schema-owned Hashline tools and native Bash keep their existing codemode contracts. See [Nu deprecation and migration](nu-deprecation.md) for the gate and [tested migration recipes](codemode-recipes.md) for bounded composition.
+
 ## Anchors in structured output
 
 For anchored line output, prefer `ptcValue.lines[*].anchor` instead of reparsing rendered `LINE:HASH|content` text. The rendered text is for agents and humans; `ptcValue` is for programmatic consumers.
