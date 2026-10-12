@@ -21,11 +21,12 @@
   "license": "MIT",
   "pi": {
     "extensions": [
-      "./index.ts"
+      "./dist/index.js"
     ]
   },
   "files": [
     "index.ts",
+    "dist/",
     "src/",
     "prompts/",
     "docs/",
@@ -39,6 +40,9 @@
     "CHANGELOG.md"
   ],
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepare": "node scripts/build.mjs --optional",
+    "prepublishOnly": "node scripts/build.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "typecheck:pi-host": "node scripts/typecheck-pi-host.mjs"
@@ -70,6 +74,7 @@
     "@earendil-works/pi-tui": "^0.84.2",
     "@types/node": "^25.5.0",
     "@types/semver": "7.7.1",
+    "esbuild": "0.28.2",
     "jiti": "2.7.0",
     "semver": "7.8.0",
     "typebox": "1.3.7",

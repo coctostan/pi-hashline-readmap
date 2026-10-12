@@ -4,8 +4,7 @@
 // argv entries instead of being parsed by `/bin/sh`. See GH #116.
 import { execFile } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { packagePath } from "../../package-root.js";
 import { promisify } from "node:util";
 
 import type { FileMap, FileSymbol } from "../types.js";
@@ -15,8 +14,7 @@ export const MAPPER_VERSION = 1;
 
 const execFileAsync = promisify(execFile);
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCRIPT_PATH = join(__dirname, "../../../scripts/python_outline.py");
+const SCRIPT_PATH = packagePath("scripts", "python_outline.py");
 
 interface PythonSymbol {
   name: string;

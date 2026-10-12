@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `read` can recover any part of a long line: `charOffset` (with `offset`) and `charLimit` select a bounded window (default 500 characters, capped at 10,000) of one line. The `LINE:HASH` anchor is still computed from the full line, results report remaining characters and the next call, and `ptcValue.window` / rehydration descriptors carry the window. Thanks to CrazyCoder (#219), whose proposal motivated this. The unbounded `unclipped` flag and the settings-gated `read.allowUnclipped` schema variation from that PR were intentionally not adopted, to keep reads context-bounded and the tool schema static (#268).
+
+### Changed
+
+- Clipped long lines in `read` output now end with `... [truncated, N chars total; read({offset:L, charOffset:K})]`, telling the agent how to fetch the remainder. A cut that would split a surrogate pair now backs off by one character.
+- Ship a bundled `dist/index.js` (esbuild, ESM syntax, npm packages external, `dist/package.json` typed `commonjs`) as the Pi entry, cutting extension startup versus loading ~107 TypeScript modules through jiti; an unbuilt checkout still loads `index.ts`. Prompts and outline scripts resolve from the package root in both layouts. Based on the measurements and proposal in PR #226 by valentinoPereira; see `docs/startup-performance.md` (#267).
+
 ### Deprecated
 
 - Bundled `nu` is deprecated, not removed. Nu remains available for at least one published deprecation release; removal occurs only in a separately announced breaking release after migration-example verification and the removal checklist pass. Registration, binary provisioning, configuration, execution results, and compatibility assertions are unchanged. Prefer dedicated file tools plus codemode composition and Bash for external CLIs. See [Nu deprecation and migration](docs/nu-deprecation.md) for tested replacements, Nushell retention options, and the removal checklist (#266).

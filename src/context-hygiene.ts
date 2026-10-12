@@ -62,6 +62,8 @@ export interface ContextHygieneReadRehydrateInput {
   path: string;
   offset?: number | string;
   limit?: number | string;
+  charOffset?: number;
+  charLimit?: number;
   symbol?: string;
   map?: true;
   bundle?: "local";
@@ -248,6 +250,8 @@ export interface BuildReadRehydrateDescriptorInput {
   path: string;
   offset?: number | string;
   limit?: number | string;
+  charOffset?: number;
+  charLimit?: number;
   symbol?: string;
   map?: boolean;
   bundle?: "local";
@@ -259,6 +263,8 @@ export function buildReadRehydrateDescriptor(
   const descriptorInput: ContextHygieneReadRehydrateInput = { path: input.path };
   if (input.offset !== undefined) descriptorInput.offset = input.offset;
   if (input.limit !== undefined) descriptorInput.limit = input.limit;
+  if (input.charOffset !== undefined) descriptorInput.charOffset = input.charOffset;
+  if (input.charLimit !== undefined) descriptorInput.charLimit = input.charLimit;
   if (input.symbol !== undefined) descriptorInput.symbol = input.symbol;
   if (input.map === true) descriptorInput.map = true;
   if (input.bundle !== undefined) descriptorInput.bundle = input.bundle;

@@ -36,7 +36,8 @@ describe("published mapper scripts", () => {
     try {
       const { stdout } = await execFileAsync(
         "npm",
-        ["pack", "--json", "--pack-destination", root],
+        // --ignore-scripts: `prepare` would otherwise build the repo's dist/ (#267).
+        ["pack", "--json", "--ignore-scripts", "--pack-destination", root],
         { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 },
       );
       const packOutput = JSON.parse(stdout) as PackResult[] | Record<string, PackResult>;

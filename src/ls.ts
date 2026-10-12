@@ -5,6 +5,7 @@ import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readdir, stat } from "node:fs/promises";
 import { resolveToCwd } from "./path-utils.js";
 import { buildPtcError } from "./ptc-value.js";
+import { packageFileUrl } from "./package-root.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { normalizeToolParameters } from "./normalize-tool-params.js";
@@ -13,7 +14,7 @@ const MAX_BYTES = 50 * 1024; // 50 KB
 const DEFAULT_LIMIT = 500;
 
 const LS_PROMPT_METADATA = defineToolPromptMetadata({
-  promptUrl: new URL("../prompts/ls.md", import.meta.url),
+  promptUrl: packageFileUrl("prompts", "ls.md"),
   promptSnippet: "List one directory with directories first and dotfiles included",
   promptGuidelines: [
     "Use ls to inspect one directory; use find for recursive discovery.",

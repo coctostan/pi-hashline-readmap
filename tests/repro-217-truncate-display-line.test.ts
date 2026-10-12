@@ -24,4 +24,20 @@ describe("issue 217 — truncateDisplayLine (display-only long-line guard)", () 
     expect(out.endsWith("... [truncated, 20000 chars total]")).toBe(true);
     expect(out.length).toBeLessThan(600);
   });
+
+  it("adds a continuation hint when a line number is supplied", () => {
+    const out = truncateDisplayLine("x".repeat(600), 7);
+    expect(out).toBe("x".repeat(500) + "... [truncated, 600 chars total; read({offset:7, charOffset:500})]");
+  });
+
+  it("keeps the legacy marker when no line number is supplied", () => {
+    expect(truncateDisplayLine("x".repeat(600))).toBe("x".repeat(500) + "... [truncated, 600 chars total]");
+  });
+
+  it("never cuts inside a surrogate pair and reports the shown length as charOffset", () => {
+    const display = "x".repeat(499) + "😀" + "y".repeat(10); // length 511; the 500-char cut splits the pair
+    expect(truncateDisplayLine(display, 3)).toBe(
+      "x".repeat(499) + "... [truncated, 511 chars total; read({offset:3, charOffset:499})]",
+    );
+  });
 });

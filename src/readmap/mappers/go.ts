@@ -5,8 +5,8 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { packagePath } from "../../package-root.js";
 import { promisify } from "node:util";
 
 import type { FileMap, FileSymbol } from "../types.js";
@@ -16,8 +16,7 @@ export const MAPPER_VERSION = 1;
 
 const execFileAsync = promisify(execFile);
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCRIPTS_DIR = join(__dirname, "../../../scripts");
+const SCRIPTS_DIR = packagePath("scripts");
 const GO_SOURCE = join(SCRIPTS_DIR, "go_outline.go");
 const GO_BINARY = join(SCRIPTS_DIR, "go_outline");
 

@@ -9,7 +9,7 @@ describe("0.15.1 package contents", () => {
     expect(pkg.files).toContain("scripts/scan-ambiguous-read-calls.d.mts");
     const readme = readFileSync("README.md", "utf8"); const linked = [...readme.matchAll(/\]\((docs\/[^)#]+\.md)(?:#[^)]+)?\)/g)].map((match) => match[1]);
     expect(linked).toEqual(expect.arrayContaining(["docs/bash-output.md", "docs/configuration.md", "docs/context-hygiene.md", "docs/integrations.md", "docs/structured-output.md", "docs/tool-metadata.md"]));
-    const packOutput = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json"], { encoding: "utf8" }));
+    const packOutput = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { encoding: "utf8" }));
     const packed = Array.isArray(packOutput) ? packOutput[0] : packOutput[pkg.name];
     const names = new Set<string>(packed.files.map((file: { path: string }) => file.path));
     for (const path of [...linked, "scripts/scan-ambiguous-read-calls.mjs"]) expect(names.has(path), path).toBe(true);

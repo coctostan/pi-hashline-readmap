@@ -94,6 +94,15 @@ read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", limit: 2,
 
 A symbol can combine with `limit`, `map: true`, and `bundle: "local"`. `symbol+offset` is invalid, and bundle without `symbol` is invalid. Truncated full-file reads append a map when available. Dedicated mapper/runtime details are in [configuration and dependencies](docs/configuration.md).
 
+Minified or generated files can contain a single very long line that `read` clips at 500 characters. Recover any part of it with a character window — the anchor stays the full line's anchor, so it still works with `edit`:
+
+```text
+read({ path: "dist/app.min.js", offset: 1, charOffset: 500 })
+read({ path: "data.json", offset: 1, charOffset: 0, charLimit: 5000 })
+```
+
+`charLimit` defaults to 500 and is capped at 10,000; each result tells you the remaining characters and the next call to make.
+
 ### Search and explore
 
 ```text
@@ -155,8 +164,11 @@ Advanced behavior and integration contracts are documented in the references bel
 npm install
 npm test
 npm run typecheck
+npm run build   # optional: bundle dist/index.js for faster Pi startup
 npm pack --dry-run
 ```
+
+`npm run build` bundles the extension into `dist/index.js`; Pi loads it when present and falls back to `index.ts` otherwise (see [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md) and [startup performance](docs/startup-performance.md)).
 
 Project layout:
 
