@@ -18,7 +18,8 @@ import {
 	escapeControlCharsForDisplay,
 } from "./hashline.js";
 import { findCorruptedRetype } from "./retype-guard.js";
-import { formatStaleRows, overwrittenLines, type ServedLines } from "./served-lines.js";
+import { formatStaleRows, overwrittenLines, type ServedLines, type ShiftSummary } from "./served-lines.js";
+import { remapShiftedAnchors } from "./shifted-anchors.js";
 import type { PtcLine } from "./ptc-value.js";
 import { resolveToCwd } from "./path-utils.js";
 import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
@@ -78,6 +79,7 @@ const hashlineEditItemSchema = Type.Union([
 		set_line: Type.Object({
 			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
 			new_text: Type.String(),
+			literal: Type.Optional(Type.Boolean({ description: "Write new_text exactly; skip anchor-prefix cleanup" })),
 		}),
 	}, { additionalProperties: true })),
 	withLegacyObjectOrder(Type.Object({
@@ -85,6 +87,7 @@ const hashlineEditItemSchema = Type.Union([
 			start_anchor: Type.String({ description: "Fresh LINE:HASH start anchor" }),
 			end_anchor: Type.String({ description: "Fresh LINE:HASH end anchor" }),
 			new_text: Type.String(),
+			literal: Type.Optional(Type.Boolean({ description: "Write new_text exactly; skip anchor-prefix cleanup" })),
 		}),
 	}, { additionalProperties: true })),
 	withLegacyObjectOrder(Type.Object({
@@ -92,6 +95,7 @@ const hashlineEditItemSchema = Type.Union([
 			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
 			new_text: Type.String(),
 			text: Type.Optional(Type.String()),
+			literal: Type.Optional(Type.Boolean({ description: "Write new_text exactly; skip anchor-prefix cleanup" })),
 		}),
 	}, { additionalProperties: true })),
 	withLegacyObjectOrder(Type.Object({
@@ -966,6 +970,13 @@ function recordErrorFeedback<T extends EditErrorResult>(options: EditToolOptions
 	return error;
 }
 
+/** Tell the caller which of its anchors this edit moved; they are stale from here on. */
+function describeOwnShift(shift: ShiftSummary | undefined): string[] {
+	if (!shift) return [];
+	const by = shift.delta > 0 ? `+${shift.delta}` : String(shift.delta);
+	const anchors = shift.count === 1 ? "1 earlier anchor there is" : `${shift.count} earlier anchors there are`;
+	return [`Line numbers shifted by ${by} from old line ${shift.fromLine}; ${anchors} stale (edit remaps them when unambiguous and refuses otherwise).`];
+}
 /**
  * Every line an edit overwrites or removes must still be what the model was shown. Anchors verify
  * only the lines they name; this also covers range interiors, text replacements, and symbol
@@ -1111,6 +1122,8 @@ async function buildEditResult(input: {
 	syntaxWarning?: string;
 	/** Notes about lines a cross-file move_lines removed from its source file. */
 	moveNotes?: string[];
+	/** Notes about anchors remapped through an earlier edit that moved their lines. */
+	anchorNotes?: string[];
 }): Promise<EditSuccessResult> {
 	const diffResult = generateCompactOrFullDiff(input.originalNormalized, input.result);
 	const patch = createPatch(input.displayPath, input.physicalOriginal ?? input.originalNormalized, input.physicalResult ?? input.result);
@@ -1128,6 +1141,7 @@ async function buildEditResult(input: {
 	});
 	const warnings: string[] = [];
 	if (input.anchorResult.warnings?.length) warnings.push(...input.anchorResult.warnings);
+	if (input.anchorNotes?.length) warnings.push(...input.anchorNotes);
 	if (input.legacyNormalizationWarning) warnings.push(input.legacyNormalizationWarning);
 	if (input.replaceWarnings.length) warnings.push(...input.replaceWarnings);
 	if (input.replaceSymbolWarnings.length) warnings.push(...input.replaceSymbolWarnings);
@@ -1206,13 +1220,16 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					throwIfAborted(signal);
 					const validated = validateEdits({ parsed, rawInput: input, absolutePath, signal });
 					if (isEditErrorResult(validated)) return validated;
-					const { edits, anchorEdits, replaceEdits, replaceSymbolEdits, legacyNormalizationWarning } = validated;
-					const notRead = requireReadForAnchors(options, absolutePath, rawPath, anchorEdits.length + replaceSymbolEdits.length > 0);
+					const { edits, anchorEdits: requestedAnchorEdits, replaceEdits, replaceSymbolEdits, legacyNormalizationWarning } = validated;
+					const notRead = requireReadForAnchors(options, absolutePath, rawPath, requestedAnchorEdits.length + replaceSymbolEdits.length > 0);
 					if (notRead) return notRead;
 
 					const loaded = await loadEditSource({ absolutePath, displayPath: path, signal });
 					if (isEditErrorResult(loaded)) return loaded;
 					const { bom, originalEnding, originalNormalized, originalContent } = loaded;
+					const shifted = remapShiftedAnchors({ served: options.served, path: absolutePath, currentLines: originalNormalized.split("\n"), edits: requestedAnchorEdits });
+					if (!shifted.ok) return recordErrorFeedback(options, absolutePath, buildEditError(absolutePath, "hash-mismatch", shifted.message, undefined, { updatedAnchors: shifted.rows }));
+					const anchorEdits = shifted.edits;
 					const preserveLineEndings = true;
 
 					const resolvedSymbols = await resolveReplaceSymbols({
@@ -1290,7 +1307,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						physicalResult: preserveLineEndings ? result : undefined,
 					});
 					if (isEditErrorResult(writeResult)) return writeResult;
-					options.served?.remapAfterWrite(absolutePath, originalNormalized.split("\n"), normalizedResult.split("\n"));
+					const shift = options.served?.remapAfterWrite(absolutePath, originalNormalized.split("\n"), normalizedResult.split("\n"), replaceEdits.length || replaceSymbolEdits.length ? undefined : anchorResult.lineMap);
 					const moveNotes = await commitSourceRemovals(sourceRemovals, options, path);
 					if (isEditErrorResult(moveNotes)) return moveNotes;
 
@@ -1309,6 +1326,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						replaceSymbolWarnings,
 						syntaxWarning,
 						moveNotes,
+						anchorNotes: [...shifted.notes, ...describeOwnShift(shift)],
 					});
 				});
 			} catch (err: any) {
@@ -1358,7 +1376,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					context,
 					EDIT_PENDING_PREVIEW_STATE_KEY,
 					previewKey,
-					() => buildPendingEditPreviewData(args ?? {}, context.cwd ?? process.cwd()),
+					() => buildPendingEditPreviewData(args ?? {}, context.cwd ?? process.cwd(), options.served),
 				)
 				: undefined;
 			const preview2: ReturnType<typeof pendingPreviewLines> = !expanded && argsStable

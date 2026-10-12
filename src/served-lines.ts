@@ -24,8 +24,32 @@ export interface StaleLine {
 	raw: string;
 }
 
+/** Shown anchors a write moved: earliest such old line, its shift, and how many moved. */
+export interface ShiftSummary {
+	fromLine: number;
+	delta: number;
+	count: number;
+}
+
+/** Old line (index = line - 1) -> new line, from a line diff; undefined for removed lines. */
+function diffLineMap(oldLines: readonly string[], newLines: readonly string[]): Array<number | undefined> {
+	const map: Array<number | undefined> = [];
+	let newLine = 1;
+	for (const part of diffArrays(oldLines as string[], newLines as string[])) {
+		const count = part.value.length;
+		if (part.added) newLine += count;
+		else if (part.removed) for (let i = 0; i < count; i++) map.push(undefined);
+		else for (let i = 0; i < count; i++) map.push(newLine++);
+	}
+	return map;
+}
 export class ServedLines {
 	private readonly files = new Map<string, Map<number, string>>();
+	/**
+	 * Per file: anchors (`LINE:HASH`) the model was shown before this tool's own writes moved their
+	 * lines -> current line, or null when that line was replaced, removed, or maps ambiguously.
+	 */
+	private readonly shifted = new Map<string, Map<string, number | null>>();
 
 	/** Record shown rows. `complete` replaces what was known (a full-file view). */
 	record(path: string, rows: Iterable<{ line: number; hash: string }>, complete = false): void {
@@ -34,9 +58,16 @@ export class ServedLines {
 			served = new Map();
 			this.files.set(path, served);
 		}
+		if (complete) this.shifted.delete(path);
+		const shifted = this.shifted.get(path);
 		for (const row of rows) {
-			if (Number.isInteger(row.line) && row.line > 0 && typeof row.hash === "string") served.set(row.line, row.hash.toLowerCase());
+			if (Number.isInteger(row.line) && row.line > 0 && typeof row.hash === "string") {
+				const hash = row.hash.toLowerCase();
+				served.set(row.line, hash);
+				shifted?.delete(`${row.line}:${hash}`);
+			}
 		}
+		if (shifted && !shifted.size) this.shifted.delete(path);
 	}
 
 	/** Record rows given as `LINE:HASH` anchors (grep records, error feedback). */
@@ -59,6 +90,17 @@ export class ServedLines {
 
 	forget(path: string): void {
 		this.files.delete(path);
+		this.shifted.delete(path);
+	}
+
+	/**
+	 * Where an anchor shown before this tool's own writes now lives: the current line, `null` when
+	 * its line was replaced, removed, or cannot be mapped unambiguously, or `undefined` when it did
+	 * not move.
+	 */
+	shiftedAnchor(path: string, line: number, hash: string): number | null | undefined {
+		const target = this.shifted.get(path)?.get(`${line}:${hash.toLowerCase()}`);
+		return target === line ? undefined : target;
 	}
 
 	/** Lines in `lineNumbers` (1-based, of `currentLines`) that changed since the model saw them. */
@@ -85,29 +127,54 @@ export class ServedLines {
 	/**
 	 * After this tool wrote `newLines`, carry unchanged lines' served hashes to their new line
 	 * numbers and mark written lines as served: the model authored them and saw the diff.
+	 * `lineMap` (old line index -> new line) is the exact mapping when the writer knows it.
 	 */
-	remapAfterWrite(path: string, oldLines: readonly string[], newLines: readonly string[]): void {
+	remapAfterWrite(
+		path: string,
+		oldLines: readonly string[],
+		newLines: readonly string[],
+		lineMap: readonly (number | undefined)[] = diffLineMap(oldLines, newLines),
+	): ShiftSummary | undefined {
 		const served = this.files.get(path);
 		const next = new Map<number, string>();
-		let oldLine = 1;
-		let newLine = 1;
-		for (const part of diffArrays(oldLines as string[], newLines as string[])) {
-			const count = part.value.length;
-			if (part.added) {
-				for (let i = 0; i < count; i++) next.set(newLine + i, computeLineHash(newLine + i, newLines[newLine + i - 1]));
-				newLine += count;
-			} else if (part.removed) {
-				oldLine += count;
-			} else {
-				for (let i = 0; i < count; i++) {
-					const shown = served?.get(oldLine + i);
-					if (shown !== undefined) next.set(newLine + i, shown);
-				}
-				oldLine += count;
-				newLine += count;
-			}
+		const carried = new Set<number>();
+		for (let oldLine = 1; oldLine <= oldLines.length; oldLine++) {
+			const target = lineMap[oldLine - 1];
+			if (target === undefined) continue;
+			carried.add(target);
+			const shown = served?.get(oldLine);
+			if (shown !== undefined) next.set(target, shown);
+		}
+		for (let line = 1; line <= newLines.length; line++) {
+			if (!carried.has(line)) next.set(line, computeLineHash(line, newLines[line - 1]));
 		}
 		this.files.set(path, next);
+		return this.recordShifts(path, served, lineMap);
+	}
+
+	/** Compose earlier shifts through this write, then add the shown anchors this write moved. */
+	private recordShifts(path: string, served: ReadonlyMap<number, string> | undefined, lineMap: readonly (number | undefined)[]): ShiftSummary | undefined {
+		const shifted = new Map<string, number | null>();
+		const put = (key: string, target: number | null) => {
+			shifted.set(key, shifted.has(key) && shifted.get(key) !== target ? null : target);
+		};
+		for (const [key, target] of this.shifted.get(path) ?? []) put(key, target === null ? null : (lineMap[target - 1] ?? null));
+		let summary: ShiftSummary | undefined;
+		for (const [line, hash] of served ?? []) {
+			const target = lineMap[line - 1] ?? null;
+			if (target === line) continue;
+			put(`${line}:${hash}`, target);
+			if (target === null) continue;
+			if (!summary) summary = { fromLine: line, delta: target - line, count: 0 };
+			else if (line < summary.fromLine) {
+				summary.fromLine = line;
+				summary.delta = target - line;
+			}
+			summary.count++;
+		}
+		if (shifted.size) this.shifted.set(path, shifted);
+		else this.shifted.delete(path);
+		return summary;
 	}
 }
 

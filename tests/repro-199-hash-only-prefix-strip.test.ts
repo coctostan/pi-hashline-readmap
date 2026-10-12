@@ -6,18 +6,19 @@ describe("repro 199 — hash-only prefixes are stripped from new_text", () => {
     await ensureHashInit();
   });
 
-  it("strips dominant hash-only prefixes (033|, d05|) in set_line new_text", () => {
+  it("strips bare prefixes in set_line new_text when every line carries a hash of the file", () => {
     const orig = ["alpha", "beta", "gamma"].join("\n");
     const anchor = `2:${computeLineHash(2, "beta")}`;
+    const h = (text: string) => computeLineHash(1, text);
     const res = applyHashlineEdits(
       orig,
-      [{ set_line: { anchor, new_text: "033|beta-modified\nd05|extra-line" } }],
+      [{ set_line: { anchor, new_text: `${h("beta")}|beta-modified\n${h("gamma")}|extra-line` } }],
       new AbortController().signal,
     );
     expect(res.content.split("\n")).toEqual(["alpha", "beta-modified", "extra-line", "gamma"]);
   });
 
-  it("strips dominant hash-only prefixes in replace_lines new_text", () => {
+  it("keeps invented bare prefixes in replace_lines new_text", () => {
     const orig = ["alpha", "beta", "gamma"].join("\n");
     const start = `1:${computeLineHash(1, "alpha")}`;
     const end = `2:${computeLineHash(2, "beta")}`;
@@ -26,7 +27,7 @@ describe("repro 199 — hash-only prefixes are stripped from new_text", () => {
       [{ replace_lines: { start_anchor: start, end_anchor: end, new_text: "abc|one\ndef|two" } }],
       new AbortController().signal,
     );
-    expect(res.content.split("\n")).toEqual(["one", "two", "gamma"]);
+    expect(res.content.split("\n")).toEqual(["abc|one", "def|two", "gamma"]);
   });
 
   it("preserves a single legitimate pipe-prefixed line (no false-positive strip)", () => {

@@ -123,7 +123,9 @@ See [the tested read-union recipe](codemode-recipes.md#handle-the-read-union-bef
 Compact output unions remain discoverable through `describeTool`. The pinned selected-host test verifies core Hashline declarations fit codemode's default 3000-token inline budget. The former `HASHLINE_TOOL_PTC_POLICY` export and side-channel executor maps remain removed.
 ## Editing safety
 
-Copy fresh anchors from `read`, `grep`, `ast_search`, or `write`. Replacement text is plain content: never include `LINE:HASH|`, hash-only, or diff prefixes. `edit` strips them defensively when they dominate the replacement, but callers should omit them. Set `new_text` to `""` to delete anchored lines and use `"\n"` for an intentionally blank line.
+Copy fresh anchors from `read`, `grep`, `ast_search`, or `write`. Replacement text is plain content: never include `LINE:HASH|`, hash-only, or diff prefixes. `edit` strips them defensively only when they are this file's real anchors (a `LINE:HASH|` matching a current line, or bare `HASH|` prefixes of this file on every line) and warns when it does; look-alike text such as `12:30|meeting` or `+ item` is written verbatim, and `literal: true` on `set_line`, `replace_lines`, or `insert_after` disables the cleanup. Set `new_text` to `""` to delete anchored lines and use `"\n"` for an intentionally blank line.
+
+After an edit that shifts line numbers, the result names the first moved old line. Later anchors from before that edit are remapped to where their line moved when unambiguous, and otherwise refused with `hash-mismatch` and fresh rows; they never silently land on a different line with the same content.
 
 Pending `write` and `edit` diffs use textual `+`/`-`/space gutter markers, so their meaning does not depend on color.
 

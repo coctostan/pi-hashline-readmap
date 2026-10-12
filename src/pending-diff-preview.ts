@@ -3,7 +3,10 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { generateDiffString, normalizeToLF, findPhysicalTextSpans, replacePhysicalText, stripBom } from "./edit-diff.js";
 import { PhysicalLineBuffer } from "./physical-lines.js";
 import { applyHashlineEdits, type HashlineEditItem } from "./hashline.js";
+import { resolveToCwd } from "./path-utils.js";
 import { replaceSymbol } from "./replace-symbol.js";
+import type { ServedLines } from "./served-lines.js";
+import { remapShiftedAnchors } from "./shifted-anchors.js";
 
 export const PENDING_DIFF_MAX_BYTES = 1024 * 1024;
 export const PENDING_DIFF_MAX_LINE_CELLS = 1_000_000;
@@ -187,7 +190,7 @@ export function buildPendingWritePreviewData(input: { path?: unknown; content?: 
 	return buildData(resolved.path, previous.content, input.content, true, "pending overwrite");
 }
 
-export async function buildPendingEditPreviewData(input: PendingEditInput, cwd: string): Promise<PendingDiffPreviewResult> {
+export async function buildPendingEditPreviewData(input: PendingEditInput, cwd: string, served?: ServedLines): Promise<PendingDiffPreviewResult> {
 	const edits = normalizeReplaceOnlyEdits(input);
 	if (!edits.length) return skip("missing edits");
 	const resolved = resolveWorkspacePreviewPath(input.path, cwd, false);
@@ -201,7 +204,10 @@ export async function buildPendingEditPreviewData(input: PendingEditInput, cwd: 
 	const { bom, text } = stripBom(previous.content);
 	let next = text;
 	if (families.has("anchor")) {
-		const projected = applyAnchoredPreview(next, edits as AnchorEdit[]);
+		// Same pre-pass as execution: anchors made stale by an earlier edit are remapped or refused.
+		const shifted = remapShiftedAnchors({ served, path: resolveToCwd(input.path as string, cwd), currentLines: normalizeToLF(text).split("\n"), edits: edits as HashlineEditItem[] });
+		if (!shifted.ok) return skip("anchor predates an earlier edit that moved its line; execution refuses it");
+		const projected = applyAnchoredPreview(next, shifted.edits as AnchorEdit[]);
 		if (projected.type === "skip") return projected;
 		next = projected.content;
 	} else {
