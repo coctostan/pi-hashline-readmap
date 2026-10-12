@@ -1,6 +1,7 @@
 import { computeLineHash, escapeControlCharsForDisplay } from "./hashline.js";
 import type { DiffData } from "./diff-data.js";
 import { truncateLine } from "@earendil-works/pi-coding-agent";
+import { safeCharEnd } from "./read-window.js";
 
 export interface PtcLine {
   line: number;
@@ -82,19 +83,22 @@ export function buildPtcLines(startLine: number, rawLines: string[]): PtcLine[] 
  * appending a marker that includes the original character count. Display-only:
  * callers must keep the untruncated content for hashing/editing, so anchors and
  * edits still operate on full content. Threshold matches grep's `truncateLine`
- * (500). See issue #217.
+ * (500). See issue #217. When `lineNumber` is supplied the marker also tells the agent how to
+ * fetch the remainder: `read({offset:L, charOffset:K})`.
  */
-export function truncateDisplayLine(display: string): string {
+export function truncateDisplayLine(display: string, lineNumber?: number): string {
   const { text, wasTruncated } = truncateLine(display);
   if (!wasTruncated) return display;
-  // truncateLine returns `<first 500 chars>... [truncated]`; replace grep's bare
-  // marker with one that also reports the original length for read's contract.
-  const sliced = text.slice(0, text.length - "... [truncated]".length);
-  return `${sliced}... [truncated, ${display.length} chars total]`;
+  // truncateLine returns `<first 500 chars>... [truncated]`; rebuild the marker with the original
+  // length and, when the caller knows the line number, how to fetch the remainder.
+  const clipped = text.slice(0, text.length - "... [truncated]".length);
+  const shown = safeCharEnd(display, clipped.length);
+  const hint = lineNumber === undefined ? "" : `; read({offset:${lineNumber}, charOffset:${shown}})`;
+  return `${display.slice(0, shown)}... [truncated, ${display.length} chars total${hint}]`;
 }
 
 export function renderPtcLine(line: PtcLine): string {
-  return `${line.anchor}|${truncateDisplayLine(line.display)}`;
+  return `${line.anchor}|${truncateDisplayLine(line.display, line.line)}`;
 }
 
 export function renderPtcLines(lines: PtcLine[]): string {

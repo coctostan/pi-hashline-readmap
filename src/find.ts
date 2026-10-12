@@ -11,6 +11,7 @@ import { resolveToCwd } from "./path-utils.js";
 import * as findStat from "./find-stat.js";
 import { parseRelativeOrIsoDate, parseSize } from "./find-parsers.js";
 import { buildPtcError } from "./ptc-value.js";
+import { packageFileUrl } from "./package-root.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import {
@@ -21,7 +22,7 @@ import {
 const MAX_BYTES = 50 * 1024; // 50 KB
 const DEFAULT_LIMIT = 1000;
 const FIND_PROMPT_METADATA = defineToolPromptMetadata({
-  promptUrl: new URL("../prompts/find.md", import.meta.url),
+  promptUrl: packageFileUrl("prompts", "find.md"),
   promptSnippet: "Find files recursively by name, respecting gitignore",
   promptGuidelines: [
     "Use find for recursive file-name discovery; use ls for one directory.",

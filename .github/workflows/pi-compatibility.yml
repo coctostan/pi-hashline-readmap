@@ -68,7 +68,7 @@ jobs:
           PI_COMPAT_HOST: ${{ runner.temp }}/pi-1.1.0/node_modules/@earendil-works/pi-coding-agent
           PI_COMPAT_REQUIRE_NU: "1"
         run: |
-          npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts tests/pi-host-codemode-boundaries.test.ts tests/pi-host-image-persistence.test.ts tests/pi-host-permission.test.ts tests/pi-host-cancellation.test.ts tests/pi-host-declarations.test.ts tests/pi-compat-host-selection.test.ts tests/pi-host-codemode-host-selection.test.ts tests/pi-host-recipe-*.test.ts tests/pi-host-store-*.test.ts tests/pi-host-codemode-loadout.test.ts tests/pi-host-codemode-benchmark.test.ts
+          npm test -- tests/pi-host-null-pipeline.test.ts tests/pi-host-codemode.test.ts tests/pi-host-codemode-boundaries.test.ts tests/pi-host-image-persistence.test.ts tests/pi-host-permission.test.ts tests/pi-host-cancellation.test.ts tests/pi-host-declarations.test.ts tests/pi-compat-host-selection.test.ts tests/pi-host-codemode-host-selection.test.ts tests/pi-host-recipe-*.test.ts tests/pi-host-store-*.test.ts tests/pi-host-codemode-loadout.test.ts tests/pi-host-codemode-benchmark.test.ts tests/pi-host-dist-entry.test.ts tests/package-tarball-dist.test.ts
           npm run typecheck:pi-host
       - name: Remove independently provisioned host
         if: always()

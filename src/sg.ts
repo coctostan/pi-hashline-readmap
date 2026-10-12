@@ -8,6 +8,7 @@ import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { normalizeToLF, stripBom } from "./edit-diff.js";
 import { ensureHashInit } from "./hashline.js";
 import { buildPtcError, buildPtcLine } from "./ptc-value.js";
+import { packageFileUrl } from "./package-root.js";
 import { resolveToCwd } from "./path-utils.js";
 import type { FileSymbol } from "./readmap/types.js";
 import { buildSgOutput, type SgOutputBudget } from "./sg-output.js";
@@ -95,7 +96,7 @@ export async function findEnclosingSgSymbols(absPath: string, ranges: SgRange[])
 }
 
 const SG_PROMPT_METADATA = defineToolPromptMetadata({
-  promptUrl: new URL("../prompts/sg.md", import.meta.url),
+  promptUrl: packageFileUrl("prompts", "sg.md"),
   promptSnippet: "Search code structurally with ast-grep and return edit-ready anchors",
   promptGuidelines: [
     "Use ast_search when text search is too broad or brittle and the query depends on code shape.",

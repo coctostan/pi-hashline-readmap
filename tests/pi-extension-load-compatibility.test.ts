@@ -30,7 +30,7 @@ describe("locked Pi extension-loader compatibility", () => {
     const semverPackageName = "semver";
     const { satisfies } = await import(semverPackageName) as typeof import("semver");
 
-    expect(packageJson.pi?.extensions).toEqual(["./index.ts"]);
+    expect(packageJson.pi?.extensions).toEqual(["./dist/index.js"]);
     expect(installedPiPackage.version).toBe(lockedPiVersion);
     expect(satisfies(lockedPiVersion, declaredPiRange)).toBe(true);
     expect(packageLock.packages[""]?.engines?.node).toBe(packageJson.engines?.node);
@@ -55,7 +55,9 @@ describe("locked Pi extension-loader compatibility", () => {
       expect(result.extensions).toHaveLength(1);
 
       const extension = result.extensions[0]!;
-      expect(extension.resolvedPath).toBe(resolve(packageRoot, "index.ts"));
+      // No dist/ in a fresh checkout: Pi skips the missing manifest entry and falls back to index.ts.
+      // A developer's local `npm run build` output is also a valid resolution.
+      expect([resolve(packageRoot, "index.ts"), resolve(packageRoot, "dist/index.js")]).toContain(extension.resolvedPath);
       expect([...extension.tools.keys()]).toEqual(expect.arrayContaining(requiredTools));
 
       for (const eventName of requiredHandlers) {

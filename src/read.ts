@@ -5,7 +5,7 @@ import { StringEnum } from "@earendil-works/pi-ai";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readFile as fsReadFile } from "fs/promises";
 import { normalizeToLF, stripBom, hasBareCarriageReturn } from "./edit-diff.js";
-import { ensureHashInit, splitDisplayLines } from "./hashline.js";
+import { ensureHashInit, escapeControlCharsForDisplay, splitDisplayLines } from "./hashline.js";
 import { buildPtcError, buildPtcWarning, type PtcWarning } from "./ptc-value.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { resolveToCwd } from "./path-utils.js";
@@ -14,7 +14,8 @@ import { getOrGenerateMap } from "./map-cache.js";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
 import { findSymbol, type SymbolMatch, type SymbolMatchTier } from "./readmap/symbol-lookup.js";
 import { formatAmbiguous, formatNotFound, summarizeAmbiguity } from "./readmap/symbol-error-format.js";
-import { buildReadOutput, buildReadSourceOutput } from "./read-output.js";
+import { buildReadOutput, buildReadSourceOutput, buildReadWindowOutput } from "./read-output.js";
+import { parseWindowParams } from "./read-window.js";
 import { buildReadRehydrateDescriptor } from "./context-hygiene.js";
 import { buildLocalBundle } from "./read-local-bundle.js";
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
@@ -22,13 +23,14 @@ import { Text } from "@earendil-works/pi-tui";
 import { formatReadCallText, formatReadResultText } from "./read-render-helpers.js";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine, wrapLinesToWidth, wrapReadHashlinesForWidth } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
+import { packageFileUrl } from "./package-root.js";
 import {
 	buildRequiredNullParameterError,
 	normalizeToolParameters,
 } from "./normalize-tool-params.js";
 
 const READ_PROMPT_METADATA = defineToolPromptMetadata({
-	promptUrl: new URL("../prompts/read.md", import.meta.url),
+	promptUrl: packageFileUrl("prompts", "read.md"),
 	promptSnippet: "Read text files or images; text reads include hashline anchors and optional maps/symbol lookup",
 	promptGuidelines: [
 		"Use read instead of bash cat/head/tail/sed for file inspection.",
@@ -42,6 +44,8 @@ interface ReadParams {
 	path: string;
 	offset?: number | string;
 	limit?: number | string;
+	charOffset?: number | string;
+	charLimit?: number | string;
 	symbol?: string;
 	strictSymbol?: boolean;
 	map?: boolean;
@@ -111,6 +115,18 @@ const READ_PARAMETERS = Type.Object({
 		Type.Union([
 			Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
 			Type.String({ description: "Positive int or obvious base-10 numeric string" }),
+		]),
+	),
+	charOffset: Type.Optional(
+		Type.Union([
+			Type.Number({ description: "0-based char offset into one line; needs offset" }),
+			Type.String({ description: "0-based char offset into one line; needs offset" }),
+		]),
+	),
+	charLimit: Type.Optional(
+		Type.Union([
+			Type.Number({ description: "Window chars; default 500, max 10000" }),
+			Type.String({ description: "Window chars; default 500, max 10000" }),
 		]),
 	),
 	symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
@@ -266,6 +282,26 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 					},
 				});
 			}
+			const windowParams = parseWindowParams({
+				charOffset: rawParams.charOffset,
+				charLimit: rawParams.charLimit,
+			});
+			if (!windowParams.ok) {
+				return finish({
+					content: [{ type: "text", text: windowParams.message }],
+					isError: true,
+					details: {
+						ptcValue: {
+							tool: "read",
+							ok: false,
+							path: rawParams.path,
+							error: buildPtcError(windowParams.code, windowParams.message),
+						},
+					},
+				});
+			}
+			paramAdjustments.push(...windowParams.adjustments);
+			const charWindow = windowParams.window;
 			let symbolValue = rawParams.symbol;
 			const invalidSymbolType = rawParams.symbol !== undefined && typeof rawParams.symbol !== "string";
 			if (typeof rawParams.symbol === "string") {
@@ -323,6 +359,29 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			}
 
 			throwIfAborted(signal);
+			if (charWindow) {
+				const comboError = (message: string) => finish({
+					content: [{ type: "text" as const, text: message }],
+					isError: true,
+					details: {
+						ptcValue: {
+							tool: "read",
+							ok: false,
+							path: rawParams.path,
+							error: buildPtcError("invalid-params-combo", message),
+						},
+					},
+				});
+				if (p.symbol) return comboError("charOffset/charLimit cannot be combined with symbol; use offset to select the line.");
+				if (p.bundle) return comboError("charOffset/charLimit cannot be combined with bundle.");
+				if (p.map) return comboError("charOffset/charLimit cannot be combined with map.");
+				if (p.offset === undefined) {
+					return comboError("charOffset/charLimit require a positive offset selecting exactly one line. Use read({ path, offset: LINE, charOffset: N }).");
+				}
+				if (p.limit !== undefined && p.limit !== 1) {
+					return comboError(`charOffset/charLimit address exactly one line: omit limit or use limit: 1 (received ${p.limit}).`);
+				}
+			}
 			if (p.symbol && p.offset !== undefined) {
 				const message = "Cannot combine symbol with offset. Either omit offset and use limit to cap the symbol, or use a trailing symbol@line selector.";
 				return finish({
@@ -446,6 +505,17 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			const allLines = splitDisplayLines(normalized);
 			const total = allLines.length;
 			const structuredWarnings: PtcWarning[] = [];
+			// File-level warnings apply to every text read, including long-line windows.
+			const fileWarnings: PtcWarning[] = [];
+			if (hasBinaryContent) {
+				fileWarnings.push(buildPtcWarning("binary-content", "[Warning: file appears to be binary — output may be garbled]"));
+			}
+			if (hasBareCarriageReturn(rawBuffer.toString("utf-8"))) {
+				fileWarnings.push(buildPtcWarning(
+					"bare-cr",
+					"[Warning: file contains bare CR (\\r) line endings — line numbering may be inconsistent with grep and other tools]",
+				));
+			}
 			let startLine = p.offset !== undefined ? p.offset : 1;
 			let endIdx = p.limit !== undefined && !p.symbol ? Math.min(startLine - 1 + p.limit, total) : total;
 			if (p.offset !== undefined && startLine > total) {
@@ -461,6 +531,45 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 							error: buildPtcError("offset-past-end", message),
 						},
 					},
+				});
+			}
+			if (charWindow) {
+				const lineDisplay = escapeControlCharsForDisplay(allLines[startLine - 1] ?? "");
+				if (charWindow.charOffset >= lineDisplay.length) {
+					const message = `[charOffset ${charWindow.charOffset} is past end of line ${startLine} (${lineDisplay.length} chars)]`;
+					return finish({
+						content: [{ type: "text", text: message }],
+						isError: true,
+						details: {
+							ptcValue: {
+								tool: "read",
+								ok: false,
+								path: rawParams.path,
+								error: buildPtcError("char-offset-past-end", message),
+							},
+						},
+					});
+				}
+			}
+			if (charWindow) {
+				const windowOutput = buildReadWindowOutput({
+					path: absolutePath,
+					line: startLine,
+					totalLines: total,
+					raw: allLines[startLine - 1] ?? "",
+					charOffset: charWindow.charOffset,
+					charLimit: charWindow.charLimit,
+					warnings: fileWarnings,
+					rehydrate: buildReadRehydrateDescriptor({
+						path: p.path,
+						offset: p.offset,
+						charOffset: charWindow.charOffset,
+						...(charWindow.charLimitSupplied ? { charLimit: charWindow.charLimit } : {}),
+					}),
+				});
+				return succeed({
+					content: [{ type: "text", text: windowOutput.text }],
+					details: { ptcValue: windowOutput.ptcValue, contextHygiene: windowOutput.contextHygiene },
 				});
 			}
 			let symbolMatch: SymbolMatch | undefined;
@@ -667,15 +776,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				structuredWarnings.push(buildPtcWarning("symbol-warning", symbolWarning.trim()));
 			}
 
-			if (hasBinaryContent) {
-				const warning = "[Warning: file appears to be binary — output may be garbled]";
-				structuredWarnings.push(buildPtcWarning("binary-content", warning));
-			}
-
-			if (hasBareCarriageReturn(rawBuffer.toString("utf-8"))) {
-				const warning = "[Warning: file contains bare CR (\\r) line endings — line numbering may be inconsistent with grep and other tools]";
-				structuredWarnings.push(buildPtcWarning("bare-cr", warning));
-			}
+			structuredWarnings.push(...fileWarnings);
 
 			const symbolEndLine = symbolMatch
 				? Math.min(total, symbolMatch.endLine)

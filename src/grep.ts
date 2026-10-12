@@ -21,13 +21,14 @@ import { formatGrepCallText, formatGrepResultText } from "./grep-render-helpers.
 import { coerceObviousBase10Int } from "./coerce-obvious-int.js";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
+import { packageFileUrl } from "./package-root.js";
 import {
 	buildRequiredNullParameterError,
 	normalizeToolParameters,
 } from "./normalize-tool-params.js";
 
 const GREP_PROMPT_METADATA = defineToolPromptMetadata({
-	promptUrl: new URL("../prompts/grep.md", import.meta.url),
+	promptUrl: packageFileUrl("prompts", "grep.md"),
 	promptSnippet: "Search file contents and return edit-ready hashline anchors",
 	promptGuidelines: [
 		"Use grep for text search across files instead of bash grep or rg.",

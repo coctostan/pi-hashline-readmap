@@ -7,6 +7,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { buildPtcError } from "./ptc-value.js";
+import { packageFileUrl } from "./package-root.js";
 import { stripAnsi } from "./rtk/ansi.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
@@ -286,7 +287,7 @@ export const NU_GUIDELINES = [
 ];
 
 const NU_PROMPT_METADATA = defineToolPromptMetadata({
-  promptUrl: new URL("../prompts/nu.md", import.meta.url),
+  promptUrl: packageFileUrl("prompts", "nu.md"),
   promptSnippet: NU_SNIPPET,
   promptGuidelines: NU_GUIDELINES,
 });

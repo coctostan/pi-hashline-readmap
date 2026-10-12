@@ -11,6 +11,7 @@ JSON Schema structure is unchanged. Each runtime-enforced static rule is communi
 | Tool | Runtime rule | Provider-visible location |
 |---|---|---|
 | `read` | `offset` and `limit` are positive; offset is one-indexed; obvious base-10 strings are accepted. | `offset`, `limit` descriptions |
+| `read` | `charOffset` is a non-negative 0-based offset into one line and needs `offset`; `charLimit` is positive, defaults to 500 and is clamped to 10000. | `charOffset`, `charLimit` descriptions |
 | `read` | `symbol` is non-empty; symbol may combine with `limit`, `map`, and `bundle: "local"`, but not `offset`; bundle requires symbol. | `symbol`, `offset`, `map`, `bundle` descriptions |
 | `edit` | Existing-file edits need fresh session anchors; `edits` is non-empty; every item has exactly one variant. | `path`, `edits` descriptions |
 | `edit` | Anchored variants use fresh `LINE:HASH`; `replace.old_text` is non-empty; `replace_symbol.new_body` is non-blank; unsafe duplicate/overlapping targets fail before mutation. Safe identical replacements are deduplicated, conflicting same-anchor single-line edits keep the last with a warning, and same-anchor insertions remain valid. | nested variant and item descriptions |

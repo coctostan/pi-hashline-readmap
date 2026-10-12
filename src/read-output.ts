@@ -4,7 +4,8 @@ import {
   formatSize,
   truncateHead,
 } from "@earendil-works/pi-coding-agent";
-import { buildPtcLines, renderPtcLines, type PtcLine, type PtcWarning } from "./ptc-value.js";
+import { buildPtcLine, buildPtcLines, renderPtcLines, type PtcLine, type PtcWarning } from "./ptc-value.js";
+import { computeCharWindow, DEFAULT_CHAR_LIMIT, type CharWindow } from "./read-window.js";
 import {
   buildContextHygieneMetadata,
   buildFileResource,
@@ -253,4 +254,91 @@ export function buildReadOutput(
     ptcValue,
     contextHygiene,
   };
+}
+
+export interface ReadWindowInput {
+  path: string;
+  /** 1-based line number of the windowed line. */
+  line: number;
+  totalLines: number;
+  /** Full raw line; the anchor hash is always derived from this. */
+  raw: string;
+  charOffset: number;
+  charLimit: number;
+  rehydrate?: ContextHygieneRehydrateDescriptor | null;
+  /** File-level warnings (binary content, bare CR); prepended to the text like ordinary reads. */
+  warnings?: PtcWarning[];
+}
+
+export interface ReadWindowMetadata {
+  line: number;
+  charOffset: number;
+  charLimit: number;
+  length: number;
+  totalChars: number;
+  remainingChars: number;
+  nextCharOffset: number | null;
+}
+
+export interface ReadWindowPtcValue {
+  tool: "read";
+  path: string;
+  range: { startLine: number; endLine: number; totalLines: number };
+  warnings: PtcWarning[];
+  truncation: null;
+  continuation: null;
+  symbol: null;
+  map: { requested: false; appended: false };
+  lines: PtcLine[];
+  window: ReadWindowMetadata;
+}
+
+export interface ReadWindowOutput {
+  text: string;
+  window: CharWindow;
+  /** Full-line PtcLine (raw/display are the whole line). */
+  line: PtcLine;
+  ptcValue: ReadWindowPtcValue;
+  contextHygiene: ContextHygieneMetadata;
+}
+
+export function buildReadWindowOutput(input: ReadWindowInput): ReadWindowOutput {
+  const line = buildPtcLine(input.line, input.raw);
+  const window = computeCharWindow(line.display, input.charOffset, input.charLimit);
+  const warnings = input.warnings ?? [];
+  const limitPart = input.charLimit === DEFAULT_CHAR_LIMIT ? "" : `, charLimit: ${input.charLimit}`;
+  const span = `chars ${window.start}-${window.end} of ${window.total} on line ${input.line}`;
+  const notice = window.remaining > 0
+    ? `[Showing ${span} (${window.remaining} remaining). Continue with read({ path: ${JSON.stringify(input.path)}, offset: ${input.line}, charOffset: ${window.end}${limitPart} }).]`
+    : `[Showing ${span} (end of line).]`;
+  const windowLine: PtcLine = { ...line, raw: window.text, display: window.text };
+  const ptcValue: ReadWindowPtcValue = {
+    tool: "read",
+    path: input.path,
+    range: { startLine: input.line, endLine: input.line, totalLines: input.totalLines },
+    warnings,
+    truncation: null,
+    continuation: null,
+    symbol: null,
+    map: { requested: false, appended: false },
+    lines: [windowLine],
+    window: {
+      line: input.line,
+      charOffset: window.start,
+      charLimit: input.charLimit,
+      length: window.end - window.start,
+      totalChars: window.total,
+      remainingChars: window.remaining,
+      nextCharOffset: window.nextCharOffset,
+    },
+  };
+  const contextHygiene = buildContextHygieneMetadata({
+    tool: "read",
+    classification: "read-context",
+    resources: [buildFileResource(input.path)],
+    rehydrate: input.rehydrate ?? undefined,
+  });
+  const body = `${line.anchor}|${window.text}\n\n${notice}`;
+  const text = warnings.length ? `${warnings.map((warning) => warning.message).join("\n\n")}\n\n${body}` : body;
+  return { text, window, line, ptcValue, contextHygiene };
 }

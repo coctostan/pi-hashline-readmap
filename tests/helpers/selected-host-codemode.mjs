@@ -57,7 +57,8 @@ try {
         "commit", "-qm", "subject " + i, "-m", "detail ".repeat(80)], { cwd });
     }
   }
-  const loaded = await discoverAndLoadExtensions([process.cwd()], cwd, agentDir);
+  // Load the checkout's source explicitly: a repo dist/ (npm ci runs prepare) must not be tested instead.
+  const loaded = await discoverAndLoadExtensions([resolve(process.cwd(), "index.ts")], cwd, agentDir);
   assert.deepEqual(loaded.errors, []);
   assert.equal(loaded.extensions.length, 1);
   const extension = loaded.extensions[0];

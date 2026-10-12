@@ -38,6 +38,7 @@ import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, linkToolPath, 
 import { DiffPreviewComponent } from "./tui-diff-component.js";
 import { buildContextHygieneMetadata, buildFileResource, type ContextHygieneMetadata } from "./context-hygiene.js";
 import { resolveEditDiffDisplay } from "./hashline-settings.js";
+import { packageFileUrl } from "./package-root.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import {
 	buildRequiredNullParameterError,
@@ -145,7 +146,7 @@ const hashlineEditSchema = withLegacyObjectOrder(Type.Object(
 type HashlineParams = Static<typeof hashlineEditSchema>;
 
 const EDIT_PROMPT_METADATA = defineToolPromptMetadata({
-	promptUrl: new URL("../prompts/edit.md", import.meta.url),
+	promptUrl: packageFileUrl("prompts", "edit.md"),
 	promptSnippet: "Edit files using hash-verified anchors from read/grep/ast_search/write",
 	promptGuidelines: [
 		"Use edit for changes to existing files; read or search first and copy fresh LINE:HASH anchors.",

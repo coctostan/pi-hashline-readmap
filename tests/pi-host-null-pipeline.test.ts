@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const host = process.env.PI_TEST_HOST;
@@ -84,7 +84,8 @@ const agentDir = join(root, "agent");
 mkdirSync(cwd);
 mkdirSync(agentDir);
 try {
-  const loaded = await discoverAndLoadExtensions([process.cwd()], cwd, agentDir);
+  // Load the checkout's source explicitly: a repo dist/ (npm ci runs prepare) must not be tested instead.
+  const loaded = await discoverAndLoadExtensions([resolve(process.cwd(), "index.ts")], cwd, agentDir);
   assert.deepEqual(loaded.errors, []);
   assert.equal(loaded.extensions.length, 1);
   const extension = loaded.extensions[0];

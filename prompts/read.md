@@ -5,6 +5,7 @@ Read text files with `LINE:HASH|content` anchors usable by `edit`. Default cap: 
 ## Parameters
 
 - `offset` / `limit` — positive line numbers for targeted reads; `offset` is 1-indexed. `limit` may also cap a resolved `symbol`, but `offset` cannot combine with `symbol`.
+- `charOffset` / `charLimit` — recover part of one long line. `charOffset` is a 0-based character offset into the displayed (escaped) line chosen by `offset`; `charLimit` is the window length (default 500, clamped to 10,000 with a `params-adjusted` notice; `charLimit` alone starts at 0). The window addresses exactly one line: `offset` is required, `limit` must be omitted or `1`, and it cannot combine with `symbol`, `bundle`, or `map` (`invalid-params-combo`). A `charOffset` at or past the end of the line fails with `char-offset-past-end`. The result is `LINE:HASH|<window>` where the anchor is the full line's anchor, followed by a notice with the span, the remaining characters, and the next `read({ path, offset, charOffset })` call.
 - `map: true` — append a full-file structural map even for small files. May combine with `offset` / `limit`, `symbol`, and `bundle`.
 - `symbol: "Name"` — read one symbol range by name, with hash anchors. Supports `ClassName.method`, Java package-relative names, and `Name@<line>` disambiguation. May combine with `limit`, `map: true`, and `bundle: "local"`; cannot combine with `offset`.
 - `bundle: "local"` — with `symbol`, also include direct same-file local support when available. May combine with `limit` and `map: true`; cannot be used without `symbol`.
@@ -15,7 +16,7 @@ Empty-string `symbol` / `offset` / `limit` values and numeric or base-10 string 
 
 When a full-file read is truncated, a structural map is appended automatically when available. Use that map's line ranges for follow-up `read({ offset, limit })`. Rust, C, C++, Java, and Swift maps use packaged `web-tree-sitter` WASM grammars (`.h` remains C++-backed); other common code/data formats use their dedicated mapper or may fall back to ctags/heuristics.
 
-Very long single lines are truncated in the displayed output at 500 characters, the same threshold `grep` uses, with a `... [truncated, N chars total]` marker showing the original length. Truncation is display-only: the `LINE:HASH` anchor is computed from the full line, so `edit` still operates on the complete content and the hash is unchanged.
+Very long single lines are truncated in the displayed output at 500 characters, the same threshold `grep` uses, with a `... [truncated, N chars total; read({offset:L, charOffset:K})]` marker showing the original length and how to fetch the remainder (`K` is the number of characters shown, 500 unless the cut would split a surrogate pair). Truncation is display-only: the `LINE:HASH` anchor is computed from the full line, so `edit` still operates on the complete content and the hash is unchanged. Use `charOffset` / `charLimit` to read the rest of a clipped line.
 
 ## Symbol examples
 

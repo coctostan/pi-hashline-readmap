@@ -63,7 +63,7 @@ describe("Pi system prompt metadata integration", () => {
       nu: "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.",
     });
     expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, shapeHash(value.parameters)]))).toEqual({
-      read: "e4ceb7e7d32f5dae9d678d19791bf9ba2ec90c8b16017240da6210b063446043",
+      read: "6061be7a64843271e910e1af6357a2bf93e673d6ac6301573bcad560df10d06f",
       edit: "366254313a5e76561c6f3e98d613b96dfcb941fb4ae474b3520723b2595f318c",
       grep: "6d8ed3ec5dc1c9110e8e3a422ec5798bb4b6b6b5de77a36bcaa98278ebdae646",
       find: "a44a725f23f1229e138fe754031bdfd95e1fde001e18dd1945f1e5b9a0b79322",
@@ -80,6 +80,10 @@ describe("Pi system prompt metadata integration", () => {
         "$.properties.offset.anyOf[1]": "Positive 1-indexed int or base-10 string; not with symbol",
         "$.properties.limit.anyOf[0]": "Positive int or obvious base-10 numeric string",
         "$.properties.limit.anyOf[1]": "Positive int or obvious base-10 numeric string",
+        "$.properties.charOffset.anyOf[0]": "0-based char offset into one line; needs offset",
+        "$.properties.charOffset.anyOf[1]": "0-based char offset into one line; needs offset",
+        "$.properties.charLimit.anyOf[0]": "Window chars; default 500, max 10000",
+        "$.properties.charLimit.anyOf[1]": "Window chars; default 500, max 10000",
         "$.properties.symbol": "Non-empty; may combine with limit, map, or local bundle",
         "$.properties.strictSymbol": "Require symbol; exact/normalized-exact only; no fallback",
         "$.properties.map": "Append map; valid with symbol, limit, and local bundle",

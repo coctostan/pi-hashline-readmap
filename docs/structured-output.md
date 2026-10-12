@@ -89,6 +89,7 @@ Required-null/schema preparation, permission blocking, aborts, and arbitrary thr
 ### Read success variants
 
 - Text: `path`, `range`, `lines`, `continuation` and `warnings`, plus `text`.
+- Text window (`charOffset` / `charLimit`): the usual text fields plus `window` = `{ line, charOffset, charLimit, length, totalChars, remainingChars, nextCharOffset }` (`nextCharOffset` is `null` at the end of the line). `lines` has one entry whose `anchor`/`hash` come from the full line while `raw`/`display` hold only the returned window text; `truncation` and `continuation` are `null`.
 - Image attachment: `type: "image"`, `data`, `mimeType`, `note` and `text`. Pass the value to `image(result)`; do not `text()` the base64. Bytes come from the actual attachment, including host resize output. Adjustment/resize notes survive. Attachment-only Pi 1.0.0 and newer native structured-image hosts share this contract.
 - Ambiguous interactive symbol: `path`, `ambiguity` and `text`; it is a successful choice response, not a file range.
 - Other delegated text-only/omitted-image success: `kind: "notice"`, `text` and `warnings`. It is not image-forwardable and has no fabricated anchors.

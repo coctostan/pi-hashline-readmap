@@ -1,7 +1,6 @@
 import { execFile, type ExecFileOptions } from "node:child_process";
 import { readFile, stat } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { packagePath } from "../../package-root.js";
 
 import type { FileMap, FileSymbol } from "../types.js";
 import { DetailLevel, SymbolKind } from "../enums.js";
@@ -27,8 +26,7 @@ function execFileAsync(
   });
 }
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const SCRIPT_PATH = join(__dirname, "../../../scripts/gdscript_outline.py");
+const SCRIPT_PATH = packagePath("scripts", "gdscript_outline.py");
 
 interface GdscriptHelperSymbol {
   name: string;

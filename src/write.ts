@@ -7,6 +7,7 @@ import { resolveToCwd } from "./path-utils.js";
 import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
 import { ensureHashInit, formatHashlineDisplay, splitDisplayLines } from "./hashline.js";
 import { buildPtcError, buildPtcLine, buildPtcWarning, type PtcLine, type PtcWarning } from "./ptc-value.js";
+import { packageFileUrl } from "./package-root.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { getOrGenerateMap } from "./map-cache.js";
 import { formatFileMapWithBudget } from "./readmap/formatter.js";
@@ -68,7 +69,7 @@ function pendingWritePreviewParts(summary: string, preview: PendingDiffPreviewRe
 const MAX_LINES = 2000;
 const MAX_BYTES = 50 * 1024;
 const WRITE_PROMPT_METADATA = defineToolPromptMetadata({
-  promptUrl: new URL("../prompts/write.md", import.meta.url),
+  promptUrl: packageFileUrl("prompts", "write.md"),
   promptSnippet: "Create or overwrite a complete file and return edit anchors",
   promptGuidelines: [
     "Use write to create new files or intentionally replace whole files.",
