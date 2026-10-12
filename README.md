@@ -6,7 +6,9 @@
 
 Upgrade Pi's local coding workflow with hash-anchored reads and edits, structural navigation, safer file exploration, and quieter command output.
 
-`pi-hashline-readmap` replaces Pi's `read`, `edit`, `grep`, `write`, `ls`, and `find`; adds enhanced `ast_search`; optionally adds `nu`; and post-processes `bash`.
+`pi-hashline-readmap` replaces Pi's `read`, `edit`, `grep`, `write`, `ls`, and `find`; adds enhanced `ast_search`; retains deprecated optional `nu`; and post-processes `bash`.
+
+Bundled `nu` is deprecated but retained. It stays available for at least one published deprecation release; removal requires a separately announced breaking release after migration-example verification and the removal checklist pass. See [Nu deprecation and migration](docs/nu-deprecation.md).
 
 ## Install
 
@@ -71,7 +73,7 @@ If the file changed between `read` and `edit`, the edit reports a mismatch inste
 - Jump to symbols, request maps, and include direct same-file support.
 - Turn `grep` and `ast_search` results into edit-ready anchors.
 - Read supported images through Pi attachments.
-- Create with `write`; explore with `ls`, `find`, or optional Nushell.
+- Create with `write`; explore with `ls` and `find`, then compose structured results in codemode.
 - Compress noisy test, build, Git, Docker, linter, package-manager, and generic command output while retaining recovery paths.
 - Use one coordinated extension instead of stacking overlapping read, grep, edit, and Bash-output packages.
 
@@ -102,10 +104,9 @@ ast_search({ pattern: "console.log($$$ARGS)", lang: "typescript", path: "src", l
 write({ path: "src/new-module.ts", content: "export const demo = 1;\n" })
 ls({ path: "src", glob: "*.ts" })
 find({ pattern: "*.test.ts", path: "tests", maxDepth: 2 })
-nu({ command: "open package.json | get scripts" })
 ```
 
-Normal grep output has anchors; summary mode has counts only. `ls` lists one directory, `find` recurses by basename and respects `.gitignore`, and `nu` registers only when Nushell is available.
+Normal grep output has anchors; summary mode has counts only. `ls` lists one directory; `find` recurses by basename and respects `.gitignore`. Deprecated `nu` still registers when Nushell is available; prefer [tested source, discovery, and CLI composition recipes](docs/codemode-recipes.md) for general exploration.
 
 ## Bash output
 
@@ -141,6 +142,7 @@ Advanced behavior and integration contracts are documented in the references bel
 - [Integration surfaces](docs/integrations.md)
 - [Structured output and tool behavior](docs/structured-output.md)
 - [Codemode recipes](docs/codemode-recipes.md)
+- [Nu deprecation and migration](docs/nu-deprecation.md)
 - [Provider-visible metadata and diagnosis](docs/tool-metadata.md)
 - [Exploratory functional testing](docs/exploratory-functional-testing.md)
 - [Benchmarking edits](docs/benchmarking.md)
@@ -166,7 +168,8 @@ src/
   grep.ts                 # anchored text search
   sg.ts                   # ast-grep wrapper
   write.ts                # complete writes
-  ls.ts / find.ts / nu.ts # file exploration
+  ls.ts / find.ts         # file exploration
+  nu.ts                   # deprecated specialist shell
   readmap/                # structural mapping and symbol lookup
   rtk/                    # Bash output compression
 prompts/                  # detailed tool references

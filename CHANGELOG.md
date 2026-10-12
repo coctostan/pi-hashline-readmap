@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Deprecated
+
+- Bundled `nu` is deprecated, not removed. Nu remains available for at least one published deprecation release; removal occurs only in a separately announced breaking release after migration-example verification and the removal checklist pass. Registration, binary provisioning, configuration, execution results, and compatibility assertions are unchanged. Prefer dedicated file tools plus codemode composition and Bash for external CLIs. See [Nu deprecation and migration](docs/nu-deprecation.md) for tested replacements, Nushell retention options, and the removal checklist (#266).
+
 ## [0.15.1]
 
 ### Fixed

@@ -279,10 +279,10 @@ export function augmentNuOutput(result: NuExecuteResult): string {
 // ---------------------------------------------------------------------------
 
 const NU_SNIPPET =
-  "Structured exploration shell — file inspection, data wrangling, system queries via Nushell pipelines. Use bash for project commands.";
+  "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.";
 
 export const NU_GUIDELINES = [
-  "Use nu for structured data, filesystem metadata, and system inspection.",
+  "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",
 ];
 
 const NU_PROMPT_METADATA = defineToolPromptMetadata({

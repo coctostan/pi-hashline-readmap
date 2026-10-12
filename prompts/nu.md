@@ -1,17 +1,19 @@
-Explore files, structured data, and system state with Nushell pipelines. Use `nu` for inspection and data wrangling; use `bash` for tests, builds, git, package managers, and project commands.
+Deprecated bundled Nushell tool, retained during deprecation. Prefer read/grep/ast_search for source inspection, find/ls for file discovery, codemode for structured composition, and bash for external CLIs.
 
 > **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
+
+See [Nu deprecation and migration](../docs/nu-deprecation.md) for the removal gate and retention options. The deprecation release does not disable nu or change execution results.
 
 ## Parameters
 
 - `command` — Nushell script; may be multi-line.
 - `timeout` — max seconds, default 30.
 
-## Good uses
+## Existing specialist use
 
-Use `nu` when structured output helps: JSON/CSV/TOML/YAML inspection, filesystem summaries, filtering/sorting/grouping, API response exploration, or system checks.
+For existing Nushell users, nu still supports structured inspection and data wrangling. These are retained specialist examples, not the preferred general repository-exploration path: `open package.json | get scripts`, `ls | where size > 10kb | first 5`, `open data.csv | group-by status`, `http get URL | get results`. Nu is not interchangeable with the bounded dedicated-tool migration examples.
 
-Examples: `open package.json | get scripts`, `ls | where size > 10kb | first 5`, `open data.csv | group-by status`, `http get URL | get results`.
+Use bash for tests, builds, git, package managers, and project commands.
 
 ## Notes
 

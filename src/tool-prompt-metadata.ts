@@ -10,7 +10,7 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   "ls.md": "List one directory.",
   "write.md": "Create or overwrite a file and return anchors.",
   "sg.md": "Search code by AST pattern and return anchored matches.",
-  "nu.md": "Run Nushell for structured data, filesystem metadata, and system inspection.",
+  "nu.md": "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.",
 };
 
 
@@ -44,7 +44,7 @@ const COMPACT_GUIDELINES: Record<string, string[]> = {
     "Use ast_search for AST-shaped code patterns.",
   ],
   "nu.md": [
-    "Use nu for structured data, filesystem metadata, and system inspection.",
+    "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",
   ],
 };
 

@@ -9,7 +9,7 @@
 Normal npm installs include npm-managed CLI packages for the tools this extension wraps:
 
 - `@ast-grep/cli` is an optional dependency that provides the binary used by `ast_search`. It ships prebuilt native binaries for common platforms. On platforms without a prebuilt binary, including Termux/Android and musl-based Linux, npm skips this package while every other tool still installs and works.
-- `nushell` provides the `nu` binary used by the optional `nu` tool.
+- `nushell` remains a regular dependency providing the binary for the deprecated optional `nu` tool. Conditional tool registration does not make the npm dependency optional. See [Nu deprecation and migration](nu-deprecation.md) for the release gate and retention options.
 
 Bundled binaries are resolved first. If `@ast-grep/cli` cannot be resolved, `ast_search` falls back to `ast-grep` on `PATH` rather than `sg`, avoiding Linux util-linux `sg` collisions. If neither ast-grep binary exists, it returns a clear `ast-grep not available` result without affecting other tools. `nu` similarly falls back to `nu` on `PATH`; if Nushell is unavailable, only the optional `nu` tool is omitted.
 
@@ -17,7 +17,7 @@ Optional local tools improve fallback or compression paths:
 
 ```bash
 brew install ast-grep          # fallback for ast_search
-brew install nushell           # fallback for nu
+brew install nushell           # fallback for deprecated nu; standalone specialist use
 brew install fd                # speeds up find
 brew install universal-ctags   # maps for languages without a dedicated mapper
 brew install difftastic        # semantic edit summaries
@@ -74,6 +74,8 @@ Precedence is environment variables > project JSON > global JSON > built-in defa
 Budget fields must be strict positive base-10 integers except `display.previewLines`, which also accepts `0`. For strict-positive fields, zero is rejected; negative, signed, decimal, hexadecimal, exponent notation, separators, empty strings, and whitespace-only values are ignored. Boolean fields must be JSON booleans, and mapCache.dir must be a non-empty string. Malformed JSON and invalid fields degrade safely: valid fields continue to apply where practical, invalid fields are ignored, project parse failure does not suppress valid global settings, and warnings identify bad input without aborting extension startup.
 
 Environment-only options include `XDG_CACHE_HOME`, `PI_NUSHELL_CONFIG`, `PI_RTK_BYPASS=1`, and `PI_CONTEXT_HYGIENE_DEBUG=1`. `PI_NUSHELL_CONFIG` overrides the Nushell config path; otherwise Hashline prefers `~/.config/pi/nushell/config.nu` and then `--no-config-file`. See [Bash output](bash-output.md) for guard and recovery behavior.
+
+Nu is deprecated but retained; its configuration precedence and execution behavior are unchanged in this stage. `PI_NUSHELL_CONFIG` remains supported until the gated removal of Hashline's bundled integration. It does not configure independently invoked Nushell commands automatically. Hashline has no Nu-only registration-disable setting; tool selection cannot choose between duplicate registrations. See [retention and registration-conflict guidance](nu-deprecation.md#avoid-conflicting-registrations). Other supported Hashline environment overrides are not deprecated by this policy.
 
 ## Migration example
 
