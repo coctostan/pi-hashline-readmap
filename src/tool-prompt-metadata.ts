@@ -18,14 +18,17 @@ const COMPACT_GUIDELINES: Record<string, string[]> = {
   "read.md": [
     "Use read for file contents, images/screenshots, ranges, symbols, and edit anchors.",
     "Use read for images; it returns attachments, so avoid OCR tools unless explicitly needed.",
+    "In codemode, project read fields; forward images with image(), never print base64.",
   ],
   "edit.md": [
     "Use edit with fresh LINE:HASH anchors for existing files.",
     "Copy/move lines with edit copy_lines/move_lines; use edit replace only if anchors fail.",
+    "Serialize dependent same-file edit calls; reacquire fresh anchors after mutations.",
   ],
   "grep.md": [
     "Use grep for text search and edit-ready matching anchors.",
     "Use grep summary mode when only file counts are needed.",
+    "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
   ],
   "find.md": [
     "Use find for recursive file discovery by glob.",

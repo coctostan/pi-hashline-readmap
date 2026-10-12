@@ -70,6 +70,8 @@ The guard applies to every tool registered by the extension entry point, includi
 
 ## Codemode integration
 
+For executable composition and compact-result examples, see [codemode recipes](codemode-recipes.md). Keep result variants and failure boundaries below in mind before projecting fields.
+
 Pi 0.99+ (independently verified on 1.1.0) exposes declared tool output schemas to scripts. Hashline `read`/`grep`/`ast_search`/`edit`/`write`/`ls`/`find` successes retain structured fields plus rendered `text`. Grep raw source lives only in script records, not compact persisted records. Native Bash keeps its own raw-output schema. Tool annotations retain their read-only/destructive meanings; no alternate execution channel bypasses host guards or permissions.
 
 The independent Pi 1.1.0 lane uses the actual selected-host loader and execution pipeline. It verifies image forwarding and saved-image bytes/MIME, nested permission blocking, and nested cancellation with deterministic fixtures. The separate current-host declaration check compiles extension sources and typed boundary fixtures; legacy loose compatibility adapters and exhaustive provider/session lifecycle checks are not covered by a blanket type-safety claim. See [AGENTS.md](../AGENTS.md#independent-current-host-compatibility) for both reproducible lanes.
@@ -113,21 +115,7 @@ There is no field-level taint tracking: printing or transforming a nested value 
 
 ### Example
 
-The following is a codemode script:
-
-~~~js
-const r = await tools.read({
-  path: "src/read.ts", symbol: "registerReadTool",
-  strictSymbol: true, errorMode: "value"
-});
-if (r.ok === false) {
-  text({ code: r.error.code, message: r.error.message });
-} else if (r.type === "image") {
-  image(r);
-} else {
-  text(r.lines.map(line => ({ anchor: line.anchor, raw: line.raw })));
-}
-~~~
+See [the tested read-union recipe](codemode-recipes.md#handle-the-read-union-before-projecting) for a compact projection that handles text, image, ambiguity, notice, and coded-failure results before accessing source lines. It forwards images with `image()` and never prints base64. Every executable example lives in that tested reference rather than a separate untested copy here.
 
 Compact output unions remain discoverable through `describeTool`. The pinned selected-host test verifies core Hashline declarations fit codemode's default 3000-token inline budget. The former `HASHLINE_TOOL_PTC_POLICY` export and side-channel executor maps remain removed.
 ## Editing safety

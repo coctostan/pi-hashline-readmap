@@ -2,6 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize } from "@earendil-works/pi-coding-agent";
+import assert from "node:assert/strict";
+import { defineToolPromptMetadata } from "../src/tool-prompt-metadata.js";
 
 type ToolDefinition = {
   name: string;
@@ -273,7 +275,9 @@ describe("compact provider-visible prompt guidelines", () => {
       const toolDefinition = tool as ToolDefinition;
       const guidelines = toolDefinition.promptGuidelines as string[];
       expect(guidelines.length, toolDefinition.name).toBeGreaterThan(0);
-      expect(guidelines.length, toolDefinition.name).toBeLessThanOrEqual(2);
+      expect(guidelines.length, toolDefinition.name).toBeLessThanOrEqual(
+        ["read", "edit", "grep"].includes(toolDefinition.name) ? 3 : 2,
+      );
       for (const guideline of guidelines) {
         expect(guideline.length, `${toolDefinition.name}: ${guideline}`).toBeLessThanOrEqual(96);
         expect(guideline.toLowerCase(), `${toolDefinition.name}: ${guideline}`).toContain(toolDefinition.name.toLowerCase());
@@ -291,12 +295,50 @@ describe("compact provider-visible prompt guidelines", () => {
       astSearchGuideline: "Use grep summary for counts; use ast_search for structural code patterns.",
     }) as ToolDefinition;
     const guidelines = tool.promptGuidelines as string[];
+    assert.ok(
+      guidelines.includes("In codemode, check grep completeness and omittedMatches before claiming exhaustive results."),
+      "Registered grep lost codemode completeness guidance",
+    );
+    expect(guidelines).toEqual([
+      "Use grep for text search and edit-ready matching anchors.",
+      "Use grep summary for counts; use ast_search for structural code patterns.",
+      "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+    ]);
 
     expect(guidelines.join("\n").toLowerCase()).toContain("summary");
-    expect(guidelines.length).toBeLessThanOrEqual(2);
+    expect(guidelines.length).toBeLessThanOrEqual(3);
     for (const guideline of guidelines) {
       expect(guideline.length, guideline).toBeLessThanOrEqual(96);
       expect(guideline.toLowerCase(), guideline).toContain("grep");
     }
   });
+});
+
+it("adds only compact codemode reminders without removing safety rules", () => {
+  const expected: Record<string, string[]> = {
+    read: [
+      "Use read for file contents, images/screenshots, ranges, symbols, and edit anchors.",
+      "Use read for images; it returns attachments, so avoid OCR tools unless explicitly needed.",
+      "In codemode, project read fields; forward images with image(), never print base64.",
+    ],
+    edit: [
+      "Use edit with fresh LINE:HASH anchors for existing files.",
+      "Copy/move lines with edit copy_lines/move_lines; use edit replace only if anchors fail.",
+      "Serialize dependent same-file edit calls; reacquire fresh anchors after mutations.",
+    ],
+    grep: [
+      "Use grep for text search and edit-ready matching anchors.",
+      "Use grep summary mode when only file counts are needed.",
+      "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+    ],
+  };
+  for (const [name, guidelines] of Object.entries(expected)) {
+    const metadata = defineToolPromptMetadata({
+      promptUrl: new URL("../prompts/" + name + ".md", import.meta.url),
+      promptSnippet: name, promptGuidelines: [],
+    });
+    assert.ok(metadata.promptGuidelines.includes(guidelines[2]), "Compact codemode guideline missing");
+    assert.deepEqual(metadata.promptGuidelines, guidelines);
+    for (const guideline of guidelines) assert.ok(guideline.length <= 96);
+  }
 });
