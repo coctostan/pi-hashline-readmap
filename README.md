@@ -117,6 +117,10 @@ find({ pattern: "*.test.ts", path: "tests", maxDepth: 2 })
 
 Normal grep output has anchors; summary mode has counts only. `ls` lists one directory; `find` recurses by basename and respects `.gitignore`. Deprecated `nu` still registers when Nushell is available; prefer [tested source, discovery, and CLI composition recipes](docs/codemode-recipes.md) for general exploration.
 
+`ast_search` patterns may start with `-` (`--$A`, `-$A`). A pattern ast-grep cannot parse returns `Pattern failed to parse: …` instead of "No matches found", and empty patterns are rejected up front.
+
+`write` returns anchors for up to 2000 lines or 50 KB. Larger writes return a one-line summary (path, line count, bytes), so `read` with `offset`/`limit` before editing. Binary-looking content is written with a warning and no anchors.
+
 ## Bash output
 
 `PI_RTK_BYPASS=1` skips route compression, but the default-on context guard can still trim oversized output. See [Bash compression and recovery](docs/bash-output.md) for routes, limits, snapshots, bypass behavior, and metadata.
