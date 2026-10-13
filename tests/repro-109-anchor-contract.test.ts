@@ -115,7 +115,7 @@ describe("repro 109 — anchor contract", () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it("mentions ptcValue in the visible write truncation notice", async () => {
+  it("points at read, not ptcValue, in the visible large-write summary", async () => {
     const tools = captureTools();
     const dir = mkdtempSync(join(tmpdir(), "pi-repro-109-trunc-"));
     const filePath = resolve(dir, "long.txt");
@@ -130,8 +130,12 @@ describe("repro 109 — anchor contract", () => {
     );
     const text = getTextContent(writeResult);
 
-    expect(writeResult.details?.ptcValue?.lines).toHaveLength(2003);
-    expect(text).toContain("full anchors in ptcValue");
+    expect(writeResult.isError).toBeFalsy();
+    expect(writeResult.details?.ptcValue?.lines).toHaveLength(0);
+    expect(writeResult.details?.ptcValue?.truncated).toBe(true);
+    expect(writeResult.details?.ptcValue?.totalLines).toBe(2003);
+    expect(text).toContain("use read with offset/limit");
+    expect(text).not.toContain("ptcValue");
 
     await rm(dir, { recursive: true, force: true });
   });

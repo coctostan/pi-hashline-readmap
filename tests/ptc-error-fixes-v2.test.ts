@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { ensureHashInit, computeLineHash } from "../src/hashline.js";
@@ -103,20 +103,32 @@ describe("ptc-error fixes v2 — AC 6/8/14 gaps", () => {
     expect(ptc?.error?.code).toBe("invalid-params-combo");
   });
 
-  // AC 14 — write must emit a representative ptcValue.error path with taxonomy code
-  it("write → binary content emits fatal ptcValue.error with code binary-content", async () => {
+  // #273 — the write succeeded, so binary-looking content is a warning, not a failure
+  it("write → binary content succeeds with a binary-content warning", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-v2-wbin-"));
     const f = resolve(dir, "b.bin");
     const content = "hello\u0000world"; // contains NUL → binary
     const r = await callTool("registerWriteTool", "../src/write.js", { path: f, content });
-    expect(r?.isError).toBe(true);
+    expect(r?.isError).toBeFalsy();
+    expect(readFileSync(f, "utf8")).toBe(content);
+    expect(r?.content[0].text).toBe(`Wrote ${f}\n⚠️ File content appears to be binary — hashlines not generated.`);
     const ptc = getPtc(r);
     expect(ptc?.tool).toBe("write");
-    expect(ptc?.ok).toBe(false);
-    expect(ptc?.error?.code).toBe("binary-content");
-    expect(typeof ptc?.error?.message).toBe("string");
-    expect(ptc!.error!.message.length).toBeGreaterThan(0);
+    expect(ptc?.ok).toBeUndefined();
+    expect(ptc?.error).toBeUndefined();
+    expect(ptc?.lines).toEqual([]);
+    expect(ptc?.warnings).toEqual([{ code: "binary-content", message: "File content appears to be binary." }]);
+    expect(r?.details?.writeState).toBe("created");
     expect(PTC_ERROR_CODES).toHaveProperty("binary-content");
+  });
+
+  it("write → bare CR content is still refused as an error", async () => {
+    const dir = mkdtempSync(resolve(tmpdir(), "pi-v2-wcr-"));
+    const f = resolve(dir, "cr.txt");
+    const r = await callTool("registerWriteTool", "../src/write.js", { path: f, content: "a\rb" });
+    expect(r?.isError).toBe(true);
+    expect(getPtc(r)?.error?.code).toBe("bare-cr");
+    expect(existsSync(f)).toBe(false);
   });
 
   it("read → unexpected fs failures surface fs-error (not file-not-found)", async () => {

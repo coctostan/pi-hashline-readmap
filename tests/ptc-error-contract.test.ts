@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { ensureHashInit } from "../src/hashline.js";
@@ -119,12 +119,20 @@ describe("ptc-error contract — every tool emits ptcValue.error on representati
     assertContract(r, "ls", "path-not-found");
   });
 
-  it("write → binary-content (AC 14)", async () => {
+  it("write → invalid-type for non-string content (AC 14)", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-c-w-"));
-    const f = resolve(dir, "b.bin");
-    const r = await callTool("registerWriteTool", "../src/write.js", { path: f, content: "hello\u0000world" });
-    assertContract(r, "write", "binary-content");
+    const f = resolve(dir, "n.txt");
+    const r = await callTool("registerWriteTool", "../src/write.js", { path: f, content: 42 });
+    assertContract(r, "write", "invalid-type");
     expect(r!.isError).toBe(true);
+    expect(r!.content[0].text).toBe("Invalid content: expected string, received number.");
+    expect(existsSync(f)).toBe(false);
+  });
+
+  it("write → invalid-type for non-string path", async () => {
+    const r = await callTool("registerWriteTool", "../src/write.js", { path: 123, content: "x" });
+    assertContract(r, "write", "invalid-type");
+    expect(r!.content[0].text).toBe("Invalid path: expected string, received number.");
   });
 
   it("nu → nu-non-zero-exit (AC 15)", async () => {

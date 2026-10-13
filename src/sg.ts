@@ -25,6 +25,8 @@ type SgParams = { pattern: string; lang?: string; path?: string; limit?: number 
 type NormalizedSgParams = Omit<SgParams, "limit"> & { limit?: number };
 export const AST_SEARCH_DEFAULT_LIMIT = 100;
 const CONTEXT_HYGIENE_SG_SYMBOL_FILE_CAP = 20;
+/** ast-grep (0.42.x) stderr warning for a pattern whose syntax tree contains an ERROR node and matched nothing. */
+const SG_PATTERN_ERROR_NODE_WARNING = /Pattern contains an ERROR node/;
 
 type SgMatch = {
   file: string;
@@ -128,6 +130,24 @@ function execFileText(
 }
 
 /**
+ * Lines printed by `@ast-grep/cli`'s fallback shim (`node_modules/@ast-grep/cli/ast-grep`)
+ * on every run when the package's postinstall did not replace it with the native binary.
+ * They are install noise, not ast-grep diagnostics (#272).
+ */
+const AST_GREP_SHIM_BANNER_LINES = [
+  /^\[warn\] postinstall script did not run\b/,
+  /^Enable postinstall to avoid the per-invocation overhead\.?$/,
+];
+
+export function sanitizeSgStderr(stderr: string): string {
+  return stderr
+    .split(/\r?\n/)
+    .filter((line) => !AST_GREP_SHIM_BANNER_LINES.some((pattern) => pattern.test(line)))
+    .join("\n")
+    .trim();
+}
+
+/**
  * Check if the `sg` (ast-grep) binary is available in PATH.
  * Runs `sg --version` synchronously with a 3-second timeout.
  */
@@ -178,6 +198,14 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         return buildRequiredNullParameterError("ast_search", normalized.requiredNull);
       }
       const rawParams = normalized.value as SgParams;
+      if (typeof rawParams.pattern !== "string" || rawParams.pattern.trim() === "") {
+        const message = "Invalid pattern: expected a non-empty ast-grep pattern.";
+        return {
+          content: [{ type: "text", text: message }],
+          isError: true,
+          details: { ptcValue: { tool: "ast_search", ok: false, error: buildPtcError("invalid-pattern", message) } },
+        };
+      }
       await ensureHashInit();
       const limit = coerceObviousBase10Int(rawParams.limit, "limit");
       if (!limit.ok) {
@@ -203,7 +231,9 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
         path: p.path,
         limit: typeof p.limit === "number" ? p.limit : undefined,
       });
-      const args = ["run", "--json", "-p", p.pattern];
+      // One argv element: clap would parse a separate value that starts with `-`
+      // (e.g. `--$A`, `-$A`, `--help`) as a flag (#272).
+      const args = ["run", "--json", `--pattern=${p.pattern}`];
 
       const searchPath = resolveToCwd(p.path ?? ".", ctx.cwd);
 
@@ -276,7 +306,7 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
 
       try {
         const binary = executableCommand(resolveSgBinary());
-        const { stdout } = await execFileText(binary.command, [...binary.argsPrefix, ...args], {
+        const { stdout, stderr } = await execFileText(binary.command, [...binary.argsPrefix, ...args], {
           cwd: ctx.cwd,
           signal,
           maxBuffer: 10 * 1024 * 1024,
@@ -284,6 +314,19 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
 
         const matches = JSON.parse(stdout);
         if (!Array.isArray(matches) || matches.length === 0) {
+          // ast-grep exits 0 with `[]` and only a stderr warning when the pattern itself
+          // has a syntax ERROR node; report that instead of "No matches found" (#272).
+          if (SG_PATTERN_ERROR_NODE_WARNING.test(stderr)) {
+            const message =
+              `Pattern failed to parse: ${p.pattern}\n`
+              + `ast-grep parsed this pattern${effectiveLang ? ` as ${effectiveLang}` : ""} with a syntax ERROR node, so it cannot match. `
+              + "Make the pattern a complete, valid code fragment (balanced brackets; a full expression or statement).";
+            return {
+              content: [{ type: "text", text: message }],
+              isError: true,
+              details: { ptcValue: { tool: "ast_search", ok: false, error: buildPtcError("pattern-parse-error", message) } },
+            };
+          }
           const emptyOutput = buildSgOutput({ pattern: p.pattern, files: [], rehydrate });
           return {
             content: [{ type: "text", text: emptyOutput.text }],
@@ -419,7 +462,8 @@ export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {
             },
           };
         }
-        const message = String(err?.stderr || err?.message || err);
+        const stderrText = sanitizeSgStderr(String(err?.stderr ?? ""));
+        const message = stderrText || String(err?.message || err);
         return {
           content: [{ type: "text", text: message }],
           isError: true,

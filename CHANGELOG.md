@@ -6,9 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-12
+
 ### Added
 
 - `read` can recover any part of a long line: `charOffset` (with `offset`) and `charLimit` select a bounded window (default 500 characters, capped at 10,000) of one line. The `LINE:HASH` anchor is still computed from the full line, results report remaining characters and the next call, and `ptcValue.window` / rehydration descriptors carry the window. Thanks to CrazyCoder (#219), whose proposal motivated this. The unbounded `unclipped` flag and the settings-gated `read.allowUnclipped` schema variation from that PR were intentionally not adopted, to keep reads context-bounded and the tool schema static (#268).
+- `edit` accepts optional `literal: true` on `set_line`, `replace_lines` and `insert_after` to write `new_text` exactly as given, skipping prefix cleanup and the `insert_after` anchor-echo drop (#270).
+- Line-shifting edits report `Line numbers shifted by ±K from old line N; …` so callers know which earlier anchors are stale (#271).
 
 ### Changed
 
@@ -18,6 +22,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Deprecated
 
 - Bundled `nu` is deprecated, not removed. Nu remains available for at least one published deprecation release; removal occurs only in a separately announced breaking release after migration-example verification and the removal checklist pass. Registration, binary provisioning, configuration, execution results, and compatibility assertions are unchanged. Prefer dedicated file tools plus codemode composition and Bash for external CLIs. See [Nu deprecation and migration](docs/nu-deprecation.md) for tested replacements, Nushell retention options, and the removal checklist (#266).
+
+### Fixed
+
+- `edit` no longer silently rewrites `new_text`: a `LINE:HASH|` prefix is removed only when it is a real anchor of the file's current lines, bare `HASH|` prefixes only when every line carries a hash of this file, and leading `+` is never removed. Look-alike content such as `12:30|meeting`, `abc|def`, `+ item` and `+1` is written verbatim, and any removal is reported as a warning (#270).
+- An anchor from a view taken before the tool's own line-shifting edit can no longer land on a different line with the same hash. It is remapped to where its line moved when unambiguous (with a note), and otherwise refused with `hash-mismatch` and fresh rows. The pending-diff preview applies the same check (#271).
+- `ast_search` patterns that start with `-` (`--$A`, `-$A`, `--help`) are now searched instead of failing as ast-grep CLI flags; the pattern is passed as a single `--pattern=<p>` argument (#272).
+- `ast_search` reports a `pattern-parse-error` (`Pattern failed to parse: …`) when ast-grep warns that a pattern with no matches contains a syntax ERROR node, instead of "No matches found". A valid pattern that matches nothing still returns `No matches found for pattern: …` (#272).
+- `ast_search` rejects empty or whitespace-only patterns with `invalid-pattern` before running ast-grep, and no longer prefixes errors with the `@ast-grep/cli` "postinstall script did not run" banner (#272).
+- `write` of more than 2000 lines or 50 KB of anchor text returns a short summary (`Wrote <path> (<N> lines, <B> bytes). … use read with offset/limit to get anchors before editing.`) instead of up to 50 KB of anchors with a hint pointing at the invisible `ptcValue`. Its structured value is bounded (`lines: []`, `truncated: true`, `totalLines`, `bytes`, an `anchors-omitted` warning, no `diff`/`diffData`), which fixes the codemode `out of memory` error on very large writes. Smaller writes are unchanged (#273).
+- `write` of binary-looking content now succeeds with a `binary-content` warning instead of being reported as an error after the file was written. Content with bare carriage returns is still refused (#273).
+- `write` rejects non-string `path`/`content` with an `invalid-type` error instead of a raw `TypeError` or a misleading `fs-error`. Pi hosts convert numbers and booleans to strings before the tool runs; this is now documented (#273).
 
 ## [0.15.1]
 

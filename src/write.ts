@@ -68,6 +68,15 @@ function pendingWritePreviewParts(summary: string, preview: PendingDiffPreviewRe
 
 const MAX_LINES = 2000;
 const MAX_BYTES = 50 * 1024;
+/**
+ * Visible result for writes whose anchors exceed MAX_LINES / MAX_BYTES. ASCII only: a single
+ * non-Latin-1 character makes QuickJS store the whole codemode payload as 16-bit text (#273).
+ */
+export function formatCompactWriteSummary(displayPath: string, totalLines: number, bytes: number): string {
+  return `Wrote ${displayPath} (${totalLines} ${totalLines === 1 ? "line" : "lines"}, ${bytes} bytes). `
+    + `Anchors omitted for writes over ${MAX_LINES} lines or ${MAX_BYTES / 1024} KB of anchors; `
+    + "use read with offset/limit to get anchors before editing.";
+}
 const WRITE_PROMPT_METADATA = defineToolPromptMetadata({
   promptUrl: packageFileUrl("prompts", "write.md"),
   promptSnippet: "Create or overwrite a complete file and return edit anchors",
@@ -95,6 +104,10 @@ export interface WriteResult extends WriteDiffFields {
     diff?: string;
     diffData?: DiffData;
     map?: { appended: boolean };
+    /** Large write: anchors, diff, and diffData omitted; use read for anchors. */
+    truncated?: true;
+    totalLines?: number;
+    bytes?: number;
   };
   contextHygiene: ContextHygieneMetadata;
 }
@@ -231,6 +244,7 @@ export async function executeWrite(opts: {
     return {
       text: `Wrote ${filePath}\n⚠️ File content appears to be binary — hashlines not generated.`,
       warnings,
+      writeState: existedBeforeWrite ? "overwritten" : "created",
       ptcValue: {
         tool: "write",
         path: filePath,
@@ -241,27 +255,32 @@ export async function executeWrite(opts: {
     };
   }
 
-  // Compute hashlines
+  const displayPath = cwd ? relative(cwd, filePath) || filePath : filePath;
+  const writeState: "created" | "overwritten" = existedBeforeWrite ? "overwritten" : "created";
+
+  // Compute hashlines. Writes whose anchors would exceed the visible budget return a
+  // compact summary and a bounded structured value instead (#273).
   const rawLines = splitDisplayLines(content);
   const ptcLines: PtcLine[] = [];
-  const displayLines: string[] = [];
-
-  for (let i = 0; i < rawLines.length; i++) {
-    const lineNum = i + 1;
-    const ptcLine = buildPtcLine(lineNum, rawLines[i]);
-    ptcLines.push(ptcLine);
-    displayLines.push(formatHashlineDisplay(lineNum, rawLines[i]));
+  let text = "";
+  let compact = rawLines.length > MAX_LINES;
+  if (!compact) {
+    const displayLines: string[] = [];
+    for (let i = 0; i < rawLines.length; i++) {
+      const lineNum = i + 1;
+      ptcLines.push(buildPtcLine(lineNum, rawLines[i]));
+      displayLines.push(formatHashlineDisplay(lineNum, rawLines[i]));
+    }
+    text = displayLines.join("\n");
+    compact = Buffer.byteLength(text, "utf8") > MAX_BYTES;
   }
-
-  let text = displayLines.join("\n");
-  if (rawLines.length > MAX_LINES) {
-    text = displayLines.slice(0, MAX_LINES).join("\n");
-    text += `\n[… ${rawLines.length - MAX_LINES} more lines not shown — full anchors in ptcValue]`;
-  }
-  const bytes = Buffer.byteLength(text, "utf8");
-  if (bytes > MAX_BYTES) {
-    text = Buffer.from(text, "utf8").subarray(0, MAX_BYTES).toString("utf8");
-    text += "\n[… output truncated at 50 KB — full anchors in ptcValue]";
+  const contentBytes = Buffer.byteLength(content, "utf8");
+  if (compact) {
+    ptcLines.length = 0;
+    text = formatCompactWriteSummary(displayPath, rawLines.length, contentBytes);
+    const omittedMessage = `Anchors omitted: ${rawLines.length} lines exceed the write anchor budget (${MAX_LINES} lines / ${MAX_BYTES / 1024} KB); use read with offset/limit for anchors.`;
+    warnings.push(omittedMessage);
+    ptcWarnings.push(buildPtcWarning("anchors-omitted", omittedMessage));
   }
 
   // Optional structural map
@@ -281,7 +300,25 @@ export async function executeWrite(opts: {
     }
   }
 
-  const displayPath = cwd ? relative(cwd, filePath) || filePath : filePath;
+  if (compact) {
+    return {
+      text,
+      warnings,
+      writeState,
+      ptcValue: {
+        tool: "write",
+        path: displayPath,
+        lines: [],
+        warnings: ptcWarnings,
+        truncated: true,
+        totalLines: rawLines.length,
+        bytes: contentBytes,
+        ...(requestMap !== undefined ? { map: { appended: mapAppended } } : {}),
+      },
+      contextHygiene,
+    };
+  }
+
   const normalizedPrevious = normalizeToLF(previousContent);
   const normalizedNext = normalizeToLF(content);
   const diffResult = generateWriteDiff(normalizedPrevious, normalizedNext);
@@ -295,7 +332,7 @@ export async function executeWrite(opts: {
   return {
     text,
     warnings,
-    writeState: existedBeforeWrite ? "overwritten" : "created",
+    writeState,
     diff: diffResult.diff,
     diffData,
     ptcValue: {
@@ -329,6 +366,23 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
       const normalized = normalizeToolParameters(WRITE_PARAMETERS, params);
       if (normalized.requiredNull) {
         return buildRequiredNullParameterError("write", normalized.requiredNull);
+      }
+      // Pi hosts convert numbers/booleans to strings before execute; direct callers do not.
+      // Reject anything that is still not a string instead of failing deep inside the write.
+      const rawWriteParams = normalized.value as Record<string, unknown>;
+      for (const key of ["path", "content"] as const) {
+        const value = rawWriteParams[key];
+        if (typeof value !== "string") {
+          const received = Array.isArray(value) ? "array" : typeof value;
+          const message = `Invalid ${key}: expected string, received ${received}.`;
+          return {
+            content: [{ type: "text" as const, text: message }],
+            isError: true,
+            details: {
+              ptcValue: { tool: "write" as const, ok: false, error: buildPtcError("invalid-type", message) },
+            },
+          };
+        }
       }
       const normalizedParams = normalized.value as {
         path: string;
@@ -382,27 +436,6 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
 
         if (result.ptcValue.lines.length > 0) {
           options.onFileAnchored?.(absolutePath);
-        }
-
-        // Lift binary-content signal into a fatal ptcValue.error envelope so
-        // downstream consumers get the same taxonomy shape as every other tool.
-        // The existing PtcWarning entry is preserved on ptcValue.warnings for
-        // backward compatibility (see AC 12 — warnings namespace alignment).
-        const binaryWarning = result.ptcValue.warnings.find((w) => w.code === "binary-content");
-        if (binaryWarning) {
-          return {
-            content: [{ type: "text" as const, text: result.text }],
-            isError: true,
-            details: {
-              ptcValue: {
-                ...result.ptcValue,
-                ok: false,
-                error: buildPtcError("binary-content", binaryWarning.message),
-              },
-              warnings: result.warnings,
-              contextHygiene: result.contextHygiene,
-            },
-          };
         }
 
         const bareCrWarning = result.ptcValue.warnings.find((w) => w.code === "bare-cr");

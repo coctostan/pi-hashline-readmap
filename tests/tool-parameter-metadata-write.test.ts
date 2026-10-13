@@ -16,7 +16,10 @@ describe("provider-visible write constraints", () => {
     expect(await execute(write, { path: barePath, content: "a\rb" }, cwd)).toMatchObject({ isError: true, details: { ptcValue: { tool: "write", ok: false, lines: [], error: { code: "bare-cr" } } } });
     expect(existsSync(barePath)).toBe(false);
     const binaryPath = join(cwd, "binary.dat");
-    expect(await execute(write, { path: binaryPath, content: "a\u0000b" }, cwd)).toMatchObject({ isError: true, details: { ptcValue: { tool: "write", ok: false, lines: [], error: { code: "binary-content" } } } });
+    const binaryResult = await execute(write, { path: binaryPath, content: "a\u0000b" }, cwd);
+    expect(binaryResult.isError).toBeFalsy();
+    expect(binaryResult).toMatchObject({ details: { ptcValue: { tool: "write", lines: [], warnings: [{ code: "binary-content" }] } } });
+    expect(binaryResult.details.ptcValue.error).toBeUndefined();
     expect(existsSync(binaryPath)).toBe(true);
   });
 });

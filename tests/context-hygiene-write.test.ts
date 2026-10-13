@@ -83,7 +83,8 @@ describe("write contextHygiene metadata", () => {
       resources: [buildFileResource(binaryPath)],
     });
     expect((binaryResult.details?.ptcValue as any).contextHygiene).toBeUndefined();
-    expect(binaryResult.isError).toBe(true);
-    expect(binaryResult.details?.ptcValue?.error?.code).toBe("binary-content");
+    expect(binaryResult.isError).toBeFalsy();
+    expect(binaryResult.details?.ptcValue?.error).toBeUndefined();
+    expect(binaryResult.details?.ptcValue?.warnings.map((warning: any) => warning.code)).toContain("binary-content");
   });
 });
