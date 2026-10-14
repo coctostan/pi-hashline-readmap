@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.1] - 2026-10-14
+
+### Fixed
+
+- Restore all eight numeric parameter hints in codemode declarations for `read`, `grep`, and `ast_search` without changing number/string validation or coercion (#277).
+- Clarify that `find` entries are relative to the resolved search root (`path`, default cwd), and that `ls` returns basenames to join with its resolved absolute directory; expose the joining guidance in registered metadata, output comments, and examples (#278).
+- Return the existing coded `file-not-found` failure for delegated image ENOENT in value mode, while preserving default rejection, joined-image success, and non-ENOENT exceptions (#279).
+
+### Changed
+
+- Update the independently pinned runtime and declaration compatibility lane to Pi 1.2.0 while retaining the locked Pi 0.84.2 lane, mandatory Nu assertions, and historical benchmark measurements.
+- Compact repetitive tool metadata to keep all nine tool sections and required safety hints within the unchanged default codemode inline budget.
+
 ## [0.16.0] - 2026-10-12
 
 ### Added
