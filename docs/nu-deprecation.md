@@ -79,6 +79,6 @@ The checklist is intentionally unchecked in the deprecation release. Actual remo
 
 ## Compatibility during deprecation
 
-Locked Pi 0.84.2 development checks and the independent pinned Pi 1.1.0 lane remain complementary. PI_COMPAT_REQUIRE_NU=1 still requires Nu registration in the independent lane. Deprecation does not introduce a Nu outputSchema, a structured Nu API, or a replacement Nu framework; it supersedes the earlier conditional structured-Nu proposal.
+Locked Pi 0.84.2 development checks and the independent pinned Pi 1.2.0 lane remain complementary. PI_COMPAT_REQUIRE_NU=1 still requires Nu registration in the independent lane. Deprecation does not introduce a Nu outputSchema, a structured Nu API, or a replacement Nu framework; it supersedes the earlier conditional structured-Nu proposal.
 
 Migration recipe tests exercise the selected host's loader, wrappers, runToolCall pipeline, and QuickJS executor using an all-Hashline-tools fixture. They do not prove CLI selection resolution, provider quality, or every AgentSession lifecycle branch. Implicit locked-host skips are not independent-host evidence.

@@ -258,6 +258,8 @@ Native read truncation and continuation, warning codes/messages, grep completene
 
 The emitted ASCII JSON is limited to 6000 characters before text(), below the 2000-token recovery cap. If that aggregate budget would be exceeded, source-detail arrays are omitted explicitly with outputBudgetOmitted while bounded failures/warnings, native truncation/continuation and completeness remain. Unexpected oversized metadata fails explicitly instead of silently clipping a raw/anchor pair. Codemode also has a 60-second script deadline.
 
+Keep the `// @options:` line as the script's first line. Pi 1.2.0+ rejects a script whose options line appears later (earlier hosts silently ignored it), so place optional `store(...)` seeds after that line, not before it.
+
 Omitted raw must be reacquired with a suitably narrowed read before preparing an edit; do not use a preview or omission marker as source content. Reacquire fresh anchors after any mutation and serialize dependent edits. See [Nu deprecation](nu-deprecation.md) for the policy.
 
 <!-- recipe:nu-source -->

@@ -24,7 +24,7 @@ describe("prompt loading — write", () => {
     expect(existsSync(promptPath)).toBe(true);
 
     const tool = captureTool(registerWriteTool);
-    expect(tool.description).toBe("Create or overwrite a file and return anchors.");
+    expect(tool.description).toBe("Write files; return anchors.");
     expect(firstParagraph(promptPath)).toContain("overwrites existing files");
   });
 

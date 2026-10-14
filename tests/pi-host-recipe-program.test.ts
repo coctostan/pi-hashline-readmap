@@ -10,7 +10,7 @@ it.skipIf(!supported)("captures real selected-host script results", () => {
       { code: 'text({later:true});' },
     ],
   });
-  assert.equal(report.version, "1.1.0");
+  assert.equal(report.version, "1.2.0");
   assert.deepEqual(jsonOf(report), { raw: "alpha", next: 2 });
   assert.deepEqual(jsonOf(report, 1), { later: true });
   assert.deepEqual(report.results[0].calls.map((c: any) => c.name), ["read"]);

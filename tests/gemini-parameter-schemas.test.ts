@@ -10,6 +10,7 @@ import { registerLsTool } from "../src/ls.js";
 import { registerSgTool } from "../src/sg.js";
 import { withRawArgumentGuard } from "../src/raw-argument-guard.js";
 import { normalizeToolParameters } from "../src/normalize-tool-params.js";
+import { EXPECTED_SERIALIZATION_HASHES } from "./helpers/tool-contract-pins.js";
 
 function registeredTools(): any[] {
   const tools: any[] = [];
@@ -221,14 +222,7 @@ it("preserves eight edit variants and nested required-null diagnostics", () => {
 });
 
 it("preserves schema serialization and order outside the four enum slots", () => {
-  const hashes: Record<string, string> = {
-    read: "ad612afd4f99b773a1293aade13e62bb2b2eae3d65f89f732daf3187470e2c60",
-    grep: "aa55ce8f4607f8e3e87f0edcbb7b407f5795b2ca84b8f72f723343ed0b7e5fd3",
-    edit: "bfb7913aadaa00d01e829e3ca7326d102e37b6aa08cfdcde45c4e64966530ec8",
-    find: "55e357e9e6d0695269d493def3d8e5af78d670ad16dc1472b42e1ee83c0e6b58",
-    ls: "9ecf497c631527ff13de80c6eae5983d8de868ceed01ea750c406dcf057be77e",
-    ast_search: "341c5cd7c9a3ddb13cdb1067e04d802c8f5c29f4d3fb6d75b77429a36f9648f7",
-  };
+  const hashes = EXPECTED_SERIALIZATION_HASHES;
   const enumSlots = [["read", "bundle"], ["grep", "scope"], ["find", "type"], ["find", "sortBy"]];
   for (const tool of registeredTools()) {
     const schema = JSON.parse(JSON.stringify(tool.parameters));

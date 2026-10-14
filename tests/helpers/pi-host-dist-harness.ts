@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /** Exact Pi release the independent current-host lane pins (see .github/workflows/pi-compatibility.yml). */
-export const PI_COMPAT_VERSION = "1.1.0";
+export const PI_COMPAT_VERSION = "1.2.0";
 
 export type DistScenario = "fallback" | "built" | "negative" | "extracted";
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram, seeded, supported } from "./helpers/codemode-recipes.js";
 
 const code = recipe("nu-source");
 it.skipIf(!supported)("projects bounded source inspection with anchors and honest incompleteness", () => {
@@ -9,7 +9,7 @@ it.skipIf(!supported)("projects bounded source inspection with anchors and hones
   try {
     const report = runProgram({
       files: { "inspect.ts": 'console.log("one");\nconsole.log("two");\nconsole.log("three");\n' },
-      steps: [{ code }, { code: 'store("sourcePath", "absent.ts");\n' + code }],
+      steps: [{ code }, { code: seeded('store("sourcePath", "absent.ts");', code) }],
     });
     reports.push(report);
     const rows = jsonOf(report);
@@ -44,8 +44,8 @@ it.skipIf(!supported)("projects bounded source inspection with anchors and hones
     function inspect(path: string, content: string, offset = 1): any[] {
       const current = runProgram({
         files: { [path]: content },
-        steps: [{ code: 'store("sourcePath", ' + JSON.stringify(path) + ');\n'
-          + 'store("sourceReadOffset", ' + offset + ');\n' + code }],
+        steps: [{ code: seeded('store("sourcePath", ' + JSON.stringify(path) + ');\n'
+          + 'store("sourceReadOffset", ' + offset + ');', code) }],
       });
       reports.push(current);
       return jsonOf(current);

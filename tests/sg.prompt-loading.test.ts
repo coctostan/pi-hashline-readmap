@@ -18,7 +18,7 @@ async function getSgTool() {
 describe("sg prompt loading", () => {
   it("uses compact provider-visible metadata and keeps prompt details in prompts/sg.md", async () => {
     const tool = await getSgTool();
-    expect(tool.description).toBe("Search code by AST pattern and return anchored matches.");
+    expect(tool.description).toBe("ast-grep search; return anchors.");
     const content = readFileSync(resolve(root, "prompts/sg.md"), "utf8");
     expect(content).toContain("AST-aware structural code search");
   });

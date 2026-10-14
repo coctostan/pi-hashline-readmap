@@ -208,7 +208,7 @@ it.skipIf(!supported).each(cases)("$name", boundary => {
     throw new Error("direct Bash presentation must be checked");
   }
   expect(result).toMatchObject({
-    version: "1.1.0", host, completed: true, images: boundary.images ?? 0,
+    version: "1.2.0", host, completed: true, images: boundary.images ?? 0,
     staleNotice: boundary.visible ?? false, duplicateNotice: false,
     compressed: boundary.bash ?? false,
   });

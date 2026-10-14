@@ -41,7 +41,7 @@ export const HASHLINE_TOOL_ANNOTATIONS: Readonly<Record<string, HashlineToolAnno
   write: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
 };
 
-const TEXT = Type.String({ description: "Exact model-facing text output" });
+const TEXT = Type.String({ description: "Exact model text" });
 const LINE = Type.Object({
   line: Type.Number(),
   anchor: Type.String({ description: "LINE:HASH for edit" }),
@@ -118,13 +118,25 @@ const HASHLINE_SUCCESS_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = {
   }),
   ls: Type.Object({
     text: TEXT,
-    path: Type.String(),
-    entries: Type.Array(Type.Object({ name: Type.String(), type: Type.Union([Type.Literal("file"), Type.Literal("dir")]) })),
+    path: Type.String({
+      description: "Resolved absolute directory; join with entries[].name before read/edit.",
+    }),
+    entries: Type.Array(Type.Object({
+      name: Type.String({
+        description: "Entry basename; join to the returned path before read/edit.",
+      }),
+      type: Type.Union([Type.Literal("file"), Type.Literal("dir")]),
+    })),
     truncated: Type.Boolean(),
   }),
   find: Type.Object({
     text: TEXT,
-    entries: Type.Array(Type.Object({ path: Type.String(), type: Type.Union([Type.Literal("file"), Type.Literal("dir")]) })),
+    entries: Type.Array(Type.Object({
+      path: Type.String({
+        description: "Relative to resolved search root (path, default cwd); join to that root before read/edit.",
+      }),
+      type: Type.Union([Type.Literal("file"), Type.Literal("dir")]),
+    })),
     truncated: Type.Boolean(),
   }),
 };

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize } from "@earendil-works/pi-coding-agent";
 import assert from "node:assert/strict";
 import { defineToolPromptMetadata } from "../src/tool-prompt-metadata.js";
+import { EXPECTED_TOOL_DESCRIPTIONS } from "./helpers/tool-contract-pins.js";
 
 type ToolDefinition = {
   name: string;
@@ -135,14 +136,14 @@ describe("compact provider-visible descriptions", () => {
       nu: registerNuTool(pi as any),
     };
 
-    expect(tools.read.description).toBe("Read text files/images by path; text has LINE:HASH anchors, images return attachments.");
-    expect(tools.edit.description).toBe("Edit files with fresh LINE:HASH anchors; copy or move existing lines with copy_lines/move_lines.");
-    expect(tools.grep.description).toBe("Search file contents; non-summary results include LINE:HASH anchors for edits.");
-    expect(tools.find.description).toBe("Find files by glob, respecting .gitignore.");
-    expect(tools.ls.description).toBe("List one directory.");
-    expect(tools.write.description).toBe("Create or overwrite a file and return anchors.");
-    expect(tools.ast_search.description).toBe("Search code by AST pattern and return anchored matches.");
-    expect((tools.nu as ToolDefinition).description).toBe("Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.");
+    expect(tools.read.description).toBe("Read files/images; LINE:HASH text anchors, image attachments.");
+    expect(tools.edit.description).toBe("Edit via fresh LINE:HASH; copy_lines/move_lines.");
+    expect(tools.grep.description).toBe("Grep text; non-summary LINE:HASH anchors.");
+    expect(tools.find.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.find);
+    expect(tools.ls.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.ls);
+    expect(tools.write.description).toBe("Write files; return anchors.");
+    expect(tools.ast_search.description).toBe("ast-grep search; return anchors.");
+    expect((tools.nu as ToolDefinition).description).toBe("Deprecated Nu; prefer file tools + codemode.");
 
     for (const [name, tool] of Object.entries(tools)) {
       expect(typeof (tool as ToolDefinition).description, name).toBe("string");
@@ -295,13 +296,13 @@ describe("compact provider-visible prompt guidelines", () => {
     }) as ToolDefinition;
     const guidelines = tool.promptGuidelines as string[];
     assert.ok(
-      guidelines.includes("In codemode, check grep completeness and omittedMatches before claiming exhaustive results."),
+      guidelines.includes("Check grep completeness and omittedMatches before exhaustive claims."),
       "Registered grep lost codemode completeness guidance",
     );
     expect(guidelines).toEqual([
-      "Use grep for text search and edit-ready matching anchors.",
+      "Grep text for edit-ready anchors.",
       "Use grep summary for counts; use ast_search for structural code patterns.",
-      "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+      "Check grep completeness and omittedMatches before exhaustive claims.",
     ]);
 
     expect(guidelines.join("\n").toLowerCase()).toContain("summary");
@@ -316,19 +317,19 @@ describe("compact provider-visible prompt guidelines", () => {
 it("adds only compact codemode reminders without removing safety rules", () => {
   const expected: Record<string, string[]> = {
     read: [
-      "Use read for file contents, images/screenshots, ranges, symbols, and edit anchors.",
-      "Use read for images; it returns attachments, so avoid OCR tools unless explicitly needed.",
-      "In codemode, project read fields; forward images with image(), never print base64.",
+      "Read files/images, ranges, symbols, edit anchors.",
+      "Read images as attachments; OCR only if needed.",
+      "Project read fields; image() forwards images; never print base64.",
     ],
     edit: [
-      "Use edit with fresh LINE:HASH anchors for existing files.",
-      "Copy/move lines with edit copy_lines/move_lines; use edit replace only if anchors fail.",
-      "Serialize dependent same-file edit calls; reacquire fresh anchors after mutations.",
+      "Edit existing files with fresh LINE:HASH.",
+      "Edit: copy_lines/move_lines; replace only if anchors fail.",
+      "Serialize same-file edits; reacquire anchors after mutations.",
     ],
     grep: [
-      "Use grep for text search and edit-ready matching anchors.",
-      "Use grep summary mode when only file counts are needed.",
-      "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+      "Grep text for edit-ready anchors.",
+      "Grep summary for file counts.",
+      "Check grep completeness and omittedMatches before exhaustive claims.",
     ],
   };
   for (const [name, guidelines] of Object.entries(expected)) {

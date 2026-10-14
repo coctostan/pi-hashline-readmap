@@ -109,25 +109,25 @@ const READ_PARAMETERS = Type.Object({
 		Type.Union([
 			Type.Number({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
 			Type.String({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
-		]),
+		], { description: "Positive 1-indexed int or base-10 string; not with symbol" }),
 	),
 	limit: Type.Optional(
 		Type.Union([
 			Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
 			Type.String({ description: "Positive int or obvious base-10 numeric string" }),
-		]),
+		], { description: "Positive int or obvious base-10 numeric string" }),
 	),
 	charOffset: Type.Optional(
 		Type.Union([
 			Type.Number({ description: "0-based char offset into one line; needs offset" }),
 			Type.String({ description: "0-based char offset into one line; needs offset" }),
-		]),
+		], { description: "0-based char offset into one line; needs offset" }),
 	),
 	charLimit: Type.Optional(
 		Type.Union([
 			Type.Number({ description: "Window chars; default 500, max 10000" }),
 			Type.String({ description: "Window chars; default 500, max 10000" }),
-		]),
+		], { description: "Window chars; default 500, max 10000" }),
 	),
 	symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
 	strictSymbol: Type.Optional(Type.Boolean({
@@ -418,7 +418,14 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
 				if (p.strictSymbol) return strictFailure("symbol-unmappable", "Symbol lookup is not available for images.");
 				const builtinRead: any = createReadTool(ctx.cwd);
-				return succeed(await builtinRead.execute(_toolCallId, p, signal, _onUpdate, ctx));
+				let result: AgentToolResult<any>;
+				try {
+					result = await builtinRead.execute(_toolCallId, p, signal, _onUpdate, ctx);
+				} catch (err: any) {
+					if (err?.code !== "ENOENT") throw err;
+					return strictFailure("file-not-found", `File not found: ${rawPath}`);
+				}
+				return succeed(result);
 			}
 
 			throwIfAborted(signal);

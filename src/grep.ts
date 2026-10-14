@@ -47,13 +47,13 @@ const grepSchema = Type.Object({
 		Type.Union([
 			Type.Number({ description: "Non-negative int or obvious base-10 numeric string" }),
 			Type.String({ description: "Non-negative int or obvious base-10 numeric string" }),
-		]),
+		], { description: "Non-negative int or obvious base-10 numeric string" }),
 	),
 	limit: Type.Optional(
 		Type.Union([
 			Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
 			Type.String({ description: "Positive int or obvious base-10 numeric string" }),
-		]),
+		], { description: "Positive int or obvious base-10 numeric string" }),
 	),
 	summary: Type.Optional(Type.Boolean({ description: "Per-file counts only; no edit anchors" })),
 	scope: Type.Optional(
@@ -65,7 +65,7 @@ const grepSchema = Type.Object({
 		Type.Union([
 			Type.Number({ description: "Non-negative int/base-10 string; requires scope: symbol" }),
 			Type.String({ description: "Non-negative int/base-10 string; requires scope: symbol" }),
-		]),
+		], { description: "Non-negative int/base-10 string; requires scope: symbol" }),
 	),
 });
 

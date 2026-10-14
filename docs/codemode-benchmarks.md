@@ -4,19 +4,19 @@ Deterministic, credential-free evidence for equivalent tool workflows—not mode
 
 ## Reproduce
 
-Run `npm ci` in this maintainer checkout (Node baseline: >=22.19.0), then provision the complete pinned Pi 1.1.0 graph as documented in AGENTS.md. For this command, use the issue-owned prefix `tmp/pi-265-host` rather than AGENTS.md's temporary prefix, or deliberately adjust PI_COMPAT_HOST to your exact installation:
+Run `npm ci` in this maintainer checkout (Node baseline: >=22.19.0), then provision the complete pinned Pi graph (currently 1.2.0) as documented in AGENTS.md. For this command, use the issue-owned prefix `tmp/pi-265-host` rather than AGENTS.md's temporary prefix, or deliberately adjust PI_COMPAT_HOST to your exact installation:
 
 ~~~bash
 PI_COMPAT_HOST="$PWD/tmp/pi-265-host/node_modules/@earendil-works/pi-coding-agent" PI_CODEMODE_BENCH_ITERATIONS=3 node scripts/benchmark-codemode.mjs
 ~~~
 
-The host must be exactly Pi 1.1.0 with its codemode executor; no implicit locked-host fallback, global Pi, provider, or credentials are used. This is a maintainer checkout-only harness, not a CLI installed with the published extension. It requires the checkout's tests/helpers and documentation. The benchmark creates isolated files/images and cleans only its own temporary artifacts; it does not change user settings.
+The host must be exactly the pinned Pi version (see `scripts/pi-compat-host.mjs`) with its codemode executor; no implicit locked-host fallback, global Pi, provider, or credentials are used. This is a maintainer checkout-only harness, not a CLI installed with the published extension. It requires the checkout's tests/helpers and documentation. The benchmark creates isolated files/images and cleans only its own temporary artifacts; it does not change user settings.
 
 ## Recorded run
 
 - Run: 2026-10-11, completed at 21:40:05 UTC.
 - Git HEAD: `423f6421acc0af5149389d835430c394872d98ee`, with the issue #265 working-tree changes (including the benchmark) applied; HEAD alone does not contain this harness.
-- Selected host: Pi 1.1.0, explicitly installed at the checkout-local path recorded below.
+- Selected host: Pi 1.1.0 (the pinned lane at the time; not re-recorded for later pins), explicitly installed at the checkout-local path recorded below.
 - Node: v26.7.0; OS/architecture: Darwin 25.6.0 / arm64 (queried alongside the report).
 - Three cold-process samples per workflow/mode: 12 rows total, no warm-process/VM lane.
 

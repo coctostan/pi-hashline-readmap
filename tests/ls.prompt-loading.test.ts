@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { registerLsTool } from "../src/ls.js";
+import { EXPECTED_TOOL_DESCRIPTIONS } from "./helpers/tool-contract-pins.js";
 
 function firstParagraph(path: string): string {
   const content = readFileSync(path, "utf8").trim();
@@ -21,7 +22,7 @@ function captureTool(register: (pi: any) => void) {
 describe("ls prompt loading", () => {
   it("uses compact provider-visible metadata and keeps prompt details in prompts/ls.md", () => {
     const tool = captureTool(registerLsTool);
-    expect(tool.description).toBe("List one directory.");
+    expect(tool.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.ls);
     expect(firstParagraph(resolve("prompts/ls.md"))).toContain("dotfiles are included");
   });
 

@@ -15,9 +15,9 @@ it("requires an exact explicit compatibility host without fallback", () => {
     ["--input-type=module", "-e", probe, path], { encoding: "utf8" });
   try {
     for (const [name, version, executor] of [
-      ["valid", "1.1.0", true],
+      ["valid", "1.2.0", true],
       ["wrong", "1.0.0", true],
-      ["no-executor", "1.1.0", false],
+      ["no-executor", "1.2.0", false],
     ] as const) {
       const path = join(root, name);
       mkdirSync(path);
@@ -29,10 +29,10 @@ it("requires an exact explicit compatibility host without fallback", () => {
     }
     const ok = select(join(root, "valid"));
     assert.equal(ok.status, 0, ok.stderr);
-    assert.deepEqual(JSON.parse(ok.stdout), { host: join(root, "valid"), version: "1.1.0" });
+    assert.deepEqual(JSON.parse(ok.stdout), { host: join(root, "valid"), version: "1.2.0" });
     const wrong = select(join(root, "wrong"));
     assert.equal(wrong.status, 1);
-    assert.match(wrong.stderr, /Compatibility host must be exactly Pi 1\.1\.0/);
+    assert.match(wrong.stderr, /Compatibility host must be exactly Pi 1\.2\.0/);
     const absent = select(join(root, "missing"));
     assert.equal(absent.status, 1);
     assert.match(absent.stderr, /ENOENT/);
