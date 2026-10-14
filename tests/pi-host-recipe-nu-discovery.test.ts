@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram, seeded, supported } from "./helpers/codemode-recipes.js";
 
 const code = recipe("nu-discovery");
 it.skipIf(!supported)("joins bounded file discovery without pretending it is exhaustive", () => {
@@ -12,8 +12,8 @@ it.skipIf(!supported)("joins bounded file discovery without pretending it is exh
     },
     steps: [
       { code },
-      { code: 'store("discoveryPath", "small");\n' + code },
-      { code: 'store("discoveryPath", "absent");\n' + code },
+      { code: seeded('store("discoveryPath", "small");', code) },
+      { code: seeded('store("discoveryPath", "absent");', code) },
     ],
   });
   const value = jsonOf(report);

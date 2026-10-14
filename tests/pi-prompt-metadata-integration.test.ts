@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectHashlineSystemPromptMetadata } from "./helpers/pi-prompt-metadata-harness.js";
+import { EXPECTED_TOOL_DESCRIPTIONS, EXPECTED_SCHEMA_SHAPES, EXPECTED_PARAMETER_DESCRIPTIONS } from "./helpers/tool-contract-pins.js";
 
 const EXPECTED_TOOLS = ["read", "edit", "grep", "find", "ls", "write", "ast_search", "nu"] as const;
 
@@ -52,97 +53,15 @@ describe("Pi system prompt metadata integration", () => {
       execFileSync: vi.fn(() => Buffer.from("0.111.0\n")),
     }));
     const result = await collectHashlineSystemPromptMetadata([...EXPECTED_TOOLS]);
-    expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, value.description]))).toEqual({
-      read: "Read text files/images by path; text has LINE:HASH anchors, images return attachments.",
-      edit: "Edit files with fresh LINE:HASH anchors; copy or move existing lines with copy_lines/move_lines.",
-      grep: "Search file contents; non-summary results include LINE:HASH anchors for edits.",
-      find: "Find files by glob, respecting .gitignore.",
-      ls: "List one directory.",
-      write: "Create or overwrite a file and return anchors.",
-      ast_search: "Search code by AST pattern and return anchored matches.",
-      nu: "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.",
-    });
-    expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, shapeHash(value.parameters)]))).toEqual({
-      read: "6061be7a64843271e910e1af6357a2bf93e673d6ac6301573bcad560df10d06f",
-      edit: "5c1b396d70bc313131e0809a0b19cf9c5d84f7dca197a85df0b6493e05e44e45",
-      grep: "6d8ed3ec5dc1c9110e8e3a422ec5798bb4b6b6b5de77a36bcaa98278ebdae646",
-      find: "a44a725f23f1229e138fe754031bdfd95e1fde001e18dd1945f1e5b9a0b79322",
-      ls: "60a39a7e79ded29cd3756471c6e628e2766483fcb69b5c5a1acdd6299a47171e",
-      write: "e6581eaa0b5da0e6d88c42f4ecf92f02c817bd64795e91d6533c8442a3c9e56d",
-      ast_search: "c0d8b50405252e5fcf4ac279d157af0a02127975e78375d2ab847791d4ff84a0",
-      nu: "ddd52ebf838431dbfc0b01ca206d1ecd618207b0a5958e64f7f6d73f9349140a",
-    });
-    expect(Object.fromEntries(Object.entries(result.toolMetadata).map(([name, value]) => [name, value.parameterDescriptions]))).toEqual({
-      read: {
-        "$.properties.errorMode": "throw default; value returns coded tool failures only",
-        "$.properties.path": "File path",
-        "$.properties.offset.anyOf[0]": "Positive 1-indexed int or base-10 string; not with symbol",
-        "$.properties.offset.anyOf[1]": "Positive 1-indexed int or base-10 string; not with symbol",
-        "$.properties.limit.anyOf[0]": "Positive int or obvious base-10 numeric string",
-        "$.properties.limit.anyOf[1]": "Positive int or obvious base-10 numeric string",
-        "$.properties.charOffset.anyOf[0]": "0-based char offset into one line; needs offset",
-        "$.properties.charOffset.anyOf[1]": "0-based char offset into one line; needs offset",
-        "$.properties.charLimit.anyOf[0]": "Window chars; default 500, max 10000",
-        "$.properties.charLimit.anyOf[1]": "Window chars; default 500, max 10000",
-        "$.properties.symbol": "Non-empty; may combine with limit, map, or local bundle",
-        "$.properties.strictSymbol": "Require symbol; exact/normalized-exact only; no fallback",
-        "$.properties.map": "Append map; valid with symbol, limit, and local bundle",
-        "$.properties.bundle": "local; requires symbol; valid with limit and map",
-      },
-      edit: {
-        "$.properties.errorMode": "throw default; value returns coded tool failures only",
-        "$.properties.path": "Existing file path; requires fresh session anchors",
-        "$.properties.edits": "Non-empty; each item has exactly one supported variant",
-        "$.properties.edits.items": "Overlaps reject; set_line last wins; safe insert_after ok",
-        "$.properties.edits.items.anyOf[0].properties.set_line.properties.anchor": "Fresh LINE:HASH anchor",
-        "$.properties.edits.items.anyOf[1].properties.replace_lines.properties.start_anchor": "Fresh LINE:HASH start anchor",
-        "$.properties.edits.items.anyOf[1].properties.replace_lines.properties.end_anchor": "Fresh LINE:HASH end anchor",
-        "$.properties.edits.items.anyOf[2].properties.insert_after.properties.anchor": "Fresh LINE:HASH anchor",
-        "$.properties.edits.items.anyOf[0].properties.set_line.properties.literal": "Write new_text exactly; skip anchor-prefix cleanup",
-        "$.properties.edits.items.anyOf[1].properties.replace_lines.properties.literal": "Write new_text exactly; skip anchor-prefix cleanup",
-        "$.properties.edits.items.anyOf[2].properties.insert_after.properties.literal": "Write new_text exactly; skip anchor-prefix cleanup",
-        "$.properties.edits.items.anyOf[3].properties.replace.properties.old_text": "Non-empty exact target text",
-        "$.properties.edits.items.anyOf[4].properties.replace_symbol.properties.new_body": "Non-blank complete symbol body",
-        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.after_anchor": "Insert the copy after this line of path (LINE:HASH)",
-        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.end_anchor": "Last source line (LINE:HASH)",
-        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.from_path": "Source file to copy from; default path",
-        "$.properties.edits.items.anyOf[5].properties.copy_lines.properties.start_anchor": "First source line (LINE:HASH)",
-        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.after_anchor": "Move the lines after this line (LINE:HASH)",
-        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.end_anchor": "Last line to move (LINE:HASH)",
-        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.from_path": "Move from this file into path; default path",
-        "$.properties.edits.items.anyOf[6].properties.move_lines.properties.start_anchor": "First line to move (LINE:HASH)",
-        "$.properties.edits.items.anyOf[7]": "Do not use — Wrap as { replace: {old_text, new_text} }.",
-        "$.properties.postEditVerify": "Verify persisted content after write",
-      },
-      grep: {
-        "$.properties.errorMode": "throw default; value returns coded tool failures only",
-        "$.properties.pattern": "Pattern to search", "$.properties.path": "Search path", "$.properties.glob": "Glob filter",
-        "$.properties.ignoreCase": "Ignore case", "$.properties.literal": "Treat pattern literally",
-        "$.properties.context.anyOf[0]": "Non-negative int or obvious base-10 numeric string",
-        "$.properties.context.anyOf[1]": "Non-negative int or obvious base-10 numeric string",
-        "$.properties.limit.anyOf[0]": "Positive int or obvious base-10 numeric string",
-        "$.properties.limit.anyOf[1]": "Positive int or obvious base-10 numeric string",
-        "$.properties.summary": "Per-file counts only; no edit anchors", "$.properties.scope": "symbol only; enables scopeContext",
-        "$.properties.scopeContext.anyOf[0]": "Non-negative int/base-10 string; requires scope: symbol",
-        "$.properties.scopeContext.anyOf[1]": "Non-negative int/base-10 string; requires scope: symbol",
-      },
-      find: {
-        "$.properties.errorMode": "throw default; value returns coded tool failures only",
-        "$.properties.pattern": "Glob/basename; JavaScript regex when regex is true", "$.properties.path": "Directory search root",
-        "$.properties.limit": "Positive int or obvious base-10 numeric string", "$.properties.type": "Entry type filter",
-        "$.properties.maxDepth": "Non-negative int; runtime also accepts base-10 strings", "$.properties.regex": "If true, pattern must be a valid JavaScript regex",
-        "$.properties.sortBy": "Sort key", "$.properties.reverse": "Reverse sort order", "$.properties.modifiedSince": "ISO date/time or Nm, Nh, Nd relative age",
-        "$.properties.minSize": "Non-negative bytes or B/K/KB/M/MB/G/GB size", "$.properties.maxSize": "Non-negative bytes or B/K/KB/M/MB/G/GB size",
-      },
-      ls: { "$.properties.errorMode": "throw default; value returns coded tool failures only", "$.properties.path": "One directory path", "$.properties.limit": "Positive int or obvious base-10 numeric string", "$.properties.glob": "Entry glob with balanced brackets and braces" },
-      write: { "$.properties.errorMode": "throw default; value returns coded tool failures only", "$.properties.path": "New or existing file path; fully overwrites target", "$.properties.content": "Complete content; bare CR refused; binary gets no anchors", "$.properties.map": "Request a structural map after writing" },
-      ast_search: {
-        "$.properties.errorMode": "throw default; value returns coded tool failures only",
-        "$.properties.pattern": "ast-grep structural pattern", "$.properties.lang": "Language hint", "$.properties.path": "Search path",
-        "$.properties.limit.anyOf[0]": "Positive int or obvious base-10 numeric string", "$.properties.limit.anyOf[1]": "Positive int or obvious base-10 numeric string",
-      },
-      nu: { "$.properties.command": "Nushell script", "$.properties.timeout": "Seconds; default 30" },
-    });
+    expect(Object.fromEntries(Object.entries(result.toolMetadata)
+      .map(([name, value]) => [name, value.description])))
+      .toEqual(EXPECTED_TOOL_DESCRIPTIONS);
+    expect(Object.fromEntries(Object.entries(result.toolMetadata)
+      .map(([name, value]) => [name, shapeHash(value.parameters)])))
+      .toEqual(EXPECTED_SCHEMA_SHAPES);
+    expect(Object.fromEntries(Object.entries(result.toolMetadata)
+      .map(([name, value]) => [name, value.parameterDescriptions])))
+      .toEqual(EXPECTED_PARAMETER_DESCRIPTIONS);
     for (const [name, value] of Object.entries(result.toolMetadata)) {
       expect(value.description).not.toContain("\n"); expect(value.description.length).toBeLessThanOrEqual(100);
       expect(result.snippets[name]).not.toContain("\n"); expect(result.snippets[name].length).toBeLessThanOrEqual(140);
@@ -153,7 +72,7 @@ describe("Pi system prompt metadata integration", () => {
       for (const text of Object.values(value.parameterDescriptions)) expect(text.length).toBeLessThanOrEqual(58);
     }
     expect(result.guidelinesByTool.grep).toContain(
-      "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+      "Check grep completeness and omittedMatches before exhaustive claims.",
     );
     const fullPromptOnly = "Very long single lines are truncated in the displayed output at 500 characters";
     expect(readFileSync("prompts/read.md", "utf8")).toContain(fullPromptOnly);

@@ -45,6 +45,17 @@ export function recipe(id: string): string {
   if (!code) throw new Error("Missing recipe: " + id);
   return code;
 }
+/**
+ * Prepends seed statements to a recipe while keeping a leading `// @options:` line first.
+ * Pi 1.2.0+ rejects an options line that is not the first line of the script.
+ */
+export function seeded(seed: string, code: string): string {
+  const statements = seed.endsWith("\n") ? seed : seed + "\n";
+  if (!code.startsWith("// @options:")) return statements + code;
+  const newline = code.indexOf("\n");
+  if (newline < 0) return code + "\n" + statements;
+  return code.slice(0, newline + 1) + statements + code.slice(newline + 1);
+}
 export function jsonOf(report: any, index = 0): any {
   const result = report.results[index];
   assert.ok(!result.failed, result.text);

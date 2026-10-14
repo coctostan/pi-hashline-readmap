@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { registerLsTool } from "../src/ls.js";
 import { registerFindTool } from "../src/find.js";
 import { registerWriteTool } from "../src/write.js";
+import { EXPECTED_TOOL_DESCRIPTIONS } from "./helpers/tool-contract-pins.js";
 
 function firstParagraph(path: string): string {
   const content = readFileSync(path, "utf8").trim();
@@ -30,10 +31,10 @@ describe("repro 109 — prompt docs alignment", () => {
     const findPrompt = resolve("prompts/find.md");
     const writePrompt = resolve("prompts/write.md");
 
-    expect(lsTool.description).toBe("List one directory.");
-    expect(findTool.description).toBe("Find files by glob, respecting .gitignore.");
+    expect(lsTool.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.ls);
+    expect(findTool.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.find);
     expect(existsSync(writePrompt)).toBe(true);
-    expect(writeTool.description).toBe("Create or overwrite a file and return anchors.");
+    expect(writeTool.description).toBe("Write files; return anchors.");
     expect(firstParagraph(lsPrompt)).toContain("dotfiles are included");
     expect(firstParagraph(findPrompt)).toContain("nested `.gitignore`");
     expect(firstParagraph(writePrompt)).toContain("overwrites existing files");

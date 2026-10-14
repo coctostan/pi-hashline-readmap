@@ -27,3 +27,27 @@ it.skipIf(!supported)("retains hidden safety guidelines within the default decla
   assert.match(value.read, /mimeType/);
   assert.match(value.read, /never print base64/);
 }, 130_000);
+
+
+it.skipIf(!supported)("keeps all nine tool sections and contract hints within the default budget", () => {
+  const report = runProgram({ mode: "only", steps: [{ code: 'text("catalog checked");' }] });
+  assert.equal(report.loadout.defaultInlineBudget, 3000);
+  const catalog = report.loadout.description;
+  for (const name of ["read", "edit", "grep", "ast_search", "write", "ls", "find", "bash", "nu"]) {
+    assert.ok(catalog.includes("### `" + name + "`"), name + " omitted from default budget");
+  }
+  for (const hint of [
+    "Positive 1-indexed int or base-10 string; not with symbol",
+    "Positive int or obvious base-10 numeric string",
+    "0-based char offset into one line; needs offset",
+    "Window chars; default 500, max 10000",
+    "Non-negative int or obvious base-10 numeric string",
+    "Non-negative int/base-10 string; requires scope: symbol",
+    "Relative to resolved search root (path, default cwd); join to that root before read/edit.",
+    "Entry basename; join to the returned path before read/edit.",
+    "Resolved absolute directory; join with entries[].name before read/edit.",
+  ]) assert.ok(catalog.includes(hint), "Required inline contract hint missing: " + hint);
+  assert.match(catalog, /fresh LINE:HASH/);
+  assert.match(catalog, /small changes/);
+  assert.match(catalog, /never print base64/);
+}, 130_000);

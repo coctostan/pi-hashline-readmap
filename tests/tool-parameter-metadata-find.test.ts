@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import assert from "node:assert/strict";
 import { parseRelativeOrIsoDate, parseSize } from "../src/find-parsers.js";
 import { _testable, registerFindTool } from "../src/find.js";
+import { EXPECTED_PARAMETER_DESCRIPTIONS } from "./helpers/tool-contract-pins.js";
 const execute = (tool: any, input: Record<string, unknown>) => tool.execute("metadata", input, new AbortController().signal, undefined, { cwd: process.cwd() });
 
 describe("provider-visible find constraints", () => {
@@ -8,7 +10,7 @@ describe("provider-visible find constraints", () => {
     const find = registerFindTool({ registerTool() {} } as any) as any;
     const p = find.parameters.properties;
     expect(p.pattern.description).toBe("Glob/basename; JavaScript regex when regex is true");
-    expect(p.path.description).toBe("Directory search root");
+    expect(p.path.description).toBe(EXPECTED_PARAMETER_DESCRIPTIONS.find["$.properties.path"]);
     expect(p.limit.description).toBe("Positive int or obvious base-10 numeric string");
     expect(p.maxDepth.description).toBe("Non-negative int; runtime also accepts base-10 strings");
     expect(p.regex.description).toBe("If true, pattern must be a valid JavaScript regex");
@@ -24,4 +26,11 @@ describe("provider-visible find constraints", () => {
     try { const bad = await execute(find, { pattern: "[", path: "tests", regex: true }); expect(bad.isError).toBe(true); expect(bad.content[0].text).toContain("invalid regex for fields 'pattern'/'regex'"); }
     finally { _testable.isFdAvailable = previous; }
   });
+});
+
+it("documents find.path root resolution", () => {
+  const find = registerFindTool({ registerTool() {} } as any) as any;
+  assert.equal(find.parameters.properties.path.description,
+    "Search root; relative to cwd; default cwd",
+    "find.path must document root resolution");
 });

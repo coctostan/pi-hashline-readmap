@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram, seeded, supported } from "./helpers/codemode-recipes.js";
 
 const code = recipe("nu-cli");
 it.skipIf(!supported)("parses bounded CLI JSON while preserving failure and truncation metadata", () => {
@@ -17,7 +17,7 @@ it.skipIf(!supported)("parses bounded CLI JSON while preserving failure and trun
     steps: [
       { code },
       ...["invalid", "nonzero", "truncated", "oversized", "shape"].map(name => ({
-        code: 'store("cliCommand", ' + JSON.stringify("node " + name + ".cjs") + ');\n' + code,
+        code: seeded('store("cliCommand", ' + JSON.stringify("node " + name + ".cjs") + ');', code),
       })),
     ],
   });

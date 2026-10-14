@@ -10,7 +10,7 @@ it.skipIf(!supported)("benchmarks equivalent normal and codemode-only workflows 
   });
   assert.equal(run.status, 0, run.stderr);
   const report = JSON.parse(run.stdout);
-  assert.equal(report.version, "1.1.0");
+  assert.equal(report.version, "1.2.0");
   assert.equal(report.host, host);
   assert.equal(report.rows.length, 4);
   for (const row of report.rows) {

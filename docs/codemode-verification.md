@@ -1,6 +1,6 @@
 # Codemode boundary verification
 
-Automated checks do not hot-reload a running Pi session. Complete both runtime lanes (locked and independent Pi 1.1.0) and both declaration lanes (`npm run typecheck` and `npm run typecheck:pi-host`) in [AGENTS.md](../AGENTS.md#independent-current-host-compatibility) first. Then stop the implementation session and start a new Pi 1.1.0 process that loads this checkout's `index.ts`. Do not use the pre-update session as updated-code evidence.
+Automated checks do not hot-reload a running Pi session. Complete both runtime lanes (locked and independent Pi 1.2.0) and both declaration lanes (`npm run typecheck` and `npm run typecheck:pi-host`) in [AGENTS.md](../AGENTS.md#independent-current-host-compatibility) first. Then stop the implementation session and start a new Pi 1.2.0 process that loads this checkout's `index.ts`. Do not use the pre-update session as updated-code evidence.
 
 Record the date, git commit, launcher path, actual running Pi version and installation directory. Use `command -v pi` and `pi --version`, then inspect the launcher's selected installation rather than assuming a global npm path. A managed install can be identified from `~/.pi/agent/install/current-version`; verify the selected `package.json` version in that release directory. Record these actual values in the issue's verification artifact.
 
@@ -75,7 +75,7 @@ else throw new Error("Expected an actual attachment from the known-valid image f
 
 On another OS, choose an existing valid PNG instead; record its path and provenance. Do not substitute the malformed mocked fixture from reproduction. Expected: actual image attachment displayed, script image fields accepted by discovery, parameter note retained. Do not print base64.
 
-Pi 1.1.0's `image()` output reports a saved image path. Record that exact path and recover it through a subsequent real `read` call. Record its MIME type and the attachment. Do not print base64 or infer byte equality solely from visual display; the automated selected-host persistence test separately asserts file-byte equality against actual forwarded attachments and cleans its generated files.
+Pi 1.1.0+ `image()` output reports a saved image path. Record that exact path and recover it through a subsequent real `read` call. Record its MIME type and the attachment. Do not print base64 or infer byte equality solely from visual display; the automated selected-host persistence test separately asserts file-byte equality against actual forwarded attachments and cleans its generated files.
 
 ## Raw Bash contract
 

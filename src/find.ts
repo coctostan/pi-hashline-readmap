@@ -316,7 +316,7 @@ function formatOutput(
 const FIND_PARAMETERS = withLegacyRequiredOrder(Type.Object(
   {
     pattern: Type.String({ description: "Glob/basename; JavaScript regex when regex is true" }),
-    path: Type.Optional(Type.String({ description: "Directory search root" })),
+    path: Type.Optional(Type.String({ description: "Search root; relative to cwd; default cwd" })),
     limit: Type.Optional(
       Type.Union(
         [Type.Number(), Type.String()],

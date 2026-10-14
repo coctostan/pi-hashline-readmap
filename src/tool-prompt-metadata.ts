@@ -3,45 +3,47 @@ import { readFileSync } from "node:fs";
 
 
 const COMPACT_DESCRIPTIONS: Record<string, string> = {
-  "read.md": "Read text files/images by path; text has LINE:HASH anchors, images return attachments.",
-  "edit.md": "Edit files with fresh LINE:HASH anchors; copy or move existing lines with copy_lines/move_lines.",
-  "grep.md": "Search file contents; non-summary results include LINE:HASH anchors for edits.",
-  "find.md": "Find files by glob, respecting .gitignore.",
-  "ls.md": "List one directory.",
-  "write.md": "Create or overwrite a file and return anchors.",
-  "sg.md": "Search code by AST pattern and return anchored matches.",
-  "nu.md": "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.",
+  "read.md": "Read files/images; LINE:HASH text anchors, image attachments.",
+  "edit.md": "Edit via fresh LINE:HASH; copy_lines/move_lines.",
+  "grep.md": "Grep text; non-summary LINE:HASH anchors.",
+  "find.md": "Find files by glob, respecting .gitignore; entries are relative to resolved search root.",
+  "ls.md": "List one directory; entry names are basenames of the returned resolved path.",
+  "write.md": "Write files; return anchors.",
+  "sg.md": "ast-grep search; return anchors.",
+  "nu.md": "Deprecated Nu; prefer file tools + codemode.",
 };
 
 
 const COMPACT_GUIDELINES: Record<string, string[]> = {
   "read.md": [
-    "Use read for file contents, images/screenshots, ranges, symbols, and edit anchors.",
-    "Use read for images; it returns attachments, so avoid OCR tools unless explicitly needed.",
-    "In codemode, project read fields; forward images with image(), never print base64.",
+    "Read files/images, ranges, symbols, edit anchors.",
+    "Read images as attachments; OCR only if needed.",
+    "Project read fields; image() forwards images; never print base64.",
   ],
   "edit.md": [
-    "Use edit with fresh LINE:HASH anchors for existing files.",
-    "Copy/move lines with edit copy_lines/move_lines; use edit replace only if anchors fail.",
-    "Serialize dependent same-file edit calls; reacquire fresh anchors after mutations.",
+    "Edit existing files with fresh LINE:HASH.",
+    "Edit: copy_lines/move_lines; replace only if anchors fail.",
+    "Serialize same-file edits; reacquire anchors after mutations.",
   ],
   "grep.md": [
-    "Use grep for text search and edit-ready matching anchors.",
-    "Use grep summary mode when only file counts are needed.",
-    "In codemode, check grep completeness and omittedMatches before claiming exhaustive results.",
+    "Grep text for edit-ready anchors.",
+    "Grep summary for file counts.",
+    "Check grep completeness and omittedMatches before exhaustive claims.",
   ],
   "find.md": [
-    "Use find for recursive file discovery by glob.",
+    "Find files recursively by glob.",
+    "Join find entries to resolved path (default cwd) before read/edit; relative roots use cwd.",
   ],
   "ls.md": [
-    "Use ls to list one directory, optionally with a glob filter.",
+    "Ls one directory; optional glob.",
+    "Join ls result.path with entries[].name before read/edit.",
   ],
   "write.md": [
-    "Use write to create files or intentionally overwrite whole files.",
-    "Use edit rather than write for small changes to existing files.",
+    "Write new files or intentionally overwrite whole files.",
+    "Use edit, not write, for small changes.",
   ],
   "sg.md": [
-    "Use ast_search for AST-shaped code patterns.",
+    "Use ast_search for AST patterns.",
   ],
   "nu.md": [
     "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",

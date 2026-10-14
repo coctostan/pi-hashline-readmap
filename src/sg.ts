@@ -181,7 +181,7 @@ const SG_PARAMETERS = Type.Object({
   limit: Type.Optional(Type.Union([
     Type.Number({ description: "Positive int or obvious base-10 numeric string" }),
     Type.String({ description: "Positive int or obvious base-10 numeric string" }),
-  ])),
+  ], { description: "Positive int or obvious base-10 numeric string" })),
 });
 
 export function registerSgTool(pi: ExtensionAPI, options: SgToolOptions = {}) {

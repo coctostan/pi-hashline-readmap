@@ -45,7 +45,7 @@ for (const source of program.getSourceFiles()) {
   }
 }
 for (const name of ["pi-coding-agent", "pi-agent-core", "pi-ai", "pi-tui",
-  "pi-mcp", "pi-codemode", "pi-telemetry", "chord"]) {
+  "pi-mcp", "pi-codemode", "pi-telemetry"]) {
   const manifest = JSON.parse(readFileSync(join(selectedModules, "@earendil-works", name, "package.json"), "utf8"));
   if (manifest.version !== PI_COMPAT_VERSION) throw new Error("Selected Pi graph version mismatch: " + name);
 }

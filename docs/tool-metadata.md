@@ -32,6 +32,16 @@ At the real `createAgentSession` boundary, compact descriptions are attached to 
 
 Bundled `nu` is deprecated but retained. Its compact registered description, snippet, and guideline now route general exploration toward read/grep/ast_search, find/ls, codemode composition, and Bash external commands. Nu parameter descriptions, schema shape, execution, and result contracts are unchanged; detailed specialist syntax remains in prompts/nu.md. See [Nu deprecation and migration](nu-deprecation.md) for the removal gate.
 
+## Codemode contract clarity
+
+Numeric `number | string` hints belong on the union property, because codemode renders property descriptions as parameter comments. For read.offset/limit/charOffset/charLimit, grep.context/limit/scopeContext and ast_search.limit, retain the existing branch types and hints and also attach the same hint to the containing union. Do not infer integer/minimum/maximum/default schema keywords from prose: runtime coercion and validation are unchanged.
+
+Find returns `entries[].path` relative to the resolved search root (`path`, default cwd). Relative roots resolve against cwd; normal absolute/expanded path handling remains unchanged. Join entries to that resolved root before read/edit composition. An entry from an external root is not directly cwd-resolvable.
+
+Ls returns entry basenames in `entries[].name` and the resolved absolute directory in successful `result.path`. Join those two returned values before read/edit composition; do not assume the original input string is the returned base.
+
+This guidance is encoded in compact registered descriptions/guidelines, find.path's input description, and the relevant successful-output property descriptions. Those output comments reach real selected-host codemode declarations. The detailed [find](../prompts/find.md) and [ls](../prompts/ls.md) references include joined-read examples; changing detailed documents alone cannot fix live declarations. No field, path normalization, truncation, required-key, null, coercion or execution behavior changes.
+
 ## Measured diagnosis
 
 The scan covered 2,665 sessions and 17,072 `read` calls. It found 43 ambiguous calls across 27 sessions and eight model routes: `openai-codex/gpt-5.5` (18), `openai-codex/gpt-5.6-sol` (8), `anthropic-cc/claude-opus-4-7` (7), `openai-codex/gpt-5.3-codex-spark` (3), `anthropic-cc/claude-fable-5` (3), `openai-codex/gpt-5.2` (2), `anthropic/claude-opus-4-6` (1), and `anthropic-cc/claude-opus-4-8` (1).

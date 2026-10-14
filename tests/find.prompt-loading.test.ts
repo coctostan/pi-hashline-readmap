@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { registerFindTool } from "../src/find.js";
+import { EXPECTED_TOOL_DESCRIPTIONS } from "./helpers/tool-contract-pins.js";
 
 function firstParagraph(path: string): string {
   const content = readFileSync(path, "utf8").trim();
@@ -21,7 +22,7 @@ function captureTool(register: (pi: any) => void) {
 describe("find prompt loading", () => {
   it("uses compact provider-visible metadata and keeps prompt details in prompts/find.md", () => {
     const tool = captureTool(registerFindTool);
-    expect(tool.description).toBe("Find files by glob, respecting .gitignore.");
+    expect(tool.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.find);
     expect(firstParagraph(resolve("prompts/find.md"))).toContain("nested `.gitignore`");
   });
 

@@ -13,7 +13,7 @@ it.skipIf(!host)("checks extension declarations against the isolated current hos
   });
   assert.equal(run.status, 0, run.stderr || run.stdout);
   const report = JSON.parse(run.stdout.trim().split("\n").at(-1)!);
-  assert.equal(report.version, "1.1.0");
+  assert.equal(report.version, "1.2.0");
   assert.equal(report.diagnostics, 0);
   const selectedModules = realpathSync(resolve(host!, "../.."));
   const lockedModules = realpathSync(resolve("node_modules"));

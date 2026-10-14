@@ -8,7 +8,7 @@ import { it } from "vitest";
 it("does not skip an explicitly selected executorless codemode host", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-264-no-executor-"));
   try {
-    writeFileSync(join(root, "package.json"), JSON.stringify({ version: "1.1.0" }));
+    writeFileSync(join(root, "package.json"), JSON.stringify({ version: "1.2.0" }));
     const run = spawnSync(process.execPath,
       [resolve("node_modules/vitest/vitest.mjs"), "run", "tests/pi-host-codemode.test.ts"], {
         env: { ...process.env, PI_COMPAT_HOST: root },
