@@ -40,6 +40,8 @@ function session(fileName: string, fixture: string, others: Record<string, strin
   async function call(name: string, params: Record<string, unknown>): Promise<CallResult> {
     const tool = tools.get(name);
     const id = `call-${next++}`;
+    // Pi fires context before every model request, i.e. before the call that request issues.
+    handlers.context?.({ type: "context", messages: [] });
     const args = tool.prepareArguments ? tool.prepareArguments(params) : params;
     await handlers.tool_call?.({ type: "tool_call", toolName: name, toolCallId: id, input: args }, { cwd: dir });
     let result: any;
@@ -70,6 +72,7 @@ function session(fileName: string, fixture: string, others: Record<string, strin
   return {
     read: (path = fileName) => call("read", { path }),
     edit: (edits: unknown[], path = fileName) => call("edit", { path, edits }),
+    write: (content: string, path = fileName) => call("write", { path, content }),
     bytes: (path = fileName) => readFileSync(join(dir, path), "utf8"),
     mutate: (next: string, path = fileName) => writeFileSync(join(dir, path), next, "utf8"),
   };
@@ -262,6 +265,23 @@ describe("core editing", () => {
     await s.edit([{ set_line: { anchor: anchor(r.text, "ccc"), new_text: "CCC" } }]);
     await s.edit([{ set_line: { anchor: anchor(r.text, "ddd"), new_text: "DDD" } }]);
     expect(s.bytes()).toBe("aaa\nbbb\nCCC\nDDD\neee\n");
+  });
+
+  it("write-then-edit: anchors from an own write over an earlier read stay usable", async () => {
+    const s = session("wte.ts", "aaa\nbbb\n");
+    await s.read();
+    const written = await s.write("aaa\nbbb\nccc\n");
+    const result = await s.edit([{ set_line: { anchor: anchor(written.text, "ccc"), new_text: "CCC" } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe("aaa\nbbb\nCCC\n");
+  });
+
+  it("a text replace on an unread file does not make its anchors fresh", async () => {
+    const s = session("unread.ts", "aaa\nbbb\n");
+    await s.edit([{ replace: { old_text: "aaa", new_text: "AAA" } }]);
+    const result = await s.edit([{ set_line: { anchor: `2:${computeLineHash(2, "bbb")}`, new_text: "BBB" } }]);
+    expect(result.text).toContain("You must get fresh anchors");
+    expect(s.bytes()).toBe("AAA\nbbb\n");
   });
 
   it("b18-boundary-dup: a replacement that repeats the line above is applied literally, with a warning", async () => {

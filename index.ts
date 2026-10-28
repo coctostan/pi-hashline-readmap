@@ -169,17 +169,19 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   // argument guard forwards the (same, mutated) definition to Pi.
   pi = withCodemodeIntegration(withRawArgumentGuard(pi));
   // readTurns maps an absolute path to the tracker event id of the most recent
-  // live-anchor tool result for that path (read / grep / ast_search / write).
+  // live-anchor tool result for that path (read / grep / ast_search / write / edit).
   // When the provider-context handler masks a prior live-anchor read into a
   // stale placeholder, we expire the corresponding entry so wasReadInSession
-  // stops returning true until the agent re-reads the file.
-  const readTurns = new Map<string, number>();
+  // stops returning true until the agent re-reads the file. own marks an entry
+  // left by this extension's own write or edit, whose shifts ServedLines remaps.
+  type ReadTurn = { id: number; own: boolean };
+  const readTurns = new Map<string, ReadTurn>();
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
   resetContextHygieneNoticeLedger();
   const readTurnKey = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
-  const noteRead = (absolutePath: string) => {
-    // noteRead is invoked synchronously from inside read/grep/ast_search/write
+  const noteRead = (absolutePath: string, mark?: { own: boolean }) => {
+    // noteRead is invoked synchronously from inside read/grep/ast_search/write/edit
     // BEFORE the tool result is dispatched to the tool_result handler that
     // calls tracker.record(). So the just-finishing tool's event will receive
     // id = report.eventCount + 1 once tool_result fires. We anchor readTurns
@@ -189,7 +191,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const tracker = getContextHygieneTracker();
     const report = tracker.generateReport();
     const eventId = report.eventCount + 1;
-    readTurns.set(readTurnKey(absolutePath), eventId);
+    readTurns.set(readTurnKey(absolutePath), { id: eventId, own: mark?.own === true });
   };
   const wasReadInSession = (absolutePath: string) => readTurns.has(readTurnKey(absolutePath));
 
@@ -237,9 +239,10 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     for (const candidate of report.staleCandidates) {
       if (!candidate.resourceKey.startsWith("file:")) continue;
       const absolutePath = readTurnKey(candidate.resourceKey.slice("file:".length));
-      const recordedEventId = readTurns.get(absolutePath);
-      if (recordedEventId === undefined) continue;
-      if (recordedEventId <= candidate.mutationEventId) {
+      const recorded = readTurns.get(absolutePath);
+      if (recorded === undefined) continue;
+      // An own write/edit anticipated its own mutation event: that mutation is the view itself.
+      if (recorded.id < candidate.mutationEventId || (recorded.id === candidate.mutationEventId && !recorded.own)) {
         readTurns.delete(absolutePath);
       }
     }

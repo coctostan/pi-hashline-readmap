@@ -1010,8 +1010,8 @@ export interface EditToolOptions {
 	syntaxValidate?: SyntaxValidateOptions["syntaxValidate"];
 	/** What the model was shown of each file; refuses writes over lines that changed since. */
 	served?: ServedLines;
-	/** Called when an edit result shows fresh anchors for a file (refusal feedback). */
-	onFileAnchored?: (absolutePath: string) => void;
+	/** Called when an edit result shows fresh anchors for a file (refusal feedback), or with own after this tool's successful write. */
+	onFileAnchored?: (absolutePath: string, mark?: { own: boolean }) => void;
 }
 
 async function validateEditSyntax(input: {
@@ -1308,6 +1308,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					});
 					if (isEditErrorResult(writeResult)) return writeResult;
 					const shift = options.served?.remapAfterWrite(absolutePath, originalNormalized.split("\n"), normalizedResult.split("\n"), replaceEdits.length || replaceSymbolEdits.length ? undefined : anchorResult.lineMap);
+					// This write's shifts are remapped above, so a view that was fresh before it stays fresh.
+					if (options.wasReadInSession?.(absolutePath)) options.onFileAnchored?.(absolutePath, { own: true });
 					const moveNotes = await commitSourceRemovals(sourceRemovals, options, path);
 					if (isEditErrorResult(moveNotes)) return moveNotes;
 
