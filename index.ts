@@ -347,13 +347,10 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       commandState,
     });
     const recordedContextHygieneEvent = recordContextHygiene(contextHygiene, event.toolCallId, !nested);
-    if (
-      event.isError !== true &&
-      commandState?.stateKind === "shell-file-mutation" &&
-      (commandState.fileTargets?.length ?? 0) > 0
-    ) {
-      expireStaleReadTurns(getContextHygieneTracker().generateReport());
-    }
+    // A file the shell changed has no view in this session any more, whether or not it was read
+    // before (a write/edit-only history has no read for a stale candidate to name). A failed
+    // command may still have changed it (`cmd > file` truncates first).
+    for (const target of commandState?.fileTargets ?? []) readTurns.delete(readTurnKey(target));
     const appliedEffects = summarizeBashAppliedEffects(recordedContextHygieneEvent.id);
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
       ? { ...contextHygiene, appliedEffects }

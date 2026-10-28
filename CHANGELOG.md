@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- A file that `bash` changes (`sed -i`, redirection, `tee`, `mv`, `cp`, `rm`, `install`) now always needs fresh anchors before an anchored `edit`. Freshness used to expire only through a stale earlier read, so a file known only from `write` or `edit` kept accepting its old anchors after a shell change.
+
 ## [0.16.1] - 2026-10-14
 
 ### Fixed
