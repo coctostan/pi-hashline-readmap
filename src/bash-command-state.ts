@@ -53,10 +53,12 @@ function isSafeLiteralShellTarget(target: string): boolean {
   if (target.startsWith("-")) return false;
   return true;
 }
-function normalizeShellTarget(rawTarget: string, cwd: string): string | undefined {
+/** `cwd` is undefined after a `cd` the classifier cannot follow: only absolute targets resolve then. */
+function normalizeShellTarget(rawTarget: string, cwd: string | undefined): string | undefined {
   const trimmed = rawTarget.trim();
   if (!trimmed || trimmed === "/dev/null" || /^&\d+$/.test(trimmed)) return undefined;
   if (!isSafeLiteralShellTarget(trimmed)) return undefined;
+  if (cwd === undefined) return path.isAbsolute(trimmed) ? path.resolve(trimmed) : undefined;
   return path.resolve(cwd, trimmed);
 }
 
@@ -107,7 +109,7 @@ function splitShellWords(input: string): string[] {
   return words;
 }
 
-function extractTeeTargets(command: string, cwd: string, targets: string[]): void {
+function extractTeeTargets(command: string, cwd: string | undefined, targets: string[]): void {
   for (const match of command.matchAll(TEE_RE)) {
     const words = splitShellWords(match[1] ?? "");
     for (const word of words) {
@@ -117,8 +119,7 @@ function extractTeeTargets(command: string, cwd: string, targets: string[]): voi
   }
 }
 
-function extractSedInPlaceTargets(command: string, cwd: string, targets: string[]): void {
-  const words = splitShellWords(command);
+function extractSedInPlaceTargets(words: readonly string[], cwd: string | undefined, targets: string[]): void {
   if (words[0] !== "sed") return;
 
   const inPlaceIndex = words.findIndex((word) => word === "-i" || word.startsWith("-i"));
@@ -150,8 +151,7 @@ function nonOptionOperands(words: readonly string[]): string[] {
   return operands;
 }
 
-function extractPathCommandTargets(command: string, cwd: string, targets: string[]): void {
-  const words = splitShellWords(command);
+function extractPathCommandTargets(words: readonly string[], cwd: string | undefined, targets: string[]): void {
   const commandName = words[0];
   if (!commandName) return;
 
@@ -187,17 +187,121 @@ function extractPathCommandTargets(command: string, cwd: string, targets: string
   }
 }
 
-export function extractShellFileMutationTargets(command: string, cwd = process.cwd()): string[] {
-  const normalized = normalizeCommandForContextHygiene(command);
-  if (/^(eval|source|\.)\b/.test(normalized)) return [];
+const HEREDOC_RE = /^<<(-?)\s*(?:'([^']*)'|"([^"]*)"|\\?([A-Za-z0-9_]+))/;
 
-  const targets: string[] = [];
-  for (const match of command.matchAll(REDIRECTION_RE)) {
-    pushUniqueTarget(targets, normalizeShellTarget(match[1] ?? match[2] ?? match[3] ?? "", cwd));
+/** Index just past the heredoc bodies that start at `start`, in the order their operators appeared. */
+function skipHeredocBodies(command: string, start: number, heredocs: ReadonlyArray<{ delimiter: string; stripTabs: boolean }>): number {
+  let index = start;
+  for (const { delimiter, stripTabs } of heredocs) {
+    while (index < command.length) {
+      const newline = command.indexOf("\n", index);
+      const lineEnd = newline < 0 ? command.length : newline;
+      const line = command.slice(index, lineEnd);
+      index = lineEnd + 1;
+      if ((stripTabs ? line.replace(/^\t+/, "") : line) === delimiter) break;
+    }
   }
-  extractTeeTargets(command, cwd, targets);
-  extractSedInPlaceTargets(command, cwd, targets);
-  extractPathCommandTargets(command, cwd, targets);
+  return Math.min(index, command.length);
+}
+
+/**
+ * Simple commands of a shell command line: split at `&&`, `||`, `;`, `|`, `&` and newlines outside
+ * quotes. Heredoc bodies belong to no command. Parentheses are not tracked, so a `cd` inside a
+ * subshell is treated as if it persisted.
+ */
+export function splitShellCommands(command: string): string[] {
+  const commands: string[] = [];
+  const heredocs: Array<{ delimiter: string; stripTabs: boolean }> = [];
+  let current = "";
+  let quote: "'" | '"' | null = null;
+  const flush = () => {
+    if (current.trim()) commands.push(current.trim());
+    current = "";
+  };
+  for (let index = 0; index < command.length; index += 1) {
+    const char = command[index];
+    if (quote) {
+      current += char;
+      if (char === "\\" && quote === '"' && index + 1 < command.length) current += command[++index];
+      else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === "\\" && index + 1 < command.length) {
+      current += char + command[++index];
+      continue;
+    }
+    if (char === "'" || char === '"') {
+      quote = char;
+      current += char;
+      continue;
+    }
+    const heredoc = char === "<" && command[index + 2] !== "<" ? HEREDOC_RE.exec(command.slice(index)) : null;
+    if (heredoc) {
+      heredocs.push({ delimiter: heredoc[2] ?? heredoc[3] ?? heredoc[4], stripTabs: heredoc[1] === "-" });
+      current += heredoc[0];
+      index += heredoc[0].length - 1;
+      continue;
+    }
+    if (char === "\n") {
+      flush();
+      index = skipHeredocBodies(command, index + 1, heredocs.splice(0)) - 1;
+      continue;
+    }
+    // `2>&1`, `&>` and `>|` are redirections, not separators.
+    const inRedirection = command[index - 1] === ">" || (char === "&" && command[index + 1] === ">");
+    if ((char === ";" || char === "|" || char === "&") && !inRedirection) {
+      flush();
+      if ((char === "&" || char === "|") && command[index + 1] === char) index += 1;
+      continue;
+    }
+    current += char;
+  }
+  flush();
+  return commands;
+}
+
+const COMMAND_PREFIX_WORDS = new Set(["!", "{", "(", "then", "do", "else", "time"]);
+
+/** Words of a simple command from its command name on: drops grouping, keywords and `NAME=value` prefixes. */
+function commandWords(simpleCommand: string): string[] {
+  const words = splitShellWords(simpleCommand);
+  let start = 0;
+  while (start < words.length) {
+    const word = words[start].replace(/^[({]+/, "");
+    if (word && !COMMAND_PREFIX_WORDS.has(word) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word)) {
+      words[start] = word;
+      break;
+    }
+    start += 1;
+  }
+  return words.slice(start);
+}
+
+/** Directory after `cd <args>`; undefined when it cannot be known (`cd`, `cd -`, `cd ~`, `cd $X`). */
+function changeDirectory(cwd: string | undefined, args: readonly string[]): string | undefined {
+  const operands = nonOptionOperands(args);
+  if (operands.length !== 1 || !isSafeLiteralShellTarget(operands[0])) return undefined;
+  if (path.isAbsolute(operands[0])) return path.resolve(operands[0]);
+  return cwd === undefined ? undefined : path.resolve(cwd, operands[0]);
+}
+
+export function extractShellFileMutationTargets(command: string, cwd = process.cwd()): string[] {
+  const targets: string[] = [];
+  let commandCwd: string | undefined = cwd;
+  for (const simpleCommand of splitShellCommands(command)) {
+    const words = commandWords(simpleCommand);
+    if (words[0] === "eval" || words[0] === "source" || words[0] === ".") continue;
+    if (words[0] === "cd") {
+      commandCwd = changeDirectory(commandCwd, words.slice(1));
+      continue;
+    }
+    for (const match of simpleCommand.matchAll(REDIRECTION_RE)) {
+      pushUniqueTarget(targets, normalizeShellTarget(match[1] ?? match[2] ?? match[3] ?? "", commandCwd));
+    }
+    extractTeeTargets(simpleCommand, commandCwd, targets);
+    extractSedInPlaceTargets(words, commandCwd, targets);
+    extractPathCommandTargets(words, commandCwd, targets);
+  }
   return targets;
 }
 

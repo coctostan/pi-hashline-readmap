@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The bash file-mutation classifier now reads every command of a chain (`&&`, `||`, `;`, `|`, `&`, newlines), not only the first: `mkdir -p d && mv a b` or `make || rm -f x` now mark their files changed, so earlier reads of them go stale. Relative targets resolve against the directory of a literal `cd` earlier in the chain and are dropped after a `cd` it cannot follow (`cd $X`, `cd -`, `cd ~`); heredoc bodies are no longer scanned for redirections.
+
 ## [0.16.1] - 2026-10-14
 
 ### Fixed

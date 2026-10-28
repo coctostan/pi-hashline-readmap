@@ -176,3 +176,45 @@ describe("buildBashCommandState", () => {
     expect(state.fileTargets).toBeUndefined();
   });
 });
+
+describe("file mutations anywhere in a command chain", () => {
+  const cwd = "/tmp/hashline-bash-targets";
+  const targets = (command: string) => buildBashCommandState({ command, cwd, text: "" }).fileTargets;
+
+  it("resolves a sed -i target under the directory a literal cd moved to", () => {
+    expect(targets("cd pkg && sed -i 's/a/b/' f.go")).toEqual(["/tmp/hashline-bash-targets/pkg/f.go"]);
+    expect(targets("cd /srv/app && sed -i 's/a/b/' f.go")).toEqual(["/srv/app/f.go"]);
+    expect(targets("cd pkg; cd sub && sed -i 's/a/b/' f.go")).toEqual(["/tmp/hashline-bash-targets/pkg/sub/f.go"]);
+  });
+
+  it("finds a mutation that is not the first command of the chain", () => {
+    expect(targets("mkdir -p d && mv a b")).toEqual(["/tmp/hashline-bash-targets/a", "/tmp/hashline-bash-targets/b"]);
+    expect(targets("go fmt ./... || rm -f stale.txt")).toEqual(["/tmp/hashline-bash-targets/stale.txt"]);
+    expect(targets("FOO=1 sed -i 's/a/b/' x.ts")).toEqual(["/tmp/hashline-bash-targets/x.ts"]);
+    expect(targets("if true; then sed -i 's/a/b/' y.ts; fi")).toEqual(["/tmp/hashline-bash-targets/y.ts"]);
+  });
+
+  it("resolves a redirection after cd against the new directory", () => {
+    expect(targets("cd sub && echo x > f")).toEqual(["/tmp/hashline-bash-targets/sub/f"]);
+    expect(targets("cd sub && make 2>&1 | tee build.log")).toEqual(["/tmp/hashline-bash-targets/sub/build.log"]);
+  });
+
+  it("does not read a > inside a heredoc body as a redirection", () => {
+    const command = "cat <<'EOF' | sed 's/x/y/'\nprintf a > not-a-target.txt\nEOF\necho done";
+    expect(targets(command)).toBeUndefined();
+    expect(targets("cat > gen.ts <<-EOF\n\tconst a = b > c;\n\tEOF\nmv gen.ts out.ts")).toEqual([
+      "/tmp/hashline-bash-targets/gen.ts",
+      "/tmp/hashline-bash-targets/out.ts",
+    ]);
+  });
+
+  it("drops relative targets after a cd it cannot follow, and keeps absolute ones", () => {
+    expect(targets("cd $X && sed -i 's/a/b/' rel.txt")).toBeUndefined();
+    expect(targets("cd && echo x > rel.txt")).toBeUndefined();
+    expect(targets("cd - && sed -i 's/a/b/' rel.txt /abs/file.txt")).toEqual(["/abs/file.txt"]);
+  });
+
+  it("does not split inside quotes", () => {
+    expect(targets("echo 'a && rm -rf x' > out.txt")).toEqual(["/tmp/hashline-bash-targets/out.txt"]);
+  });
+});
