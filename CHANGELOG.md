@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- An anchored `edit` after the extension's own successful `edit` or `write` to the same file no longer demands a re-read on the next turn. The own mutation used to expire the file's freshness, so the shift remapping for own writes never ran across turns; a change made outside the extension (bash, another process) still requires fresh anchors. A cross-file `move_lines` no longer tells the model to re-read the source; it reports the source's line shift instead.
+
 ## [0.16.1] - 2026-10-14
 
 ### Fixed

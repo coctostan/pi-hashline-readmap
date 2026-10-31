@@ -23,6 +23,19 @@ describe("read freshness", () => {
     expect(freshness.has("/repo/a.ts")).toBe(false);
   });
 
+  it("keeps an own write's note through its own mutation id and expires it on a later one", () => {
+    let eventCount = 4;
+    const freshness = createReadFreshness(() => eventCount);
+    freshness.note("/repo/a.ts", { own: true }); // anticipated id 5, the write's own mutation
+    eventCount = 5;
+
+    freshness.expireFromReport({ staleCandidates: [candidate("file:/repo/a.ts", 5)] });
+    expect(freshness.has("/repo/a.ts")).toBe(true);
+
+    freshness.expireFromReport({ staleCandidates: [candidate("file:/repo/a.ts", 6)] });
+    expect(freshness.has("/repo/a.ts")).toBe(false);
+  });
+
   it("ignores non-file candidates and files it never noted", () => {
     const freshness = createReadFreshness(() => 0);
     freshness.note("/repo/a.ts");
