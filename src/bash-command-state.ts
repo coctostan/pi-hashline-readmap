@@ -103,9 +103,7 @@ function closingQuote(source: string, start: number): number {
   return source.length;
 }
 
-/** Index of the `)` closing the `(` just before `start`, past quotes and nested parentheses. */
-// shortcut: a `)` inside a heredoc nested in `$(…)` ends the substitution early, so the rest of the body can yield a
-// false target (a needless re-read, never a missed one); make parseShellCommands re-entrant if that turns up.
+/** Index of the `)` closing the `(` just before `start`, past quotes and nested parentheses; for arithmetic only. */
 function closingParen(source: string, start: number): number {
   let depth = 1;
   for (let index = start; index < source.length; index += 1) {
@@ -136,9 +134,10 @@ function skipHeredocBodies(source: string, start: number, heredocs: readonly Her
 /**
  * Simple commands of a shell command line, split at `;` `&` `&&` `|` `||` `|&` newlines `(` `)`
  * outside quotes. Heredoc bodies and comments belong to no command. `$(…)`, backticks, `<(…)` and
- * `>(…)` are parsed as commands of their own; `$((…))` and `((…))` run none.
+ * `>(…)` are parsed as commands of their own; `$((…))` and `((…))` run none. Inside a substitution
+ * (`inSubstitution`), parsing stops at its unmatched `)`, and `end` is that index.
  */
-function parseShellCommands(source: string): SimpleCommand[] {
+function parseShellCommands(source: string, start = 0, inSubstitution = false): { commands: SimpleCommand[]; end: number } {
   const commands: SimpleCommand[] = [];
   const heredocs: Heredoc[] = [];
   let command: SimpleCommand = { words: [], writes: [] };
@@ -164,16 +163,25 @@ function parseShellCommands(source: string): SimpleCommand[] {
   };
   // Appends the substitution opening at `start` to the word, parses its commands, and returns its last index.
   const substitution = (start: number): number => {
-    const backtick = source[start] === "`";
-    const end = backtick ? closingQuote(source, start) : closingParen(source, start + 2);
-    const inner = source.slice(start + (backtick ? 1 : 2), end);
-    if (!(source[start] === "$" && inner.startsWith("("))) commands.push(...parseShellCommands(inner));
+    let end: number;
+    if (source[start] === "`") {
+      end = closingQuote(source, start);
+      commands.push(...parseShellCommands(source.slice(start + 1, end)).commands);
+    } else if (source[start] === "$" && source[start + 2] === "(") {
+      end = closingParen(source, start + 2);
+    } else {
+      const inner = parseShellCommands(source, start + 2, true);
+      commands.push(...inner.commands);
+      end = inner.end;
+    }
     word += source.slice(start, end + 1);
     inWord = true;
     return end;
   };
 
-  for (let index = 0; index < source.length; index += 1) {
+  let depth = 0;
+  let index = start;
+  for (; index < source.length; index += 1) {
     const char = source[index];
     const next = source[index + 1];
     if (char === "\\") {
@@ -210,7 +218,11 @@ function parseShellCommands(source: string): SimpleCommand[] {
     } else if (char === "(" && next === "(" && !inWord) {
       endCommand();
       index = closingParen(source, index + 1);
+    } else if (char === ")" && inSubstitution && depth === 0) {
+      break;
     } else if (char === ";" || char === "&" || char === "|" || char === "(" || char === ")") {
+      if (char === "(") depth += 1;
+      if (char === ")") depth -= 1;
       endCommand();
     } else if (char === "\n") {
       endCommand();
@@ -226,7 +238,7 @@ function parseShellCommands(source: string): SimpleCommand[] {
     }
   }
   endCommand();
-  return commands;
+  return { commands, end: index };
 }
 
 /** A simple command's words from its name on, past keywords and `NAME=value` prefixes. */
@@ -305,7 +317,7 @@ function extractPathCommandTargets(words: readonly string[], cwd: string, target
 
 export function extractShellFileMutationTargets(command: string, cwd = process.cwd()): string[] {
   const targets: string[] = [];
-  for (const simpleCommand of parseShellCommands(command)) {
+  for (const simpleCommand of parseShellCommands(command).commands) {
     for (const write of simpleCommand.writes) pushUniqueTarget(targets, normalizeShellTarget(write, cwd));
     const words = commandWords(simpleCommand.words);
     extractSedInPlaceTargets(words, cwd, targets);

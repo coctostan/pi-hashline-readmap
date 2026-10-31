@@ -203,6 +203,9 @@ describe("extractShellFileMutationTargets across a command chain", () => {
     ["fd number is not an operand", "rm -f x 2>/dev/null", ["x"]],
     ["command substitution", "v=$(sed -i 's/a/b/' f)", ["f"]],
     ["substitutions in double quotes and backticks", "echo `rm a` \"$(rm b) `rm c`\"", ["a", "b", "c"]],
+    ["subshell inside a substitution", "echo \"$( (rm a); rm b )\"", ["a", "b"]],
+    ["comment inside a substitution", "echo \"$(printf x # (\n)\"; rm victim", ["victim"]],
+    ["heredoc inside a substitution", "echo $(cat <<'EOF'\n) ; rm victim\nEOF\n)", []],
     ["process substitution", "diff <(sort a) <(sort b) > out.txt", ["out.txt"]],
     ["redirection of eval or source", "source env.sh > log.txt", ["log.txt"]],
   ];
