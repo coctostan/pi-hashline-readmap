@@ -1,7 +1,7 @@
 # Now
+- [pi-1-4-host](arcs/pi-1-4-host.md) (Pi 1.4.0 is the one tested host): one locked Pi 1.4.0 host, built-in parity, 0.18.0
 
 ## Next
-- `npm publish` 0.17.0 (owner's step): main carries 0.17.0, the registry's `latest` is 0.16.1
 - 274, code-graph tools slow and indexing gitignored tmp/: the defect is in pi-codegraph, not here (.megapowers/plans/274-code-graph-tools-20s-per-call-and-index-/diagnosis.md); fix it there, with at most a tmp/ index workaround here
 - Freshness event ids: `src/read-freshness.ts` anticipates its event id (`currentEventCount() + 1`) and exempts an own mark at an equal id; tag recorded mutations with their source instead, which also settles whether out-of-order parallel read batches break the anticipation
 - Classifier gaps: a `sudo`/`env`/`command`/`exec`/`xargs` prefix hides the mutating command; the parser's known misses sit in the `shortcut:` at `src/bash-command-state.ts:131`; when a miss turns up in use, swap in a real bash grammar (no bash wasm ships today)
@@ -12,3 +12,4 @@
 
 ## Later
 - Detect changes another process makes outside any tool call (a hash re-check at `context`); today the per-line edit hashes refuse any changed line, and a re-read on every editor save would cost tokens
+- Adopt later Pi APIs: context hygiene through Pi 0.87's `ContextEditEntry` in place of the `context` handler; codemode `@` constraint tags (Pi 1.2.0) in parameter schemas in place of prose like "Positive int"
