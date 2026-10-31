@@ -310,13 +310,9 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       commandState,
     });
     const recordedContextHygieneEvent = recordContextHygiene(contextHygiene, event.toolCallId, !nested);
-    if (
-      event.isError !== true &&
-      commandState?.stateKind === "shell-file-mutation" &&
-      (commandState.fileTargets?.length ?? 0) > 0
-    ) {
-      freshness.expireFromReport(getContextHygieneTracker().generateReport());
-    }
+    // Expire directly, not through stale candidates: a file known only from write or edit has no
+    // read for a candidate to name, and a failed `cmd > file` has already truncated it.
+    for (const target of commandState?.fileTargets ?? []) freshness.expirePath(target);
     const appliedEffects = summarizeBashAppliedEffects(recordedContextHygieneEvent.id);
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
       ? { ...contextHygiene, appliedEffects }

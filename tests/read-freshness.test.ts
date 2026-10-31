@@ -53,4 +53,19 @@ describe("read freshness", () => {
     freshness.expireFromReport({ staleCandidates: [candidate("file:C:/repo/a.ts", 1)] });
     expect(freshness.has("C:\\repo\\a.ts")).toBe(false);
   });
+
+  it("expires a path outright, an own write's note included, and only that path", () => {
+    const freshness = createReadFreshness(() => 0);
+    freshness.note("/repo/a.ts", { own: true });
+    freshness.note("C:\\repo\\b.ts");
+    freshness.expirePath("/repo/a.ts");
+    freshness.expirePath("C:/repo/b.ts");
+    freshness.expirePath("/repo/never-noted.ts");
+    expect(freshness.has("/repo/a.ts")).toBe(false);
+    expect(freshness.has("C:\\repo\\b.ts")).toBe(false);
+
+    freshness.note("/repo/c.ts");
+    freshness.expirePath("/repo/a.ts");
+    expect(freshness.has("/repo/c.ts")).toBe(true);
+  });
 });
