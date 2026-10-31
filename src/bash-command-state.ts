@@ -70,10 +70,12 @@ function isSafeLiteralShellTarget(target: string): boolean {
   if (target.startsWith("-")) return false;
   return true;
 }
-function normalizeShellTarget(rawTarget: string, cwd: string): string | undefined {
+/** `cwd` undefined: a `cd` the classifier could not follow, so only absolute targets are known. */
+function normalizeShellTarget(rawTarget: string, cwd: string | undefined): string | undefined {
   const trimmed = rawTarget.trim();
   if (!trimmed || trimmed === "/dev/null") return undefined;
   if (!isSafeLiteralShellTarget(trimmed)) return undefined;
+  if (cwd === undefined) return path.isAbsolute(trimmed) ? path.resolve(trimmed) : undefined;
   return path.resolve(cwd, trimmed);
 }
 
@@ -82,10 +84,11 @@ function pushUniqueTarget(targets: string[], target: string | undefined): void {
   targets.push(target);
 }
 
-/** One simple command: its words with quotes removed, and the files its redirections write. */
+/** One simple command: its words with quotes removed, the files its redirections write, and the directory it runs in. */
 interface SimpleCommand {
   words: string[];
   writes: string[];
+  cwd: string | undefined;
 }
 
 interface Heredoc {
@@ -123,15 +126,25 @@ function skipHeredocBodies(source: string, start: number, heredocs: readonly Her
  * outside quotes. Heredoc bodies and comments belong to no command. `$(…)`, backticks, `<(…)` and
  * `>(…)` are parsed as commands of their own. `${…}`, `$((…))` and `((…))` are inert text except for
  * the substitutions inside them. Inside a substitution (`inSubstitution`), parsing stops at its
- * unmatched `)`, and `end` is that index.
+ * unmatched `)`, and `end` is that index. Each command's `cwd` follows literal `cd`s from `cwd`;
+ * a subshell or substitution keeps its `cd`s inside.
  *
  * shortcut: a subset of bash, the one agents write; known misses: `case` patterns' `)` inside `$(…)`,
- * `$'…'` quoting, `[[ a > b ]]` read as a redirection. Upgrade to a real bash parser if misses turn up.
+ * `$'…'` quoting, `[[ a > b ]]` read as a redirection, a `cd` taken as done even when it fails, sits
+ * in a function body, or runs in a pipeline or behind `&`, `CDPATH` ignored. Upgrade to a real bash
+ * parser if misses turn up.
  */
-function parseShellCommands(source: string, start = 0, inSubstitution = false): { commands: SimpleCommand[]; end: number } {
+function parseShellCommands(
+  source: string,
+  cwd: string | undefined,
+  start = 0,
+  inSubstitution = false,
+): { commands: SimpleCommand[]; end: number } {
   const commands: SimpleCommand[] = [];
   const heredocs: Heredoc[] = [];
-  let command: SimpleCommand = { words: [], writes: [] };
+  // The directory each open subshell returns to at its `)`.
+  const subshellDirs: (string | undefined)[] = [];
+  let command: Omit<SimpleCommand, "cwd"> = { words: [], writes: [] };
   let word = "";
   let inWord = false;
   let quoted = false;
@@ -148,7 +161,14 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
   };
   const endCommand = () => {
     endWord();
-    if (command.words.length > 0 || command.writes.length > 0) commands.push(command);
+    if (command.words.length > 0 || command.writes.length > 0) {
+      commands.push({ ...command, cwd });
+      const words = commandWords(command.words);
+      if (words[0] === "cd") {
+        const operands = nonOptionOperands(words.slice(1));
+        cwd = operands.length === 1 ? normalizeShellTarget(operands[0], cwd) : undefined;
+      }
+    }
     command = { words: [], writes: [] };
     pending = undefined;
   };
@@ -158,12 +178,12 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
   const scanExpansion = (start: number): number => {
     if (source[start] === "`") {
       const end = closingQuote(source, start);
-      commands.push(...parseShellCommands(source.slice(start + 1, end)).commands);
+      commands.push(...parseShellCommands(source.slice(start + 1, end), cwd).commands);
       return end;
     }
     if (source[start + 1] === "{") return inertSpan(start + 2, "{", "}");
     if (source[start] === "$" && source[start + 2] === "(") return inertSpan(start + 2, "(", ")");
-    const inner = parseShellCommands(source, start + 2, true);
+    const inner = parseShellCommands(source, cwd, start + 2, true);
     commands.push(...inner.commands);
     return inner.end;
   };
@@ -196,7 +216,6 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
     return end;
   };
 
-  let depth = 0;
   let index = start;
   for (; index < source.length; index += 1) {
     const char = source[index];
@@ -237,12 +256,12 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
     } else if (char === "(" && next === "(" && !inWord) {
       endCommand();
       index = inertSpan(index + 1, "(", ")");
-    } else if (char === ")" && inSubstitution && depth === 0) {
+    } else if (char === ")" && inSubstitution && subshellDirs.length === 0) {
       break;
     } else if (char === ";" || char === "&" || char === "|" || char === "(" || char === ")") {
-      if (char === "(") depth += 1;
-      if (char === ")") depth -= 1;
       endCommand();
+      if (char === "(") subshellDirs.push(cwd);
+      if (char === ")" && subshellDirs.length > 0) cwd = subshellDirs.pop();
     } else if (char === "\n") {
       endCommand();
       index = skipHeredocBodies(source, index + 1, heredocs.splice(0)) - 1;
@@ -266,7 +285,7 @@ function commandWords(words: readonly string[]): readonly string[] {
   return start < 0 ? [] : words.slice(start);
 }
 
-function extractSedInPlaceTargets(words: readonly string[], cwd: string, targets: string[]): void {
+function extractSedInPlaceTargets(words: readonly string[], cwd: string | undefined, targets: string[]): void {
   if (words[0] !== "sed") return;
 
   const inPlaceIndex = words.findIndex((word) => word === "-i" || word.startsWith("-i"));
@@ -298,7 +317,7 @@ function nonOptionOperands(words: readonly string[]): string[] {
   return operands;
 }
 
-function extractPathCommandTargets(words: readonly string[], cwd: string, targets: string[]): void {
+function extractPathCommandTargets(words: readonly string[], cwd: string | undefined, targets: string[]): void {
   const commandName = words[0];
   if (!commandName) return;
 
@@ -336,11 +355,11 @@ function extractPathCommandTargets(words: readonly string[], cwd: string, target
 
 export function extractShellFileMutationTargets(command: string, cwd = process.cwd()): string[] {
   const targets: string[] = [];
-  for (const simpleCommand of parseShellCommands(command).commands) {
-    for (const write of simpleCommand.writes) pushUniqueTarget(targets, normalizeShellTarget(write, cwd));
+  for (const simpleCommand of parseShellCommands(command, cwd).commands) {
+    for (const write of simpleCommand.writes) pushUniqueTarget(targets, normalizeShellTarget(write, simpleCommand.cwd));
     const words = commandWords(simpleCommand.words);
-    extractSedInPlaceTargets(words, cwd, targets);
-    extractPathCommandTargets(words, cwd, targets);
+    extractSedInPlaceTargets(words, simpleCommand.cwd, targets);
+    extractPathCommandTargets(words, simpleCommand.cwd, targets);
   }
   return targets;
 }
