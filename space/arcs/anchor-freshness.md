@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Anchor freshness matches what the model sees
 
@@ -7,15 +7,14 @@ status: active
 The extension's own edits and writes keep a file's anchors usable across turns and within a batch. Any bash change the classifier can find, anywhere in a command chain, forces a re-read. Ships as 0.17.0, and replaces community PRs #237–#240 with this repo's own versions.
 
 ## Done when
-- [ ] An anchored edit on a later turn, using anchors from a read made before the extension's own edit or write, lands without a re-read — verified by `tests/edit-scenarios.test.ts` with a harness that fires `context`, and a live `pi -e` drive
-- [ ] A read batched after an edit of the same file in one turn returns post-edit anchors — verified by `tests/edit-batch-execution-order.test.ts` through the locked host's real `runAgentLoop`
-- [ ] After a bash change to a file, an anchored edit with old anchors is refused with `file-not-read`. This holds for a change after `cd`, inside a subshell, after a here-string, and on a file known only from write/edit — verified by `tests/bash-command-state.test.ts` and `tests/context-hygiene-edit-guard-bash-stale.test.ts`
-- [ ] A change made outside the extension still expires a file's freshness — verified by `tests/repro-144-stale-read-edit-guard.test.ts`
-- [ ] `npm test && npm run typecheck` and the Pi 1.2.0 lane pass on the 0.17.0 release commit — verified by the `pi-compatibility` workflow run on it
-- [ ] PRs #237–#240 are closed, each with a comment linking the commit that replaced it, and the 0.17.0 CHANGELOG thanks @llehouerou — verified by `gh pr view <n> --json state,comments`
+- [x] An anchored edit on a later turn, using anchors from a read made before the extension's own edit or write, lands without a re-read — verified by `tests/edit-scenarios.test.ts` with a harness that fires `context`, and a live `pi -e` drive · close 2026-10-31: passed in a 144/144 run of the five named files; live drive read `4:efd|ddd`, inserted after line 1, then `set_line 4:efd` on a later turn landed, "remapped to 5:efd", no re-read
+- [x] A read batched after an edit of the same file in one turn returns post-edit anchors — verified by `tests/edit-batch-execution-order.test.ts` through the locked host's real `runAgentLoop` · close 2026-10-31: passed (same run)
+- [x] After a bash change to a file, an anchored edit with old anchors is refused with `file-not-read`. This holds for a change after `cd`, inside a subshell, after a here-string, and on a file known only from write/edit — verified by `tests/bash-command-state.test.ts` and `tests/context-hygiene-edit-guard-bash-stale.test.ts` · close 2026-10-31: both passed (same run)
+- [x] A change made outside the extension still expires a file's freshness — verified by `tests/repro-144-stale-read-edit-guard.test.ts` · close 2026-10-31: passed (same run); holds for changes the extension observes (bash). A change by another process outside any tool call never expired freshness, on base or here, and is caught by the per-line edit hashes; the close review's finding on it was triaged a contract misread, owner agreed, 0004's wording corrected
+- [x] `npm test && npm run typecheck` and the Pi 1.2.0 lane pass on the 0.17.0 release commit — verified by the `pi-compatibility` workflow run on it · close 2026-10-31: run 41241539156 on `bb73db9e`, both jobs success; locally on HEAD 629 files / 2594 passed / 65 skipped, typecheck clean
+- [x] PRs #237–#240 are closed, each with a comment linking the commit that replaced it, and the 0.17.0 CHANGELOG thanks @llehouerou — verified by `gh pr view <n> --json state,comments` · close 2026-10-31: each `CLOSED` with one linking comment; CHANGELOG line 11 thanks @llehouerou
 
 ## Now
-All seven slices are done; 0.17.0 is on main (`bb73db9e`, #248), its `pi-compatibility` run green. Next action: run `close` on the arc in a fresh session. `npm publish` is the human's.
 
 ## Seams
 - `src/read-freshness.ts` (new, slice 1): note, has, expire-from-report, expire-path → `tests/read-freshness.test.ts`
