@@ -6,11 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-31
+
+Anchor freshness now matches what the model sees: the extension's own edits keep a file's anchors usable, and any `bash` change to a file expires them. Thanks to @llehouerou, whose PRs #237–#240 found these four defects and proposed the fixes this release ships in reworked form.
+
 ### Fixed
 
-- An anchored `edit` after the extension's own successful `edit` or `write` to the same file no longer demands a re-read on the next turn. The own mutation used to expire the file's freshness, so the shift remapping for own writes never ran across turns; a change made outside the extension (bash, another process) still requires fresh anchors. A cross-file `move_lines` no longer tells the model to re-read the source; it reports the source's line shift instead.
-- `edit` and `write` declare Pi's sequential execution mode, so a turn that contains either runs its calls in call order. A `read` batched after an `edit` of the same file used to run concurrently with it and could show the pre-edit file, so the next anchored edit through it failed. Turns without an `edit` or `write` still run in parallel.
-- A file that a `bash` command changes needs fresh anchors before the next anchored `edit`, even when the command failed or the file is known only from `write` or `edit`. Freshness used to expire only through a stale earlier read, and only after a successful command, so a file known only from `write` or `edit`, or one changed by a failed `cmd > file`, kept accepting its old anchors.
+- An anchored `edit` after the extension's own successful `edit` or `write` to the same file no longer demands a re-read on the next turn. The own mutation used to expire the file's freshness, so the shift remapping for own writes never ran across turns; a change made outside the extension (bash, another process) still requires fresh anchors. A cross-file `move_lines` no longer tells the model to re-read the source; it reports the source's line shift instead. Based on #237 by @llehouerou.
+- `edit` and `write` declare Pi's sequential execution mode, so a turn that contains either runs its calls in call order. A `read` batched after an `edit` of the same file used to run concurrently with it and could show the pre-edit file, so the next anchored edit through it failed. Turns without an `edit` or `write` still run in parallel. Based on #238 by @llehouerou.
+- `bash` commands are checked for file changes in every command of a chain (after `;`, `&&`, `||`, `|`, newlines, keywords such as `if`/`then`, `NAME=value` prefixes, subshells and `$(…)` substitutions), not only in the first word of the line. Heredoc bodies and a quoted `>` no longer count as writes, and `<<<` no longer opens a heredoc. Relative targets resolve against a literal `cd` earlier in the command; after a `cd` it cannot follow, only absolute targets count, and a subshell's `cd` ends at its `)`. A command behind `sudo`, `env`, `command`, `exec` or `xargs` is still not detected. Based on #240 by @llehouerou.
+- A file that a `bash` command changes needs fresh anchors before the next anchored `edit`, even when the command failed or the file is known only from `write` or `edit`. Freshness used to expire only through a stale earlier read, and only after a successful command, so a file known only from `write` or `edit`, or one changed by a failed `cmd > file`, kept accepting its old anchors. Based on #239 by @llehouerou.
 
 ## [0.16.1] - 2026-10-14
 
