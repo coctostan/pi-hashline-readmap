@@ -2,6 +2,24 @@
 
 Repo-local guide for working on `pi-hashline-readmap`.
 
+A Pi extension that replaces Pi's `read`, `edit`, `grep`, `write`, `ls` and `find` with hash-anchored, structure-aware versions, adds `ast_search`, and compresses `bash` output. It must keep anchored read→edit chains exact and stay loadable on both the locked and the current Pi host.
+
+## Space
+type: dev
+kits: core, dev
+root: space/
+neighbors:
+  codegraph: coctostan/pi-codegraph
+git: { merge: agent, push: free, main-direct: process-only }
+
+## Hard rules
+- Name an arc or slice by its title each time you mention it, in a reply, a file, a PR or a commit message: a slice as `slice <n> (<Title>)`, an arc as `<slug> (<Title>)`. One cited in passing, as a source or a precedent, is a mention too. In an arc file, `blocked-by` and `From slice` numbers stay bare.
+- Shrink a tool result only when the full result stays recoverable: accuracy outranks token savings.
+
+## Prove
+- Checks: `npm test -- tests/<file>.test.ts`; `npm test && npm run typecheck`
+- Real artifact: no server; in a scratch directory run `pi --no-extensions --no-session -e <repo>/index.ts --model openai-codex/gpt-6-luna --mode json -p "<a prompt that makes the model call the tool>"`, a fresh process per drive since sessions don't hot-reload · drive through the prompt · observe the `tool_execution_end` events in the JSON stream (`read` on a 3-line file returns `1:1df|export function alpha() {`) and any files the tools changed · instances run side by side but share the map cache at `~/.cache/pi-hashline-readmap/maps`. Host-compatibility changes also run the independent Pi 1.2.0 lane under "Independent current-host compatibility".
+
 ## What This Project Is
 
 `pi-hashline-readmap` is a unified [pi](https://github.com/mariozechner/pi-coding-agent) extension that replaces several built-in tools with enhanced versions:
@@ -41,9 +59,9 @@ git branch -d feat/my-feature
 
 Use `git branch -D` only after verifying the work is on `origin/main`.
 
-### Megapowers-managed work
+### History
 
-When `/mega on` is active, do not run ad-hoc branch/commit/push commands outside the allowed workflow moments. Use megapowers tools for phase changes and TDD signals. Post-merge cleanup on local `main` is the main exception.
+`.megapowers/` holds megapowers's history up to 2026-10-14: read it, never edit it. (Local only: `.gitignore` excludes it.)
 
 ## Development
 
