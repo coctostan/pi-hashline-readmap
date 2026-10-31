@@ -71,12 +71,11 @@ function isSafeLiteralShellTarget(target: string): boolean {
   return true;
 }
 /** `cwd` undefined: a `cd` the classifier could not follow, so only absolute targets are known. */
-function normalizeShellTarget(rawTarget: string, cwd: string | undefined): string | undefined {
-  const trimmed = rawTarget.trim();
-  if (!trimmed || trimmed === "/dev/null") return undefined;
-  if (!isSafeLiteralShellTarget(trimmed)) return undefined;
-  if (cwd === undefined) return path.isAbsolute(trimmed) ? path.resolve(trimmed) : undefined;
-  return path.resolve(cwd, trimmed);
+function normalizeShellTarget(target: string, cwd: string | undefined): string | undefined {
+  if (!target || target === "/dev/null") return undefined;
+  if (!isSafeLiteralShellTarget(target)) return undefined;
+  if (cwd === undefined) return path.isAbsolute(target) ? path.resolve(target) : undefined;
+  return path.resolve(cwd, target);
 }
 
 function pushUniqueTarget(targets: string[], target: string | undefined): void {

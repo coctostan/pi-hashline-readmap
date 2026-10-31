@@ -229,7 +229,7 @@ describe("extractShellFileMutationTargets follows cd", () => {
     ["absolute cd", "cd /abs && rm f", ["/abs/f"]],
     ["cd after cd, options and --", "cd -P sub && cd -- deeper && rm f", ["/tmp/cd/sub/deeper/f"]],
     ["cd ..", "cd sub; cd ..; rm f", ["/tmp/cd/f"]],
-    ["quoted cd operand", "cd 'my dir' && rm f", ["/tmp/cd/my dir/f"]],
+    ["quoted cd operand keeps its spaces", "cd ' my dir ' && rm f", ["/tmp/cd/ my dir /f"]],
     ["cd behind a keyword", "if cd sub; then rm f; fi", ["/tmp/cd/sub/f"]],
     ["subshell restores the directory", "(cd sub && make) && echo x > out.txt", ["/tmp/cd/out.txt"]],
     ["cd inside a subshell", "(cd sub && rm f); rm g", ["/tmp/cd/sub/f", "/tmp/cd/g"]],
