@@ -40,6 +40,8 @@ function session(fileName: string, fixture: string, others: Record<string, strin
   async function call(name: string, params: Record<string, unknown>): Promise<CallResult> {
     const tool = tools.get(name);
     const id = `call-${next++}`;
+    // Pi fires context before every model request, i.e. before the call that request issues.
+    handlers.context?.({ type: "context", messages: [] });
     const args = tool.prepareArguments ? tool.prepareArguments(params) : params;
     await handlers.tool_call?.({ type: "tool_call", toolName: name, toolCallId: id, input: args }, { cwd: dir });
     let result: any;
@@ -70,6 +72,7 @@ function session(fileName: string, fixture: string, others: Record<string, strin
   return {
     read: (path = fileName) => call("read", { path }),
     edit: (edits: unknown[], path = fileName) => call("edit", { path, edits }),
+    write: (content: string, path = fileName) => call("write", { path, content }),
     bytes: (path = fileName) => readFileSync(join(dir, path), "utf8"),
     mutate: (next: string, path = fileName) => writeFileSync(join(dir, path), next, "utf8"),
   };
@@ -264,6 +267,23 @@ describe("core editing", () => {
     expect(s.bytes()).toBe("aaa\nbbb\nCCC\nDDD\neee\n");
   });
 
+  it("write-then-edit: anchors from an own write over an earlier read stay usable", async () => {
+    const s = session("wte.ts", "aaa\nbbb\n");
+    await s.read();
+    const written = await s.write("aaa\nbbb\nccc\n");
+    const result = await s.edit([{ set_line: { anchor: anchor(written.text, "ccc"), new_text: "CCC" } }]);
+    expect(result.isError).toBe(false);
+    expect(s.bytes()).toBe("aaa\nbbb\nCCC\n");
+  });
+
+  it("a text replace on an unread file does not make its anchors fresh", async () => {
+    const s = session("unread.ts", "aaa\nbbb\n");
+    await s.edit([{ replace: { old_text: "aaa", new_text: "AAA" } }]);
+    const result = await s.edit([{ set_line: { anchor: `2:${computeLineHash(2, "bbb")}`, new_text: "BBB" } }]);
+    expect(result.details.ptcValue.error.code).toBe("file-not-read");
+    expect(s.bytes()).toBe("AAA\nbbb\n");
+  });
+
   it("b18-boundary-dup: a replacement that repeats the line above is applied literally, with a warning", async () => {
     const s = session("b18.ts", "aaa\nbbb\nccc\n");
     const r = await s.read();
@@ -445,6 +465,19 @@ describe("block copy and move without retyping (Explicit Edit block families)", 
     expect(result.text).toContain("out of source.ts");
     expect(s.bytes()).toBe(TARGET + BLOCK.join("\n") + "\n");
     expect(s.bytes("source.ts")).toBe("// head\n// tail\n");
+  });
+
+  it("move-source: after a cross-file move, the source's earlier anchors still edit it", async () => {
+    const s = session("target.ts", TARGET, { "source.ts": SOURCE });
+    const src = await s.read("source.ts");
+    const dst = await s.read();
+    const moved = await s.edit([
+      { move_lines: { from_path: "source.ts", start_anchor: anchor(src.text, BLOCK[0]), end_anchor: anchor(src.text, BLOCK[3]), after_anchor: anchor(dst.text, "const x = 1;") } },
+    ]);
+    expect(moved.text).not.toContain("read it again");
+    const result = await s.edit([{ set_line: { anchor: anchor(src.text, "// tail"), new_text: "// TAIL" } }], "source.ts");
+    expect(result.isError).toBe(false);
+    expect(s.bytes("source.ts")).toBe("// head\n// TAIL\n");
   });
 
   it("a cross-file move from an unread source is refused and writes nothing", async () => {

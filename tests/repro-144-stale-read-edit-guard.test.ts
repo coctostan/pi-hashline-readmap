@@ -49,23 +49,16 @@ describe("issue 144 — stale-masked read must not satisfy edit's must-read guar
       details: readResult.details,
     }, {});
 
-    // 2. Live edit (mutation) — also feeds tracker.
-    const liveAnchor = `3:${computeLineHash(3, "uniqueLine")}`;
-    const editResult1 = await tools.edit.execute(
-      "edit-1",
-      { path: filePath, edits: [{ set_line: { anchor: liveAnchor, new_text: "uniqueLineV2" } }] },
-      new AbortController().signal,
-      () => {},
-      { cwd: process.cwd() },
-    );
-    expect(editResult1.isError).not.toBe(true);
+    // 2. External mutation (bash) — also feeds tracker. The extension's own edit or write keeps
+    //    the view fresh (ServedLines remaps its shifts, ruling 0004); a change it did not make does not.
+    writeFileSync(filePath, ["a", "b", "uniqueLineV2", "d", "e"].join("\n") + "\n", "utf-8");
     await handlers.tool_result({
-      toolName: "edit",
-      toolCallId: "edit-1",
-      input: { path: filePath },
-      content: editResult1.content,
+      toolName: "bash",
+      toolCallId: "bash-1",
+      input: { command: `sed -i 's/uniqueLine/uniqueLineV2/' ${filePath}` },
+      content: [{ type: "text", text: "" }],
       isError: false,
-      details: editResult1.details,
+      details: {},
     }, {});
 
     // 3. Provider-context turn — masks the prior read into the stale placeholder.
@@ -78,9 +71,9 @@ describe("issue 144 — stale-masked read must not satisfy edit's must-read guar
           details: { ptcValue: { tool: "read" } }, isError: false, timestamp: 1,
         },
         {
-          role: "toolResult", toolCallId: "edit-1", toolName: "edit",
-          content: [{ type: "text", text: "edit succeeded" }],
-          details: { ptcValue: { tool: "edit" } }, isError: false, timestamp: 2,
+          role: "toolResult", toolCallId: "bash-1", toolName: "bash",
+          content: [{ type: "text", text: "" }],
+          details: {}, isError: false, timestamp: 2,
         },
       ],
     }, {});
