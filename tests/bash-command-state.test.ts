@@ -220,3 +220,36 @@ describe("extractShellFileMutationTargets across a command chain", () => {
     expect(extractShellFileMutationTargets(command, cwd)).toEqual(expected.map((target) => `${cwd}/${target}`));
   });
 });
+
+describe("extractShellFileMutationTargets follows cd", () => {
+  const cwd = "/tmp/cd";
+  const cases: Array<[string, string, string[]]> = [
+    ["relative cd", "cd sub && rm f", ["/tmp/cd/sub/f"]],
+    ["sed -i after cd", "cd d && sed -i 's/a/b/' f", ["/tmp/cd/d/f"]],
+    ["absolute cd", "cd /abs && rm f", ["/abs/f"]],
+    ["cd after cd, options and --", "cd -P sub && cd -- deeper && rm f", ["/tmp/cd/sub/deeper/f"]],
+    ["cd ..", "cd sub; cd ..; rm f", ["/tmp/cd/f"]],
+    ["quoted cd operand keeps its spaces", "cd ' my dir ' && rm f", ["/tmp/cd/ my dir /f"]],
+    ["cd behind a keyword", "if cd sub; then rm f; fi", ["/tmp/cd/sub/f"]],
+    ["subshell restores the directory", "(cd sub && make) && echo x > out.txt", ["/tmp/cd/out.txt"]],
+    ["cd inside a subshell", "(cd sub && rm f); rm g", ["/tmp/cd/sub/f", "/tmp/cd/g"]],
+    ["nested subshells", "(cd a; (cd b; rm f); rm g); rm h", ["/tmp/cd/a/b/f", "/tmp/cd/a/g", "/tmp/cd/h"]],
+    ["command substitution keeps its cd", "v=$(cd sub && rm a); rm b", ["/tmp/cd/sub/a", "/tmp/cd/b"]],
+    ["backticks keep their cd", "echo `cd sub; rm a`; rm b", ["/tmp/cd/sub/a", "/tmp/cd/b"]],
+    ["process substitution keeps its cd", "diff <(cd sub; rm a) b > c", ["/tmp/cd/sub/a", "/tmp/cd/c"]],
+    ["substitution runs where its command does", "cd sub && echo $(rm a) > b", ["/tmp/cd/sub/a", "/tmp/cd/sub/b"]],
+    ["cd's own redirection resolves before it moves", "cd sub > log.txt; rm f", ["/tmp/cd/log.txt", "/tmp/cd/sub/f"]],
+    ["bare cd keeps only absolute targets", "cd; rm f; rm /abs/g", ["/abs/g"]],
+    ["cd - keeps only absolute targets", "cd -; rm f", []],
+    ["cd with two operands keeps only absolute targets", "cd a b; rm f", []],
+    ["non-literal cd keeps only absolute targets", "cd \"$DIR\" && rm f && cp a /abs/b", ["/abs/b"]],
+    ["cd ~ keeps only absolute targets", "cd ~/x && rm f", []],
+    ["relative cd after an unknown one stays unknown", "cd $X; cd sub; rm f", []],
+    ["absolute cd after an unknown one", "cd $X; cd /abs; rm f", ["/abs/f"]],
+    ["subshell restores a known directory after an unknown cd", "(cd $X; rm f); rm g", ["/tmp/cd/g"]],
+  ];
+
+  it.each(cases)("%s", (_name, command, expected) => {
+    expect(extractShellFileMutationTargets(command, cwd)).toEqual(expected);
+  });
+});
