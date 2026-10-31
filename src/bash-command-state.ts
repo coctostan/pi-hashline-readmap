@@ -103,19 +103,6 @@ function closingQuote(source: string, start: number): number {
   return source.length;
 }
 
-/** Index of the `)` closing the `(` just before `start`, past quotes and nested parentheses; for arithmetic only. */
-function closingParen(source: string, start: number): number {
-  let depth = 1;
-  for (let index = start; index < source.length; index += 1) {
-    const char = source[index];
-    if (char === "\\") index += 1;
-    else if (char === "'" || char === '"' || char === "`") index = closingQuote(source, index);
-    else if (char === "(") depth += 1;
-    else if (char === ")" && (depth -= 1) === 0) return index;
-  }
-  return source.length;
-}
-
 /** Index just past the heredoc bodies that start at `start`, in the order their operators appeared. */
 function skipHeredocBodies(source: string, start: number, heredocs: readonly Heredoc[]): number {
   let index = start;
@@ -134,8 +121,12 @@ function skipHeredocBodies(source: string, start: number, heredocs: readonly Her
 /**
  * Simple commands of a shell command line, split at `;` `&` `&&` `|` `||` `|&` newlines `(` `)`
  * outside quotes. Heredoc bodies and comments belong to no command. `$(…)`, backticks, `<(…)` and
- * `>(…)` are parsed as commands of their own; `$((…))` and `((…))` run none. Inside a substitution
- * (`inSubstitution`), parsing stops at its unmatched `)`, and `end` is that index.
+ * `>(…)` are parsed as commands of their own. `${…}`, `$((…))` and `((…))` are inert text except for
+ * the substitutions inside them. Inside a substitution (`inSubstitution`), parsing stops at its
+ * unmatched `)`, and `end` is that index.
+ *
+ * shortcut: a subset of bash, the one agents write; known misses: `case` patterns' `)` inside `$(…)`,
+ * `$'…'` quoting, `[[ a > b ]]` read as a redirection. Upgrade to a real bash parser if misses turn up.
  */
 function parseShellCommands(source: string, start = 0, inSubstitution = false): { commands: SimpleCommand[]; end: number } {
   const commands: SimpleCommand[] = [];
@@ -161,19 +152,42 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
     command = { words: [], writes: [] };
     pending = undefined;
   };
-  // Appends the substitution opening at `start` to the word, parses its commands, and returns its last index.
-  const substitution = (start: number): number => {
-    let end: number;
+  const opensExpansion = (at: number): boolean =>
+    source[at] === "`" || (source[at] === "$" && (source[at + 1] === "(" || source[at + 1] === "{"));
+  // Last index of the expansion opening at `start`; the commands it runs join `commands`.
+  const scanExpansion = (start: number): number => {
     if (source[start] === "`") {
-      end = closingQuote(source, start);
+      const end = closingQuote(source, start);
       commands.push(...parseShellCommands(source.slice(start + 1, end)).commands);
-    } else if (source[start] === "$" && source[start + 2] === "(") {
-      end = closingParen(source, start + 2);
-    } else {
-      const inner = parseShellCommands(source, start + 2, true);
-      commands.push(...inner.commands);
-      end = inner.end;
+      return end;
     }
+    if (source[start + 1] === "{") return inertSpan(start + 2, "{", "}");
+    if (source[start] === "$" && source[start + 2] === "(") return inertSpan(start + 2, "(", ")");
+    const inner = parseShellCommands(source, start + 2, true);
+    commands.push(...inner.commands);
+    return inner.end;
+  };
+  // Index of the `close` matching the `open` just before `start`, running only the substitutions between.
+  const inertSpan = (start: number, open: string, close: string): number => {
+    let depth = 1;
+    for (let index = start; index < source.length; index += 1) {
+      const char = source[index];
+      if (char === "\\") index += 1;
+      else if (char === "'") index = closingQuote(source, index);
+      else if (opensExpansion(index)) index = scanExpansion(index);
+      else if (char === '"') {
+        for (index += 1; index < source.length && source[index] !== '"'; index += 1) {
+          if (source[index] === "\\") index += 1;
+          else if (opensExpansion(index)) index = scanExpansion(index);
+        }
+      } else if (char === open) depth += 1;
+      else if (char === close && (depth -= 1) === 0) return index;
+    }
+    return source.length;
+  };
+  // Appends the expansion opening at `start` to the word and returns its last index.
+  const expansion = (start: number): number => {
+    const end = scanExpansion(start);
     word += source.slice(start, end + 1);
     inWord = true;
     return end;
@@ -198,12 +212,14 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
     } else if (char === '"') {
       inWord = quoted = true;
       for (index += 1; index < source.length && source[index] !== '"'; index += 1) {
-        if (source[index] === "\\" && /[$`"\\\n]/.test(source[index + 1] ?? "")) word += source[(index += 1)];
-        else if (source[index] === "`" || (source[index] === "$" && source[index + 1] === "(")) index = substitution(index);
+        if (source[index] === "\\" && /[$`"\\\n]/.test(source[index + 1] ?? "")) {
+          index += 1;
+          if (source[index] !== "\n") word += source[index];
+        } else if (opensExpansion(index)) index = expansion(index);
         else word += source[index];
       }
-    } else if (char === "`" || (next === "(" && (char === "$" || char === "<" || char === ">"))) {
-      index = substitution(index);
+    } else if (opensExpansion(index) || (next === "(" && (char === "<" || char === ">"))) {
+      index = expansion(index);
     } else if (char === ">" || char === "<" || (char === "&" && next === ">")) {
       // A bare fd number right before the operator (`2>`) belongs to it, not to the words.
       if (inWord && !quoted && /^\d+$/.test(word)) {
@@ -217,7 +233,7 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
       index += operator.length - 1;
     } else if (char === "(" && next === "(" && !inWord) {
       endCommand();
-      index = closingParen(source, index + 1);
+      index = inertSpan(index + 1, "(", ")");
     } else if (char === ")" && inSubstitution && depth === 0) {
       break;
     } else if (char === ";" || char === "&" || char === "|" || char === "(" || char === ")") {

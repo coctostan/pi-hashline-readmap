@@ -206,6 +206,10 @@ describe("extractShellFileMutationTargets across a command chain", () => {
     ["subshell inside a substitution", "echo \"$( (rm a); rm b )\"", ["a", "b"]],
     ["comment inside a substitution", "echo \"$(printf x # (\n)\"; rm victim", ["victim"]],
     ["heredoc inside a substitution", "echo $(cat <<'EOF'\n) ; rm victim\nEOF\n)", []],
+    ["substitution inside arithmetic", "echo $(( $(rm f; echo 0) + 1 ))", ["f"]],
+    ["parameter expansion text is not a heredoc", "echo ${v:-a<<EOF}\nrm victim", ["victim"]],
+    ["substitution inside a parameter expansion", "echo ${v:-$(rm a)} \"${w:-`rm b`}\"", ["a", "b"]],
+    ["line continuation inside double quotes", "printf x > \"fi\\\nle\"", ["file"]],
     ["process substitution", "diff <(sort a) <(sort b) > out.txt", ["out.txt"]],
     ["redirection of eval or source", "source env.sh > log.txt", ["log.txt"]],
   ];
