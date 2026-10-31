@@ -42,6 +42,7 @@ yarn-error.log*
 # pi agent local state
 .megapowers/
 .pi/
+.pi/prompt-assembler/
 runs/workguards/
 .codegraph/
 
