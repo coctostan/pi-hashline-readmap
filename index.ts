@@ -20,12 +20,12 @@ import { applyBashContextGuard, resolveBashContextGuardConfig, type BashContextG
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
 import { consumeContextHygieneNotice, resetContextHygieneNoticeLedger } from "./src/context-hygiene-notices.js";
 import { buildBashCommandState } from "./src/bash-command-state.js";
+import { createReadFreshness } from "./src/read-freshness.js";
 import {
   buildCommandResource,
   buildContextHygieneMetadata,
   buildFileResource,
   getContextHygieneTracker,
-  normalizePathForContextHygiene,
   registerContextHygieneDebugTool,
   resetContextHygieneTracker,
   type ContextHygieneAppliedEffects,
@@ -168,30 +168,12 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   // Codemode integration wraps outermost so annotations/outputSchema are set before the raw
   // argument guard forwards the (same, mutated) definition to Pi.
   pi = withCodemodeIntegration(withRawArgumentGuard(pi));
-  // readTurns maps an absolute path to the tracker event id of the most recent
-  // live-anchor tool result for that path (read / grep / ast_search / write).
-  // When the provider-context handler masks a prior live-anchor read into a
-  // stale placeholder, we expire the corresponding entry so wasReadInSession
-  // stops returning true until the agent re-reads the file.
-  const readTurns = new Map<string, number>();
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
   resetContextHygieneNoticeLedger();
-  const readTurnKey = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
-  const noteRead = (absolutePath: string) => {
-    // noteRead is invoked synchronously from inside read/grep/ast_search/write
-    // BEFORE the tool result is dispatched to the tool_result handler that
-    // calls tracker.record(). So the just-finishing tool's event will receive
-    // id = report.eventCount + 1 once tool_result fires. We anchor readTurns
-    // to that anticipated id so the entry is strictly newer than every
-    // mutation event id <= the current eventCount, which is exactly what
-    // expireStaleReadTurns compares against.
-    const tracker = getContextHygieneTracker();
-    const report = tracker.generateReport();
-    const eventId = report.eventCount + 1;
-    readTurns.set(readTurnKey(absolutePath), eventId);
-  };
-  const wasReadInSession = (absolutePath: string) => readTurns.has(readTurnKey(absolutePath));
+  const freshness = createReadFreshness(() => getContextHygieneTracker().generateReport().eventCount);
+  const noteRead = freshness.note;
+  const wasReadInSession = freshness.has;
 
   // Programmatic callers (Pi codemode scripts) reach these tools through Pi's own
   // ctx.executeTool(); see src/codemode-integration.ts. No side-channel executor map is published.
@@ -226,30 +208,11 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     return undefined;
   });
 
-  // Expire readTurns entries whose tracked live-anchor event id has been
-  // superseded by a later same-file mutation (i.e. the prior read has been
-  // masked into a stale placeholder by applyContextHygieneStaleContext).
-  // After expiry, edit's read-before-edit guard correctly forces a re-read.
-  const expireStaleReadTurns = (
-    report: ReturnType<ReturnType<typeof getContextHygieneTracker>["generateReport"]>,
-  ) => {
-    if (readTurns.size === 0) return;
-    for (const candidate of report.staleCandidates) {
-      if (!candidate.resourceKey.startsWith("file:")) continue;
-      const absolutePath = readTurnKey(candidate.resourceKey.slice("file:".length));
-      const recordedEventId = readTurns.get(absolutePath);
-      if (recordedEventId === undefined) continue;
-      if (recordedEventId <= candidate.mutationEventId) {
-        readTurns.delete(absolutePath);
-      }
-    }
-  };
-
   pi.on("context", (event: any): any => {
     if (!Array.isArray(event.messages)) return undefined;
     const report = getContextHygieneTracker().generateReport();
     const messages = applyContextHygieneStaleContext(event.messages, report);
-    expireStaleReadTurns(report);
+    freshness.expireFromReport(report);
     if (messages === event.messages) return undefined;
     return { messages };
   });
@@ -352,7 +315,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       commandState?.stateKind === "shell-file-mutation" &&
       (commandState.fileTargets?.length ?? 0) > 0
     ) {
-      expireStaleReadTurns(getContextHygieneTracker().generateReport());
+      freshness.expireFromReport(getContextHygieneTracker().generateReport());
     }
     const appliedEffects = summarizeBashAppliedEffects(recordedContextHygieneEvent.id);
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
