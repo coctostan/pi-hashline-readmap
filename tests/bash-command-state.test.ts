@@ -201,6 +201,8 @@ describe("extractShellFileMutationTargets across a command chain", () => {
     ["comment is not a redirection", "echo x > out.txt # > note.txt", ["out.txt"]],
     ["fd redirections", "cmd > a.txt 2> b.txt &> c.txt 2>&1 >/dev/null", ["a.txt", "b.txt", "c.txt"]],
     ["fd number is not an operand", "rm -f x 2>/dev/null", ["x"]],
+    ["quoted or escaped digits are operands", "rm '2'>out; rm \\3>/dev/null", ["out", "2", "3"]],
+    ["heredoc delimiter runs no substitution", "cat <<\"$(rm a)\"\nhello\n$(rm a)\nrm b", ["b"]],
     ["command substitution", "v=$(sed -i 's/a/b/' f)", ["f"]],
     ["substitutions in double quotes and backticks", "echo `rm a` \"$(rm b) `rm c`\"", ["a", "b", "c"]],
     ["subshell inside a substitution", "echo \"$( (rm a); rm b )\"", ["a", "b"]],

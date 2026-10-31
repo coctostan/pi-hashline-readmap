@@ -185,9 +185,12 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
     }
     return source.length;
   };
-  // Appends the expansion opening at `start` to the word and returns its last index.
+  // Appends the expansion opening at `start` to the word and returns its last index. A heredoc delimiter is
+  // only quote-removed, so the commands inside it never run.
   const expansion = (start: number): number => {
+    const commandCount = commands.length;
     const end = scanExpansion(start);
+    if (pending === "heredoc" || pending === "heredoc-strip") commands.length = commandCount;
     word += source.slice(start, end + 1);
     inWord = true;
     return end;
@@ -201,7 +204,7 @@ function parseShellCommands(source: string, start = 0, inSubstitution = false): 
     if (char === "\\") {
       if (next !== "\n") {
         word += next ?? "";
-        inWord = true;
+        inWord = quoted = true;
       }
       index += 1;
     } else if (char === "'") {
