@@ -15,7 +15,7 @@ The extension's own edits and writes keep a file's anchors usable across turns a
 - [ ] PRs #237–#240 are closed, each with a comment linking the commit that replaced it, and the 0.17.0 CHANGELOG thanks @llehouerou — verified by `gh pr view <n> --json state,comments`
 
 ## Now
-Slice 1 (Freshness tracker extracted) is next, with no branch yet. Next action: run `slice` in a fresh session.
+Slice 1 (Freshness tracker extracted) is active on branch `anchor-freshness/01-freshness-tracker`. Next action: build it per its inline plan.
 
 ## Seams
 - `src/read-freshness.ts` (new, slice 1): note, has, expire-from-report, expire-path → `tests/read-freshness.test.ts`
@@ -25,7 +25,11 @@ Slice 1 (Freshness tracker extracted) is next, with no branch yet. Next action: 
 - Real artifact: `pi --no-extensions --no-session -e <repo>/index.ts --mode json -p "<read, edit, then edit again with the first read's anchors>"`, observed in the `tool_execution_end` events
 
 ## Slices
-1. **Freshness tracker extracted** — delivers `readTurns`, `noteRead`, `wasReadInSession` and `expireStaleReadTurns` moved from `index.ts` into `src/read-freshness.ts`, with no behavior change · proof: the existing freshness tests stay green unchanged, plus a new `tests/read-freshness.test.ts` that pins today's expiry at an equal event id · blocked-by — · status next
+1. **Freshness tracker extracted** — delivers `readTurns`, `noteRead`, `wasReadInSession` and `expireStaleReadTurns` moved from `index.ts` into `src/read-freshness.ts`, with no behavior change · proof: the existing freshness tests stay green unchanged, plus a new `tests/read-freshness.test.ts` that pins today's expiry at an equal event id · blocked-by — · status active
+   Goal: the four move into `src/read-freshness.ts`; the six freshness test files (68 tests, green on `3fade2fb`) stay green unchanged; `tests/read-freshness.test.ts` pins that an entry noted at event id N expires on a stale candidate with `mutationEventId` N and survives one with N−1.
+   Assumptions: no behavior change means the same `eventCount + 1` arithmetic, the same `normalizePathForContextHygiene` key, and the same `<=` expiry; the module takes an event-count getter instead of importing the global tracker, so it tests alone; the seam's expire-path waits for the slice that first calls it, slice 6 (Any bash change expires freshness).
+   Reach: `src/read-freshness.ts` `createReadFreshness` (new: `note`, `has`, `expireFromReport`); `index.ts` `piHashlineReadmapExtension` (the `readTurns` block, the five `noteRead` callbacks, `wasReadInSession` into `registerEditTool`, the `context` handler's and the bash branch's `expireStaleReadTurns` calls); `tests/read-freshness.test.ts` (new).
+   Proof: `npm test -- tests/read-freshness.test.ts`; the six freshness files; `npm test && npm run typecheck`; a live `pi -e` drive of read → edit → edit with the first read's anchors, observed in `tool_execution_end`.
 2. **Own edits keep freshness** — delivers #237's behavior under ruling 0004: an own write or edit marks the file fresh, and so does `move_lines` with `from_path` on its source. The `edit-scenarios` harness fires `context`, and `repro-144` invalidates through a bash change · proof: `b13-chained-diff-edit` and write-then-edit go red→green; a move-source test · blocked-by 1 · status next
 3. **Mutating batches run in call order** — delivers `executionMode: "sequential"` on `edit` and `write` (#238) · proof: `tests/edit-batch-execution-order.test.ts` goes red→green; a live `pi -e` drive shows the later-turn edit landing without a re-read · blocked-by 2 · status next
 4. **Classifier splits command chains** — delivers a mutation found in any simple command of a chain: separators, keywords, `NAME=value` prefixes, heredoc bodies excluded, `<<<` and `$((…<<…))` not taken as heredocs, a quoted `>` not taken as a redirection · proof: `tests/bash-command-state.test.ts` cases go red→green · blocked-by — · status next
