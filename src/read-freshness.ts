@@ -5,6 +5,8 @@ export interface ReadFreshness {
   note(absolutePath: string, mark?: { own: boolean }): void;
   has(absolutePath: string): boolean;
   expireFromReport(report: Pick<ContextHygieneReport, "staleCandidates">): void;
+  /** A change this extension did not make: the file has no live view left, own or not. */
+  expirePath(absolutePath: string): void;
 }
 
 // Tracks which files carry live anchors the model may still edit with. Each entry maps a
@@ -36,6 +38,9 @@ export function createReadFreshness(currentEventCount: () => number): ReadFreshn
           readTurns.delete(absolutePath);
         }
       }
+    },
+    expirePath(absolutePath) {
+      readTurns.delete(key(absolutePath));
     },
   };
 }

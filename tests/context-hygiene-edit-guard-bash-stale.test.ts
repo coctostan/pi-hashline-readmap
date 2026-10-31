@@ -127,4 +127,37 @@ describe("edit guard after bash shell-file mutation", () => {
     expect(editAfterTargetlessBash.details?.ptcValue).toMatchObject({ ok: true });
     expect(readFileSync(filePath, "utf-8")).toContain("const two = 22;");
   });
+
+  async function run(tools: Map<string, any>, handlers: Record<string, Function>, name: string, toolCallId: string, input: any) {
+    const result = await tools.get(name).execute(toolCallId, input, new AbortController().signal, () => {}, { cwd: process.cwd() });
+    await handlers.tool_result({ type: "tool_result", toolName: name, toolCallId, input, content: result.content, isError: result.isError === true, details: result.details });
+    return result;
+  }
+
+  const lines = ["const one = 1;", "const two = 2;", "const three = 3;"];
+  // Each bash change keeps line 3's text, so only the freshness guard can refuse the old anchor.
+  // No `context` event fires between bash and edit, as in one batch: the bash result alone must expire.
+  it.each([
+    { name: "a file known only from write, after cd", known: "write", command: (dir: string) => `cd ${dir} && sed -i '1i x' sample.ts`, isError: false },
+    { name: "a file known only from write, inside a subshell", known: "write", command: (dir: string) => `(sed -i '1i x' ${dir}/sample.ts)`, isError: false },
+    { name: "a file known only from write, after a here-string", known: "write", command: (dir: string) => `cat <<< x > ${dir}/sample.ts`, isError: false },
+    { name: "a file known from write and edit, after a redirect", known: "edit", command: (dir: string) => `printf x > ${dir}/sample.ts`, isError: false },
+    { name: "a read file, after a failed redirect", known: "read", command: (dir: string) => `printf x > ${dir}/sample.ts; false`, isError: true },
+  ])("requires a fresh read after bash changes $name", async ({ known, command, isError }) => {
+    const { tools, handlers } = createHarness();
+    const filePath = fixtureFile();
+    const dir = resolve(filePath, "..");
+    if (known === "read") await recordRead(tools, handlers, filePath, "read-1");
+    else await run(tools, handlers, "write", "write-1", { path: filePath, content: lines.join("\n") });
+    if (known === "edit") {
+      const first = await run(tools, handlers, "edit", "edit-1", { path: filePath, edits: [{ set_line: { anchor: `1:${computeLineHash(1, lines[0])}`, new_text: "const one = 11;" } }] });
+      expect(first.details?.ptcValue).toMatchObject({ ok: true });
+    }
+
+    writeFileSync(filePath, ["x", ...lines].join("\n"), "utf-8");
+    await handlers.tool_result({ type: "tool_result", toolName: "bash", toolCallId: "bash-change", input: { command: command(dir) }, content: [{ type: "text", text: "" }], isError, details: {} });
+    const edit = await run(tools, handlers, "edit", "edit-after-bash", { path: filePath, edits: [{ set_line: { anchor: `3:${computeLineHash(3, lines[2])}`, new_text: "const three = 33;" } }] });
+    expect(edit.details?.ptcValue).toMatchObject({ ok: false, error: { code: "file-not-read" } });
+    expect(readFileSync(filePath, "utf-8")).not.toContain("33");
+  });
 });
