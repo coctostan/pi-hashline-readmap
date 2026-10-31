@@ -358,6 +358,8 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
   const tool = {
     name: "write",
     label: "write",
+    // As edit: a batch containing a write runs in call order.
+    executionMode: "sequential" as const,
     description: WRITE_PROMPT_METADATA.description,
     promptSnippet: WRITE_PROMPT_METADATA.promptSnippet,
     promptGuidelines: WRITE_PROMPT_METADATA.promptGuidelines,
