@@ -104,6 +104,8 @@ function closingQuote(source: string, start: number): number {
 }
 
 /** Index of the `)` closing the `(` just before `start`, past quotes and nested parentheses. */
+// shortcut: a `)` inside a heredoc nested in `$(…)` ends the substitution early, so the rest of the body can yield a
+// false target (a needless re-read, never a missed one); make parseShellCommands re-entrant if that turns up.
 function closingParen(source: string, start: number): number {
   let depth = 1;
   for (let index = start; index < source.length; index += 1) {
