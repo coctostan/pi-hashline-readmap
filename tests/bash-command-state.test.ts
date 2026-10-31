@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBashCommandState } from "../src/bash-command-state.js";
+import { buildBashCommandState, extractShellFileMutationTargets } from "../src/bash-command-state.js";
 
 describe("buildBashCommandState", () => {
   it("classifies git repo-state, history, and mutation commands", () => {
@@ -174,5 +174,49 @@ describe("buildBashCommandState", () => {
 
     expect(state.stateKind).toBe("debug");
     expect(state.fileTargets).toBeUndefined();
+  });
+});
+
+describe("extractShellFileMutationTargets across a command chain", () => {
+  const cwd = "/tmp/chain";
+  const cases: Array<[string, string, string[]]> = [
+    ["&& separator", "mkdir -p d && mv a b", ["a", "b"]],
+    ["|| separator", "npm test || rm -f x", ["x"]],
+    ["; separator", "echo hi; cp a b", ["b"]],
+    ["background &", "sleep 1 & rm x", ["x"]],
+    ["newline", "echo hi\ninstall -m 0644 a b", ["b"]],
+    ["pipe into tee", "npm test 2>&1 | tee log.txt", ["log.txt"]],
+    ["subshell and group", "(rm a) && { sed -i 's/x/y/' b; }", ["a", "b"]],
+    ["NAME=value prefix", "FOO=1 BAR=2 sed -i 's/a/b/' f", ["f"]],
+    ["if/then keywords", "if true; then sed -i 's/a/b/' f; fi", ["f"]],
+    ["loop keywords", "for x in a b; do rm out.txt; done", ["out.txt"]],
+    ["! and time", "! rm a && time cp b c", ["a", "c"]],
+    ["heredoc body excluded", "cat <<'EOF'\nprintf a > x\nEOF\nsed -i 's/a/b/' y", ["y"]],
+    ["<<- heredoc body excluded", "cat <<-EOF > out.txt\n\tprintf a > x\n\tEOF\nrm z", ["out.txt", "z"]],
+    ["here-string is not a heredoc", "grep x <<< \"$v\"\nrm f", ["f"]],
+    ["arithmetic shift is not a heredoc", "echo $((1 << 2))\nrm f", ["f"]],
+    ["arithmetic command shift is not a heredoc", "((n <<= 1))\nrm f", ["f"]],
+    ["arithmetic comparison is not a redirection", "echo $((a > b)) > out.txt; ((c > d))", ["out.txt"]],
+    ["quoted > is not a redirection", "echo \"a > b\" && git commit -m 'x > y'", []],
+    ["comment is not a redirection", "echo x > out.txt # > note.txt", ["out.txt"]],
+    ["fd redirections", "cmd > a.txt 2> b.txt &> c.txt 2>&1 >/dev/null", ["a.txt", "b.txt", "c.txt"]],
+    ["fd number is not an operand", "rm -f x 2>/dev/null", ["x"]],
+    ["quoted or escaped digits are operands", "rm '2'>out; rm \\3>/dev/null", ["out", "2", "3"]],
+    ["heredoc delimiter runs no substitution", "cat <<\"$(rm a)\"\nhello\n$(rm a)\nrm b", ["b"]],
+    ["command substitution", "v=$(sed -i 's/a/b/' f)", ["f"]],
+    ["substitutions in double quotes and backticks", "echo `rm a` \"$(rm b) `rm c`\"", ["a", "b", "c"]],
+    ["subshell inside a substitution", "echo \"$( (rm a); rm b )\"", ["a", "b"]],
+    ["comment inside a substitution", "echo \"$(printf x # (\n)\"; rm victim", ["victim"]],
+    ["heredoc inside a substitution", "echo $(cat <<'EOF'\n) ; rm victim\nEOF\n)", []],
+    ["substitution inside arithmetic", "echo $(( $(rm f; echo 0) + 1 ))", ["f"]],
+    ["parameter expansion text is not a heredoc", "echo ${v:-a<<EOF}\nrm victim", ["victim"]],
+    ["substitution inside a parameter expansion", "echo ${v:-$(rm a)} \"${w:-`rm b`}\"", ["a", "b"]],
+    ["line continuation inside double quotes", "printf x > \"fi\\\nle\"", ["file"]],
+    ["process substitution", "diff <(sort a) <(sort b) > out.txt", ["out.txt"]],
+    ["redirection of eval or source", "source env.sh > log.txt", ["log.txt"]],
+  ];
+
+  it.each(cases)("%s", (_name, command, expected) => {
+    expect(extractShellFileMutationTargets(command, cwd)).toEqual(expected.map((target) => `${cwd}/${target}`));
   });
 });
