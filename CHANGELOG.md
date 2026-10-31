@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - An anchored `edit` after the extension's own successful `edit` or `write` to the same file no longer demands a re-read on the next turn. The own mutation used to expire the file's freshness, so the shift remapping for own writes never ran across turns; a change made outside the extension (bash, another process) still requires fresh anchors. A cross-file `move_lines` no longer tells the model to re-read the source; it reports the source's line shift instead.
+- `edit` and `write` declare Pi's sequential execution mode, so a turn that contains either runs its calls in call order. A `read` batched after an `edit` of the same file used to run concurrently with it and could show the pre-edit file, so the next anchored edit through it failed. Turns without an `edit` or `write` still run in parallel.
 
 ## [0.16.1] - 2026-10-14
 

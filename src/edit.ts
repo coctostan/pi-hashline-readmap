@@ -1198,6 +1198,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 	const tool = {
 		name: "edit",
 		label: "Edit",
+		// Pi runs a whole batch in call order when any call in it is sequential: a read after an edit sees the write.
+		executionMode: "sequential" as const,
 		description: EDIT_PROMPT_METADATA.description,
 		promptSnippet: EDIT_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: EDIT_PROMPT_METADATA.promptGuidelines,
