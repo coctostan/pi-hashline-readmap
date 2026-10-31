@@ -15,7 +15,7 @@ The extension's own edits and writes keep a file's anchors usable across turns a
 - [ ] PRs #237–#240 are closed, each with a comment linking the commit that replaced it, and the 0.17.0 CHANGELOG thanks @llehouerou — verified by `gh pr view <n> --json state,comments`
 
 ## Now
-Slice 1 (Freshness tracker extracted) is active on branch `anchor-freshness/01-freshness-tracker`. Next action: build it per its inline plan.
+Slice 1 (Freshness tracker extracted) is done (#242). Slice 2 (Own edits keep freshness) is next, with no branch yet; slice 4 (Classifier splits command chains) is also unblocked. Next action: run `slice` in a fresh session.
 
 ## Seams
 - `src/read-freshness.ts` (new, slice 1): note, has, expire-from-report, expire-path → `tests/read-freshness.test.ts`
@@ -26,12 +26,13 @@ Slice 1 (Freshness tracker extracted) is active on branch `anchor-freshness/01-f
 
 ## Slices
 1. **Freshness tracker extracted** — delivers `readTurns`, `noteRead`, `wasReadInSession` and `expireStaleReadTurns` moved from `index.ts` into `src/read-freshness.ts`, with no behavior change · proof: the existing freshness tests stay green unchanged, plus a new `tests/read-freshness.test.ts` that pins today's expiry at an equal event id · blocked-by — · status done
-   `createReadFreshness` (`note`, `has`, `expireFromReport`) in `src/read-freshness.ts`, fed an event-count getter · deviation: the seam's expire-path is deferred to slice 6 (Any bash change expires freshness), its first caller · evidence: six freshness files 68/68 unchanged, new pin 3/3 and red under `<=`→`<`, full suite 628 passed / 25 skipped (main 627 / 25), typecheck clean, live drive identical to main (second edit `file-not-read`)
+   `createReadFreshness` (`note`, `has`, `expireFromReport`) in `src/read-freshness.ts`, fed an event-count getter · deviation: the seam's expire-path is deferred to slice 6 (Any bash change expires freshness), its first caller · evidence: six freshness files 68/68 unchanged, new pin 3/3 and red under `<=`→`<`, full suite 628 passed / 25 skipped (main 627 / 25), typecheck clean, live drive identical to main (second edit `file-not-read`) · `b5fb01f5`
 2. **Own edits keep freshness** — delivers #237's behavior under ruling 0004: an own write or edit marks the file fresh, and so does `move_lines` with `from_path` on its source. The `edit-scenarios` harness fires `context`, and `repro-144` invalidates through a bash change · proof: `b13-chained-diff-edit` and write-then-edit go red→green; a move-source test · blocked-by 1 · status next
 3. **Mutating batches run in call order** — delivers `executionMode: "sequential"` on `edit` and `write` (#238) · proof: `tests/edit-batch-execution-order.test.ts` goes red→green; a live `pi -e` drive shows the later-turn edit landing without a re-read · blocked-by 2 · status next
 4. **Classifier splits command chains** — delivers a mutation found in any simple command of a chain: separators, keywords, `NAME=value` prefixes, heredoc bodies excluded, `<<<` and `$((…<<…))` not taken as heredocs, a quoted `>` not taken as a redirection · proof: `tests/bash-command-state.test.ts` cases go red→green · blocked-by — · status next
 5. **Classifier follows cd** — delivers targets resolved against a literal `cd`; after a `cd` it cannot follow, relative targets are dropped; a subshell restores the directory at `)` · proof: `tests/bash-command-state.test.ts` cases, including `(cd sub && make) && echo x > out.txt` → `out.txt` · blocked-by 4 · status next
 6. **Any bash change expires freshness** — delivers expiry of every classified target's freshness on any bash result, failed ones included (#239) · proof: `tests/context-hygiene-edit-guard-bash-stale.test.ts` goes red→green, including a `cd d && sed -i … f` case · blocked-by 1, 5 · status next
+   From slice 1: add the seam's expire-path to `src/read-freshness.ts` (deferred there, no caller yet), with its case in `tests/read-freshness.test.ts`
 7. **Release 0.17.0** — delivers the version bump, a CHANGELOG with thanks to @llehouerou, the Pi 1.2.0 lane green, and #237–#240 closed with links to the commits that replaced them · proof: the `pi-compatibility` run on the release commit; `gh pr view` for each PR · blocked-by 3, 6 · gate human · status next
 
 ## Not yet specified
