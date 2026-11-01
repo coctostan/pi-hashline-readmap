@@ -70,8 +70,9 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
       // The host passes durationMs only for a final result, as the built-in bash row's "Took" line reads it.
       const took = context.durationMs === undefined ? "" : ` • Took ${formatToolDuration(context.durationMs)}`;
       if (result.isError || context.isError) {
-        const first = text.split("\n")[0] || "command failed";
-        const rest = expanded && text ? text.slice(first.length) : "";
+        const head = text.split("\n")[0];
+        const first = head || "command failed";
+        const rest = expanded ? text.slice(head.length) : "";
         return new Text(clampLinesToWidth([summaryLine(first + took) + rest], width).join("\n"), 0, 0);
       }
       if (!text.trim()) return new Text(summaryLine(`command completed (no output)${took}`), 0, 0);

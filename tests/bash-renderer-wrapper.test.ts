@@ -50,6 +50,9 @@ describe("bash renderer wrapper", () => {
     expect(render({ content: [{ type: "text", text: "" }] }, { durationMs: 0 })).toBe("↳ command completed (no output) • Took 0.0s");
     expect(render({ content: [{ type: "text", text: "boom\nmore" }], isError: true }, { durationMs: 1500 })).toBe("↳ boom • Took 1.5s");
     expect(render({ content: [{ type: "text", text: "boom\nmore" }], isError: true }, { durationMs: 1500, expanded: true })).toBe("↳ boom • Took 1.5s\nmore");
+    expect(render({ content: [{ type: "text", text: "\npermission denied" }], isError: true }, { durationMs: 1500, expanded: true })).toBe("↳ command failed • Took 1.5s\npermission denied");
+    expect(render(ok, { durationMs: 60_000 })).toBe("↳ 1 line returned • Took 1m 0s\nok");
+    expect(render(ok, { durationMs: 3_600_000 })).toBe("↳ 1 line returned • Took 1h 0m 0s\nok");
     // Undefined while running and for results stored without a duration: no timing, as the built-in.
     expect(render(ok, { durationMs: undefined })).toBe("↳ 1 line returned\nok");
   });
