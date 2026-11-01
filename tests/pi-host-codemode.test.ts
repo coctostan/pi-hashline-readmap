@@ -1,22 +1,20 @@
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import init from "../index.js";
+import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
 
 /**
  * Runs real codemode scripts from the selected Pi host against Hashline tools: the locked host,
  * or the install PI_COMPAT_HOST selects.
  */
-const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
-const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
-if (process.env.PI_COMPAT_HOST) {
-  const { assertCompatHost } = await import(new URL("../scripts/pi-compat-host.mjs", import.meta.url).href);
-  assertCompatHost(process.env.PI_COMPAT_HOST);
-}
+const { host, version: hostVersion } = selectCompatHost();
 const executorPath = join(host, "dist/extensions/codemode/execute.js");
-const hostVersion = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).version as string;
+if (process.env.PI_COMPAT_HOST && !existsSync(executorPath)) {
+  throw new Error("Explicit compatibility host has no codemode executor");
+}
 
 function registerHashlineTools() {
   const tools = new Map<string, any>();

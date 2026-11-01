@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
+import { selectCompatHost } from "../../scripts/pi-compat-host.mjs";
 
-const locked = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
-export const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : locked;
+export const { host, version } = selectCompatHost();
 export const supported = existsSync(join(host, "dist/extensions/codemode/execute.js"));
 if (process.env.PI_COMPAT_HOST && !supported) {
   throw new Error("Explicit compatibility host has no codemode executor");

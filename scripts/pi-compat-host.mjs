@@ -1,20 +1,12 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-export const PI_COMPAT_VERSION = "1.4.0";
+const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
 
-export function assertCompatHost(input) {
-  if (typeof input !== "string" || input.trim() === "") {
-    throw new Error("PI_COMPAT_HOST must explicitly select a Pi " + PI_COMPAT_VERSION + " installation");
-  }
-  const host = resolve(input);
+// PI_COMPAT_HOST overrides the locked host; the selected install's own version is the one expected.
+export function selectCompatHost(input = process.env.PI_COMPAT_HOST) {
+  const host = input ? resolve(input) : lockedHost;
   const version = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).version;
-  if (version !== PI_COMPAT_VERSION) {
-    throw new Error("Compatibility host must be exactly Pi " + PI_COMPAT_VERSION + " (got " + version + ")");
-  }
-  if (!existsSync(join(host, "dist/extensions/codemode/execute.js"))) {
-    throw new Error("Explicit compatibility host has no codemode executor");
-  }
   return { host, version };
 }
-

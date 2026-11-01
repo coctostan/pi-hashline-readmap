@@ -52,7 +52,7 @@ This inventory describes the current deprecation surface. Review it again on the
 | Configuration | PI_NUSHELL_CONFIG and config-path resolution in `src/nu.ts`; `docs/configuration.md` | Remove Hashline-owned Nu config handling/docs; do not delete user config files. |
 | Error codes | `nu-*` entries in `src/ptc-error-codes.ts` | Remove Nu-only codes; retain the registry and other tools' codes. |
 | Nu-only tests | `tests/nu-*.test.ts`, `tests/null-params-nu.test.ts`, `tests/ptc-error-nu.test.ts`, `tests/typebox-nu-import.test.ts`, `tests/tool-parameter-metadata-nu.test.ts`, `tests/prompt-reference-nu.test.ts` | Retire obsolete Nu-specific coverage deliberately. |
-| Shared tests | `tests/binary-resolution.test.ts`; `tests/tool-prompt-metadata.test.ts`; `tests/pi-prompt-metadata-integration.test.ts`; `tests/prompt-reference-role.test.ts`; `tests/ptc-error-{contract,codes}.test.ts`; renderer coverage; `tests/codemode-integration.test.ts`; `tests/pi-084-package-contract.test.ts`; documentation/tool-selection tests | Remove only Nu expectations/cases, retaining other tool, binary, rendering, dependency, and contract coverage. |
+| Shared tests | `tests/binary-resolution.test.ts`; `tests/tool-prompt-metadata.test.ts`; `tests/pi-prompt-metadata-integration.test.ts`; `tests/prompt-reference-role.test.ts`; `tests/ptc-error-{contract,codes}.test.ts`; renderer coverage; `tests/codemode-integration.test.ts`; documentation/tool-selection tests | Remove only Nu expectations/cases, retaining other tool, binary, rendering, dependency, and contract coverage. |
 | Mandatory selected-host assertions | `.github/workflows/pi-compatibility.yml`; `tests/pi-host-null-pipeline.test.ts`; `tests/helpers/selected-host-codemode.mjs` | Replace/remove PI_COMPAT_REQUIRE_NU assertions explicitly in the removal release; retain required tool inventories and host failure guards. |
 | User/contributor guidance | README, CHANGELOG, `docs/{configuration,structured-output,integrations,tool-metadata,pi-host-api-audit,codemode-recipes}.md`, AGENTS.md | Update current availability/removal statements without rewriting historical changelog evidence. |
 | Shared guards/results/rendering | `src/{normalize-tool-params,raw-argument-guard,ptc-value,codemode-integration,tui-render-utils}.ts`, `src/rtk/ansi.ts` | Retain functionality used by other tools; do not remove shared APIs. |
@@ -65,7 +65,7 @@ The checklist is intentionally unchecked in the deprecation release. Actual remo
 
 - [ ] Record at least one published deprecation release and its user-facing announcement.
 - [ ] Announce the separate breaking removal release; no silent patch removal.
-- [ ] Verify bounded migration snippets through the independent pinned Pi 1.1 pipeline, including failures, incomplete input, and native Bash truncation.
+- [ ] Verify bounded migration snippets through the selected-host pipeline, including failures, incomplete input, and native Bash truncation.
 - [ ] Refresh the removal-surface audit against the removal branch.
 - [ ] Remove the nushell dependency; regenerate/review package-lock.json and package contents.
 - [ ] Remove index.ts Nu import/registration and obsolete src/nu.ts code.
@@ -74,11 +74,11 @@ The checklist is intentionally unchecked in the deprecation release. Actual remo
 - [ ] Preserve ast-grep binary resolution and shared error, null, rendering, and codemode helpers.
 - [ ] Deliberately replace/remove PI_COMPAT_REQUIRE_NU in CI and both selected-host assertion sites; add explicit checks that core tools still register and Nu does not. Do not leave an environment flag whose checks silently skip.
 - [ ] Update README/current docs and publish a breaking changelog entry with retention instructions.
-- [ ] Run locked-host tests/typecheck and independent pinned-host tests/typecheck; retain npm 11/12 packaging coverage.
+- [ ] Run the locked-host tests, `npm run typecheck` and `npm run typecheck:pi-host`; retain npm 11/12 packaging coverage.
 - [ ] Verify migration/retention guidance and packaged docs in a freshly loaded session; record evidence and the final release decision.
 
 ## Compatibility during deprecation
 
-Locked Pi 0.84.2 development checks and the independent pinned Pi 1.2.0 lane remain complementary. PI_COMPAT_REQUIRE_NU=1 still requires Nu registration in the independent lane. Deprecation does not introduce a Nu outputSchema, a structured Nu API, or a replacement Nu framework; it supersedes the earlier conditional structured-Nu proposal.
+The tests run against the one locked host. PI_COMPAT_REQUIRE_NU=1, set in CI, still requires Nu registration. Deprecation does not introduce a Nu outputSchema, a structured Nu API, or a replacement Nu framework; it supersedes the earlier conditional structured-Nu proposal.
 
-Migration recipe tests exercise the selected host's loader, wrappers, runToolCall pipeline, and QuickJS executor using an all-Hashline-tools fixture. They do not prove CLI selection resolution, provider quality, or every AgentSession lifecycle branch. Implicit locked-host skips are not independent-host evidence.
+Migration recipe tests exercise the selected host's loader, wrappers, runToolCall pipeline, and QuickJS executor using an all-Hashline-tools fixture. They do not prove CLI selection resolution, provider quality, or every AgentSession lifecycle branch.

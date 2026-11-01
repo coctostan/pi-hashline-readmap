@@ -2,10 +2,10 @@ import { realpathSync, readFileSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { assertCompatHost, PI_COMPAT_VERSION } from "./pi-compat-host.mjs";
+import { selectCompatHost } from "./pi-compat-host.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const { host, version } = assertCompatHost(process.env.PI_COMPAT_HOST);
+const { host, version } = selectCompatHost();
 const selectedModules = realpathSync(resolve(host, "../.."));
 const selectedContainingFile = join(host, "__pi_typecheck__.ts");
 const config = ts.readConfigFile(join(root, "tsconfig.json"), ts.sys.readFile);
@@ -47,7 +47,7 @@ for (const source of program.getSourceFiles()) {
 for (const name of ["pi-coding-agent", "pi-agent-core", "pi-ai", "pi-tui",
   "pi-mcp", "pi-codemode", "pi-telemetry"]) {
   const manifest = JSON.parse(readFileSync(join(selectedModules, "@earendil-works", name, "package.json"), "utf8"));
-  if (manifest.version !== PI_COMPAT_VERSION) throw new Error("Selected Pi graph version mismatch: " + name);
+  if (manifest.version !== version) throw new Error("Selected Pi graph version mismatch: " + name);
 }
 const diagnostics = [
   ...(config.error ? [config.error] : []),

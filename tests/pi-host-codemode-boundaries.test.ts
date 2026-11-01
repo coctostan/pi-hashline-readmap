@@ -1,12 +1,10 @@
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { expect, it } from "vitest";
-import { PI_COMPAT_VERSION } from "../scripts/pi-compat-host.mjs";
+import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
 
-const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
-const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
+const { host, version } = selectCompatHost();
 const supported = existsSync(join(host, "dist/extensions/codemode/execute.js"));
 if (process.env.PI_COMPAT_HOST && !supported) throw new Error("Explicit compatibility host has no codemode executor");
 type BoundaryCase = {
@@ -209,7 +207,7 @@ it.skipIf(!supported).each(cases)("$name", boundary => {
     throw new Error("direct Bash presentation must be checked");
   }
   expect(result).toMatchObject({
-    version: PI_COMPAT_VERSION, host, completed: true, images: boundary.images ?? 0,
+    version, host, completed: true, images: boundary.images ?? 0,
     staleNotice: boundary.visible ?? false, duplicateNotice: false,
     compressed: boundary.bash ?? false,
   });

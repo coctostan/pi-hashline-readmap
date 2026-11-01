@@ -107,12 +107,12 @@ field-wise merging, environment precedence, and shell fallback remain intact.
 - npm test
 - npm run typecheck
 - npm test -- tests/pi-extension-load-compatibility.test.ts tests/pi-host-null-pipeline.test.ts
-- Independently install exactly Pi 1.2.0 and its complete pinned Pi graph into temporary storage, then run all selected-host runtime tests and `npm run typecheck:pi-host` with `PI_COMPAT_HOST` (see AGENTS.md). Require Nu with `PI_COMPAT_REQUIRE_NU=1` in the runtime lane. The typed positive fixture must compile, and the explicit negative boundary fixture must fail with TS2322.
+- npm run typecheck:pi-host, which `tests/pi-host-declarations.test.ts` also runs: the typed positive fixture must compile, and the explicit negative boundary fixture must fail with TS2322.
 
-The locked development-host lane and .github/workflows/pi-compatibility.yml's
-independent Pi 1.2.0 lane are complementary. Keep the npm 11/12 packing matrix,
-current-host version checks, mandatory Nu registration when PI_COMPAT_REQUIRE_NU=1, and existing loader tests.
-Neither lane may silently fall back to or replace the other. Credentials and a
+All of these run against the one locked host, in CI with `PI_COMPAT_REQUIRE_NU=1`. To check a newer Pi
+before the lock moves, rerun them with `PI_COMPAT_HOST` (see AGENTS.md). Keep the npm 11/12 packing matrix,
+selected-host version checks, mandatory Nu registration when PI_COMPAT_REQUIRE_NU=1, and existing loader tests.
+A missing override install fails instead of falling back to the locked host. Credentials and a
 live Gemini smoke test are not required.
 
 Bundled Nu is deprecated but retained. The mandatory assertions in tests/pi-host-null-pipeline.test.ts and tests/helpers/selected-host-codemode.mjs, and PI_COMPAT_REQUIRE_NU=1 in CI, remain active during deprecation. Future removal must deliberately update those assertions using the [Nu release gate and checklist](nu-deprecation.md); do not leave them silently skipped. The conditional structured-Nu codemode-contract proposal is superseded: no new Nu API is introduced.

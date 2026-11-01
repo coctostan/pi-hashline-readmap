@@ -1,50 +1,42 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { it } from "vitest";
-import { PI_COMPAT_VERSION } from "../scripts/pi-compat-host.mjs";
 
-it("requires an exact explicit compatibility host without fallback", () => {
-  const root = mkdtempSync(join(tmpdir(), "pi-264-selection-"));
+it("selects the locked host unless PI_COMPAT_HOST overrides it, expecting the selected install's version", () => {
+  const root = mkdtempSync(join(tmpdir(), "pi-compat-selection-"));
   const utility = pathToFileURL(resolve("scripts/pi-compat-host.mjs")).href;
-  const probe = `import { assertCompatHost } from ${JSON.stringify(utility)};
-    console.log(JSON.stringify(assertCompatHost(process.argv[1])));`;
-  const select = (path: string) => spawnSync(process.execPath,
-    ["--input-type=module", "-e", probe, path], { encoding: "utf8" });
+  const probe = `import { selectCompatHost } from ${JSON.stringify(utility)};
+    console.log(JSON.stringify(selectCompatHost()));`;
+  const select = (override?: string) => {
+    const env = { ...process.env };
+    delete env.PI_COMPAT_HOST;
+    if (override !== undefined) env.PI_COMPAT_HOST = override;
+    return spawnSync(process.execPath, ["--input-type=module", "-e", probe], { encoding: "utf8", env });
+  };
   try {
-    for (const [name, version, executor] of [
-      ["valid", PI_COMPAT_VERSION, true],
-      ["wrong", "1.0.0", true],
-      ["no-executor", PI_COMPAT_VERSION, false],
-    ] as const) {
-      const path = join(root, name);
-      mkdirSync(path);
-      writeFileSync(join(path, "package.json"), JSON.stringify({ version }));
-      if (executor) {
-        mkdirSync(join(path, "dist/extensions/codemode"), { recursive: true });
-        writeFileSync(join(path, "dist/extensions/codemode/execute.js"), "");
-      }
-    }
-    const ok = select(join(root, "valid"));
+    const locked = select();
+    assert.equal(locked.status, 0, locked.stderr);
+    const lockedVersion = JSON.parse(readFileSync("package-lock.json", "utf8"))
+      .packages["node_modules/@earendil-works/pi-coding-agent"].version;
+    assert.deepEqual(JSON.parse(locked.stdout),
+      { host: resolve("node_modules/@earendil-works/pi-coding-agent"), version: lockedVersion });
+    assert.deepEqual(JSON.parse(select("").stdout), JSON.parse(locked.stdout), "an empty override selects the locked host");
+
+    const valid = join(root, "valid");
+    mkdirSync(valid);
+    writeFileSync(join(valid, "package.json"), JSON.stringify({ version: "9.9.9" }));
+    const ok = select(valid);
     assert.equal(ok.status, 0, ok.stderr);
-    assert.deepEqual(JSON.parse(ok.stdout), { host: join(root, "valid"), version: PI_COMPAT_VERSION });
-    const wrong = select(join(root, "wrong"));
-    assert.equal(wrong.status, 1);
-    assert.ok(wrong.stderr.includes("Compatibility host must be exactly Pi " + PI_COMPAT_VERSION + " (got 1.0.0)"), wrong.stderr);
+    assert.deepEqual(JSON.parse(ok.stdout), { host: valid, version: "9.9.9" });
+
     const absent = select(join(root, "missing"));
     assert.equal(absent.status, 1);
     assert.match(absent.stderr, /ENOENT/);
-    const noExecutor = select(join(root, "no-executor"));
-    assert.equal(noExecutor.status, 1);
-    assert.match(noExecutor.stderr, /Explicit compatibility host has no codemode executor/);
-    const unset = select("");
-    assert.equal(unset.status, 1);
-    assert.match(unset.stderr, /PI_COMPAT_HOST must explicitly select/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
-

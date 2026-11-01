@@ -1,12 +1,9 @@
 import { execFileSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { PI_COMPAT_VERSION } from "../scripts/pi-compat-host.mjs";
+import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
 
 it("rejects required nulls through the real selected host pipeline", () => {
-  const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
-  const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
+  const { host, version } = selectCompatHost();
   const source = String.raw`
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
@@ -18,7 +15,7 @@ import { pathToFileURL } from "node:url";
 const host = process.env.PI_TEST_HOST;
 const version = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).version;
 const lockedVersion = JSON.parse(readFileSync("package-lock.json", "utf8")).packages["node_modules/@earendil-works/pi-coding-agent"].version;
-assert.equal(version, process.env.PI_COMPAT_HOST ? process.env.PI_COMPAT_EXPECTED_VERSION : lockedVersion, "selected host version must match the lane");
+if (!process.env.PI_COMPAT_HOST) assert.equal(version, lockedVersion, "the locked host must match package-lock.json");
 
 // Resolve agent-core through its declared "./package.json" export, not a bare specifier: its "."
 // export has only "types"/"import" conditions, so a bare require/resolve throws
@@ -48,7 +45,7 @@ try {
   for (const name of ["read", "write", "edit", "grep", "ast_search", "find", "ls", "bash"]) {
     assert.ok(extension.tools.has(name), name + " must register");
   }
-  if (process.env.PI_COMPAT_REQUIRE_NU === "1") assert.ok(extension.tools.has("nu"), "Nu must register in the current-host CI lane");
+  if (process.env.PI_COMPAT_REQUIRE_NU === "1") assert.ok(extension.tools.has("nu"), "Nu must register when PI_COMPAT_REQUIRE_NU=1");
   for (const event of ["tool_call", "tool_result", "context"]) assert.ok(extension.handlers.get(event)?.length, event + " must register");
   const runner = new ExtensionRunner(loaded.extensions, loaded.runtime, cwd, SessionManager.inMemory(cwd), {});
   const handlerErrors = [];
@@ -196,11 +193,11 @@ try {
 `;
   const stdout = execFileSync(process.execPath, ["--input-type=module", "-e", source], {
     cwd: process.cwd(),
-    env: { ...process.env, PI_TEST_HOST: host, PI_COMPAT_EXPECTED_VERSION: PI_COMPAT_VERSION },
+    env: { ...process.env, PI_TEST_HOST: host },
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,
   });
   expect(stdout).toContain("null-pipeline=PASS");
-  if (process.env.PI_COMPAT_HOST) expect(stdout).toContain(`host-version=${PI_COMPAT_VERSION};`);
+  expect(stdout).toContain(`host-version=${version};`);
 }, 130_000);

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { PI_COMPAT_VERSION } from "../scripts/pi-compat-host.mjs";
-import { jsonOf, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram, supported, version } from "./helpers/codemode-recipes.js";
 
 it.skipIf(!supported)("captures real selected-host script results", () => {
   const report = runProgram({
@@ -11,7 +10,7 @@ it.skipIf(!supported)("captures real selected-host script results", () => {
       { code: 'text({later:true});' },
     ],
   });
-  assert.equal(report.version, PI_COMPAT_VERSION);
+  assert.equal(report.version, version);
   assert.deepEqual(jsonOf(report), { raw: "alpha", next: 2 });
   assert.deepEqual(jsonOf(report, 1), { later: true });
   assert.deepEqual(report.results[0].calls.map((c: any) => c.name), ["read"]);

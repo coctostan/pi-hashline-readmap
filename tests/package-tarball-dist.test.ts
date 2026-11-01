@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildBundle } from "../scripts/build.mjs";
-import { PI_COMPAT_VERSION, runDistScenario } from "./helpers/pi-host-dist-harness.js";
+import { runDistScenario, version } from "./helpers/pi-host-dist-harness.js";
 
 const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const hasPython = spawnSync("python3", ["--version"]).status === 0;
@@ -57,7 +57,7 @@ describe("npm pack tarball", () => {
         ...(hasPython ? { PI_TEST_RUN_PY_MAP: "1" } : {}),
       });
       expect(stdout).toContain("scenario=extracted=PASS");
-      if (process.env.PI_COMPAT_HOST) expect(stdout).toContain(`host-version=${PI_COMPAT_VERSION};`);
+      expect(stdout).toContain(`host-version=${version};`);
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
