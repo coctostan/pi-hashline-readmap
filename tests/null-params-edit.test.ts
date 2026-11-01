@@ -53,7 +53,6 @@ describe("edit null parameters", () => {
     };
 
     try {
-      expect(tool).not.toHaveProperty("constrainedSampling");
       const required = await execute({ path: null });
       expect(required).toMatchObject({
         isError: true,

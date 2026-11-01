@@ -364,6 +364,7 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
     promptSnippet: WRITE_PROMPT_METADATA.promptSnippet,
     promptGuidelines: WRITE_PROMPT_METADATA.promptGuidelines,
     parameters: WRITE_PARAMETERS,
+    constrainedSampling: { type: "json_schema", strict: "prefer" } as const,
     async execute(_toolCallId: string, params: { path: string; content: string; map?: boolean }, _signal: AbortSignal | undefined, _onUpdate: any, ctx: any): Promise<any> {
       const normalized = normalizeToolParameters(WRITE_PARAMETERS, params);
       if (normalized.requiredNull) {

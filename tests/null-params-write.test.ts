@@ -39,8 +39,6 @@ describe("write null parameters", () => {
     );
 
     try {
-      expect(tool).not.toHaveProperty("constrainedSampling");
-
       const nullPath = await execute({ path: null, content: "alpha\n" });
       expect(nullPath).toMatchObject({
         isError: true,

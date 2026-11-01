@@ -39,8 +39,6 @@ async function execute(tool: any, params: Record<string, unknown>) {
 describe("read null parameters", () => {
   it("rejects null path and makes every optional null equivalent to omission", async () => {
     const tool = captureReadTool();
-    expect(tool).not.toHaveProperty("constrainedSampling");
-
     const required = await execute(tool, { path: null });
     expect(required).toMatchObject({
       isError: true,

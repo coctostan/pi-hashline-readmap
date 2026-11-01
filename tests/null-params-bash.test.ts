@@ -31,7 +31,6 @@ describe("bash null parameters", () => {
       createBuiltInBashTool: () => ({ execute: executeBuiltIn }),
     });
 
-    expect(captured).not.toHaveProperty("constrainedSampling");
     const required = await captured.execute(
       "null-bash",
       { command: null },

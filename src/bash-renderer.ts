@@ -40,6 +40,7 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
     promptSnippet: BASH_PROMPT_SNIPPET,
     promptGuidelines: BASH_PROMPT_GUIDELINES,
     parameters: BASH_PARAMETERS,
+    constrainedSampling: { type: "json_schema", strict: "prefer" } as const,
     get outputSchema() {
       return getBuiltIn(options.cwd ?? process.cwd()).outputSchema;
     },
