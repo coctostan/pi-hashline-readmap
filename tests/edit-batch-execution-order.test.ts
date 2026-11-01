@@ -73,7 +73,7 @@ it("a read batched after an edit of the same file sees the edit and stays fresh"
     const messages = await runAgentLoop(
       [],
       { messages: [], tools },
-      { model: { provider: "test" }, convertToLlm: (m: unknown) => m, shouldStopAfterTurn: () => true, beforeToolCall, afterToolCall },
+      { model: { provider: "test" }, convertToLlm: (m: unknown) => m, finishTurn: () => ({ action: "end" }), beforeToolCall, afterToolCall },
       async () => {},
       undefined,
       () => ({ async *[Symbol.asyncIterator]() {}, result: async () => assistant }),

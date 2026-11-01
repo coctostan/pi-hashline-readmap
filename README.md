@@ -20,7 +20,7 @@ Requires Pi extension support and Node.js 22.19 or newer. Start a new Pi session
 
 ### Validated compatibility baseline
 
-Development, schema validation, and extension-load testing use the exact Pi version resolved by `package-lock.json`, currently Pi 0.84.2, with TypeBox 1.3.7. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally retain `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
+Development, schema validation, and extension-load testing use the exact Pi version resolved by `package-lock.json`, currently Pi 1.4.0, with TypeBox 1.3.27. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally retain `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
 
 Run the compatibility coverage through the normal test suite or by itself:
 

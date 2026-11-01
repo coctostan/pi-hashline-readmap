@@ -89,7 +89,7 @@ npm run typecheck
 
 ### Independent current-host compatibility
 
-`npm test` and `npm run typecheck` retain the locked 0.84.2 development-host lane. `.github/workflows/pi-compatibility.yml` additionally provisions exactly Pi 1.2.0 into runner temporary storage. Its npm 11/12 matrix retains both packing-output contracts. Neither host lane replaces the other.
+`npm test` and `npm run typecheck` retain the locked 1.4.0 development-host lane. `.github/workflows/pi-compatibility.yml` additionally provisions exactly Pi 1.2.0 into runner temporary storage. Its npm 11/12 matrix retains both packing-output contracts. Neither host lane replaces the other.
 
 Reproduce the independent lane without a global Pi, provider, or credentials. Pin the complete relevant Pi dependency graph, since its internal caret ranges otherwise permit newer releases:
 

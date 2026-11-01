@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type, type TSchema } from "typebox";
 
 /**
- * Pi codemode integration (Pi >= 0.99, tuned for 1.0).
+ * Pi codemode integration.
  *
  * Codemode scripts call tools through `ctx.executeTool()`. A tool that declares `outputSchema`
  * resolves to its `structuredContent` inside scripts; any other tool resolves to its text. Hashline
@@ -15,7 +15,7 @@ import { Type, type TSchema } from "typebox";
  * tool's error text, matching codemode's default contract for failed calls.
  */
 
-/** MCP-style tool hints understood by Pi >= 0.99 (`ToolDefinition.annotations`). */
+/** MCP-style tool hints understood by Pi (`ToolDefinition.annotations`). */
 export interface HashlineToolAnnotations {
   readOnlyHint?: boolean;
   destructiveHint?: boolean;
@@ -181,8 +181,8 @@ function toJsonValue(value: unknown): unknown {
 }
 
 /**
- * JSON-safe copy for a tool's own `structuredContent`. Typed loosely so it satisfies both older
- * hosts (no `structuredContent` field) and Pi >= 0.99's `JsonValue`.
+ * JSON-safe copy for a tool's own `structuredContent`. Typed loosely so it assigns to the host's
+ * `JsonValue` field.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toScriptJson(value: unknown): any {

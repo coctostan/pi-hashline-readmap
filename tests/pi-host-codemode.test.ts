@@ -6,9 +6,8 @@ import { describe, expect, it } from "vitest";
 import init from "../index.js";
 
 /**
- * Runs real codemode scripts from the selected Pi host (>= 0.99) against Hashline tools.
- * The locked 0.84.2 development host has no codemode, so this is skipped there; the
- * current-host CI lane sets PI_COMPAT_HOST and exercises it.
+ * Runs real codemode scripts from the selected Pi host against Hashline tools: the locked host,
+ * or the install PI_COMPAT_HOST selects.
  */
 const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
 const host = process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
