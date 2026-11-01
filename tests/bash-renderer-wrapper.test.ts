@@ -39,6 +39,20 @@ describe("bash renderer wrapper", () => {
     expect(source).not.toContain("renderResult(result: any, optionsArg: any, theme: any");
   });
 
+  it("shows the host's recorded duration on a finished row, formatted as the built-in bash row formats it", () => {
+    let registered: any;
+    registerBashRendererTool({ registerTool(def: any) { registered = def; } } as any, { createBuiltInBashTool: () => ({ execute: async () => ({ content: [] }) }) });
+    const render = (result: any, context: any) => textOf(registered.renderResult(result, {}, theme, context));
+    const ok = { content: [{ type: "text", text: "ok\n" }] };
+    expect(render(ok, { durationMs: 4249 })).toBe("↳ 1 line returned • Took 4.2s\nok");
+    expect(render(ok, { durationMs: 90_400 })).toBe("↳ 1 line returned • Took 1m 30s\nok");
+    expect(render(ok, { durationMs: 7_384_000 })).toBe("↳ 1 line returned • Took 2h 3m 4s\nok");
+    expect(render({ content: [{ type: "text", text: "" }] }, { durationMs: 0 })).toBe("↳ command completed (no output) • Took 0.0s");
+    expect(render({ content: [{ type: "text", text: "boom\nmore" }], isError: true }, { durationMs: 1500 })).toBe("↳ boom • Took 1.5s");
+    // Undefined while running and for results stored without a duration: no timing, as the built-in.
+    expect(render(ok, { durationMs: undefined })).toBe("↳ 1 line returned\nok");
+  });
+
   it("uses compact local metadata instead of forwarding verbose built-in metadata", () => {
     const params = { type: "object", properties: { command: { type: "string" } }, required: ["command"] };
     const builtIn = { name: "bash", label: "bash", description: "real bash description", parameters: params, execute: async () => ({ content: [{ type: "text", text: "" }] }) };

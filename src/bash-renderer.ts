@@ -67,23 +67,37 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
       const expanded = isRendererExpanded(optionsArg, context);
       const width = context.width ?? optionsArg?.width;
       const text = result.content?.find((item: any) => item.type === "text")?.text ?? "";
+      // The host passes durationMs only for a final result, as the built-in bash row's "Took" line reads it.
+      const took = context.durationMs === undefined ? "" : ` • Took ${formatToolDuration(context.durationMs)}`;
       if (result.isError || context.isError) {
         const first = text.split("\n")[0] || "command failed";
-        const body = expanded && text ? text : first;
-        return new Text(clampLinesToWidth([summaryLine(body)], width).join("\n"), 0, 0);
+        const rest = expanded && text ? text.slice(first.length) : "";
+        return new Text(clampLinesToWidth([summaryLine(first + took) + rest], width).join("\n"), 0, 0);
       }
-      if (!text.trim()) return new Text(summaryLine("command completed (no output)"), 0, 0);
+      if (!text.trim()) return new Text(summaryLine(`command completed (no output)${took}`), 0, 0);
       const lineCount = text.split("\n").filter(Boolean).length;
+      const returned = `${lineCount} ${lineCount === 1 ? "line" : "lines"} returned${took}`;
       if (expanded) {
-        const rendered = `${summaryLine(`${lineCount} ${lineCount === 1 ? "line" : "lines"} returned`)}\n${text}`;
+        const rendered = `${summaryLine(returned)}\n${text}`;
         return new Text(clampLinesToWidth(rendered.split("\n"), width).join("\n"), 0, 0);
       }
       const preview = buildCollapsedPreview(text, resolvePreviewLines(), width);
-      const summary = summaryLine(`${lineCount} ${lineCount === 1 ? "line" : "lines"} returned`, { hidden: preview.lines.length === 0 });
+      const summary = summaryLine(returned, { hidden: preview.lines.length === 0 });
       const out = [summary, ...(preview.hint ? [preview.hint] : []), ...preview.lines];
       return new Text(clampLinesToWidth(out, width).join("\n"), 0, 0);
     },
   };
   pi.registerTool(tool as any);
   return tool;
+}
+
+/** Copy of Pi 1.4.0's `formatToolDuration` (core/tools/render-utils.js), which its package root does not export. */
+function formatToolDuration(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const totalSeconds = Math.floor(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainder = totalSeconds % 60;
+  if (minutes < 60) return `${minutes}m ${remainder}s`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m ${remainder}s`;
 }
