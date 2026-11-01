@@ -1204,6 +1204,8 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 		promptSnippet: EDIT_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: EDIT_PROMPT_METADATA.promptGuidelines,
 		parameters: hashlineEditSchema,
+		// edit's schema fails strict conversion, so the host sends it non-strict, as it does the built-in.
+		constrainedSampling: { type: "json_schema", strict: "prefer" } as const,
 		renderShell: "default" as const,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const normalized = normalizeToolParameters(hashlineEditSchema, params);

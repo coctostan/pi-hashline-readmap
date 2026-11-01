@@ -198,6 +198,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 		promptSnippet: READ_PROMPT_METADATA.promptSnippet,
 		promptGuidelines: READ_PROMPT_METADATA.promptGuidelines,
 		parameters: READ_PARAMETERS,
+		constrainedSampling: { type: "json_schema", strict: "prefer" } as const,
 		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const normalizedParams = normalizeToolParameters(READ_PARAMETERS, params);
 			if (normalizedParams.requiredNull) {

@@ -172,6 +172,17 @@ try {
   const validWrite = await invoke("write", { path: "null", content: "fresh\n", map: null });
   assert.equal(validWrite.isError, false);
   assert.equal(readFileSync(join(cwd, "null"), "utf8"), "fresh\n");
+  // Strict constrained sampling makes every field required, so the provider sends null for each optional one.
+  const strictCalls = { read: { path: "null" }, write: { path: "null", content: "fresh\n" }, bash: { command: "printf strict" } };
+  for (const [name, omitted] of Object.entries(strictCalls)) {
+    const parameters = extension.tools.get(name).definition.parameters;
+    assert.deepEqual(parameters.required, Object.keys(omitted), name + " required fields");
+    const nulled = Object.fromEntries(Object.keys(parameters.properties).map((key) => [key, omitted[key] ?? null]));
+    const outcome = await invoke(name, nulled);
+    assert.equal(outcome.isError, false, name + " must run with every optional field null");
+    assert.deepEqual(beforeArgs, omitted, name + " must receive the omitted call's arguments");
+  }
+  assert.equal(readFileSync(join(cwd, "null"), "utf8"), "fresh\n");
 
   // Codemode contract: structuredContent survives the real tool_result pipeline, so scripts
   // receive { text, ...ptcValue } instead of rendered text.
