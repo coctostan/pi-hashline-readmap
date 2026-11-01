@@ -49,6 +49,7 @@ describe("bash renderer wrapper", () => {
     expect(render(ok, { durationMs: 7_384_000 })).toBe("↳ 1 line returned • Took 2h 3m 4s\nok");
     expect(render({ content: [{ type: "text", text: "" }] }, { durationMs: 0 })).toBe("↳ command completed (no output) • Took 0.0s");
     expect(render({ content: [{ type: "text", text: "boom\nmore" }], isError: true }, { durationMs: 1500 })).toBe("↳ boom • Took 1.5s");
+    expect(render({ content: [{ type: "text", text: "boom\nmore" }], isError: true }, { durationMs: 1500, expanded: true })).toBe("↳ boom • Took 1.5s\nmore");
     // Undefined while running and for results stored without a duration: no timing, as the built-in.
     expect(render(ok, { durationMs: undefined })).toBe("↳ 1 line returned\nok");
   });
