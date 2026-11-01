@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-11-01
+
+Pi 1.4.0 is now the one tested host, and the tools this extension replaces regain what Pi's built-ins gained since 0.84.2.
+
+### Added
+
+- `read`, `edit`, `write` and `bash` request Pi's `strict: "prefer"` constrained sampling (`{ type: "json_schema", strict: "prefer" }`), as the built-ins they replace do. On a provider that supports it, `read`, `write` and `bash` arguments are sampled against their schemas, where every optional field becomes required and nullable; a `null` runs as if the field were omitted, as it already did. `edit`'s schema does not pass the host's strict conversion, so Pi sends it unconstrained.
+- A finished `bash` row shows how long the command took (`↳ 1 line returned • Took 4.2s`), from the duration the host records and formatted as the built-in `bash` row formats it. A partial row, or a host that records no duration, shows none.
+
+### Changed
+
+- The extension is developed and tested against exactly one Pi host, Pi 1.4.0, which `package-lock.json` locks. Hosts older than the lock are no longer tested, and CI runs a single host lane instead of the locked Pi 0.84.2 lane plus a separately installed Pi 1.2.0 lane. Peer ranges stay `"*"`.
+- `PI_COMPAT_HOST=<pi-coding-agent install>` runs the host tests and `npm run typecheck:pi-host` against another Pi before the lock moves, expecting that install's own version; unset, the locked host is selected. A missing install fails instead of falling back. See AGENTS.md's "Host compatibility".
+
+### Fixed
+
+- An expanded failed `bash` row whose output starts with a blank line heads with `command failed` instead of a bare `↳`.
+
 ## [0.17.0] - 2026-10-31
 
 Anchor freshness now matches what the model sees: the extension's own edits keep a file's anchors usable, and any `bash` change to a file expires them. Thanks to @llehouerou, whose PRs #237–#240 found these four defects and proposed the fixes this release ships in reworked form.
