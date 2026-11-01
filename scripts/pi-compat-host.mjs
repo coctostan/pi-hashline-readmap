@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
-export const PI_COMPAT_VERSION = "1.2.0";
+export const PI_COMPAT_VERSION = "1.4.0";
 
 export function assertCompatHost(input) {
   if (typeof input !== "string" || input.trim() === "") {

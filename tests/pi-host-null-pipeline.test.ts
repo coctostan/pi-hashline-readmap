@@ -20,8 +20,8 @@ const version = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).ver
 const lockedVersion = JSON.parse(readFileSync("package-lock.json", "utf8")).packages["node_modules/@earendil-works/pi-coding-agent"].version;
 assert.equal(version, process.env.PI_COMPAT_HOST ? process.env.PI_COMPAT_EXPECTED_VERSION : lockedVersion, "selected host version must match the lane");
 
-// Resolve agent-core through its declared "./package.json" export, not a bare specifier: 0.84.2,
-// 0.99.x and 1.0.0 only expose "." under "types"/"import", so a bare require/resolve throws
+// Resolve agent-core through its declared "./package.json" export, not a bare specifier: its "."
+// export has only "types"/"import" conditions, so a bare require/resolve throws
 // ERR_PACKAGE_PATH_NOT_EXPORTED. Root the lookup at the selected host (not repo-local resolution)
 // so a hoisted or nested agent-core is found either way.
 const hostRequire = createRequire(join(host, "package.json"));
@@ -30,51 +30,9 @@ const coreRoot = dirname(coreManifest);
 const coreVersion = JSON.parse(readFileSync(coreManifest, "utf8")).version;
 assert.equal(coreVersion, version, "agent-core must come from the selected host installation");
 const { discoverAndLoadExtensions, wrapRegisteredTool, ExtensionRunner, SessionManager } = await import(pathToFileURL(join(host, "dist/index.js")));
-const coreLoop = await import(pathToFileURL(join(coreRoot, "dist/agent-loop.js")));
-
-// The current-host agent-core (>= 0.99) exports runToolCall directly. 0.84.2's agent-core does not (it only has
-// agentLoop/agentLoopContinue/runAgentLoop/runAgentLoopContinue), so the locked lane drives one
-// real turn through runAgentLoop with an injected deterministic stream whose assistant message
-// carries exactly the one tool call under test. shouldStopAfterTurn ends the loop after that
-// turn so no second simulated model turn happens. Either path exercises the real
-// prepareToolCallArguments -> validateToolArguments -> beforeToolCall -> execute -> afterToolCall
-// sequence; this is glue around the real API, not a substitute validator.
-async function runSelectedHostToolCall(call, options) {
-  if (typeof coreLoop.runToolCall === "function") {
-    return coreLoop.runToolCall(call, options);
-  }
-  assert.equal(version, lockedVersion, "only the locked lane needs the legacy loop adapter");
-  assert.equal(typeof coreLoop.runAgentLoop, "function");
-  const assistant = {
-    role: "assistant",
-    content: [call],
-    stopReason: "toolUse",
-  };
-  const messages = await coreLoop.runAgentLoop(
-    [],
-    options.context,
-    {
-      model: { provider: "test" },
-      convertToLlm: (messages) => messages,
-      shouldStopAfterTurn: () => true,
-      beforeToolCall: options.beforeToolCall,
-      afterToolCall: options.afterToolCall,
-    },
-    async () => {},
-    undefined,
-    () => ({
-      async *[Symbol.asyncIterator]() {},
-      result: async () => assistant,
-    }),
-  );
-  const message = messages.find((item) => item.role === "toolResult" && item.toolCallId === call.id);
-  assert.ok(message, "real locked-host loop must produce a tool result");
-  return {
-    toolCall: call,
-    result: { content: message.content, details: message.details },
-    isError: message.isError,
-  };
-}
+// runToolCall is the real prepareToolCallArguments -> validateToolArguments -> beforeToolCall ->
+// execute -> afterToolCall sequence; no substitute validator.
+const { runToolCall } = await import(pathToFileURL(join(coreRoot, "dist/agent-loop.js")));
 
 const root = mkdtempSync(join(tmpdir(), "pi-258-null-pipeline-"));
 const cwd = join(root, "cwd");
@@ -149,7 +107,7 @@ try {
   let afterArgs;
   async function invoke(name, args) {
     const call = { type: "toolCall", id: "case-" + nextId++, name, arguments: args };
-    return runSelectedHostToolCall(call, {
+    return runToolCall(call, {
       tools,
       assistantMessage: { role: "assistant", content: [call] },
       context: { messages: [], tools },
@@ -218,20 +176,18 @@ try {
   assert.equal(validWrite.isError, false);
   assert.equal(readFileSync(join(cwd, "null"), "utf8"), "fresh\n");
 
-  // Codemode contract: hosts that support outputSchema keep structuredContent through the real
-  // tool_result pipeline, so scripts receive { text, ...ptcValue } instead of rendered text.
+  // Codemode contract: structuredContent survives the real tool_result pipeline, so scripts
+  // receive { text, ...ptcValue } instead of rendered text.
   const registeredRead = extension.tools.get("read").definition;
   assert.equal(registeredRead.annotations?.readOnlyHint, true);
   assert.ok(registeredRead.outputSchema, "read must declare an outputSchema for codemode");
-  if (typeof coreLoop.runToolCall === "function") {
-    const structuredRead = await invoke("read", { path: "null" });
-    assert.equal(structuredRead.isError, false);
-    const structured = structuredRead.result.structuredContent;
-    assert.ok(structured, "structuredContent must survive the host pipeline");
-    assert.equal(structured.tool, "read");
-    assert.equal(structured.lines[0].raw, "fresh");
-    assert.equal(structured.text, structuredRead.result.content.find((item) => item.type === "text").text);
-  }
+  const structuredRead = await invoke("read", { path: "null" });
+  assert.equal(structuredRead.isError, false);
+  const structured = structuredRead.result.structuredContent;
+  assert.ok(structured, "structuredContent must survive the host pipeline");
+  assert.equal(structured.tool, "read");
+  assert.equal(structured.lines[0].raw, "fresh");
+  assert.equal(structured.text, structuredRead.result.content.find((item) => item.type === "text").text);
   assert.deepEqual(handlerErrors, []);
   console.log("host-version=" + version + "; null-pipeline=PASS; nu=" + extension.tools.has("nu"));
 } finally {

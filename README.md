@@ -20,7 +20,7 @@ Requires Pi extension support and Node.js 22.19 or newer. Start a new Pi session
 
 ### Validated compatibility baseline
 
-Development, schema validation, and extension-load testing use the exact Pi version resolved by `package-lock.json`, currently Pi 0.84.2, with TypeBox 1.3.7. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally retain `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
+Development, schema validation, and extension-load testing use the exact Pi version resolved by `package-lock.json`, currently Pi 1.4.0, with TypeBox 1.3.27. Pi provides `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, and `typebox` to loaded extensions, so those host-bundled packages intentionally retain `"*"` peer ranges; the development dependencies and lockfile record the versions validated by this repository.
 
 Run the compatibility coverage through the normal test suite or by itself:
 
@@ -30,7 +30,7 @@ npm test -- tests/pi-extension-load-compatibility.test.ts tests/pi-host-null-pip
 npm run typecheck
 ```
 
-The suite exercises the real locked-host tool pipeline as well as extension loading. [Compatibility CI](https://github.com/coctostan/pi-hashline-readmap/actions/workflows/pi-compatibility.yml) independently provisions exactly Pi 1.2.0. Through that host's loader, wrapper, agent-core pipeline, and `ExtensionRunner`, it checks required-null rejection, `structuredContent` passthrough, and real codemode scripts. An npm 11/12 matrix verifies both array and keyed-object `npm pack --json` output. This runtime lane does not replace the locked development baseline or typecheck; see [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md) to reproduce it.
+The suite exercises the real locked-host tool pipeline as well as extension loading. [Compatibility CI](https://github.com/coctostan/pi-hashline-readmap/actions/workflows/pi-compatibility.yml) independently provisions exactly Pi 1.4.0. Through that host's loader, wrapper, agent-core pipeline, and `ExtensionRunner`, it checks required-null rejection, `structuredContent` passthrough, and real codemode scripts. An npm 11/12 matrix verifies both array and keyed-object `npm pack --json` output. This runtime lane does not replace the locked development baseline or typecheck; see [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md) to reproduce it.
 
 The extension and the exact Pi host version resolved by `package-lock.json` share one Node.js engine baseline, currently Node.js 22.19 or newer. The loader compatibility test verifies that this package's `engines.node` declaration stays identical to the installed locked Pi host package's declaration.
 
