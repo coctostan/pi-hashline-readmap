@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { it } from "vitest";
+import { PI_COMPAT_VERSION } from "../scripts/pi-compat-host.mjs";
 import { host, supported } from "./helpers/codemode-recipes.js";
 
 it.skipIf(!supported)("benchmarks equivalent normal and codemode-only workflows with bounded metrics", () => {
@@ -10,7 +11,7 @@ it.skipIf(!supported)("benchmarks equivalent normal and codemode-only workflows 
   });
   assert.equal(run.status, 0, run.stderr);
   const report = JSON.parse(run.stdout);
-  assert.equal(report.version, "1.2.0");
+  assert.equal(report.version, PI_COMPAT_VERSION);
   assert.equal(report.host, host);
   assert.equal(report.rows.length, 4);
   for (const row of report.rows) {

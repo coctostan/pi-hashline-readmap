@@ -47,7 +47,7 @@ export function recipe(id: string): string {
 }
 /**
  * Prepends seed statements to a recipe while keeping a leading `// @options:` line first.
- * Pi 1.2.0+ rejects an options line that is not the first line of the script.
+ * The selected host rejects an options line that is not the first line of the script.
  */
 export function seeded(seed: string, code: string): string {
   const statements = seed.endsWith("\n") ? seed : seed + "\n";
