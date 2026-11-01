@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
-import { PI_COMPAT_VERSION, runDistScenario } from "./helpers/pi-host-dist-harness.js";
+import { runDistScenario, version } from "./helpers/pi-host-dist-harness.js";
 
 function expectLane(stdout: string, scenario: string) {
   expect(stdout).toContain(`scenario=${scenario}=PASS`);
-  if (process.env.PI_COMPAT_HOST) expect(stdout).toContain(`host-version=${PI_COMPAT_VERSION};`);
+  expect(stdout).toContain(`host-version=${version};`);
 }
 
 it("falls back to index.ts through the host's manifest resolution when dist/ is absent", () => {

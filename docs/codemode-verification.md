@@ -1,6 +1,6 @@
 # Codemode boundary verification
 
-Automated checks do not hot-reload a running Pi session. Complete both runtime lanes (locked and independent Pi 1.2.0) and both declaration lanes (`npm run typecheck` and `npm run typecheck:pi-host`) in [AGENTS.md](../AGENTS.md#independent-current-host-compatibility) first. Then stop the implementation session and start a new Pi 1.2.0 process that loads this checkout's `index.ts`. Do not use the pre-update session as updated-code evidence.
+Automated checks do not hot-reload a running Pi session. Complete `npm test` and both declaration checks (`npm run typecheck` and `npm run typecheck:pi-host`) on the [locked host](../AGENTS.md#host-compatibility) first. Then stop the implementation session and start a new Pi process at the locked version that loads this checkout's `index.ts`. Do not use the pre-update session as updated-code evidence.
 
 Record the date, git commit, launcher path, actual running Pi version and installation directory. Use `command -v pi` and `pi --version`, then inspect the launcher's selected installation rather than assuming a global npm path. A managed install can be identified from `~/.pi/agent/install/current-version`; verify the selected `package.json` version in that release directory. Record these actual values in the issue's verification artifact.
 
@@ -97,4 +97,4 @@ Read the most recent private fixture using the direct `read` tool so its anchors
 
 ## Completion gate
 
-Record actual scripts, relevant outputs, both runtime lanes, both declaration lanes, version/installation provenance, checkout commit and unverified boundaries in `.megapowers/plans/264-verify-pi-1-1-compatibility-and-adopt-cu/live-verification.md`. Clean only generated `tmp/264-live-*` fixtures and saved images belonging to these checks. A freshly started Pi 1.1.0 process loading the final checkout is required for AC 22. If unavailable, record the blocker and stop short of overall completion. A running pre-update session or automated Node harness is not fresh-live evidence.
+Record actual scripts, relevant outputs, the test and declaration-check results, version/installation provenance, checkout commit and unverified boundaries in the change's verification record. Clean only generated fixtures and saved images belonging to these checks. A freshly started Pi process at the locked version loading the final checkout is required. If unavailable, record the blocker and stop short of overall completion. A running pre-update session or automated Node harness is not fresh-live evidence.

@@ -1,20 +1,14 @@
 import { execFileSync } from "node:child_process";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { selectCompatHost } from "../../scripts/pi-compat-host.mjs";
 
-export { PI_COMPAT_VERSION } from "../../scripts/pi-compat-host.mjs";
+export const { host, version } = selectCompatHost();
 
 export type DistScenario = "fallback" | "built" | "negative" | "extracted";
-
-export function selectedHost(): string {
-  const lockedHost = resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), "..");
-  return process.env.PI_COMPAT_HOST ? resolve(process.env.PI_COMPAT_HOST) : lockedHost;
-}
 
 export function runDistScenario(scenario: DistScenario, extraEnv: Record<string, string> = {}): string {
   return execFileSync(process.execPath, ["--input-type=module", "-e", SCRIPT], {
     cwd: process.cwd(),
-    env: { ...process.env, PI_TEST_HOST: selectedHost(), PI_TEST_SCENARIO: scenario, ...extraEnv },
+    env: { ...process.env, PI_TEST_HOST: host, PI_TEST_SCENARIO: scenario, ...extraEnv },
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,

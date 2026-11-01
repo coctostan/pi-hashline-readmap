@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { assertCompatHost } from "./pi-compat-host.mjs";
+import { selectCompatHost } from "./pi-compat-host.mjs";
 
-const { host, version } = assertCompatHost(process.env.PI_COMPAT_HOST);
+const { host, version } = selectCompatHost();
 const iterations = Number(process.env.PI_CODEMODE_BENCH_ITERATIONS ?? 3);
 assert.ok(Number.isSafeInteger(iterations) && iterations >= 1 && iterations <= 10, "Benchmark iterations must be 1..10");
 const doc = readFileSync("docs/codemode-recipes.md", "utf8");
