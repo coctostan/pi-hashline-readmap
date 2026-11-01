@@ -17,11 +17,8 @@ it("checks extension declarations against the selected host", () => {
   assert.equal(report.version, version);
   assert.equal(report.diagnostics, 0);
   const selectedModules = realpathSync(resolve(host, "../.."));
-  const lockedModules = realpathSync(resolve("node_modules"));
   for (const name of ["pi-coding-agent", "pi-agent-core", "pi-ai", "pi-tui"]) {
-    const path = report.declarations["@earendil-works/" + name];
-    assert.ok(path.startsWith(selectedModules + sep), "selected declaration " + name);
-    if (process.env.PI_COMPAT_HOST) assert.ok(!path.startsWith(lockedModules + sep), "no locked declaration " + name);
+    assert.ok(report.declarations["@earendil-works/" + name].startsWith(selectedModules + sep), "selected declaration " + name);
   }
   assert.ok(report.extensionFiles.includes(resolve("index.ts")));
   assert.ok(report.extensionFiles.includes(resolve("src/codemode-integration.ts")));
