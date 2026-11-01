@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { realpathSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import { it } from "vitest";
+import { PI_COMPAT_VERSION } from "../scripts/pi-compat-host.mjs";
 
 const host = process.env.PI_COMPAT_HOST;
 
@@ -13,7 +14,7 @@ it.skipIf(!host)("checks extension declarations against the isolated current hos
   });
   assert.equal(run.status, 0, run.stderr || run.stdout);
   const report = JSON.parse(run.stdout.trim().split("\n").at(-1)!);
-  assert.equal(report.version, "1.2.0");
+  assert.equal(report.version, PI_COMPAT_VERSION);
   assert.equal(report.diagnostics, 0);
   const selectedModules = realpathSync(resolve(host!, "../.."));
   const lockedModules = realpathSync(resolve("node_modules"));
