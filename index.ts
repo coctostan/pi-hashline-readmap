@@ -141,21 +141,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
+// Every compaction names its bypass, whatever its size: the full output must stay recoverable.
 function buildRtkNotice(
-  info: {
-    originalBytes: number;
-    outputBytes: number;
-    compressionRatio: number;
-    technique: string;
-    bypassedBy?: string;
-  },
+  info: { originalBytes: number; outputBytes: number; compressionRatio: number; technique: string },
   command: string,
-  outputIsEmpty: boolean,
+  compacted: boolean,
 ): string | null {
-  if (info.bypassedBy !== undefined) return null;
-  if (outputIsEmpty) return null;
-  if (info.originalBytes <= 2000) return null;
-  if (info.compressionRatio >= 0.5) return null;
+  if (!compacted) return null;
   const pct = Math.round((1 - info.compressionRatio) * 100);
   return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved). Use \`PI_RTK_BYPASS=1 ${command}\` to see full output.]`;
 }
@@ -325,7 +317,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       if (prefixParts.length === 0) return body;
       return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
-    const { output, savedChars, info } = filterBashOutput(
+    const { output, savedChars, compacted, info } = filterBashOutput(
       command,
       originalSelection.inputForRtk,
       { isError: event.isError === true },
@@ -333,7 +325,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (process.env.PI_RTK_SAVINGS === "1") {
       process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
     }
-    const notice = buildRtkNotice(info, command, output === "");
+    const notice = buildRtkNotice(info, command, compacted);
     const body = notice ? `${notice}\n${output}` : output;
     const finalText = applyWarning(body);
     const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)

@@ -32,6 +32,8 @@ export interface CompressionInfo {
 export interface FilterResult {
   output: string;
   savedChars: number;
+  /** A compactor changed the output, beyond ANSI stripping and the anti-pattern hint. */
+  compacted: boolean;
   info: CompressionInfo;
 }
 
@@ -98,7 +100,7 @@ export function filterBashOutput(
   options: FilterBashOutputOptions = {},
 ): FilterResult {
   if (output === "") {
-    return { output: "", savedChars: 0, info: makeInfo("", "", "none") };
+    return { output: "", savedChars: 0, compacted: false, info: makeInfo("", "", "none") };
   }
 
   const stripped = stripAnsi(output);
@@ -112,6 +114,7 @@ export function filterBashOutput(
     return {
       output: result,
       savedChars: output.length - result.length,
+      compacted: false,
       info: makeInfo(output, result, "none", { bypassedBy: "env-var" }),
     };
   }
@@ -120,6 +123,7 @@ export function filterBashOutput(
     return {
       output: stripped,
       savedChars: output.length - stripped.length,
+      compacted: false,
       info: makeInfo(output, stripped, "test-output"),
     };
   }
@@ -167,6 +171,7 @@ export function filterBashOutput(
       technique = "none";
     }
   }
+  const compacted = result !== stripped;
   const antiPatternHint = getBashAntiPatternHint(command);
   if (antiPatternHint) {
     result = result ? `${result}\n\n${antiPatternHint}` : antiPatternHint;
@@ -174,6 +179,7 @@ export function filterBashOutput(
   return {
     output: result,
     savedChars: output.length - result.length,
+    compacted,
     info: makeInfo(output, result, technique),
   };
 }

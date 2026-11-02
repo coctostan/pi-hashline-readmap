@@ -150,7 +150,7 @@ describe("bash context guard integration", () => {
 
       expect(seenByRtk).toContain("VISIBLE");
       expect(seenByRtk).not.toContain("FULL\nFULL");
-      expect(result.content[0].text).toBe("compressed visible");
+      expect(result.content[0].text).toMatch(/^\[RTK: compressed git output .*\]\ncompressed visible$/);
       expect(result.details.compressionInfo.technique).toBe("git");
       expect(result.details.bashOriginalOutput).toBeUndefined();
       expect(result.details.bashContextGuard).toMatchObject({ enabled: false, trimmed: false, trimWanted: false });

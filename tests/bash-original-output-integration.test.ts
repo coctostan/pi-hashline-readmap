@@ -45,7 +45,7 @@ describe("bash original output integration", () => {
       });
 
       expect(seenByRtk).toBe("FULL git output\n");
-      expect(result.content[0].text).toBe("compressed full output");
+      expect(result.content[0].text).toMatch(/^\[RTK: compressed git output .*\]\ncompressed full output$/);
       expect(result.details.existing).toBe("keep");
       expect(result.details.compressionInfo.technique).toBe("git");
       expect(result.details.contextHygiene.classification).toBe("command-output");
