@@ -16,6 +16,7 @@ Every compressed `bash` result now says truthfully what it dropped: each cut end
 - Every compressor that cuts output past a size budget ends the cut with a marker naming the true count in its own unit, and that marker sets `details.rtkCompaction.truncated`: `... and N more lines` for `git diff` (was `... +N more changes`), `  ... and N more files` for `git status` (was `... +N more`), `  ... and N more lines` for a long build error (was a bare `...`), `  ... and N more rules` and `  ... and N more files` for the linter's top-10 lists (cut with no marker before), and `Total: N entries in M directories` for `find` (was `N files`, counting directories too). A trailing newline no longer counts as a dropped line. Filters that drop only noise set nothing. See the marker table in `docs/bash-output.md`.
 - `find` output is summarized past 100 entries rather than 100 lines, and `ls -R` and `tree` output passes through unchanged, since their headers and tree lines can't be counted as entries.
 - A `bash` result that only gained a tool hint (such as `find`'s hint to prefer the file-search tools) reports `details.rtkCompaction.applied: false, techniques: []`. Before, a 2-line `find src -name '*.ts'` reported `applied: true, techniques: ["file-listing"]`. A test command's ANSI-only result still reports `applied: true, techniques: ["test-output"]`.
+
 ## [0.19.1] - 2026-11-02
 
 `bash` compression no longer drops or mislabels output from chained or piped commands, and every compressed result says how to see the full output.
