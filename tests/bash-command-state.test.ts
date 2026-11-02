@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBashCommandState, extractShellFileMutationTargets } from "../src/bash-command-state.js";
+import { buildBashCommandState, extractShellFileMutationTargets, parseShellCommands } from "../src/bash-command-state.js";
 
 describe("buildBashCommandState", () => {
   it("classifies git repo-state, history, and mutation commands", () => {
@@ -251,5 +251,30 @@ describe("extractShellFileMutationTargets follows cd", () => {
 
   it.each(cases)("%s", (_name, command, expected) => {
     expect(extractShellFileMutationTargets(command, cwd)).toEqual(expected);
+  });
+});
+
+describe("parseShellCommands marks printing parts", () => {
+  // Each simple command as [text, inSubstitution, feedsPipe], in the order the parser returns them.
+  const cases: Array<[string, string, Array<[string, boolean, boolean]>]> = [
+    ["; separator", "git log -3; echo done", [["git log -3", false, false], ["echo done", false, false]]],
+    ["&& then a pipe", "cd sub && git diff | cat", [["cd sub", false, false], ["git diff", false, true], ["cat", false, false]]],
+    ["|| is not a pipe", "npm test || echo failed", [["npm test", false, false], ["echo failed", false, false]]],
+    ["|& is a pipe", "npm test |& tail -5", [["npm test", false, true], ["tail -5", false, false]]],
+    ["command substitution", "echo $(git log)", [["git log", true, false], ["echo $(git log)", false, false]]],
+    ["pipe inside a substitution", "v=$(git log | head -1)", [["git log", true, true], ["head -1", true, false], ["v=$(git log | head -1)", false, false]]],
+    ["backticks", "echo `git rev-parse HEAD`", [["git rev-parse HEAD", true, false], ["echo `git rev-parse HEAD`", false, false]]],
+    ["process substitution", "diff <(sort a) b", [["sort a", true, false], ["diff <(sort a) b", false, false]]],
+    ["subshell", "(cd x && git diff)", [["cd x", false, false], ["git diff", false, false]]],
+    ["heredoc", "cat <<'EOF' | wc -l\na | b; c\nEOF\ngit status", [["cat <<'EOF'", false, true], ["wc -l", false, false], ["git status", false, false]]],
+    ["redirections", "git diff 2>&1 > out.txt", [["git diff 2>&1 > out.txt", false, false]]],
+    ["redirection first", "2>/dev/null git status; >out.txt echo hi", [["2>/dev/null git status", false, false], [">out.txt echo hi", false, false]]],
+    ["quoted ; and |", "git commit -m 'a; b | c' && echo \"x|y\"", [["git commit -m 'a; b | c'", false, false], ["echo \"x|y\"", false, false]]],
+    ["comment and line continuation", "git log \\\n  --oneline # note | x\necho y", [["git log \\\n  --oneline", false, false], ["echo y", false, false]]],
+  ];
+
+  it.each(cases)("%s", (_name, command, expected) => {
+    const parts = parseShellCommands(command, "/tmp").commands.map((part) => [part.text, part.inSubstitution, part.feedsPipe]);
+    expect(parts).toEqual(expected);
   });
 });
