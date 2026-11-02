@@ -141,15 +141,18 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-// Every compaction names its bypass, whatever its size: the full output must stay recoverable.
+// Every compaction names its saved original and its bypass, whatever its size: the full output
+// must stay recoverable. A failed snapshot write leaves only the bypass.
 function buildRtkNotice(
   info: { originalBytes: number; outputBytes: number; compressionRatio: number; technique: string },
   command: string,
   compacted: boolean,
+  originalPath: string | undefined,
 ): string | null {
   if (!compacted) return null;
   const pct = Math.round((1 - info.compressionRatio) * 100);
-  return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved). Use \`PI_RTK_BYPASS=1 ${command}\` to see full output.]`;
+  const original = originalPath ? ` Original output: ${originalPath}.` : "";
+  return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved).${original} Use \`PI_RTK_BYPASS=1 ${command}\` to re-run uncompressed.]`;
 }
 
 function willBashContextGuardTrim(text: string, config: BashContextGuardConfig): boolean {
@@ -275,7 +278,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const originalSelection = selectBashOriginalOutput({
       visibleText: originalText,
       fullOutputPath: existingDetails.fullOutputPath,
-      enabled: bashContextGuardConfig.enabled,
+      restore: bashContextGuardConfig.enabled,
     });
 
     const command =
@@ -325,23 +328,30 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (process.env.PI_RTK_SAVINGS === "1") {
       process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
     }
-    const notice = buildRtkNotice(info, command, compacted);
+    // A compacted result names a saved pre-RTK copy; the guard's preview reuses it.
+    const originalMetadata = compacted
+      ? ensureBashOriginalOutputSnapshot({
+          visibleText: originalSelection.inputForRtk,
+          metadata: originalSelection.metadata,
+        })
+      : originalSelection.metadata;
+    const notice = buildRtkNotice(info, command, compacted, originalMetadata?.originalPath);
     const body = notice ? `${notice}\n${output}` : output;
     const finalText = applyWarning(body);
     const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)
       ? ensureBashOriginalOutputSnapshot({
           visibleText: originalText,
-          metadata: originalSelection.metadata,
+          metadata: originalMetadata,
           enabled: bashContextGuardConfig.enabled,
         })
-      : originalSelection.metadata;
+      : originalMetadata;
     const guarded = applyBashContextGuard({
       text: finalText,
       command,
       originalMetadata: originalMetadataForGuard,
       config: bashContextGuardConfig,
     });
-    const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalSelection.metadata;
+    const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalMetadata;
     const rtkCompaction = buildRtkCompaction({
       rawInput: originalSelection.inputForRtk,
       output,

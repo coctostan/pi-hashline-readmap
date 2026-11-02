@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync, rmSync, statSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve } from "node:path";
 import * as git from "../src/rtk/git.js";
@@ -154,5 +155,52 @@ describe("details.rtkCompaction — dropped end-to-end", () => {
       dropped: [{ count: 1, unit: "lines" }],
     });
     expect(result.details.ptcValue?.rtkCompaction).toEqual(result.details.rtkCompaction);
+  });
+});
+
+describe("RTK notice — Original output names the saved pre-RTK copy", () => {
+  it("names a 0600 file holding the pre-RTK output byte for byte, and no Full output:", async () => {
+    const handler = await loadHandler("original-output");
+    const lines = Array.from({ length: 21 }, (_, i) => `abc${String(i).padStart(4, "0")} subjéct ${i}`);
+    const rawInput = lines.join("\n") + "\n";
+    const result = await handler(makeBashEvent("t-original", "git log --oneline", rawInput));
+    const text: string = result.content[0].text;
+    const match = text.match(
+      /^\[RTK: compressed git output .* \(-?\d+% saved\)\. Original output: (\S+)\. Use `PI_RTK_BYPASS=1 git log --oneline` to re-run uncompressed\.\]\n/,
+    );
+    expect(match, text).not.toBeNull();
+    const path = match![1];
+    try {
+      expect(readFileSync(path)).toEqual(Buffer.from(rawInput, "utf8"));
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+      expect(text).not.toContain("Full output:");
+      expect(result.details.bashOriginalOutput).toMatchObject({ originalPath: path, snapshotWritten: true });
+    } finally {
+      rmSync(path, { force: true });
+    }
+  });
+
+  it("drops the Original output clause, keeping the bypass, when the snapshot write fails", async () => {
+    const handler = await loadHandler("original-fail");
+    const saved = process.env.TMPDIR;
+    process.env.TMPDIR = "/nonexistent-hashline-tmpdir";
+    try {
+      const lines = Array.from({ length: 21 }, (_, i) => `abc${String(i).padStart(4, "0")} subject ${i}`);
+      const result = await handler(makeBashEvent("t-original-fail", "git log --oneline", lines.join("\n")));
+      expect(result.content[0].text.split("\n")[0]).toMatch(
+        /\(-?\d+% saved\)\. Use `PI_RTK_BYPASS=1 git log --oneline` to re-run uncompressed\.\]$/,
+      );
+      expect(result.details.bashOriginalOutput.snapshotWriteError).toContain("ENOENT");
+    } finally {
+      if (saved === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = saved;
+    }
+  });
+
+  it("saves nothing for an uncompacted result", async () => {
+    const handler = await loadHandler("original-none");
+    const result = await handler(makeBashEvent("t-original-none", "echo hello", "hello\n"));
+    expect(result.content[0].text).toBe("hello\n");
+    expect(result.details.bashOriginalOutput?.originalPath).toBeUndefined();
   });
 });

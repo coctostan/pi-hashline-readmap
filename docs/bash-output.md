@@ -36,7 +36,13 @@ A command line picks its route by the one part whose output fills the result: a 
 | `git diff \| cat` | none (`cat` prints) |
 | `git status && git diff` | none (two parts print) |
 
-Whenever a compressor changed the output, whatever its size, the visible result starts with an RTK notice giving the original and compressed sizes and the `PI_RTK_BYPASS=1 <command>` that shows the full output. A result that only lost its ANSI codes or gained a tool hint has none, and its `details.rtkCompaction` reports `applied: false`; a test command's ANSI-only result is the one exception, reporting `applied: true, techniques: ["test-output"]`.
+Whenever a compressor changed the output, whatever its size, the visible result starts with an RTK notice giving the original and compressed sizes, `Original output: <path>`, a saved copy of the output before compression, and the `PI_RTK_BYPASS=1 <command>` that re-runs the command uncompressed:
+
+```text
+[RTK: compressed git output 8.2 KB → 1.2 KB (86% saved). Original output: /tmp/hashline-bash-original-<id>.txt. Use `PI_RTK_BYPASS=1 git diff` to re-run uncompressed.]
+```
+
+When Pi truncated the output itself, the path is Pi's own full-output file; otherwise it is a `0600` file in the system temp directory holding the compressor's input byte for byte. The notice names it with the context guard off too. Reading that file recovers what was cut without running the command again. If the copy cannot be written, the notice keeps only the re-run, and `details.bashOriginalOutput.snapshotWriteError` says why. The label is never `Full output:`, which is Pi's own. A result that only lost its ANSI codes or gained a tool hint has none, and its `details.rtkCompaction` reports `applied: false`; a test command's ANSI-only result is the one exception, reporting `applied: true, techniques: ["test-output"]`.
 
 ### Drop markers
 
@@ -95,7 +101,7 @@ Default limits:
 When output exceeds the line or byte budget, the guard writes the full post-RTK output to a temp file and replaces the visible result with a recoverable preview. The preview includes:
 
 - `Full post-RTK output: <path>`
-- `Original/pre-RTK output: <path>` when an original snapshot is available
+- `Original/pre-RTK output: <path>` when an original snapshot is available, the same path the RTK notice names
 - original and post-RTK line/byte counts
 - active limits
 - a compact command label
@@ -133,4 +139,4 @@ Guard metadata remains at `details.bashContextGuard`. When trimming occurs, use 
 
 If the visible Bash result contains a full-output path, inspect that file in the same session or copy it elsewhere before cleaning temp files. The guard stores full post-RTK output with mode `0600` in the system temp directory.
 
-If an original/pre-RTK output snapshot path is present, use that path when you need the command output before RTK compression.
+If an original/pre-RTK output snapshot path is present, use that path when you need the command output before RTK compression. Every compacted result names one in its RTK notice as `Original output: <path>`.

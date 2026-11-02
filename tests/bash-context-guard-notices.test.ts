@@ -7,7 +7,7 @@ function occurrences(haystack: string, needle: string): number {
 
 describe("guarded Bash preview protected notices", () => {
   it("deduplicates protected notices, removes wrapper lines, and truncates the command in the header", () => {
-    const rtkNotice = "[RTK: compressed git output 100.0 KB → 1.0 KB (99% saved). Use `PI_RTK_BYPASS=1 git diff` to see full output.]";
+    const rtkNotice = "[RTK: compressed git output 100.0 KB → 1.0 KB (99% saved). Original output: /tmp/hashline-bash-original-x.txt. Use `PI_RTK_BYPASS=1 git diff` to re-run uncompressed.]";
     const exitNotice = "Command exited with code 1";
     const text = [
       rtkNotice,

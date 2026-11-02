@@ -242,7 +242,7 @@ describe("RTK notice prepended on a compaction", () => {
       });
       const text = result.content[0].text as string;
       expect(text.startsWith("[RTK: compressed git output ")).toBe(true);
-      expect(text).toContain("Use `PI_RTK_BYPASS=1 git diff` to see full output.");
+      expect(text).toMatch(/Original output: \S+\. Use `PI_RTK_BYPASS=1 git diff` to re-run uncompressed\.\]/);
       expect(text).toContain("tiny compressed");
     } finally {
       spy.mockRestore();
@@ -267,7 +267,7 @@ describe("RTK notice format", () => {
       });
       const text = result.content[0].text as string;
       // 1200 / 8400 ≈ 0.1429 → saved ≈ 86% (Math.round((1 - 0.1429) * 100) = 86)
-      expect(text.startsWith("[RTK: compressed git output 8.2 KB → 1.2 KB (86% saved). Use `PI_RTK_BYPASS=1 git diff` to see full output.]\n")).toBe(true);
+      expect(anyPath(text).startsWith("[RTK: compressed git output 8.2 KB → 1.2 KB (86% saved). Original output: <path>. Use `PI_RTK_BYPASS=1 git diff` to re-run uncompressed.]\n")).toBe(true);
     } finally {
       spy.mockRestore();
     }
@@ -309,12 +309,17 @@ async function runBash(tag: string, command: string, raw: string): Promise<strin
   return result.content[0].text as string;
 }
 
+// The saved original's path is random; the notice's shape is what these tests pin.
+function anyPath(text: string): string {
+  return text.replace(/Original output: \S+\. Use/, "Original output: <path>. Use");
+}
+
 describe("RTK notice on every compaction, whatever its size and ratio", () => {
   it("prepends the notice at an original of 2000 B", async () => {
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("tiny");
     try {
       const text = await runBash("any-size", "git diff", "x".repeat(2000));
-      expect(text).toBe("[RTK: compressed git output 2.0 KB → 4 B (100% saved). Use `PI_RTK_BYPASS=1 git diff` to see full output.]\ntiny");
+      expect(anyPath(text)).toBe("[RTK: compressed git output 2.0 KB → 4 B (100% saved). Original output: <path>. Use `PI_RTK_BYPASS=1 git diff` to re-run uncompressed.]\ntiny");
     } finally {
       spy.mockRestore();
     }
@@ -325,7 +330,7 @@ describe("RTK notice on every compaction, whatever its size and ratio", () => {
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue(half);
     try {
       const text = await runBash("any-ratio", "git diff", "x".repeat(3000));
-      expect(text).toBe(`[RTK: compressed git output 2.9 KB → 1.5 KB (50% saved). Use \`PI_RTK_BYPASS=1 git diff\` to see full output.]\n${half}`);
+      expect(anyPath(text)).toBe(`[RTK: compressed git output 2.9 KB → 1.5 KB (50% saved). Original output: <path>. Use \`PI_RTK_BYPASS=1 git diff\` to re-run uncompressed.]\n${half}`);
     } finally {
       spy.mockRestore();
     }
@@ -334,7 +339,7 @@ describe("RTK notice on every compaction, whatever its size and ratio", () => {
   it("prepends the notice to a small real git compaction", async () => {
     const text = await runBash("real-git", "git log -21", gitLog(21));
     expect(text.startsWith("[RTK: compressed git output ")).toBe(true);
-    expect(text.split("\n")[0]).toContain("Use `PI_RTK_BYPASS=1 git log -21` to see full output.]");
+    expect(text.split("\n")[0]).toMatch(/ Original output: \S+\. Use `PI_RTK_BYPASS=1 git log -21` to re-run uncompressed\.\]$/);
     expect(text).toMatch(/\n\.\.\. and 1 more commits$/);
   });
 });

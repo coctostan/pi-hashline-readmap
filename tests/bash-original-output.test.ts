@@ -224,7 +224,30 @@ describe("selectBashOriginalOutput", () => {
   });
 
 
-  it("returns visible input without metadata or file I/O when source selection is disabled", () => {
+  it("names a valid Pi full-output path without restoring it when restore is off", () => {
+    const readFile = vi.fn().mockReturnValue("full\nbody\n");
+    const writeFile = vi.fn();
+    const result = selectBashOriginalOutput({
+      visibleText: "tail",
+      fullOutputPath: "/tmp/hashline-test/pi-full.txt",
+      snapshotMaxLines: 0,
+      snapshotMaxBytes: 0,
+      restore: false,
+      fs: { readFile, writeFile, randomId: () => "off-id", tempDir: () => "/tmp/hashline-test" },
+    });
+
+    expect(result.inputForRtk).toBe("tail");
+    expect(result.metadata).toMatchObject({
+      source: "pi-full-output-path",
+      restoredContentForRtk: false,
+      originalPath: "/tmp/hashline-test/pi-full.txt",
+      originalLineCount: 3,
+      visibleLineCount: 1,
+    });
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it("returns visible input without metadata or file I/O when restore is off and Pi gave no valid path", () => {
     const readFile = vi.fn();
     const writeFile = vi.fn();
     const result = selectBashOriginalOutput({
@@ -232,7 +255,7 @@ describe("selectBashOriginalOutput", () => {
       fullOutputPath: "/tmp/full-output.txt",
       snapshotMaxLines: 0,
       snapshotMaxBytes: 0,
-      enabled: false,
+      restore: false,
       fs: {
         readFile,
         writeFile,

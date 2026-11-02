@@ -33,7 +33,8 @@ export interface SelectBashOriginalOutputOptions {
   fullOutputPath?: unknown;
   snapshotMaxLines?: number;
   snapshotMaxBytes?: number;
-  enabled?: boolean;
+  /** Hand Pi's full-output file to RTK in place of the visible text; false still names it. */
+  restore?: boolean;
   fs?: Partial<BashOriginalOutputFs>;
 }
 
@@ -91,9 +92,8 @@ function writeSnapshot(fs: BashOriginalOutputFs, visibleText: string): string {
 }
 
 export function selectBashOriginalOutput(options: SelectBashOriginalOutputOptions): BashOriginalOutputSelection {
-  const enabled = options.enabled !== false;
+  const restore = options.restore !== false;
   const visibleText = options.visibleText;
-  if (!enabled) return { inputForRtk: visibleText };
   const fs = mergeFs(options.fs);
   const visibleLineCount = lineCount(visibleText);
   const visibleByteCount = byteCount(visibleText);
@@ -107,11 +107,11 @@ export function selectBashOriginalOutput(options: SelectBashOriginalOutputOption
     try {
       const fullText = fs.readFile(fullOutputPath);
       return {
-        inputForRtk: fullText,
+        inputForRtk: restore ? fullText : visibleText,
         metadata: {
           enabled: true,
           source: "pi-full-output-path",
-          restoredContentForRtk: true,
+          restoredContentForRtk: restore,
           originalPath: fullOutputPath,
           snapshotNeeded: false,
           snapshotWritten: false,
@@ -127,7 +127,7 @@ export function selectBashOriginalOutput(options: SelectBashOriginalOutputOption
     }
   }
 
-  if (visibleText === "") return { inputForRtk: visibleText };
+  if (!restore || visibleText === "") return { inputForRtk: visibleText };
 
   const snapshotMaxLines = options.snapshotMaxLines ?? DEFAULT_SNAPSHOT_MAX_LINES;
   const snapshotMaxBytes = options.snapshotMaxBytes ?? DEFAULT_SNAPSHOT_MAX_BYTES;

@@ -125,7 +125,7 @@ describe("bash context guard integration", () => {
     expect(result.content[0].text).toContain("[Bash context guard: preview]");
   });
 
-  it("feature flag disables original restoration and final guard trimming while preserving RTK", async () => {
+  it("feature flag disables original restoration and final guard trimming while preserving RTK and naming Pi's file", async () => {
     process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = "0";
     const dir = mkdtempSync(join(tmpdir(), "hashline-guard-disabled-"));
     const fullPath = join(dir, "full.txt");
@@ -151,8 +151,9 @@ describe("bash context guard integration", () => {
       expect(seenByRtk).toContain("VISIBLE");
       expect(seenByRtk).not.toContain("FULL\nFULL");
       expect(result.content[0].text).toMatch(/^\[RTK: compressed git output .*\]\ncompressed visible$/);
+      expect(result.content[0].text).toContain(`Original output: ${fullPath}.`);
       expect(result.details.compressionInfo.technique).toBe("git");
-      expect(result.details.bashOriginalOutput).toBeUndefined();
+      expect(result.details.bashOriginalOutput).toMatchObject({ restoredContentForRtk: false, originalPath: fullPath });
       expect(result.details.bashContextGuard).toMatchObject({ enabled: false, trimmed: false, trimWanted: false });
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -182,6 +183,9 @@ describe("bash context guard integration", () => {
     });
     expect(result.details.bashOriginalOutput.originalPath).toEqual(expect.any(String));
     expect(result.details.bashOriginalOutput.snapshotPath).toEqual(expect.any(String));
-    expect(result.content[0].text).toContain("Original/pre-RTK output:");
+    // The guard reuses the copy the RTK notice already named: one snapshot, one path.
+    const originalPath = result.details.bashOriginalOutput.originalPath;
+    expect(result.content[0].text).toContain(`Original/pre-RTK output: ${originalPath}`);
+    expect(result.content[0].text).toContain(`Original output: ${originalPath}.`);
   });
 });
