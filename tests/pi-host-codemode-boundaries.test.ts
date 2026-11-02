@@ -176,8 +176,8 @@ const cases: BoundaryCase[] = [
     name: "native Bash raw output survives RTK and bypass",
     bash: true,
     code: String.raw`
-      const b = await tools.bash({command:"git log -5"});
-      const bypass = await tools.bash({command:"PI_RTK_BYPASS=1 git log -5"});
+      const b = await tools.bash({command:"git log -25"});
+      const bypass = await tools.bash({command:"PI_RTK_BYPASS=1 git log -25"});
       check(b.output === bypass.output && !b.output.includes("[RTK:"), "native Bash output");
       check((await tools.bash({command:"printf 'nonzero\\n'; exit 7"})).exit_code === 7, "nonzero exit");
     `,

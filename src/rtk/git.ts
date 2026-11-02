@@ -279,23 +279,24 @@ export function compactStatus(output: string): string {
 	return result.trim();
 }
 
+// `commit [<>=+-] <sha>` at column 0, or `commit <sha>` after a `--graph` prefix ending in the commit's node (`*`, `<`,
+// `>`, `o`); git abbreviates a sha to no fewer than 4 digits. A body line puts 4 or more spaces before its text
+// (`    commit 1234567`, `|     * commit 1234567`), so the graph before a node may hold no run of 4 spaces.
+// shortcut: a graph with two adjacent blank columns before a node reads as a body line, upgrade if such a graph turns up.
+const LOG_COMMIT_HEADER = /^(?:(?:[|/\\]| (?! {3}))*[*<>o][-.|/\\ ]*)?commit (?:[<>=+-] )?[0-9a-f]{4,64}\b/;
+
+/** Keeps the first `limit` whole commits, or `limit` lines of output with no commit header (`--oneline`, `--format`). */
 export function compactLog(output: string, limit: number = 20): string {
 	const lines = output.split("\n");
-	const result: string[] = [];
-
-	for (const line of lines.slice(0, limit)) {
-		if (line.length > 80) {
-			result.push(line.slice(0, 77) + "...");
-		} else {
-			result.push(line);
-		}
+	const headers = lines.flatMap((line, i) => (LOG_COMMIT_HEADER.test(line) ? [i] : []));
+	if (headers.length > 0) {
+		if (headers.length <= limit) return output;
+		return [...lines.slice(0, headers[limit]), `... and ${headers.length - limit} more commits`].join("\n");
 	}
 
-	if (lines.length > limit) {
-		result.push(`... and ${lines.length - limit} more commits`);
-	}
-
-	return result.join("\n");
+	const lineCount = output.endsWith("\n") ? lines.length - 1 : lines.length;
+	if (lineCount <= limit) return output;
+	return [...lines.slice(0, limit), `... and ${lineCount - limit} more lines`].join("\n");
 }
 
 export function compactGitOutput(

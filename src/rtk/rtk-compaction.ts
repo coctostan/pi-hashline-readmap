@@ -30,6 +30,7 @@ const ROUTE_TRUNCATION_MARKERS = [
   /^\s*\.\.\. \+\d+ more changes$/gm,
   /^\s*\.\.\. \+\d+ more$/gm,
   /^\.\.\. and \d+ more commits$/gm,
+  /^\.\.\. and \d+ more lines$/gm,
   /^\.\.\. and \d+ more errors$/gm,
   /^\[\.\.\. \d+ more lines\]$/gm,
 ];
