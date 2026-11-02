@@ -24,6 +24,8 @@ describe("isFileListingCommand", () => {
     expect(isFileListingCommand("find src \\-ls")).toBe(false);
     expect(isFileListingCommand("find $(pwd) -ls")).toBe(false);
     expect(isFileListingCommand("find $(pwd) -type f")).toBe(true);
+    expect(isFileListingCommand("LC_ALL=C find src -ls")).toBe(false);
+    expect(isFileListingCommand("LC_ALL=C find src")).toBe(true);
   });
 
   it("does not match ls -R, ls -la or tree, whose entries a summary can't count", () => {

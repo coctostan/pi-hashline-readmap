@@ -1,6 +1,6 @@
 import { dirname } from "path";
 import { dropMarker, type Drop } from "./drops.ts";
-import { parseShellCommands } from "../bash-command-state.ts";
+import { commandWords, parseShellCommands } from "../bash-command-state.ts";
 
 const LONG_FORMAT_LS_ROW_RE = /^[bcdlps-][rwxStTs-]{9}[+@.]?\s+/;
 const LONG_FORMAT_LS_TOTAL_RE = /^total\s+\d+\s*$/;
@@ -17,7 +17,7 @@ const OUTPUT_SHAPING_ACTIONS = new Set(["-printf", "-fprintf", "-ls", "-fls", "-
 
 /** A `find` command's words, quotes removed; undefined for any other command. */
 function findWords(cmd: string): readonly string[] | undefined {
-  const words = parseShellCommands(cmd, undefined).commands.find((part) => !part.inSubstitution)?.words ?? [];
+  const words = commandWords(parseShellCommands(cmd, undefined).commands.find((part) => !part.inSubstitution)?.words ?? []);
   return words[0]?.toLowerCase() === "find" ? words : undefined;
 }
 
