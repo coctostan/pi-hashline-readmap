@@ -11,10 +11,13 @@ function isLongFormatLsLine(line: string): boolean {
   );
 }
 
-// Only `find` prints one path per line; an `ls -R` or `tree` summary would count headers and tree lines as entries.
+// Actions whose output is no one bare path per line (`-ls`, `-printf`, a command's own output, NUL separators, prompts).
+const OUTPUT_SHAPING_ACTIONS = new Set(["-printf", "-fprintf", "-ls", "-fls", "-exec", "-execdir", "-ok", "-okdir", "-print0", "-fprint0"]);
+
+// Only plain `find` prints one path per line; an `ls -R` or `tree` summary would count headers and tree lines as entries.
 export function isFileListingCommand(cmd: string): boolean {
-  const c = cmd.trim().toLowerCase();
-  return c === "find" || c.startsWith("find ");
+  const words = cmd.trim().toLowerCase().split(/\s+/);
+  return words[0] === "find" && !words.some((word) => OUTPUT_SHAPING_ACTIONS.has(word));
 }
 
 export function compressFileListingOutput(output: string, drops: Drop[] = []): string | null {
