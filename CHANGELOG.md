@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-02
+
+Pi 1.5.0 is now the one tested host. No tool behaves differently.
+
+### Changed
+
+- The extension is developed and tested against exactly one Pi host, Pi 1.5.0, which `package-lock.json` locks; Pi 1.4.0 is no longer tested. Peer ranges stay `"*"`.
+- On Pi 1.5 and newer, Pi's "Extension Updates" notice shows this changelog's new entries on the first fresh launch after you update the extension; Pi's `collapseChangelog` setting condenses it to one line. A test runs the tested Pi's own changelog parser on this file, so an entry Pi cannot read fails CI.
+
 ## [0.18.0] - 2026-11-01
 
 Pi 1.4.0 is now the one tested host, and the tools this extension replaces regain what Pi's built-ins gained since 0.84.2.
