@@ -107,7 +107,7 @@ npm install --prefix "$host_prefix" --no-save --package-lock=false --no-audit --
   @earendil-works/pi-schema@$version \
   @earendil-works/pi-telemetry@$version
 export PI_COMPAT_HOST="$host_prefix/node_modules/@earendil-works/pi-coding-agent"
-PI_COMPAT_REQUIRE_NU=1 npm test -- tests/pi-host-*.test.ts tests/pi-compat-host-selection.test.ts tests/package-tarball-dist.test.ts
+PI_COMPAT_REQUIRE_NU=1 npm test -- tests/pi-host-*.test.ts tests/pi-compat-host-selection.test.ts tests/package-tarball-dist.test.ts tests/package-changelog.test.ts
 npm run typecheck:pi-host
 ```
 
