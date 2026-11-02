@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Pi 1.5 is the one tested host
 
@@ -7,14 +7,13 @@ status: active
 The extension is developed and tested against Pi's latest release, Pi 1.5.0 or a later 1.5.x, as its one host (ruling 0005): codemode host tests fail instead of skipping, the docs name no other host as tested, and Pi's update notice reads our changelog. Ships as 0.19.0.
 
 ## Done when
-- [ ] The locked host is Pi's latest release at the lock move, at least 1.5.0, with the whole Pi graph, `pi-schema` included, at one version, and the AGENTS.md trial recipe pins `pi-schema` — verified by `npm ls @earendil-works/pi-coding-agent @earendil-works/pi-schema`, `npm run typecheck:pi-host` (its one-version audit naming `pi-schema`) and `grep -n 'pi-schema@\$version' AGENTS.md` (main 2026-11-02: `pi-coding-agent@1.4.0`, no `pi-schema`; neither the audit nor the recipe names it)
-- [ ] `npm test && npm run typecheck` pass on that lock, and no codemode host test can skip: a host without the codemode executor fails them — verified by `git grep -n 'skipIf(!supported)' -- tests` returning nothing and the suite run (main 2026-11-02: 37 sites)
-- [ ] README.md, AGENTS.md and `docs/` name no Pi version as the current or tested host other than the locked one; a minimum-version claim (`Pi 0.99+`) or a dated measurement passes — verified by a new `tests/doc-host-version.test.ts` (main 2026-11-02: absent; 5 docs say "Pi 1.1" for today's behavior)
-- [ ] Pi's own changelog parser, from the selected host, reads `CHANGELOG.md`'s entry for `package.json`'s version — verified by a new `tests/package-changelog.test.ts` (main 2026-11-02: absent)
-- [ ] 0.19.0 is released: the version is bumped, a user-facing `[0.19.0]` CHANGELOG entry names the new host, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run and `tests/package-version.test.ts` (main 2026-11-02: 0.18.0)
+- [x] The locked host is Pi's latest release at the lock move, at least 1.5.0, with the whole Pi graph, `pi-schema` included, at one version, and the AGENTS.md trial recipe pins `pi-schema` — verified by `npm ls @earendil-works/pi-coding-agent @earendil-works/pi-schema`, `npm run typecheck:pi-host` (its one-version audit naming `pi-schema`) and `grep -n 'pi-schema@\$version' AGENTS.md` (main 2026-11-02: `pi-coding-agent@1.4.0`, no `pi-schema`; neither the audit nor the recipe names it) · close 2026-11-02: `npm ls` pi-coding-agent@1.5.0, pi-schema@1.5.0 deduped (registry latest 1.5.0); `typecheck:pi-host` version 1.5.0, 0 diagnostics, audit list names `pi-schema` (scripts/typecheck-pi-host.mjs:48); AGENTS.md:107
+- [x] `npm test && npm run typecheck` pass on that lock, and no codemode host test can skip: a host without the codemode executor fails them — verified by `git grep -n 'skipIf(!supported)' -- tests` returning nothing and the suite run (main 2026-11-02: 37 sites) · close 2026-11-02: grep empty; `npm test` 655 files, 2663 passed, 1 skipped (startup-performance-doc `runIf`); typecheck exit 0
+- [x] README.md, AGENTS.md and `docs/` name no Pi version as the current or tested host other than the locked one; a minimum-version claim (`Pi 0.99+`) or a dated measurement passes — verified by a new `tests/doc-host-version.test.ts` (main 2026-11-02: absent; 5 docs say "Pi 1.1" for today's behavior) · close 2026-11-02: passes
+- [x] Pi's own changelog parser, from the selected host, reads `CHANGELOG.md`'s entry for `package.json`'s version — verified by a new `tests/package-changelog.test.ts` (main 2026-11-02: absent) · close 2026-11-02: passes on Pi 1.5.0
+- [x] 0.19.0 is released: the version is bumped, a user-facing `[0.19.0]` CHANGELOG entry names the new host, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run and `tests/package-version.test.ts` (main 2026-11-02: 0.18.0) · close 2026-11-02: `pi-compatibility` run 41477001554 success, both jobs, on release commit `3c2511f6`; `tests/package-version.test.ts` passes; CHANGELOG `[0.19.0] - 2026-11-02` names Pi 1.5.0. Live Pi 1.5.0 drive: `read` `1:1df|export function alpha() {`, edit applied. Spec review gpt-6.1-sol `7c44a7d74282`: no findings
 
 ## Now
-All five slices done; slice 5 (Release 0.19.0) merged as `3c2511f6`, `pi-compatibility` green on it. Next: run `close` in a fresh session; the owner runs `npm publish`.
 
 ## Seams
 - `scripts/pi-compat-host.mjs` (`selectCompatHost`) and `tests/helpers/codemode-recipes.ts` (`supported`) → the `tests/pi-host-*.test.ts` files
