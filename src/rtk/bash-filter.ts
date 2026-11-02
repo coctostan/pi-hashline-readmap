@@ -28,7 +28,7 @@ export interface CompressionInfo {
     | "http-client"
     | "transfer"
     | "none";
-  bypassedBy?: "env-var";
+  bypassedBy?: "env-var" | "unsaved-original";
 }
 export interface FilterResult {
   output: string;
@@ -42,6 +42,8 @@ export interface FilterResult {
 
 export interface FilterBashOutputOptions {
   isError?: boolean;
+  /** Skip route compression as `PI_RTK_BYPASS=1` does: no saved original, no cut. */
+  bypass?: "unsaved-original";
 }
 
 export function isTestCommand(command: string): boolean {
@@ -107,8 +109,8 @@ export function filterBashOutput(
   }
 
   const stripped = stripAnsi(output);
-  const bypassed = /\bPI_RTK_BYPASS=1\b/.test(command);
-  if (bypassed) {
+  const bypassedBy = /\bPI_RTK_BYPASS=1\b/.test(command) ? "env-var" : options.bypass;
+  if (bypassedBy) {
     let result = stripped;
     const antiPatternHint = getBashAntiPatternHint(command);
     if (antiPatternHint) {
@@ -119,7 +121,7 @@ export function filterBashOutput(
       savedChars: output.length - result.length,
       compacted: false,
       dropped: [],
-      info: makeInfo(output, result, "none", { bypassedBy: "env-var" }),
+      info: makeInfo(output, result, "none", { bypassedBy }),
     };
   }
   const part = printingPart(command);

@@ -73,7 +73,12 @@ post-RTK `bashContextGuard` layer has its own metadata at
 
 - `details.bashContextGuard` — post-RTK recoverable context guard metadata.
 - `details.bashOriginalOutput` — pointer/snapshot of the original pre-RTK output
-  when the guard trimmed visible text.
+  whenever RTK compacted the output or the guard trimmed visible text. Its
+  `originalPath` is the path the RTK notice names as `Original output: <path>`:
+  Pi's full-output file when Pi truncated, else a `0600` temp copy of the
+  pre-RTK output byte for byte. Read it to recover what was cut without
+  re-running the command. When no copy can be saved, RTK leaves the output
+  uncompressed and `snapshotWriteError` says why.
 - `details.compressionInfo` — internal diagnostic shape (byte counts, single
   technique, bypass marker); kept for backwards compatibility but **not** the
   stable consumer surface — use `details.rtkCompaction` instead.

@@ -141,15 +141,16 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
-// Every compaction names its bypass, whatever its size: the full output must stay recoverable.
+// Every compaction names its saved original and its bypass, whatever its size: the full output
+// must stay recoverable. Only a compacted result passes a path.
 function buildRtkNotice(
   info: { originalBytes: number; outputBytes: number; compressionRatio: number; technique: string },
   command: string,
-  compacted: boolean,
+  originalPath: string | undefined,
 ): string | null {
-  if (!compacted) return null;
+  if (!originalPath) return null;
   const pct = Math.round((1 - info.compressionRatio) * 100);
-  return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved). Use \`PI_RTK_BYPASS=1 ${command}\` to see full output.]`;
+  return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved). Original output: ${originalPath}. Use \`PI_RTK_BYPASS=1 ${command}\` to re-run uncompressed.]`;
 }
 
 function willBashContextGuardTrim(text: string, config: BashContextGuardConfig): boolean {
@@ -275,7 +276,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const originalSelection = selectBashOriginalOutput({
       visibleText: originalText,
       fullOutputPath: existingDetails.fullOutputPath,
-      enabled: bashContextGuardConfig.enabled,
+      restore: bashContextGuardConfig.enabled,
     });
 
     const command =
@@ -317,31 +318,40 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       if (prefixParts.length === 0) return body;
       return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
-    const { output, savedChars, compacted, dropped, info } = filterBashOutput(
-      command,
-      originalSelection.inputForRtk,
-      { isError: event.isError === true },
-    );
+    const filterOptions = { isError: event.isError === true };
+    let filtered = filterBashOutput(command, originalSelection.inputForRtk, filterOptions);
+    // A compacted result names a saved pre-RTK copy; the guard's preview reuses it.
+    const originalMetadata = filtered.compacted
+      ? ensureBashOriginalOutputSnapshot({
+          visibleText: originalSelection.inputForRtk,
+          metadata: originalSelection.metadata,
+        })
+      : originalSelection.metadata;
+    // No saved copy, no cut: what a compactor drops must stay recoverable without a re-run.
+    if (filtered.compacted && !originalMetadata?.originalPath) {
+      filtered = filterBashOutput(command, originalSelection.inputForRtk, { ...filterOptions, bypass: "unsaved-original" });
+    }
+    const { output, savedChars, compacted, dropped, info } = filtered;
     if (process.env.PI_RTK_SAVINGS === "1") {
       process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
     }
-    const notice = buildRtkNotice(info, command, compacted);
+    const notice = buildRtkNotice(info, command, compacted ? originalMetadata?.originalPath : undefined);
     const body = notice ? `${notice}\n${output}` : output;
     const finalText = applyWarning(body);
     const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)
       ? ensureBashOriginalOutputSnapshot({
           visibleText: originalText,
-          metadata: originalSelection.metadata,
+          metadata: originalMetadata,
           enabled: bashContextGuardConfig.enabled,
         })
-      : originalSelection.metadata;
+      : originalMetadata;
     const guarded = applyBashContextGuard({
       text: finalText,
       command,
       originalMetadata: originalMetadataForGuard,
       config: bashContextGuardConfig,
     });
-    const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalSelection.metadata;
+    const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalMetadata;
     const rtkCompaction = buildRtkCompaction({
       rawInput: originalSelection.inputForRtk,
       output,

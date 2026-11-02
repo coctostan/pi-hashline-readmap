@@ -1,7 +1,7 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as gitModule from "../src/rtk/git.js";
 
@@ -109,6 +109,72 @@ describe("bash original output integration", () => {
       source: "pi-visible",
       restoredContentForRtk: false,
       snapshotNeeded: false,
+    });
+  });
+
+  describe("with the context guard off (PI_HASHLINE_BASH_CONTEXT_GUARD=0)", () => {
+    const saved = process.env.PI_HASHLINE_BASH_CONTEXT_GUARD;
+    beforeEach(() => { process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = "0"; });
+    afterEach(() => {
+      if (saved === undefined) delete process.env.PI_HASHLINE_BASH_CONTEXT_GUARD;
+      else process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = saved;
+      vi.restoreAllMocks();
+    });
+
+    it("names Pi's full-output file when Pi truncated, without restoring it as RTK input", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "hashline-guard-off-full-"));
+      const fullPath = join(dir, "output.txt");
+      writeFileSync(fullPath, "FULL git output\n", "utf8");
+      let seenByRtk = "";
+      vi.spyOn(gitModule, "compactGitOutput").mockImplementation((output) => {
+        seenByRtk = output;
+        return "compressed";
+      });
+      try {
+        const handlers = await loadHandlers("guard-off-full");
+        const visible = `VISIBLE TAIL\n[Showing lines 10-20 of 20. Full output: ${fullPath}]`;
+        const result = await handlers["tool_result"]({
+          type: "tool_result",
+          toolName: "bash",
+          toolCallId: "bash-guard-off-full",
+          input: { command: "git diff" },
+          content: [{ type: "text", text: visible }],
+          details: { fullOutputPath: fullPath },
+          isError: false,
+        });
+        expect(seenByRtk).toBe(visible);
+        expect(result.content[0].text.split("\n")[0]).toContain(`Original output: ${fullPath}. Use`);
+        expect(result.details.bashOriginalOutput).toMatchObject({
+          source: "pi-full-output-path",
+          restoredContentForRtk: false,
+          originalPath: fullPath,
+        });
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it("names a 0600 snapshot of the pre-RTK output when Pi did not truncate", async () => {
+      vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("compressed");
+      const handlers = await loadHandlers("guard-off-snapshot");
+      const visible = "VISIBLE ORIGINAL é\n";
+      const result = await handlers["tool_result"]({
+        type: "tool_result",
+        toolName: "bash",
+        toolCallId: "bash-guard-off-snapshot",
+        input: { command: "git diff" },
+        content: [{ type: "text", text: visible }],
+        isError: false,
+      });
+      const path = result.content[0].text.match(/Original output: (\S+)\. Use/)?.[1];
+      expect(path, result.content[0].text).toBeDefined();
+      try {
+        expect(readFileSync(path!)).toEqual(Buffer.from(visible, "utf8"));
+        expect(statSync(path!).mode & 0o777).toBe(0o600);
+        expect(result.details.bashOriginalOutput).toMatchObject({ originalPath: path, snapshotWritten: true });
+      } finally {
+        rmSync(path!, { force: true });
+      }
     });
   });
 });
