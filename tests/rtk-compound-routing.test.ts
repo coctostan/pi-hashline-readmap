@@ -62,6 +62,10 @@ describe("the one printing part picks the route", () => {
     "git diff | cat",
     "echo $(git log)",
     "for f in a b; do git diff $f; done",
+    "cd - && git diff",
+    "mkdir -p -v out && git diff",
+    "mkdir -p --verbose out && git diff",
+    "set -ev; git diff",
     "cd sub",
   ])("%s has no git route", (command) => {
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("compressed");

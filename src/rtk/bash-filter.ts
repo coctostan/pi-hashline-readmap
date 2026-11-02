@@ -60,19 +60,22 @@ export function isLinterCommand(command: string): boolean {
   return ["eslint", "prettier --check", "tsc --noemit"].some((t) => c.includes(t));
 }
 
+// Commands that print nothing on success, unless given `-` (`cd -`) or a verbose flag (`mkdir -p -v`, `set -v`).
 const SILENT_COMMANDS = new Set(["cd", "pushd", "popd", "export", "unset", "set", "true", ":"]);
 
 /**
  * The one part of a command line whose output fills the result: top-level, not feeding a pipe, not known to
  * print nothing. Undefined when none or several print, since their merged output fits no one compactor.
- * shortcut: `>(…)` parts count as silent though they print, as do `pushd`/`popd`, bare `set`/`export` and
- * `set -x`; upgrade when one turns up in use.
+ * shortcut: `>(…)` parts count as silent though they print, as do `pushd`/`popd`, bare `set`/`export`,
+ * `set -x` and a `cd` that `CDPATH` resolves; upgrade when one turns up in use.
  */
 function printingPart(command: string): string | undefined {
   const printing = parseShellCommands(command, undefined).commands.filter((part) => {
     if (part.inSubstitution || part.feedsPipe) return false;
     const [name, ...args] = commandWords(part.words);
-    return name !== undefined && !SILENT_COMMANDS.has(name) && !(name === "mkdir" && args.includes("-p"));
+    if (name === undefined) return false;
+    const silent = SILENT_COMMANDS.has(name) || (name === "mkdir" && args.includes("-p"));
+    return !silent || args.some((arg) => arg === "-" || arg === "--verbose" || /^-[a-zA-Z]*v/.test(arg));
   });
   return printing.length === 1 ? printing[0].text : undefined;
 }

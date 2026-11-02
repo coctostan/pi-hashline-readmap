@@ -28,7 +28,7 @@ The extension routes common command output through specialized compressors, incl
 - file-listing output
 - generic oversized output
 
-A command line picks its route by the one part whose output fills the result: a part that runs at the top level (not inside `$(…)`, backticks, `<(…)` or `>(…)`), does not feed a pipe, and is not known to print nothing (`cd`, `pushd`, `popd`, `export`, `unset`, `set`, `mkdir -p`, `true`, `:`, bare assignments). That part is the command the compressor sees. When no part or more than one part prints, nothing is compressed, since one compressor can't read merged output:
+A command line picks its route by the one part whose output fills the result: a part that runs at the top level (not inside `$(…)`, backticks, `<(…)` or `>(…)`), does not feed a pipe, and is not known to print nothing (`cd`, `pushd`, `popd`, `export`, `unset`, `set`, `mkdir -p`, `true`, `:`, bare assignments, each given neither `-` nor a verbose flag). That part is the command the compressor sees. When no part or more than one part prints, nothing is compressed, since one compressor can't read merged output:
 
 | Command line | Route |
 | --- | --- |
