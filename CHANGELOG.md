@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-11-02
+
+`bash` compression no longer drops or mislabels output from chained or piped commands, and every compressed result says how to see the full output.
+
+### Fixed
+
+- A chained or piped `bash` command line is compressed only when exactly one of its parts prints, and that part picks the compressor. Before, the first command decided for the whole output: `git log -3; gh pr view 259 --json body` ran through the `git log` compressor, which replaced the PR body with "… and N more commits". Parts known to print nothing (`cd`, `pushd`, `popd`, `export`, `unset`, `set`, `mkdir -p`, `true`, `:`, bare assignments) and parts that feed a pipe don't count, so `cd sub && git diff` still compresses as `git diff`, while `git diff | cat` and `git status && git diff` pass through. See `docs/bash-output.md`.
+- Every `bash` result a compressor changed starts with the `[RTK: compressed …]` notice naming `PI_RTK_BYPASS=1 <command>`, whatever its size. Before, a result under 2000 B or one that saved less than half carried no notice, so a shortened `git log -3` gave no sign that lines were missing.
+
 ## [0.19.0] - 2026-11-02
 
 Pi 1.5.0 is now the one tested host. No tool behaves differently.
