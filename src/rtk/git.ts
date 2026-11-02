@@ -279,23 +279,21 @@ export function compactStatus(output: string): string {
 	return result.trim();
 }
 
+// `commit <sha>` at column 0, or after a `--graph` prefix that holds the commit's `*`; an indented body line never matches.
+const LOG_COMMIT_HEADER = /^(?:(?:\*|\|[|/\\ ]*\*)[|/\\ ]*)?commit [0-9a-f]{7,64}\b/;
+
+/** Keeps the first `limit` whole commits, or `limit` lines of output with no commit header (`--oneline`, `--format`). */
 export function compactLog(output: string, limit: number = 20): string {
 	const lines = output.split("\n");
-	const result: string[] = [];
-
-	for (const line of lines.slice(0, limit)) {
-		if (line.length > 80) {
-			result.push(line.slice(0, 77) + "...");
-		} else {
-			result.push(line);
-		}
+	const headers = lines.flatMap((line, i) => (LOG_COMMIT_HEADER.test(line) ? [i] : []));
+	if (headers.length > 0) {
+		if (headers.length <= limit) return output;
+		return [...lines.slice(0, headers[limit]), `... and ${headers.length - limit} more commits`].join("\n");
 	}
 
-	if (lines.length > limit) {
-		result.push(`... and ${lines.length - limit} more commits`);
-	}
-
-	return result.join("\n");
+	const lineCount = output.endsWith("\n") ? lines.length - 1 : lines.length;
+	if (lineCount <= limit) return output;
+	return [...lines.slice(0, limit), `... and ${lineCount - limit} more lines`].join("\n");
 }
 
 export function compactGitOutput(

@@ -11,6 +11,7 @@ import * as httpClientModule from "../src/rtk/http-client.js";
 import * as transferModule from "../src/rtk/transfer.js";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve } from "node:path";
+import { gitLog } from "./helpers/git-log-fixture.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -330,10 +331,10 @@ describe("RTK notice on every compaction, whatever its size and ratio", () => {
   });
 
   it("prepends the notice to a small real git compaction", async () => {
-    const raw = Array.from({ length: 3 }, (_, i) => `commit ${String(i).repeat(40)}\nAuthor: A <a@b>\nDate:   now\n\n    subject ${i}\n\n    body line\n`).join("\n");
-    const text = await runBash("real-git", "git log -3", raw);
+    const text = await runBash("real-git", "git log -21", gitLog(21));
     expect(text.startsWith("[RTK: compressed git output ")).toBe(true);
-    expect(text.split("\n")[0]).toContain("Use `PI_RTK_BYPASS=1 git log -3` to see full output.]");
+    expect(text.split("\n")[0]).toContain("Use `PI_RTK_BYPASS=1 git log -21` to see full output.]");
+    expect(text).toMatch(/\n\.\.\. and 1 more commits$/);
   });
 });
 
