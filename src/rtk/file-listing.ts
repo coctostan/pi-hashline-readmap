@@ -10,27 +10,17 @@ function isLongFormatLsLine(line: string): boolean {
   );
 }
 
+// Only `find` prints one path per line; an `ls -R` or `tree` summary would count headers and tree lines as entries.
 export function isFileListingCommand(cmd: string): boolean {
   const c = cmd.trim().toLowerCase();
-  if (c.startsWith("find ") || c === "find") return true;
-  if (c.startsWith("tree") && (c === "tree" || c.charAt(4) === " ")) return true;
-  // ls with recursive or long flags
-  if (c.startsWith("ls ")) {
-    const rest = c.slice(3);
-    const shortFlagRe = /(?:^|\s)-([a-zA-Z]+)/g;
-    let m;
-    while ((m = shortFlagRe.exec(rest)) !== null) {
-      if (m[1].includes("r") || m[1].includes("l")) return true;
-    }
-  }
-  return false;
+  return c === "find" || c.startsWith("find ");
 }
 
 export function compressFileListingOutput(output: string): string | null {
   const rawLines = output.split("\n");
   if (rawLines.some(isLongFormatLsLine)) return null;
-  if (rawLines.length <= 100) return output;
   const lines = rawLines.filter((line) => line.trim() !== "");
+  if (lines.length <= 100) return output;
 
   const errors: string[] = [];
   const dirCounts = new Map<string, number>();
@@ -65,11 +55,11 @@ export function compressFileListingOutput(output: string): string | null {
   // Sort directories by count descending
   const sorted = [...dirCounts.entries()].sort((a, b) => b[1] - a[1]);
   for (const [dir, count] of sorted) {
-    result.push(`${dir}/ (${count} files)`);
+    result.push(`${dir}/ (${count} entries)`);
   }
 
   result.push("");
-  result.push(`Total: ${totalFiles} files in ${dirCounts.size} directories`);
+  result.push(`Total: ${totalFiles} entries in ${dirCounts.size} directories`);
 
   return result.join("\n");
 }

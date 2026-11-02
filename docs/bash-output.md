@@ -38,6 +38,23 @@ A command line picks its route by the one part whose output fills the result: a 
 
 Whenever a compressor changed the output, whatever its size, the visible result starts with an RTK notice giving the original and compressed sizes and the `PI_RTK_BYPASS=1 <command>` that shows the full output. A result that only lost its ANSI codes or gained a tool hint has none, and its `details.rtkCompaction` reports `applied: false`; a test command's ANSI-only result is the one exception, reporting `applied: true, techniques: ["test-output"]`.
 
+### Drop markers
+
+A compressor that cuts output past a size budget ends the cut with a marker naming the true count in its own unit, and that marker sets `details.rtkCompaction.truncated`. Filters that drop only noise (progress meters, `Compiling` lines, intermediate Docker containers) set nothing. A trailing newline is not a line.
+
+| Route | Budget | Marker |
+| --- | --- | --- |
+| `git diff` | 100 output lines | `... and N more lines` |
+| `git diff` | 3 context lines per side of a hunk (`-U`, `-W`) | `  ... (N context lines)` |
+| `git status` | 5 staged, 5 modified, 3 untracked files | `  ... and N more files` |
+| `git log` | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
+| build | 5 errors, 10 lines per error | `... and N more errors`, `  ... and N more lines` |
+| linter | top 10 rules, top 10 files | `  ... and N more rules`, `  ... and N more files` |
+| `find` | 100 lines, summarized per parent directory | `Total: N entries in M directories` |
+| HTTP client | 200 body lines | `[... N more lines]` |
+
+Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged.
+
 ## Bypass route compression
 
 Prefix a command with `PI_RTK_BYPASS=1` to skip route-specific compression for that invocation:

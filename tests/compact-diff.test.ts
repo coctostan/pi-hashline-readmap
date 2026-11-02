@@ -146,12 +146,12 @@ describe("compactDiff — overall line cap", () => {
     const diff = buildDiff(files);
 
     const result = compactDiff(diff, 30);
-    expect(result).toMatch(/truncated|more changes/i);
+    expect(result).toMatch(/^\.\.\. and \d+ more lines$/m);
   });
 });
 
 describe("compactDiff — change lines exceeding overall cap", () => {
-  it("emits a '... +K more changes' indicator when change lines themselves exceed the cap", () => {
+  it("emits a '... and K more lines' indicator when change lines themselves exceed the cap", () => {
     // 200 + lines in one hunk
     const addedLines = Array.from({ length: 200 }, (_, i) => `+  big line ${i + 1}`);
     const diff = buildDiff([{
@@ -163,8 +163,8 @@ describe("compactDiff — change lines exceeding overall cap", () => {
     }]);
 
     const result = compactDiff(diff, 50);
-    // Should have a "more changes" indicator
-    expect(result).toMatch(/\+\d+ more changes/);
+    // Should have a "more lines" indicator
+    expect(result).toMatch(/^\.\.\. and \d+ more lines$/m);
   });
 });
 

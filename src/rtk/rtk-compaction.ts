@@ -27,12 +27,10 @@ export interface BuildRtkCompactionInput {
 // Matches deterministic truncation markers emitted by RTK routes when they drop output beyond a route budget.
 const ROUTE_TRUNCATION_MARKERS = [
   /^\.\.\. \d+ lines omitted \.\.\.$/gm,
-  /^\s*\.\.\. \+\d+ more changes$/gm,
-  /^\s*\.\.\. \+\d+ more$/gm,
-  /^\.\.\. and \d+ more commits$/gm,
-  /^\.\.\. and \d+ more lines$/gm,
-  /^\.\.\. and \d+ more errors$/gm,
+  /^(?: {2})?\.\.\. and \d+ more (?:commits|lines|errors|files|rules)$/gm,
+  /^ {2}\.\.\. \(\d+ context lines\)$/gm,
   /^\[\.\.\. \d+ more lines\]$/gm,
+  /^Total: \d+ entries in \d+ directories$/gm,
 ];
 const ROUTE_TRUNCATION_TECHNIQUES = new Set<CompressionInfo["technique"]>([
   "git",
