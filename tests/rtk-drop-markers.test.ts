@@ -87,6 +87,13 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     expect(result.lines).toContain("  ... and 2 more rules");
     expect(result.lines).toContain("  ... and 2 more files");
     expect(result.truncated).toBe(true);
+
+    const eleven = compact("npx eslint .", text(lines(11, (i) => `src/f${i}.js:1:1: problem [rule-${i}]`)));
+    expect(eleven.lines).toContain("  ... and 1 more rules");
+    expect(eleven.lines).toContain("  ... and 1 more files");
+    const ten = compact("npx eslint .", text(lines(10, (i) => `src/f${i}.js:1:1: problem [rule-${i}]`)));
+    expect(ten.output).not.toContain("more");
+    expect(ten.truncated).toBe(false);
   });
 
   it("find's summary counts entries, directories included, and sets truncated", () => {
