@@ -13,7 +13,7 @@ describe("buildRtkCompaction — no-op case", () => {
   it("returns applied=false, techniques=[], truncated=false when technique is 'none' and output equals input", () => {
     const rawInput = "hello\nworld\n";
     const output = "hello\nworld\n";
-    const result: RtkCompaction = buildRtkCompaction({ rawInput, output, info: noneInfo(12, 12) });
+    const result: RtkCompaction = buildRtkCompaction({ rawInput, output, compacted: false, info: noneInfo(12, 12) });
     expect(result.applied).toBe(false);
     expect(result.techniques).toEqual([]);
     expect(result.truncated).toBe(false);
@@ -27,6 +27,7 @@ describe("buildRtkCompaction — single technique applied", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -45,6 +46,7 @@ describe("buildRtkCompaction — single technique applied", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -62,6 +64,7 @@ describe("buildRtkCompaction — single technique applied", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: false,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -73,12 +76,32 @@ describe("buildRtkCompaction — single technique applied", () => {
     expect(result.techniques).toEqual([]);
   });
 
+  it("does not count an appended anti-pattern hint as a technique applying", () => {
+    const rawInput = "src/a.ts\n";
+    const output = "src/a.ts\n\n\n[Hint: Prefer the dedicated file-search tools for repository discovery.]";
+    const result = buildRtkCompaction({
+      rawInput,
+      output,
+      compacted: false,
+      info: { originalBytes: 9, outputBytes: output.length, compressionRatio: output.length / 9, technique: "file-listing" },
+    });
+    expect(result.applied).toBe(false);
+    expect(result.techniques).toEqual([]);
+    expect(result.truncated).toBe(false);
+    expect(result.compactedLineCount).toBe(4);
+  });
+
+  it("counts test-output as applied only when its ANSI stripping changed the output", () => {
+    const info: CompressionInfo = { originalBytes: 5, outputBytes: 5, compressionRatio: 1, technique: "test-output" };
+    expect(buildRtkCompaction({ rawInput: "PASS\n", output: "PASS\n", compacted: false, info }).applied).toBe(false);
+  });
   it("preserves array shape (techniques is always an array)", () => {
     const rawInput = "x\n";
     const output = "yy\n";
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: { originalBytes: 2, outputBytes: 3, compressionRatio: 1.5, technique: "linter" },
     });
     expect(Array.isArray(result.techniques)).toBe(true);
@@ -93,6 +116,7 @@ describe("buildRtkCompaction — line counts", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -108,6 +132,7 @@ describe("buildRtkCompaction — line counts", () => {
     const result = buildRtkCompaction({
       rawInput: "",
       output: "",
+      compacted: false,
       info: { originalBytes: 0, outputBytes: 0, compressionRatio: 1, technique: "none" },
     });
     expect(result.originalLineCount).toBeUndefined();
@@ -125,6 +150,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -143,6 +169,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -159,6 +186,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -175,6 +203,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -190,6 +219,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output: rawInput,
+      compacted: false,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(rawInput, "utf8"),
@@ -208,6 +238,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -226,6 +257,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -242,6 +274,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -258,6 +291,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: true,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
@@ -276,6 +310,7 @@ describe("buildRtkCompaction — truncated", () => {
     const result = buildRtkCompaction({
       rawInput,
       output,
+      compacted: false,
       info: {
         originalBytes: Buffer.byteLength(rawInput, "utf8"),
         outputBytes: Buffer.byteLength(output, "utf8"),
