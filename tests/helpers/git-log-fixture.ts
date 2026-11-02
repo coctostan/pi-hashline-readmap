@@ -11,6 +11,7 @@ function commitLines(i: number): string[] {
     "",
     `    ${"body ".repeat(30)}${i}`,
     "    commit 1234567 named in a body is no header",
+    "    * commit 7654321 in a body bullet is no header",
   ];
 }
 

@@ -279,8 +279,9 @@ export function compactStatus(output: string): string {
 	return result.trim();
 }
 
-// `commit <sha>` at column 0, or after a `--graph` prefix that holds the commit's `*`; an indented body line never matches.
-const LOG_COMMIT_HEADER = /^(?:(?:\*|\|[|/\\ ]*\*)[|/\\ ]*)?commit [0-9a-f]{7,64}\b/;
+// `commit <sha>` at column 0, or after a `--graph` prefix ending in the commit's `*`, whose columns sit one space apart
+// (`| | * commit`); a body line, indented 4 spaces past the graph (`|     * commit 1234567`), never matches.
+const LOG_COMMIT_HEADER = /^(?:(?:\|(?: ?[|/\\])* ?)?\*[-.|/\\ ]*)?commit [0-9a-f]{7,64}\b/;
 
 /** Keeps the first `limit` whole commits, or `limit` lines of output with no commit header (`--oneline`, `--format`). */
 export function compactLog(output: string, limit: number = 20): string {

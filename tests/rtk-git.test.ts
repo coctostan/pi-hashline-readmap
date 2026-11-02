@@ -194,8 +194,7 @@ describe("compactStatus", () => {
 
 describe("compactLog", () => {
   it("returns a log within 20 commits unchanged", () => {
-    const log = gitLog(3);
-    expect(compactLog(log)).toBe(log);
+    for (const log of [gitLog(3), gitLog(20)]) expect(compactLog(log)).toBe(log);
   });
 
   it("keeps 20 whole commits, bodies uncut, and counts the dropped commits", () => {
