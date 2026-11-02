@@ -317,7 +317,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       if (prefixParts.length === 0) return body;
       return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
-    const { output, savedChars, compacted, info } = filterBashOutput(
+    const { output, savedChars, compacted, dropped, info } = filterBashOutput(
       command,
       originalSelection.inputForRtk,
       { isError: event.isError === true },
@@ -346,6 +346,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       rawInput: originalSelection.inputForRtk,
       output,
       compacted,
+      dropped,
       info,
     });
     const existingPtcValue =

@@ -38,6 +38,7 @@ describe("filterBashOutput info (empty-input fast path)", () => {
       output: "",
       savedChars: 0,
       compacted: false,
+      dropped: [],
       info: {
         originalBytes: 0,
         outputBytes: 0,

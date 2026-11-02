@@ -19,6 +19,7 @@ describe("prompts/bash.md — rtkCompaction contract doc", () => {
       "applied",
       "techniques",
       "truncated",
+      "dropped",
       "originalLineCount",
       "compactedLineCount",
       "details.ptcValue",

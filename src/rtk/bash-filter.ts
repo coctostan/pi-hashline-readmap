@@ -10,6 +10,7 @@ import * as buildTools from "./build-tools.ts";
 import * as transfer from "./transfer.ts";
 import { getBashAntiPatternHint } from "./bash-anti-pattern-hints.ts";
 import { commandWords, parseShellCommands } from "../bash-command-state.ts";
+import type { Drop } from "./drops.ts";
 
 export interface CompressionInfo {
   originalBytes: number;
@@ -34,6 +35,8 @@ export interface FilterResult {
   savedChars: number;
   /** A compactor changed the output, beyond ANSI stripping and the anti-pattern hint. */
   compacted: boolean;
+  /** What that compactor left out, one entry per marker in `output`; empty when none compacted. */
+  dropped: Drop[];
   info: CompressionInfo;
 }
 
@@ -100,7 +103,7 @@ export function filterBashOutput(
   options: FilterBashOutputOptions = {},
 ): FilterResult {
   if (output === "") {
-    return { output: "", savedChars: 0, compacted: false, info: makeInfo("", "", "none") };
+    return { output: "", savedChars: 0, compacted: false, dropped: [], info: makeInfo("", "", "none") };
   }
 
   const stripped = stripAnsi(output);
@@ -115,6 +118,7 @@ export function filterBashOutput(
       output: result,
       savedChars: output.length - result.length,
       compacted: false,
+      dropped: [],
       info: makeInfo(output, result, "none", { bypassedBy: "env-var" }),
     };
   }
@@ -124,22 +128,29 @@ export function filterBashOutput(
       output: stripped,
       savedChars: output.length - stripped.length,
       compacted: false,
+      dropped: [],
       info: makeInfo(output, stripped, "test-output"),
     };
   }
   let result = stripped;
   let technique: CompressionInfo["technique"] = "none";
+  let dropped: Drop[] = [];
   if (part !== undefined && options.isError !== true) {
     try {
-      const routes: Array<{ matches: boolean; technique: CompressionInfo["technique"]; apply: () => string | null }> = [
-        { matches: isGitCommand(part), technique: "git", apply: () => git.compactGitOutput(stripped, part) },
-        { matches: isLinterCommand(part), technique: "linter", apply: () => linter.aggregateLinterOutput(stripped, part) },
+      type Route = { matches: boolean; technique: CompressionInfo["technique"]; apply: (drops: Drop[]) => string | null };
+      const routes: Route[] = [
+        { matches: isGitCommand(part), technique: "git", apply: (drops) => git.compactGitOutput(stripped, part, drops) },
+        {
+          matches: isLinterCommand(part),
+          technique: "linter",
+          apply: (drops) => linter.aggregateLinterOutput(stripped, part, drops),
+        },
         {
           matches: buildTools.isBuildToolsCommand(part),
           technique: "build-tools",
           apply: () => buildTools.compressBuildToolsOutput(stripped),
         },
-        { matches: isBuildCommand(part), technique: "build", apply: () => build.filterBuildOutput(stripped, part) },
+        { matches: isBuildCommand(part), technique: "build", apply: (drops) => build.filterBuildOutput(stripped, part, drops) },
         {
           matches: packageManager.isPackageManagerCommand(part),
           technique: "package-manager",
@@ -149,19 +160,25 @@ export function filterBashOutput(
         {
           matches: fileListing.isFileListingCommand(part),
           technique: "file-listing",
-          apply: () => fileListing.compressFileListingOutput(stripped),
+          apply: (drops) => fileListing.compressFileListingOutput(stripped, drops),
         },
-        { matches: httpClient.isHttpCommand(part), technique: "http-client", apply: () => httpClient.compressHttpOutput(stripped) },
+        {
+          matches: httpClient.isHttpCommand(part),
+          technique: "http-client",
+          apply: (drops) => httpClient.compressHttpOutput(stripped, drops),
+        },
         { matches: transfer.isTransferCommand(part), technique: "transfer", apply: () => transfer.compressTransferOutput(stripped) },
       ];
       for (const route of routes) {
         if (!route.matches) continue;
         technique = route.technique;
-        const next = route.apply();
+        const drops: Drop[] = [];
+        const next = route.apply(drops);
         const erasedNonEmptyOutput =
           next !== null && stripped.length > 0 && next.trim() === "";
         if (next !== null && !erasedNonEmptyOutput) {
           result = next;
+          dropped = drops;
           break;
         }
         technique = "none";
@@ -169,6 +186,7 @@ export function filterBashOutput(
     } catch {
       result = stripped;
       technique = "none";
+      dropped = [];
     }
   }
   const compacted = result !== stripped;
@@ -180,6 +198,7 @@ export function filterBashOutput(
     output: result,
     savedChars: output.length - result.length,
     compacted,
+    dropped,
     info: makeInfo(output, result, technique),
   };
 }

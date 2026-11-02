@@ -3,9 +3,25 @@ import { filterBashOutput } from "../src/rtk/bash-filter.ts";
 import { compactDiff } from "../src/rtk/git.ts";
 import { buildRtkCompaction } from "../src/rtk/rtk-compaction.ts";
 
+// Each marker docs/bash-output.md lists, read back as the drop it names.
+const MARKERS = [
+  /^ *\.\.\. and (\d+) more (\w+)$/,
+  /^ {2}\.\.\. \((\d+) (context lines)\)$/,
+  /^\[\.\.\. (\d+) more (lines)\]$/,
+  /^Total: (\d+) (entries) in \d+ directories$/,
+];
+
+function markersIn(output: string) {
+  return output.split("\n").flatMap((line) => {
+    const match = MARKERS.map((marker) => line.match(marker)).find(Boolean);
+    return match ? [{ count: Number(match[1]), unit: match[2] }] : [];
+  });
+}
+
 function compact(command: string, raw: string) {
   const result = filterBashOutput(command, raw);
-  const compaction = buildRtkCompaction({ rawInput: raw, output: result.output, compacted: result.compacted, info: result.info });
+  const compaction = buildRtkCompaction({ rawInput: raw, ...result });
+  expect(compaction.dropped).toEqual(markersIn(result.output));
   return { output: result.output, lines: result.output.split("\n"), technique: result.info.technique, ...compaction };
 }
 
@@ -37,6 +53,15 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     const marker = result.lines.find((line) => line.startsWith("..."));
     expect(marker).toBe(`... and ${uncapped.length - (result.lines.length - 1)} more lines`);
     expect(result.truncated).toBe(true);
+  });
+
+  it("git diff past its line cap reports only the context markers it kept, beside the cap's own", () => {
+    const raw = text(lines(30, (f) => fileDiff(`f${f}`, [" a", " b", " c", " d", " e", "-x", "+y"])).flat());
+    const result = compact("git diff -U5", raw);
+
+    expect(result.lines.filter((line) => line.includes("context lines")).length).toBeGreaterThan(0);
+    expect(result.dropped.filter((drop) => drop.unit === "context lines").length).toBeLessThan(30);
+    expect(result.dropped).toContainEqual({ count: expect.any(Number), unit: "lines" });
   });
 
   it("git diff -U5 names the context lines it cuts past 3 per side, and sets truncated", () => {

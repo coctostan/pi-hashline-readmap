@@ -53,7 +53,7 @@ describe("the one printing part picks the route", () => {
   ])("%s routes git with the compactor seeing %s", (command, part) => {
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("compressed");
     const result = filterBashOutput(command, "raw output");
-    expect(spy).toHaveBeenCalledWith("raw output", part);
+    expect(spy).toHaveBeenCalledWith("raw output", part, []);
     expect(result.info.technique).toBe("git");
     expect(result.output).toBe("compressed");
   });

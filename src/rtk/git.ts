@@ -1,3 +1,5 @@
+import { dropMarker, outputLines, type Drop } from "./drops.ts";
+
 const GIT_COMMANDS = ["git diff", "git status", "git log", "git show", "git stash"];
 
 export function isGitCommand(command: string | undefined | null): boolean {
@@ -9,9 +11,8 @@ export function isGitCommand(command: string | undefined | null): boolean {
 	return GIT_COMMANDS.some((gc) => cmdLower.startsWith(gc));
 }
 
-export function compactDiff(output: string, maxLines: number = 100): string {
-	const lines = output.split("\n");
-	if (output.endsWith("\n")) lines.pop();
+export function compactDiff(output: string, maxLines: number = 100, drops: Drop[] = []): string {
+	const lines = outputLines(output);
 	const result: string[] = [];
 	let currentFile = "";
 	let added = 0;
@@ -23,10 +24,13 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 	let hunkPreContext: string[] = [];    // context before first change
 	let hunkPostContext: string[] = [];   // context after last change
 	let seenChanges = false;
+	// Output index of each context marker → the context lines it cut; the line cap may cut a marker in turn.
+	const contextCuts = new Map<number, number>();
 
 	function flushHunk() {
 		if (hunkChangeLines.length === 0 && hunkPreContext.length === 0) return;
 		if (hunkPreContext.length > maxContextPerSide) {
+			contextCuts.set(result.length, hunkPreContext.length - maxContextPerSide);
 			result.push(`  ... (${hunkPreContext.length - maxContextPerSide} context lines)`);
 			hunkPreContext = hunkPreContext.slice(-maxContextPerSide);
 		}
@@ -35,6 +39,7 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 		const postShow = hunkPostContext.slice(0, maxContextPerSide);
 		for (const l of postShow) result.push(`  ${l}`);
 		if (hunkPostContext.length > maxContextPerSide) {
+			contextCuts.set(result.length, hunkPostContext.length - maxContextPerSide);
 			result.push(`  ... (${hunkPostContext.length - maxContextPerSide} context lines)`);
 		}
 		hunkChangeLines = [];
@@ -106,10 +111,23 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 		result.push(`  +${added} -${removed}`);
 	}
 
+	const reportContextCuts = (keep: (i: number) => boolean) => {
+		for (const [i, count] of contextCuts) if (keep(i)) drops.push({ count, unit: "context lines" });
+	};
+
 	// Apply maxLines cap
 	if (result.length <= maxLines) {
+		reportContextCuts(() => true);
 		return result.join("\n");
 	}
+
+	// Replaces result[start, end) with the cap's marker; a context marker inside the cut is counted by it, not reported.
+	const cut = (start: number, end: number): string => {
+		reportContextCuts((i) => i < start);
+		const marker = dropMarker(drops, end - start, "lines", `... and ${end - start} more lines`);
+		reportContextCuts((i) => i >= end);
+		return [...result.slice(0, start), marker, ...result.slice(end)].join("\n");
+	};
 
 	// Identify change lines vs structural lines in the output
 	const changeLineIndices: number[] = [];
@@ -128,10 +146,7 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 	if (overBudget <= 0 || changeLineIndices.length <= overBudget) {
 		// Fallback: simple first/last truncation
 		const halfBudget = Math.floor((maxLines - 1) / 2);
-		const head = result.slice(0, halfBudget);
-		const tail = result.slice(result.length - halfBudget);
-		const omitted = result.length - halfBudget * 2;
-		return [...head, `... and ${omitted} more lines`, ...tail].join("\n");
+		return cut(halfBudget, result.length - halfBudget);
 	}
 
 	// Remove middle change lines, keep first N and last N change lines
@@ -140,11 +155,7 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 	const keepLast = keepCount - keepFirst;
 	const cutStart = changeLineIndices[keepFirst];
 	const cutEnd = changeLineIndices[changeLineIndices.length - keepLast - 1];
-	const omitted = cutEnd - cutStart + 1;
-
-	const head = result.slice(0, cutStart);
-	const tail = result.slice(cutEnd + 1);
-	return [...head, `... and ${omitted} more lines`, ...tail].join("\n");
+	return cut(cutStart, cutEnd + 1);
 }
 
 interface StatusStats {
@@ -172,7 +183,7 @@ function isRecognizedShortStatusLine(line: string): boolean {
 	return status !== "  " && Array.from(status).every((code) => SHORT_STATUS_CODES.has(code));
 }
 
-export function compactStatus(output: string): string {
+export function compactStatus(output: string, drops: Drop[] = []): string {
 	const lines = output.split("\n");
 
 	if (lines.length === 0 || (lines.length === 1 && lines[0].trim() === "")) {
@@ -247,7 +258,7 @@ export function compactStatus(output: string): string {
 			result += `  ${file}\n`;
 		}
 		if (stats.staged > 5) {
-			result += `  ... and ${stats.staged - 5} more files\n`;
+			result += `${dropMarker(drops, stats.staged - 5, "files", `  ... and ${stats.staged - 5} more files`)}\n`;
 		}
 	}
 
@@ -258,7 +269,7 @@ export function compactStatus(output: string): string {
 			result += `  ${file}\n`;
 		}
 		if (stats.modified > 5) {
-			result += `  ... and ${stats.modified - 5} more files\n`;
+			result += `${dropMarker(drops, stats.modified - 5, "files", `  ... and ${stats.modified - 5} more files`)}\n`;
 		}
 	}
 
@@ -269,7 +280,7 @@ export function compactStatus(output: string): string {
 			result += `  ${file}\n`;
 		}
 		if (stats.untracked > 3) {
-			result += `  ... and ${stats.untracked - 3} more files\n`;
+			result += `${dropMarker(drops, stats.untracked - 3, "files", `  ... and ${stats.untracked - 3} more files`)}\n`;
 		}
 	}
 
@@ -287,22 +298,24 @@ export function compactStatus(output: string): string {
 const LOG_COMMIT_HEADER = /^(?:(?:[|/\\]| (?! {3}))*[*<>o][-.|/\\ ]*)?commit (?:[<>=+-] )?[0-9a-f]{4,64}\b/;
 
 /** Keeps the first `limit` whole commits, or `limit` lines of output with no commit header (`--oneline`, `--format`). */
-export function compactLog(output: string, limit: number = 20): string {
-	const lines = output.split("\n");
+export function compactLog(output: string, limit: number = 20, drops: Drop[] = []): string {
+	const lines = outputLines(output);
 	const headers = lines.flatMap((line, i) => (LOG_COMMIT_HEADER.test(line) ? [i] : []));
 	if (headers.length > 0) {
 		if (headers.length <= limit) return output;
-		return [...lines.slice(0, headers[limit]), `... and ${headers.length - limit} more commits`].join("\n");
+		const marker = dropMarker(drops, headers.length - limit, "commits", `... and ${headers.length - limit} more commits`);
+		return [...lines.slice(0, headers[limit]), marker].join("\n");
 	}
 
-	const lineCount = output.endsWith("\n") ? lines.length - 1 : lines.length;
-	if (lineCount <= limit) return output;
-	return [...lines.slice(0, limit), `... and ${lineCount - limit} more lines`].join("\n");
+	if (lines.length <= limit) return output;
+	const marker = dropMarker(drops, lines.length - limit, "lines", `... and ${lines.length - limit} more lines`);
+	return [...lines.slice(0, limit), marker].join("\n");
 }
 
 export function compactGitOutput(
 	output: string,
-	command: string | undefined | null
+	command: string | undefined | null,
+	drops: Drop[] = [],
 ): string | null {
 	if (typeof command !== "string" || !isGitCommand(command)) {
 		return null;
@@ -311,16 +324,16 @@ export function compactGitOutput(
 	const cmdLower = command.toLowerCase();
 
 	if (cmdLower.startsWith("git diff")) {
-		return compactDiff(output);
+		return compactDiff(output, undefined, drops);
 	}
 
 	if (cmdLower.startsWith("git status")) {
-		const compacted = compactStatus(output);
+		const compacted = compactStatus(output, drops);
 		return compacted === output ? null : compacted;
 	}
 
 	if (cmdLower.startsWith("git log")) {
-		return compactLog(output);
+		return compactLog(output, undefined, drops);
 	}
 
 	return null;

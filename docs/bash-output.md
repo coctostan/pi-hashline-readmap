@@ -40,7 +40,7 @@ Whenever a compressor changed the output, whatever its size, the visible result 
 
 ### Drop markers
 
-A compressor that cuts output past a size budget ends the cut with a marker naming the true count in its own unit, and that marker sets `details.rtkCompaction.truncated`. Filters that drop only noise (progress meters, `Compiling` lines, intermediate Docker containers) set nothing. A trailing newline is not a line.
+A compressor that cuts output past a size budget ends the cut with a marker naming the true count in its own unit, and reports that drop as one `{ count, unit }` entry of `details.rtkCompaction.dropped`, in output order; any entry sets `details.rtkCompaction.truncated`. A marker-like line the command printed itself is reported as no drop. Filters that drop only noise (progress meters, `Compiling` lines, intermediate Docker containers) set nothing. A trailing newline is not a line. A `git diff` context marker that the line cap cuts in turn is counted by the cap's marker, not reported on its own.
 
 | Route | Budget | Marker |
 | --- | --- | --- |
