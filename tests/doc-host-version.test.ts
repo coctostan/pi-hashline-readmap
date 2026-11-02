@@ -55,6 +55,7 @@ describe("host version in the docs", () => {
     expect(hostVersionViolations("measured with Pi 1.1.0 on 2026-10-12", "1.4.0")).toEqual([]);
     expect(hostVersionViolations("the locked Pi 1.3.0", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
     expect(hostVersionViolations("on the locked Pi 1.3.0 (2026-11-01)", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
+    expect(hostVersionViolations("currently Pi 1.3.0 (2026-11-01)", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
     expect(hostVersionViolations("x\nOn Pi 1.1, enable it", "1.4.0")).toEqual(["2: Pi 1.1"]);
     expect(hostVersionViolations("on Pi 1.4", "1.40.0")).toEqual(["1: Pi 1.4"]);
   });
