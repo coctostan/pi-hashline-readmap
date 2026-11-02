@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Pi 1.4.0 is the one tested host
 
@@ -7,15 +7,14 @@ status: active
 The extension is developed and tested against exactly one Pi host, the locked Pi 1.4.0, with `PI_COMPAT_HOST` kept as an override for trying a newer Pi before the lock moves. The tools it replaces regain what Pi's built-ins gained since 0.84.2: constrained sampling and bash row durations. Ships as 0.18.0.
 
 ## Done when
-- [ ] The locked development host is exactly Pi 1.4.0, and plain `npm test` runs the codemode host tests instead of skipping them — verified by `npm ls @earendil-works/pi-coding-agent` and `npx vitest run tests/pi-host-codemode-boundaries.test.ts tests/pi-host-recipe-program.test.ts tests/pi-host-codemode-loadout.test.ts --reporter=json` reporting 0 skipped (main 2026-10-31: 0.84.2; 18 of 18 skipped)
-- [ ] CI provisions no second Pi, and no test, script, workflow or doc names 0.84.2 or 1.2.0 as a host — verified by `git grep -nE '0\.84\.2|1\.2\.0' -- tests scripts .github AGENTS.md README.md docs` returning nothing (main 2026-10-31: 57 lines) and no `PI_COMPAT_HOST` step in `.github/workflows/pi-compatibility.yml`
-- [ ] Trying a newer Pi takes one environment variable, and moving the lock edits no test: `PI_COMPAT_HOST=<install>` runs the host tests against that install, and an unset one selects the locked host — verified by `tests/pi-compat-host-selection.test.ts` and `git grep -nF '1.4.0' -- tests scripts .github` returning nothing
-- [ ] `read`, `edit`, `write` and `bash` request `strict: "prefer"` constrained sampling as the built-ins they replace do; `read`, `write` and `bash` pass the host's strict conversion, and a call sending `null` for every optional field runs as if those fields were omitted — verified by a new `tests/constrained-sampling.test.ts` (the host's `makeStrictJsonSchema` on the registered definitions) and `tests/pi-host-null-pipeline.test.ts`
-- [ ] A finished bash row shows `Took <duration>` from the host's recorded `durationMs`, as the built-in bash row does — verified by `tests/bash-renderer-wrapper.test.ts`
-- [ ] 0.18.0 is released: the version is bumped, the CHANGELOG names Pi 1.4.0 as the tested host, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run and `tests/package-version.test.ts`
+- [x] The locked development host is exactly Pi 1.4.0, and plain `npm test` runs the codemode host tests instead of skipping them — verified by `npm ls @earendil-works/pi-coding-agent` and `npx vitest run tests/pi-host-codemode-boundaries.test.ts tests/pi-host-recipe-program.test.ts tests/pi-host-codemode-loadout.test.ts --reporter=json` reporting 0 skipped (main 2026-10-31: 0.84.2; 18 of 18 skipped) · close 2026-11-01: `pi-coding-agent@1.4.0`; 18 total, 18 passed, 0 skipped
+- [x] CI provisions no second Pi, and no test, script, workflow or doc names 0.84.2 or 1.2.0 as a host — verified by `git grep -nE '0\.84\.2|1\.2\.0' -- tests scripts .github AGENTS.md README.md docs` returning nothing (main 2026-10-31: 57 lines) and no `PI_COMPAT_HOST` step in `.github/workflows/pi-compatibility.yml` · close 2026-11-01: grep exit 1, no lines; `PI_COMPAT_HOST` absent from the workflow
+- [x] Trying a newer Pi takes one environment variable, and moving the lock edits no test: `PI_COMPAT_HOST=<install>` runs the host tests against that install, and an unset one selects the locked host — verified by `tests/pi-compat-host-selection.test.ts` and `git grep -nF '1.4.0' -- tests scripts .github` returning nothing · close 2026-11-01: the test passes; grep exit 1, no lines
+- [x] `read`, `edit`, `write` and `bash` request `strict: "prefer"` constrained sampling as the built-ins they replace do; `read`, `write` and `bash` pass the host's strict conversion, and a call sending `null` for every optional field runs as if those fields were omitted — verified by a new `tests/constrained-sampling.test.ts` (the host's `makeStrictJsonSchema` on the registered definitions) and `tests/pi-host-null-pipeline.test.ts` · close 2026-11-01: both pass
+- [x] A finished bash row shows `Took <duration>` from the host's recorded `durationMs`, as the built-in bash row does — verified by `tests/bash-renderer-wrapper.test.ts` · close 2026-11-01: passes; live Pi 1.4.0 drive recorded bash `durationMs: 1033`, `read` returned `1:1df|export function alpha() {`
+- [x] 0.18.0 is released: the version is bumped, the CHANGELOG names Pi 1.4.0 as the tested host, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run and `tests/package-version.test.ts` · close 2026-11-01: run 41330605255 success on `4448305b`; the test passes; `package.json` 0.18.0; CHANGELOG `[0.18.0] - 2026-11-01` names Pi 1.4.0 the one tested host
 
 ## Now
-Next: `close` the arc; every slice is done, and slice 6 (Release 0.18.0) merged as `4448305b` with `pi-compatibility` green on it; nothing awaiting.
 
 ## Seams
 - `scripts/pi-compat-host.mjs`: host selection and expected version → `tests/pi-compat-host-selection.test.ts`, `tests/pi-host-codemode-host-selection.test.ts`
@@ -53,7 +52,7 @@ Next: `close` the arc; every slice is done, and slice 6 (Release 0.18.0) merged 
 - Codemode `@` constraint tags (Pi 1.2.0) in parameter schemas in place of prose like "Positive int": changes the audited schema contract
 - Hosts below Pi 1.4.0 (ruling 0005)
 - Removing bundled Nu: gated by `docs/nu-deprecation.md`
-- `npm publish`: the owner runs it after slice 6 (Release 0.18.0); 0.17.0 stays unpublished, superseded by 0.18.0
+- `npm publish`: the owner runs it after slice 6 (Release 0.18.0); 0.17.0 was already published (`npm view`, 2026-11-01), and 0.18.0 supersedes it
 
 ## Decisions
 - [0003 Host-provided peers keep "*" ranges](../decisions/0003-host-peers-stay-wildcard.md)
