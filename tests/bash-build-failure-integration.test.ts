@@ -100,7 +100,7 @@ describe("issue #222: Bash build failure integration", () => {
     );
 
     expect(successful.content[0].text).toContain("[Context hygiene]");
-    expect(successful.content[0].text.endsWith("---\n✓ Build successful (1 units compiled)")).toBe(true);
+    expect(successful.content[0].text).toMatch(/---\n\[RTK: compressed build output .* Use `PI_RTK_BYPASS=1 cargo build` to see full output\.\]\n✓ Build successful \(1 units compiled\)$/);
     expect(successful.details.contextHygiene.commandState.outcome).toBe("success");
     expect(successful.details.compressionInfo.technique).toBe("build");
     expect(successful.details.rtkCompaction).toMatchObject({

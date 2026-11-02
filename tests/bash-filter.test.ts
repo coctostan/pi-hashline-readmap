@@ -62,6 +62,7 @@ describe("filterBashOutput core behavior", () => {
     expect(filterBashOutput("echo hello", "")).toEqual({
       output: "",
       savedChars: 0,
+      compacted: false,
       info: {
         originalBytes: 0,
         outputBytes: 0,

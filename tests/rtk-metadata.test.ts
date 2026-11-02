@@ -36,6 +36,7 @@ describe("filterBashOutput info (empty-input fast path)", () => {
     expect(result).toEqual({
       output: "",
       savedChars: 0,
+      compacted: false,
       info: {
         originalBytes: 0,
         outputBytes: 0,
@@ -223,8 +224,8 @@ describe("filterBashOutput info (route throw fallback)", () => {
 });
 
 
-describe("RTK notice prepended when thresholds met", () => {
-  it("prepends [RTK: ...] when originalBytes > 2000 and ratio < 0.5", async () => {
+describe("RTK notice prepended on a compaction", () => {
+  it("prepends [RTK: ...] naming the bypass command", async () => {
     const handlers = await loadHandlers("notice-on");
     const raw = "x".repeat(8400);
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("tiny compressed");
@@ -272,7 +273,6 @@ describe("RTK notice format", () => {
 
   it("renders bytes (no KB suffix) when under 1024", async () => {
     const handlers = await loadHandlers("notice-bytes");
-    // Need originalBytes > 2000 to trigger the notice at all, so use 2100 B original with 512 B output.
     const raw = "x".repeat(2100);
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("z".repeat(512));
     try {
@@ -294,88 +294,88 @@ describe("RTK notice format", () => {
 });
 
 
-describe("RTK notice absent at boundaries", () => {
-  it("omits notice when originalBytes === 2000 exactly", async () => {
-    const handlers = await loadHandlers("bdry-size");
-    const raw = "x".repeat(2000); // exactly 2000 B → fails "> 2000"
+async function runBash(tag: string, command: string, raw: string): Promise<string> {
+  const handlers = await loadHandlers(tag);
+  const result = await handlers["tool_result"]({
+    type: "tool_result",
+    toolName: "bash",
+    toolCallId: tag,
+    input: { command },
+    content: [{ type: "text", text: raw }],
+    isError: false,
+  });
+  return result.content[0].text as string;
+}
+
+describe("RTK notice on every compaction, whatever its size and ratio", () => {
+  it("prepends the notice at an original of 2000 B", async () => {
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("tiny");
     try {
-      const result = await handlers["tool_result"]({
-        type: "tool_result",
-        toolName: "bash",
-        toolCallId: "b-1",
-        input: { command: "git diff" },
-        content: [{ type: "text", text: raw }],
-        isError: false,
-      });
-      expect(result.content[0].text).toBe("tiny");
+      const text = await runBash("any-size", "git diff", "x".repeat(2000));
+      expect(text).toBe("[RTK: compressed git output 2.0 KB → 4 B (100% saved). Use `PI_RTK_BYPASS=1 git diff` to see full output.]\ntiny");
     } finally {
       spy.mockRestore();
     }
   });
 
-  it("omits notice when compressionRatio === 0.5 exactly", async () => {
-    const handlers = await loadHandlers("bdry-ratio");
-    const raw = "x".repeat(3000); // 3000 B
-    const half = "y".repeat(1500); // exactly ratio 0.5 → fails "< 0.5"
+  it("prepends the notice at a ratio of 0.5", async () => {
+    const half = "y".repeat(1500);
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue(half);
     try {
-      const result = await handlers["tool_result"]({
-        type: "tool_result",
-        toolName: "bash",
-        toolCallId: "b-2",
-        input: { command: "git diff" },
-        content: [{ type: "text", text: raw }],
-        isError: false,
-      });
-      expect(result.content[0].text).toBe(half);
+      const text = await runBash("any-ratio", "git diff", "x".repeat(3000));
+      expect(text).toBe(`[RTK: compressed git output 2.9 KB → 1.5 KB (50% saved). Use \`PI_RTK_BYPASS=1 git diff\` to see full output.]\n${half}`);
     } finally {
       spy.mockRestore();
     }
   });
 
+  it("prepends the notice to a small real git compaction", async () => {
+    const raw = Array.from({ length: 3 }, (_, i) => `commit ${String(i).repeat(40)}\nAuthor: A <a@b>\nDate:   now\n\n    subject ${i}\n\n    body line\n`).join("\n");
+    const text = await runBash("real-git", "git log -3", raw);
+    expect(text.startsWith("[RTK: compressed git output ")).toBe(true);
+    expect(text.split("\n")[0]).toContain("Use `PI_RTK_BYPASS=1 git log -3` to see full output.]");
+  });
+});
+
+describe("RTK notice absent when no compactor changed the output", () => {
   it("omits notice when output is empty", async () => {
-    const handlers = await loadHandlers("bdry-empty");
-    const result = await handlers["tool_result"]({
-      type: "tool_result",
-      toolName: "bash",
-      toolCallId: "b-3",
-      input: { command: "echo hi" },
-      content: [{ type: "text", text: "" }],
-      isError: false,
-    });
-    expect(result.content[0].text).toBe("");
+    expect(await runBash("none-empty", "echo hi", "")).toBe("");
+  });
+
+  it("omits notice when a route returns its input unchanged", async () => {
+    const spy = vi.spyOn(gitModule, "compactGitOutput").mockImplementation((s: string) => s);
+    try {
+      expect(await runBash("none-same", "git diff", "\x1b[31m-a\x1b[0m\n+b\n")).toBe("-a\n+b\n");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("omits notice on an ANSI-strip-only test-output result", async () => {
+    expect(await runBash("none-test", "npm test", "\x1b[32mPASS\x1b[0m src/foo.test.ts\n")).toBe("PASS src/foo.test.ts\n");
+  });
+
+  it("omits notice when only the anti-pattern hint was added", async () => {
+    const text = await runBash("none-hint", "find src -name '*.ts'", "src/a.ts\nsrc/b.ts\n");
+    expect(text).toBe("src/a.ts\nsrc/b.ts\n\n\n[Hint: Prefer the dedicated file-search tools for repository discovery.]");
   });
 });
 
 
 describe("RTK notice absent under bypass", () => {
-  it("does not prepend a notice when PI_RTK_BYPASS=1 is set, even if thresholds are met", async () => {
-    const bashFilter = await import("../src/rtk/bash-filter.js");
-    const spy = vi.spyOn(bashFilter, "filterBashOutput").mockReturnValue({
-      output: "tiny",
-      savedChars: 8390,
-      info: {
-        originalBytes: 8400,
-        outputBytes: 10,
-        compressionRatio: 10 / 8400,
-        technique: "git",
-        bypassedBy: "env-var",
-      },
-    });
+  it("does not prepend a notice when PI_RTK_BYPASS=1 is set, even on output a compactor would shrink", async () => {
+    const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("tiny");
     const handlers = await loadHandlers("bypass-notice");
     try {
       const result = await handlers["tool_result"]({
         type: "tool_result",
         toolName: "bash",
         toolCallId: "bp-1",
-        input: { command: "PI_RTK_BYPASS=1 cat big.txt" },
-        content: [{ type: "text", text: "ignored by spy" }],
+        input: { command: "PI_RTK_BYPASS=1 git diff" },
+        content: [{ type: "text", text: "x".repeat(8400) }],
         isError: false,
       });
-      const text = result.content[0].text as string;
-      expect(text.startsWith("[RTK:")).toBe(false);
-      expect(text).toBe("tiny");
+      expect(result.content[0].text).toBe("x".repeat(8400));
       expect(result.details.compressionInfo.bypassedBy).toBe("env-var");
     } finally {
       spy.mockRestore();
