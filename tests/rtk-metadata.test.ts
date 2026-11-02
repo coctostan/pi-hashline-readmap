@@ -224,8 +224,8 @@ describe("filterBashOutput info (route throw fallback)", () => {
 });
 
 
-describe("RTK notice prepended when thresholds met", () => {
-  it("prepends [RTK: ...] when originalBytes > 2000 and ratio < 0.5", async () => {
+describe("RTK notice prepended on a compaction", () => {
+  it("prepends [RTK: ...] naming the bypass command", async () => {
     const handlers = await loadHandlers("notice-on");
     const raw = "x".repeat(8400);
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("tiny compressed");
