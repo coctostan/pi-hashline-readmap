@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported).each([
+it.each([
   { name: "complete", content: "needle\n".repeat(4), limit: 100, observed: 4, returned: 4, search: "complete", omitted: 0, display: false, exhaustive: true },
   { name: "native bound", content: "needle\n".repeat(4), limit: 3, observed: 3, returned: 3, search: "unknown", omitted: 0, display: false, exhaustive: false },
   { name: "record omission", content: "needle\n".repeat(60), limit: 100, observed: 60, returned: 10, search: "complete", omitted: 50, display: false, exhaustive: false },

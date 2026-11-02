@@ -1,15 +1,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { it } from "vitest";
-import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
+import { host } from "./helpers/codemode-recipes.js";
 
-const { host } = selectCompatHost();
-const supported = existsSync(join(host, "dist/extensions/codemode/execute.js"));
-if (process.env.PI_COMPAT_HOST && !supported) throw new Error("Explicit compatibility host has no codemode executor");
-
-it.skipIf(!supported)("blocks nested writes through the selected-host permission hook", () => {
+it("blocks nested writes through the selected-host permission hook", () => {
   const stdout = execFileSync(process.execPath, [resolve("tests/helpers/selected-host-codemode.mjs"), host], {
     encoding: "utf8", timeout: 120_000, maxBuffer: 10 * 1024 * 1024,
     env: { ...process.env, PI_CODEMODE_PERMISSION: "1",

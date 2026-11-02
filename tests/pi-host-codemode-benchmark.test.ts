@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { it } from "vitest";
-import { host, supported, version } from "./helpers/codemode-recipes.js";
+import { host, version } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("benchmarks equivalent normal and codemode-only workflows with bounded metrics", () => {
+it("benchmarks equivalent normal and codemode-only workflows with bounded metrics", () => {
   const run = spawnSync(process.execPath, ["scripts/benchmark-codemode.mjs"], {
     encoding: "utf8", timeout: 120_000, maxBuffer: 10 * 1024 * 1024,
     env: { ...process.env, PI_COMPAT_HOST: host, PI_CODEMODE_BENCH_ITERATIONS: "1" },

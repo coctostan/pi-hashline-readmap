@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("hides direct declarations using real prepareLoadout without losing callable tools", () => {
+it("hides direct declarations using real prepareLoadout without losing callable tools", () => {
   const report = runProgram({
     mode: "only", files: { "seed.txt": "alpha\n" },
     steps: [{ code: 'const r=await tools.read({path:"seed.txt"});text({raw:r.lines[0].raw});' }],

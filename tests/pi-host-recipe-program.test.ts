@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, runProgram, supported, version } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram, version } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("captures real selected-host script results", () => {
+it("captures real selected-host script results", () => {
   const report = runProgram({
     files: { "seed.txt": "alpha\nbeta\n" },
     steps: [
@@ -17,7 +17,7 @@ it.skipIf(!supported)("captures real selected-host script results", () => {
 }, 130_000);
 
 
-it.skipIf(!supported)("measures final rendered output including outer hygiene notices", () => {
+it("measures final rendered output including outer hygiene notices", () => {
   const report = runProgram({
     steps: [{ code: String.raw`
       const fresh = await tools.read({path:"visible.ts"});

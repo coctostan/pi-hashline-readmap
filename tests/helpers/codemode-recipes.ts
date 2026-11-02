@@ -5,10 +5,8 @@ import { join, resolve } from "node:path";
 import { selectCompatHost } from "../../scripts/pi-compat-host.mjs";
 
 export const { host, version } = selectCompatHost();
-export const supported = existsSync(join(host, "dist/extensions/codemode/execute.js"));
-if (process.env.PI_COMPAT_HOST && !supported) {
-  throw new Error("Explicit compatibility host has no codemode executor");
-}
+export const executor = join(host, "dist/extensions/codemode/execute.js");
+if (!existsSync(executor)) throw new Error(`Selected Pi host ${version} has no codemode executor at ${executor}`);
 export interface RecipeProgram {
   files?: Record<string, string>;
   inspect?: string[];

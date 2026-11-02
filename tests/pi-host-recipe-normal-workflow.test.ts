@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { runProgram, supported } from "./helpers/codemode-recipes.js";
+import { runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported).each(["independent", "search-edit"] as const)(
+it.each(["independent", "search-edit"] as const)(
   "captures native normal-mode evidence for %s", normalWorkflow => {
     const report = runProgram({
       mode: "on", normalWorkflow,

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("retains hidden safety guidelines within the default declaration budget", () => {
+it("retains hidden safety guidelines within the default declaration budget", () => {
   const report = runProgram({
     mode: "only",
     steps: [{ code: recipe("discovery") + String.raw`
@@ -29,7 +29,7 @@ it.skipIf(!supported)("retains hidden safety guidelines within the default decla
 }, 130_000);
 
 
-it.skipIf(!supported)("keeps all nine tool sections and contract hints within the default budget", () => {
+it("keeps all nine tool sections and contract hints within the default budget", () => {
   const report = runProgram({ mode: "only", steps: [{ code: 'text("catalog checked");' }] });
   assert.equal(report.loadout.defaultInlineBudget, 3000);
   const catalog = report.loadout.description;

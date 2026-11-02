@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, seeded, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram, seeded } from "./helpers/codemode-recipes.js";
 
 const code = recipe("nu-source");
-it.skipIf(!supported)("projects bounded source inspection with anchors and honest incompleteness", () => {
+it("projects bounded source inspection with anchors and honest incompleteness", () => {
   const reports: any[] = [];
   try {
     const report = runProgram({

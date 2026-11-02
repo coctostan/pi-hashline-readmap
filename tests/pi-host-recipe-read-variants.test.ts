@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported).each([
+it.each([
   { kind: "text", request: { path: "alpha.txt", limit: 1 }, images: 0 },
   { kind: "image", request: { path: "fixture.png", offset: 0 }, images: 1 },
   { kind: "ambiguity", request: { path: "ambiguous.ts", symbol: "run" }, images: 0 },
