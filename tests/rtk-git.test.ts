@@ -221,6 +221,21 @@ describe("compactLog", () => {
     expect(compactLog(log, 2)).toBe(`${log.split("\n").slice(0, 4).join("\n")}\n... and 1 more commits`);
   });
 
+  // Header shapes measured from git 2.x: side marks without --graph, node markers and a blank first column with it.
+  it.each([
+    ["--left-right", ["commit < SHA", "commit > SHA"]],
+    ["--boundary", ["commit - SHA"]],
+    ["--cherry-mark", ["commit + SHA", "commit = SHA"]],
+    ["--graph --left-right", ["< commit SHA", "  > commit SHA"]],
+    ["--graph --boundary", ["o commit SHA", "o | commit SHA"]],
+    ["--graph with a blank first column", ["  * commit SHA", "|   * commit SHA"]],
+    ["--graph octopus merge", ["*---.   commit SHA"]],
+  ])("counts %s headers", (_, shapes) => {
+    const headers = [`commit ${sha(0)}`, ...shapes.map((shape, i) => shape.replace("SHA", sha(i + 1)))];
+    const log = headers.map((header) => `${header}\nAuthor: A <a@example.test>`).join("\n");
+    expect(compactLog(log, 1)).toBe(`${headers[0]}\nAuthor: A <a@example.test>\n... and ${shapes.length} more commits`);
+  });
+
   it("keeps 20 lines of headerless output and counts the dropped lines", () => {
     const log = gitLogOneline(30);
     const kept = log.split("\n").slice(0, 20).join("\n");
