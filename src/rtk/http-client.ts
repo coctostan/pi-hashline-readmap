@@ -1,3 +1,5 @@
+import { dropMarker, outputLines, type Drop } from "./drops.ts";
+
 export function isHttpCommand(cmd: string): boolean {
   const c = cmd.trim().toLowerCase();
   if (c.startsWith("curl ") || c === "curl") return true;
@@ -19,10 +21,9 @@ function isCurlProgressLine(line: string): boolean {
   return CURL_PROGRESS_HEADER_RE.test(line) || CURL_PROGRESS_ROW_RE.test(line);
 }
 
-export function compressHttpOutput(output: string): string | null {
-  const lines = output.split("\n");
+export function compressHttpOutput(output: string, drops: Drop[] = []): string | null {
+  const lines = outputLines(output);
   const trailingNewline = output.endsWith("\n");
-  if (trailingNewline) lines.pop();
   const hasHttpHeaders = lines.some((line) => HTTP_HEADER_RE.test(line.trim()));
   if (lines.length < 10) return hasHttpHeaders ? output : null;
 
@@ -63,7 +64,7 @@ export function compressHttpOutput(output: string): string | null {
   }
 
   if (truncatedCount > 0) {
-    kept.push(`[... ${truncatedCount} more lines]`);
+    kept.push(dropMarker(drops, truncatedCount, "lines", `[... ${truncatedCount} more lines]`));
   } else if (trailingNewline) {
     kept.push("");
   }

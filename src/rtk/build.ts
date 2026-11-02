@@ -1,3 +1,5 @@
+import { dropMarker, outputLines, type Drop } from "./drops.ts";
+
 interface BuildStats {
 	compiled: number;
 	errors: string[][];
@@ -72,14 +74,14 @@ export function isBuildCommand(command: string | undefined | null): boolean {
 
 export function filterBuildOutput(
 	output: string,
-	command: string | undefined | null
+	command: string | undefined | null,
+	drops: Drop[] = [],
 ): string | null {
 	if (typeof command !== "string" || !isBuildCommand(command)) {
 		return null;
 	}
 
-	const lines = output.split("\n");
-	if (output.endsWith("\n")) lines.pop();
+	const lines = outputLines(output);
 	const stats: BuildStats = {
 		compiled: 0,
 		errors: [],
@@ -163,11 +165,11 @@ export function filterBuildOutput(
 		for (const error of stats.errors.slice(0, 5)) {
 			result.push(...error.slice(0, 10));
 			if (error.length > 10) {
-				result.push(`  ... and ${error.length - 10} more lines`);
+				result.push(dropMarker(drops, error.length - 10, "lines", `  ... and ${error.length - 10} more lines`));
 			}
 		}
 		if (stats.errors.length > 5) {
-			result.push(`... and ${stats.errors.length - 5} more errors`);
+			result.push(dropMarker(drops, stats.errors.length - 5, "errors", `... and ${stats.errors.length - 5} more errors`));
 		}
 	}
 

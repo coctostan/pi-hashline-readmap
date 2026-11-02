@@ -63,6 +63,7 @@ describe("filterBashOutput core behavior", () => {
       output: "",
       savedChars: 0,
       compacted: false,
+      dropped: [],
       info: {
         originalBytes: 0,
         outputBytes: 0,
@@ -101,7 +102,7 @@ describe("filterBashOutput routing", () => {
     const spy = vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("compressed git output");
 
     const result = filterBashOutput("git diff", "raw git output");
-    expect(spy).toHaveBeenCalledWith("raw git output", "git diff");
+    expect(spy).toHaveBeenCalledWith("raw git output", "git diff", []);
     expect(result.output).toBe("compressed git output");
 
     spy.mockReturnValue(null);
@@ -143,7 +144,7 @@ describe("filterBashOutput routing", () => {
     const spy = vi.spyOn(linterModule, "aggregateLinterOutput").mockReturnValue("compressed linter output");
 
     const result = filterBashOutput("eslint .", "raw linter output");
-    expect(spy).toHaveBeenCalledWith("raw linter output", "eslint .");
+    expect(spy).toHaveBeenCalledWith("raw linter output", "eslint .", []);
     expect(result.output).toBe("compressed linter output");
 
     spy.mockReturnValue(null);
@@ -159,8 +160,8 @@ describe("filterBashOutput routing", () => {
 
     const result = filterBashOutput("tsc --noEmit", "raw build output");
 
-    expect(linterSpy).toHaveBeenCalledWith("raw build output", "tsc --noEmit");
-    expect(buildSpy).toHaveBeenCalledWith("raw build output", "tsc --noEmit");
+    expect(linterSpy).toHaveBeenCalledWith("raw build output", "tsc --noEmit", []);
+    expect(buildSpy).toHaveBeenCalledWith("raw build output", "tsc --noEmit", []);
     expect(result.output).toBe("build fallback output");
 
     linterSpy.mockRestore();
@@ -171,7 +172,7 @@ describe("filterBashOutput routing", () => {
     const spy = vi.spyOn(buildModule, "filterBuildOutput").mockReturnValue("compressed build output");
 
     const result = filterBashOutput("tsc", "raw build output");
-    expect(spy).toHaveBeenCalledWith("raw build output", "tsc");
+    expect(spy).toHaveBeenCalledWith("raw build output", "tsc", []);
     expect(result.output).toBe("compressed build output");
 
     spy.mockReturnValue(null);

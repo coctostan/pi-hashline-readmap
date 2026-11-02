@@ -1,4 +1,5 @@
 import { dirname } from "path";
+import { dropMarker, type Drop } from "./drops.ts";
 
 const LONG_FORMAT_LS_ROW_RE = /^[bcdlps-][rwxStTs-]{9}[+@.]?\s+/;
 const LONG_FORMAT_LS_TOTAL_RE = /^total\s+\d+\s*$/;
@@ -16,7 +17,7 @@ export function isFileListingCommand(cmd: string): boolean {
   return c === "find" || c.startsWith("find ");
 }
 
-export function compressFileListingOutput(output: string): string | null {
+export function compressFileListingOutput(output: string, drops: Drop[] = []): string | null {
   const rawLines = output.split("\n");
   if (rawLines.some(isLongFormatLsLine)) return null;
   const lines = rawLines.filter((line) => line.trim() !== "");
@@ -58,7 +59,7 @@ export function compressFileListingOutput(output: string): string | null {
   }
 
   result.push("");
-  result.push(`Total: ${totalFiles} entries in ${dirCounts.size} directories`);
+  result.push(dropMarker(drops, totalFiles, "entries", `Total: ${totalFiles} entries in ${dirCounts.size} directories`));
 
   return result.join("\n");
 }

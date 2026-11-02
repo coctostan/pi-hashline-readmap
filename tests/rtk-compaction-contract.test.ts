@@ -76,6 +76,7 @@ describe("details.rtkCompaction — main RTK path (single technique)", () => {
       applied: false,
       techniques: [],
       truncated: false,
+      dropped: [],
       originalLineCount: 3,
       compactedLineCount: 5, // the hint's lines included
     });
@@ -94,6 +95,7 @@ describe("details.rtkCompaction — PI_RTK_BYPASS path", () => {
       applied: false,
       techniques: [],
       truncated: false,
+      dropped: [],
       originalLineCount: expect.any(Number),
       compactedLineCount: expect.any(Number),
     });
@@ -138,31 +140,19 @@ describe("details.rtkCompaction — test-output short-circuit", () => {
 });
 
 
-describe("details.rtkCompaction — truncated end-to-end", () => {
-  it("sets truncated=true when the route emits the '... N lines omitted ...' marker", async () => {
-    const truncatedRouteOutput = [
-      "M file1.ts",
-      "M file2.ts",
-      "",
-      "... 12 lines omitted ...",
-      "",
-      "M file19.ts",
-      "M file20.ts",
-    ].join("\n") + "\n";
-    const gitSpy = vi.spyOn(git, "compactGitOutput").mockReturnValue(truncatedRouteOutput);
-    const handler = await loadHandler("truncated");
-    try {
-      const rawInput = Array.from({ length: 25 }, (_, i) => `M file${i + 1}.ts`).join("\n") + "\n";
-      const result = await handler(makeBashEvent("t-trunc", "git status", rawInput));
-      expect(result.details.rtkCompaction.applied).toBe(true);
-      expect(result.details.rtkCompaction.techniques).toEqual(["git"]);
-      expect(result.details.rtkCompaction.truncated).toBe(true);
-      expect(result.details.rtkCompaction.originalLineCount).toBeGreaterThan(
-        result.details.rtkCompaction.compactedLineCount,
-      );
-      expect(result.details.ptcValue?.rtkCompaction).toEqual(result.details.rtkCompaction);
-    } finally {
-      gitSpy.mockRestore();
-    }
+describe("details.rtkCompaction — dropped end-to-end", () => {
+  it("reports the route's drops as dropped and sets truncated, mirrored at ptcValue", async () => {
+    const handler = await loadHandler("dropped");
+    // The dropped 21st line reads like the marker that replaces it.
+    const lines = Array.from({ length: 20 }, (_, i) => `abc${String(i).padStart(4, "0")} subject ${i}`);
+    const rawInput = [...lines, "... and 1 more lines"].join("\n") + "\n";
+    const result = await handler(makeBashEvent("t-dropped", "git log --oneline", rawInput));
+    expect(result.details.rtkCompaction).toMatchObject({
+      applied: true,
+      techniques: ["git"],
+      truncated: true,
+      dropped: [{ count: 1, unit: "lines" }],
+    });
+    expect(result.details.ptcValue?.rtkCompaction).toEqual(result.details.rtkCompaction);
   });
 });

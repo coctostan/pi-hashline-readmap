@@ -11,6 +11,7 @@ type RtkCompaction = {
   applied: boolean;
   techniques: string[];
   truncated: boolean;
+  dropped: { count: number; unit: string }[];
   originalLineCount?: number;
   compactedLineCount?: number;
 };
@@ -35,10 +36,15 @@ The same value is mirrored at `details.ptcValue.rtkCompaction` (deep-equal).
   *inside* the routed compression step, ending the cut with a marker that
   names the true count in its unit (for example `... and N more lines`,
   `  ... and N more files`, `[... N more lines]`, `Total: N entries in M
-  directories`; `docs/bash-output.md` lists them all). Noise filters, such as
-  dropped progress lines, set nothing. Only routed RTK compression techniques
-  can set this field; post-RTK guard trimming and test-output ANSI
-  normalization do not.
+  directories`; `docs/bash-output.md` lists them all): exactly when `dropped`
+  is non-empty. Noise filters, such as dropped progress lines, set nothing.
+  Only routed RTK compression techniques can set this field; post-RTK guard
+  trimming and test-output ANSI normalization do not.
+- **`dropped`** — one `{ count, unit }` per drop marker in the output, in
+  output order, as the route reported it when it wrote the marker (`... and 3
+  more commits` is `{ count: 3, unit: "commits" }`). A marker-like line the
+  command printed itself is no drop. Always present; `[]` when nothing was
+  dropped.
 - **`originalLineCount` / `compactedLineCount`** — newline-split line counts of
   the pre-RTK and post-RTK strings, the post-RTK one counting any anti-pattern
   hint. Both are present when measurable; both are omitted when not (e.g. the
