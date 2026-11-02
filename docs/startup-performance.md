@@ -1,12 +1,12 @@
 # Startup performance
 
-Decision record for issue #267 (bundled `dist/index.js` entry, proposed in PR #226). Measured with Pi 1.1.0.
+Decision record for issue #267 (bundled `dist/index.js` entry, proposed in PR #226). Measured with Pi 1.1.0, recorded 2026-10-12.
 
 ## Host
 
 - macOS 26.6.2, Apple M4 Pro
 - Node v26.7.0
-- Pi 1.1.0 (Measured with Pi 1.1.0)
+- Pi 1.1.0 (recorded 2026-10-12)
 
 ## Method
 

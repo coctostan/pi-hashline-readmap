@@ -6,7 +6,7 @@ Use Hashline's structured values to do work privately, then print only the field
 
 ## Enable without replacing your selection
 
-On Pi 1.1, enable codemode for one invocation:
+On Pi 1.1+, enable codemode for one invocation:
 
 ~~~bash
 pi --tools +codemode

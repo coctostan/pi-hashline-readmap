@@ -16,7 +16,7 @@ Set `PI_COMPAT_HOST` to measure another installation, as AGENTS.md describes; th
 
 - Run: 2026-10-11, completed at 21:40:05 UTC.
 - Git HEAD: `423f6421acc0af5149389d835430c394872d98ee`, with the issue #265 working-tree changes (including the benchmark) applied; HEAD alone does not contain this harness.
-- Selected host: Pi 1.1.0 (the host tested at the time; not re-recorded since), explicitly installed at the checkout-local path recorded below.
+- Selected host: Pi 1.1.0 (the tested host on 2026-10-11; not re-recorded since), explicitly installed at the checkout-local path recorded below.
 - Node: v26.7.0; OS/architecture: Darwin 25.6.0 / arm64 (queried alongside the report).
 - Three cold-process samples per workflow/mode: 12 rows total, no warm-process/VM lane.
 

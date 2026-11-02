@@ -21,7 +21,7 @@ An Unreleased changelog entry or merged source change is not evidence of a publi
 
 The bounded executable examples live in [codemode recipes](codemode-recipes.md), not duplicated untested code here. Nushell JSON/CSV/TOML/YAML parsing, plugins, system queries, and shell pipelines are not universally replaced by codemode or file tools. Use `read` for repository files; use Bash for genuine external commands, not a new general file-reading pipeline.
 
-Enable codemode additively on Pi 1.1 with `pi --tools +codemode`, retaining existing tool selection. The callable tools must be available. Codemode does not bypass permission guards, argument validation, or cancellation. Dependent mutations must run serially with freshly acquired anchors after each mutation; a stored anchor is not evidence of current file state. Handle read result variants before accessing lines.
+Enable codemode additively on Pi 1.1+ with `pi --tools +codemode`, retaining existing tool selection. The callable tools must be available. Codemode does not bypass permission guards, argument validation, or cancellation. Dependent mutations must run serially with freshly acquired anchors after each mutation; a stored anchor is not evidence of current file state. Handle read result variants before accessing lines.
 
 ## Keeping Nushell
 
@@ -35,7 +35,7 @@ A separate optional extension is a possible destination, not a prerequisite for 
 
 Do not load two extensions registering the same `nu` name. Hashline currently has no Nu-only registration-disable setting; selecting/excluding a tool by name controls availability, not which extension owns a duplicate registration.
 
-Safest during this stage: keep bundled Nu and do not load the second Nu extension, or use standalone Nushell through Bash. If you deliberately switch to another Nu extension before removal, exclude Hashline's entire extension resource (losing its other enhancements) using Pi's resource controls, and explicitly load only the chosen extension. Pi 1.1 supports `pi --no-extensions --extension ./chosen-nu-extension.ts` for a one-off run; this disables other discovered/configured extensions too. Inspect package resource selection with `pi config` for a persistent choice. This guide does not mutate settings or recommend replacing an existing custom tool allowlist.
+Safest during this stage: keep bundled Nu and do not load the second Nu extension, or use standalone Nushell through Bash. If you deliberately switch to another Nu extension before removal, exclude Hashline's entire extension resource (losing its other enhancements) using Pi's resource controls, and explicitly load only the chosen extension. Pi 1.1+ supports `pi --no-extensions --extension ./chosen-nu-extension.ts` for a one-off run; this disables other discovered/configured extensions too. Inspect package resource selection with `pi config` for a persistent choice. This guide does not mutate settings or recommend replacing an existing custom tool allowlist.
 
 After the gated removal release, Hashline no longer registers `nu`, so a separately reviewed extension may coexist. Verify its registration name, configuration, permission behavior, and maintenance before adoption.
 
