@@ -276,9 +276,8 @@ export function parseShellCommands(
     } else if (char === ")" && inSubstitution && subshellDirs.length === 0) {
       break;
     } else if (char === ";" || char === "&" || char === "|" || char === "(" || char === ")") {
+      // The second `|` of `||`, or the `&` of `|&`, only ends an already empty command.
       endCommand(char === "|" && next !== "|");
-      // `||` and `|&` are one operator each.
-      if (char === "|" && (next === "|" || next === "&")) index += 1;
       if (char === "(") subshellDirs.push(cwd);
       if (char === ")" && subshellDirs.length > 0) cwd = subshellDirs.pop();
     } else if (char === "\n") {

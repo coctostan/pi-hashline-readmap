@@ -268,6 +268,7 @@ describe("parseShellCommands marks printing parts", () => {
     ["subshell", "(cd x && git diff)", [["cd x", false, false], ["git diff", false, false]]],
     ["heredoc", "cat <<'EOF' | wc -l\na | b; c\nEOF\ngit status", [["cat <<'EOF'", false, true], ["wc -l", false, false], ["git status", false, false]]],
     ["redirections", "git diff 2>&1 > out.txt", [["git diff 2>&1 > out.txt", false, false]]],
+    ["redirection first", "2>/dev/null git status; >out.txt echo hi", [["2>/dev/null git status", false, false], [">out.txt echo hi", false, false]]],
     ["quoted ; and |", "git commit -m 'a; b | c' && echo \"x|y\"", [["git commit -m 'a; b | c'", false, false], ["echo \"x|y\"", false, false]]],
     ["comment and line continuation", "git log \\\n  --oneline # note | x\necho y", [["git log \\\n  --oneline", false, false], ["echo y", false, false]]],
   ];
