@@ -14,7 +14,7 @@ The extension is developed and tested against Pi's latest release, Pi 1.5.0 or a
 - [ ] 0.19.0 is released: the version is bumped, a user-facing `[0.19.0]` CHANGELOG entry names the new host, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run and `tests/package-version.test.ts` (main 2026-11-02: 0.18.0)
 
 ## Now
-Active: slice 1 (Codemode host tests fail instead of skipping), branch `pi-1-5-host/01-codemode-tests-fail`; next: build.
+Next: slice 2 (Docs name only the locked host), no branch yet; run `slice` in a fresh session.
 
 ## Seams
 - `scripts/pi-compat-host.mjs` (`selectCompatHost`) and `tests/helpers/codemode-recipes.ts` (`supported`) → the `tests/pi-host-*.test.ts` files
@@ -27,7 +27,7 @@ Active: slice 1 (Codemode host tests fail instead of skipping), branch `pi-1-5-h
 
 ## Slices
 1. **Codemode host tests fail instead of skipping** — delivers `supported` and its 37 `it.skipIf(!supported)` sites gone; any selected host without the codemode executor fails the helper at load, as an explicit override already does (a prefactor, on Pi 1.4.0) · proof: the `git grep` goes 37→0; with the executor check pointed at a missing path, the codemode tests fail instead of skipping; `npm test && npm run typecheck` · blocked-by — · status done
-   `tests/helpers/codemode-recipes.ts` throws at load on any executorless host and exports `executor`; 24 codemode host files lose their skips, five copied checks and `pi-host-codemode.test.ts`'s `describe.skipIf` included · deviation: `tests/pi-host-codemode-host-selection.test.ts` gained a locked-host case after review (the override-only pin let `PI_COMPAT_HOST && …` stay green) · grep 37→0; executor pointed at a missing file: main 24 files skipped, branch 24 failed; `npm test` 653 files, 2659 passed, 1 skipped (startup-performance `runIf`); typecheck clean
+   `tests/helpers/codemode-recipes.ts` throws at load on any executorless host and exports `executor`; 24 codemode host files lose their skips, five copied checks and `pi-host-codemode.test.ts`'s `describe.skipIf` included · deviation: `tests/pi-host-codemode-host-selection.test.ts` gained a locked-host case after review (the override-only pin let `PI_COMPAT_HOST && …` stay green) · grep 37→0; executor pointed at a missing file: main 24 files skipped, branch 24 failed; `npm test` 653 files, 2659 passed, 1 skipped (startup-performance `runIf`); typecheck clean · `bd56f921`
 2. **Docs name only the locked host** — delivers `tests/doc-host-version.test.ts`, reading the locked version from `package-lock.json`, and the "Pi 1.1" lines rewritten as minimum-version claims or the locked host (on Pi 1.4.0) · proof: the new test red on main's docs, green after; a "locked Pi <other>" line turns it red · blocked-by — · status next
 3. **Locked host moves to Pi 1.5** — delivers devDependencies and the lockfile at Pi's latest 1.5.x release, `pi-schema` in the AGENTS.md recipe and the one-version audit, and README.md, AGENTS.md and `docs/` naming the new host · proof: the first done-when command goes red→green; `npm test && npm run typecheck`; `tests/doc-host-version.test.ts` red after the bump until the docs move; a live drive in a fresh session on the new host · blocked-by 1, 2 · status next
 4. **Pi reads our changelog** — delivers `tests/package-changelog.test.ts`: the selected host's `parseChangelog` finds `CHANGELOG.md`'s entry for `package.json`'s version · proof: the test passes on the new host; a heading outside Pi's format (`## v0.18.0`) turns it red · blocked-by 3 · status next
