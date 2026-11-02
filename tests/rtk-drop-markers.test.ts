@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { filterBashOutput } from "../src/rtk/bash-filter.ts";
 import { compactDiff } from "../src/rtk/git.ts";
 import { buildRtkCompaction } from "../src/rtk/rtk-compaction.ts";
+import type { Drop } from "../src/rtk/drops.ts";
 
 // Each marker docs/bash-output.md lists, read back as the drop it names.
 const MARKERS = [
@@ -53,6 +54,16 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     const marker = result.lines.find((line) => line.startsWith("..."));
     expect(marker).toBe(`... and ${uncapped.length - (result.lines.length - 1)} more lines`);
     expect(result.truncated).toBe(true);
+  });
+
+  it("git diff reports exactly the context markers left beside the cap's cut, at every cap", () => {
+    const hunk = [" a", " b", " c", " d", " e", "-x", "+y", " f", " g", " h", " i", " j"];
+    const raw = text(lines(6, (f) => fileDiff(`f${f}`, hunk)).flat());
+    for (let maxLines = 5; maxLines <= 90; maxLines++) {
+      const drops: Drop[] = [];
+      const output = compactDiff(raw, maxLines, drops);
+      expect(drops, `maxLines ${maxLines}`).toEqual(markersIn(output));
+    }
   });
 
   it("git diff past its line cap reports only the context markers it kept, beside the cap's own", () => {
