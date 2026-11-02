@@ -180,16 +180,17 @@ describe("RTK notice — Original output names the saved pre-RTK copy", () => {
     }
   });
 
-  it("drops the Original output clause, keeping the bypass, when the snapshot write fails", async () => {
+  it("leaves the output uncompacted when its original cannot be saved", async () => {
     const handler = await loadHandler("original-fail");
     const saved = process.env.TMPDIR;
     process.env.TMPDIR = "/nonexistent-hashline-tmpdir";
     try {
       const lines = Array.from({ length: 21 }, (_, i) => `abc${String(i).padStart(4, "0")} subject ${i}`);
-      const result = await handler(makeBashEvent("t-original-fail", "git log --oneline", lines.join("\n")));
-      expect(result.content[0].text.split("\n")[0]).toMatch(
-        /\(-?\d+% saved\)\. Use `PI_RTK_BYPASS=1 git log --oneline` to re-run uncompressed\.\]$/,
-      );
+      const rawInput = lines.join("\n");
+      const result = await handler(makeBashEvent("t-original-fail", "git log --oneline", rawInput));
+      expect(result.content[0].text).toBe(rawInput);
+      expect(result.details.rtkCompaction).toMatchObject({ applied: false, dropped: [] });
+      expect(result.details.compressionInfo.bypassedBy).toBe("unsaved-original");
       expect(result.details.bashOriginalOutput.snapshotWriteError).toContain("ENOENT");
     } finally {
       if (saved === undefined) delete process.env.TMPDIR;
