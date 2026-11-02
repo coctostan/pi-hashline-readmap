@@ -1,0 +1,51 @@
+---
+status: active
+---
+# Compacted bash output is truthful and recoverable
+
+## Destination
+Every bash result a compactor changed states nothing false, drops only noise silently, reports each other drop in `details.rtkCompaction.dropped`, and names a saved copy of the pre-RTK output, so recovery never needs a re-run. Ships as 0.20.0.
+
+## Done when
+- [ ] Compactors report their own drops: `details.rtkCompaction.dropped` lists one `{count, unit}` per drop marker in the output, `truncated` is true exactly when it is non-empty, and `ROUTE_TRUNCATION_MARKERS` and `ROUTE_TRUNCATION_TECHNIQUES` are gone. A `git log --oneline` of 21 lines whose dropped 21st line reads `... and 1 more lines` reports `truncated: true` — verified by `tests/rtk-compaction-builder.test.ts`, `tests/rtk-drop-markers.test.ts` and `tests/rtk-compaction-contract.test.ts` (main 2026-11-02: no `dropped`; that `git log` reports `truncated: false`)
+- [ ] No compactor states a falsehood: `git status -sb` on `## main...origin/main [ahead 1]` keeps `[ahead 1]` and lists `DU a.ts` under `⚠️ Conflicts: 1 files`, never under Staged, and conflicts are never cut. `find` with `-printf`, `-fprintf`, `-ls`, `-exec`, `-execdir`, `-ok` or `-print0` passes through unchanged. `cargo build` with one warning reports 1 warning — verified by `tests/rtk-git.test.ts`, `tests/rtk-file-listing.test.ts` and a new `tests/rtk-build.test.ts` (main 2026-11-02: `📌 main` and `✅ Staged: 2 files` with `a.ts`; `find src -printf '%s %p\n'` becomes `100 src/dir0/ (1 entries)` lines, filenames gone, ending `Total: 120 entries in 120 directories`; cargo `⚠️  2 warning(s)`)
+- [ ] Diagnostics survive compaction: a successful build keeps up to 5 warnings, each cut at 10 lines by `  ... and N more lines`, then `... and N more warnings`. The linter's per-file rule cut ends `    ... and N more rules`. Every route has a `tests/rtk-drop-markers.test.ts` case where each non-noise fixture line is in the output or counted in `dropped`, and `docs/bash-output.md` lists each route's noise beside its markers — verified by `tests/rtk-drop-markers.test.ts`, `tests/rtk-build.test.ts` and `tests/rtk-linter.test.ts` (main 2026-11-02: `npm run build` with a tsc `warning TS6133` returns only `✓ Build successful (1 units compiled)`; a file with 5 lint rules shows 3, no marker, `truncated: false`)
+- [ ] Recovery needs no re-run: every compacted result's RTK notice names `Original output: <path>`, a `0600` temp file holding the pre-RTK output byte for byte, or Pi's own full-output file when Pi truncated, also with `PI_HASHLINE_BASH_CONTEXT_GUARD=0` — verified by `tests/rtk-compaction-contract.test.ts` and `tests/bash-original-output-integration.test.ts` (main 2026-11-02: the notice names only `PI_RTK_BYPASS=1 <command>`; a snapshot is written only when the guard trims)
+- [ ] 0.20.0 is released: the version is bumped, a `[0.20.0]` CHANGELOG entry names `dropped` and `Original output:` under Added and the truthfulness fixes under Fixed, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run, `tests/package-version.test.ts` and `tests/package-changelog.test.ts` (main 2026-11-02: 0.19.2)
+
+## Now
+Next: slice 1 (Compactors report their drops), in a fresh session with `slice`.
+
+## Seams
+- `filterBashOutput` in `src/rtk/bash-filter.ts`, over each compactor → `tests/rtk-drop-markers.test.ts`, the per-compactor `tests/rtk-*.test.ts`, `tests/bash-filter.test.ts`
+- `filterBuildOutput` in `src/rtk/build.ts` → `tests/rtk-build.test.ts` (new)
+- `buildRtkCompaction` in `src/rtk/rtk-compaction.ts` → `tests/rtk-compaction-builder.test.ts`
+- `selectBashOriginalOutput` and `ensureBashOriginalOutputSnapshot` in `src/rtk/bash-original-output.ts` → `tests/bash-original-output.test.ts`
+- The bash `tool_result` handler in `index.ts` (`details.rtkCompaction`, the RTK notice, the original-output snapshot) → `tests/rtk-compaction-contract.test.ts`, `tests/rtk-metadata.test.ts`, `tests/bash-original-output-integration.test.ts`
+- `package.json`, `package-lock.json` and `CHANGELOG.md` → `tests/package-version.test.ts`, `tests/package-content.test.ts`, `tests/package-changelog.test.ts`, the `pi-compatibility` workflow
+- Real artifact: `pi --no-extensions --no-session -e <repo>/index.ts --model openai-codex/gpt-6-luna --mode json -p "<prompt>"` in a scratch directory, observing the bash `tool_execution_end` events
+
+## Slices
+1. **Compactors report their drops** — delivers each route reporting its drops beside its output, `buildRtkCompaction` taking them in place of marker re-detection, `details.rtkCompaction.dropped` (mirrored at `ptcValue`), `truncated` as `dropped` non-empty, `ROUTE_TRUNCATION_MARKERS` and `ROUTE_TRUNCATION_TECHNIQUES` deleted, and one shared trailing-newline line count in place of the four copies (`src/rtk/build.ts:82`, `src/rtk/git.ts:14` and `:298`, `src/rtk/http-client.ts:24`). Existing marker text unchanged; compactors keep their string results, so their tests stay pins · proof: red first, the marker-identical `git log` case in `tests/rtk-compaction-builder.test.ts` and a `dropped` case in `tests/rtk-compaction-contract.test.ts`; `tests/rtk-drop-markers.test.ts` asserts each marker and its drop agree; `npm test && npm run typecheck`; a live drive of `git log --oneline -30` · blocked-by — · status next
+2. **Notice names the saved original** — delivers a pre-RTK copy for every compacted result: Pi's full-output file when Pi truncated, else a `0600` snapshot written through `ensureBashOriginalOutputSnapshot`, also with the context guard disabled, and the guard reusing it. The RTK notice reads `[RTK: compressed … Original output: <path>. Use PI_RTK_BYPASS=1 <command> to re-run uncompressed.]`, never `Full output:`; `prompts/bash.md` and `docs/bash-output.md` say so · proof: red first in `tests/rtk-compaction-contract.test.ts` (notice path, file bytes equal the input) and `tests/bash-original-output-integration.test.ts` (guard off); the notice-matching tests updated; a live drive reading the named file · blocked-by 1 · status next
+3. **`git status` reports tracking and conflicts** — delivers the branch line keeping its tracking (`📌 main...origin/main [ahead 1]`) and unmerged codes (`DD AU UD UA DU AA UU`) in a `⚠️ Conflicts: N files` section that no budget cuts, not under Staged · proof: red cases first in `tests/rtk-git.test.ts`; a live drive on a scratch repo with a conflict · blocked-by 1 · status next
+4. **`find` passes shaped output through** — delivers `isFileListingCommand` refusing `find` lines with `-printf`, `-fprintf`, `-ls`, `-exec`, `-execdir`, `-ok` or `-print0`, so their output passes through unchanged; `docs/bash-output.md` says so · proof: red cases first in `tests/rtk-file-listing.test.ts` for `-printf` and `-ls`; a live drive of `find src -ls` · blocked-by 1 · status next
+5. **Builds keep their warnings** — delivers `filterBuildOutput` keeping up to 5 warnings on success and failure, each cut at 10 lines by `  ... and N more lines`, then `... and N more warnings`, each reported as a drop, and counting only real diagnostics (cargo's `generated N warning(s)` summary is no warning) · proof: red cases first in the new `tests/rtk-build.test.ts` (tsc warning on success, one cargo warning, 7 warnings); a live drive of a build with a warning · blocked-by 1 · status next
+6. **Every route drops only noise silently** — delivers the audit of all 9 routes against [ruling 0006](../decisions/0006-compactors-drop-only-noise-silently.md): the linter's per-file rule cut ends `    ... and N more rules`; docker, package-manager, transfer, build-tools and http-client fixed where a marker or a kept line suffices, the rest routed to Not yet specified; one `tests/rtk-drop-markers.test.ts` case per route; `docs/bash-output.md` lists each route's noise beside its markers · proof: red cases first, one per route found dropping a diagnostic; `npm test && npm run typecheck` · blocked-by 1, 3, 4, 5 · status next
+7. **Release 0.20.0** — delivers the version bump in package and lock (pins in `tests/package-version.test.ts` and `tests/package-content.test.ts`) and a dated `[0.20.0]` CHANGELOG entry, `dropped` and `Original output:` under Added, the fixes under Fixed; the `pi-compatibility` workflow green on the release commit · proof: that workflow run; `tests/package-version.test.ts`; `tests/package-changelog.test.ts` · blocked-by 1, 2, 3, 4, 5, 6 · gate human · status next
+
+## Not yet specified
+- Original-output temp files are never cleaned up, like the context guard's today: a cleanup policy when they turn out to pile up
+- The linter route grows small inputs (main 2026-11-02: 6 lines of `file:line:col` output became 15): is a summary longer than its input still a compaction?
+
+## Out of scope
+- Route fixes that need more than a marker or a kept line: slice 6 routes them to Not yet specified
+- The linter parsing only `file:line:col` output, missing ESLint's default stylish format and tsc's `file(line,col)`: coverage, not truth; stays in NOW.md's Next
+- `sudo`/`env`/`command`/`exec`/`xargs` prefixes and a real bash grammar (NOW.md's Bash tool gaps)
+- Publishing to npm: 0.19.1, 0.19.2 and 0.20.0 await the owner
+- Changing existing marker text or `truncated`'s documented meaning
+
+## Decisions
+- AGENTS.md's hard rule binds: shrink a tool result only when the full result stays recoverable. slice 2 (Notice names the saved original) makes recovery a file read instead of a re-run.
+- [Ruling 0006](../decisions/0006-compactors-drop-only-noise-silently.md): a compactor drops only noise silently; diagnostics and status facts are kept up to a budget or counted in a marker.
+- Owner, 2026-11-02 (chat): drops are reported structurally and exposed as `details.rtkCompaction.dropped`; the original is saved on every compacted result, labelled `Original output:` so it never collides with Pi's `Full output:`; `find` with an output-shaping action passes through; conflicts get their own uncut section; build warnings mirror the error budget; the release is 0.20.0 behind a human gate.
