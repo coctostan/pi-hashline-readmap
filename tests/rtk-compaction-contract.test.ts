@@ -67,6 +67,20 @@ describe("details.rtkCompaction — main RTK path (single technique)", () => {
     expect(result.details.rtkCompaction.truncated).toBe(false);
     expect(result.details.ptcValue?.rtkCompaction).toEqual(result.details.rtkCompaction);
   });
+
+  it("reports applied=false when only the anti-pattern hint was added", async () => {
+    const handler = await loadHandler("hint-only");
+    const result = await handler(makeBashEvent("t-hint", "find src -name '*.ts'", "src/a.ts\nsrc/b.ts\n"));
+    expect(result.content[0].text).toContain("[Hint: ");
+    expect(result.details.rtkCompaction).toEqual({
+      applied: false,
+      techniques: [],
+      truncated: false,
+      originalLineCount: 3,
+      compactedLineCount: 5, // the hint's lines included
+    });
+    expect(result.details.ptcValue?.rtkCompaction).toEqual(result.details.rtkCompaction);
+  });
 });
 
 

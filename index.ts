@@ -345,6 +345,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     const rtkCompaction = buildRtkCompaction({
       rawInput: originalSelection.inputForRtk,
       output,
+      compacted,
       info,
     });
     const existingPtcValue =

@@ -22,7 +22,9 @@ The same value is mirrored at `details.ptcValue.rtkCompaction` (deep-equal).
 
 - **`applied`** — `true` iff at least one RTK technique modified the bash
   output. `false` means RTK had the **opportunity** to run but produced no
-  change.
+  change. Stripping ANSI codes and appending an anti-pattern hint are no
+  compaction, except under `test-output`, whose one technique is ANSI
+  stripping.
 - **`techniques`** — ordered array of technique IDs that fired. Today the
   pipeline reports at most one entry; the field is an array so multi-technique
   pipelines remain representable without a contract change. Possible IDs are the
@@ -36,8 +38,9 @@ The same value is mirrored at `details.ptcValue.rtkCompaction` (deep-equal).
   Only routed RTK compression techniques can set this field; post-RTK guard
   trimming and test-output ANSI normalization do not.
 - **`originalLineCount` / `compactedLineCount`** — newline-split line counts of
-  the pre-RTK and post-RTK strings. Both are present when measurable; both are
-  omitted when not (e.g. the empty-input fast path).
+  the pre-RTK and post-RTK strings, the post-RTK one counting any anti-pattern
+  hint. Both are present when measurable; both are omitted when not (e.g. the
+  empty-input fast path).
 
 ### Presence guarantee
 

@@ -19,6 +19,8 @@ export type RtkCompaction = {
 export interface BuildRtkCompactionInput {
   rawInput: string;
   output: string;
+  /** `filterBashOutput`'s `compacted`: a compactor changed the output, beyond ANSI and the anti-pattern hint. */
+  compacted: boolean;
   info: CompressionInfo;
 }
 
@@ -60,13 +62,11 @@ function introducedRouteTruncationMarker(rawInput: string, output: string): bool
 }
 
 export function buildRtkCompaction(input: BuildRtkCompactionInput): RtkCompaction {
-  const { rawInput, output, info } = input;
-  const techniqueRan = info.technique !== "none";
-  const comparisonInput = info.technique === "test-output" ? rawInput : stripAnsi(rawInput);
-  const modifiedOutput = comparisonInput !== output;
-  const applied = techniqueRan && modifiedOutput;
-  const introducedTruncationMarker = introducedRouteTruncationMarker(rawInput, output);
-  const truncated = ROUTE_TRUNCATION_TECHNIQUES.has(info.technique) && modifiedOutput && introducedTruncationMarker;
+  const { rawInput, output, compacted, info } = input;
+  // The test-output short-circuit only strips ANSI, which this contract counts as its technique applying.
+  const applied = info.technique === "test-output" ? rawInput !== output : compacted;
+  const truncated =
+    ROUTE_TRUNCATION_TECHNIQUES.has(info.technique) && compacted && introducedRouteTruncationMarker(rawInput, output);
   const compaction: RtkCompaction = {
     applied,
     techniques: applied ? [info.technique] : [],

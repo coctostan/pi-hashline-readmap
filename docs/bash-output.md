@@ -36,7 +36,7 @@ A command line picks its route by the one part whose output fills the result: a 
 | `git diff \| cat` | none (`cat` prints) |
 | `git status && git diff` | none (two parts print) |
 
-Whenever a compressor changed the output, whatever its size, the visible result starts with an RTK notice giving the original and compressed sizes and the `PI_RTK_BYPASS=1 <command>` that shows the full output. A result that only lost its ANSI codes or gained a tool hint has none.
+Whenever a compressor changed the output, whatever its size, the visible result starts with an RTK notice giving the original and compressed sizes and the `PI_RTK_BYPASS=1 <command>` that shows the full output. A result that only lost its ANSI codes or gained a tool hint has none, and its `details.rtkCompaction` reports `applied: false`; a test command's ANSI-only result is the one exception, reporting `applied: true, techniques: ["test-output"]`.
 
 ## Bypass route compression
 
