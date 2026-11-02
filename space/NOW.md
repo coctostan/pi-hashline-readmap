@@ -1,7 +1,6 @@
 # Now
 
 ## Next
-- Publish 0.19.0: the owner runs `npm publish` (registry still 0.18.0, measured 2026-11-02)
 - Pi 1.5 host follow-ups, from pi-1-5-host (Pi 1.5 is the one tested host): a later 1.5.x may break more than 1.5.0 did (try it through `PI_COMPAT_HOST` before moving the lock); no real-loader test pins the optional enum schemas (`find.type`, `find.sortBy`, `read.bundle`, `grep.scope`), so a host that dropped the `TUnsafe` `StringEnum` view would leak `"~optional": true` into provider schemas unnoticed; `vitest.config.ts` aliases pi-ai to the locked host's internal `dist/core/extensions/pi-ai-extension-view.js`, not an override's
 - Version pins twice over: `tests/package-version.test.ts` and `tests/package-content.test.ts` both hard-code the version (6 literals, edited by every release since 0.16.0); one test that `package.json`, the lock and the lock root agree would do, since `tests/package-changelog.test.ts` already fails a bump that lacks its entry
 - Agents reach for bash `grep`/`timeout` in close sessions (twice: the pi-1-4-host (Pi 1.4.0 is the one tested host) close and the pi-1-5-host (Pi 1.5 is the one tested host) close; macOS has no `timeout`): add a hint in `src/rtk/bash-anti-pattern-hints.ts` that names the bash tool's own `timeout` parameter when `timeout: command not found` appears
