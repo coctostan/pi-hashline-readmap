@@ -50,7 +50,7 @@ A compressor that cuts output past a size budget ends the cut with a marker nami
 | `git log` | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
 | build | 5 errors, 10 lines per error | `... and N more errors`, `  ... and N more lines` |
 | linter | top 10 rules, top 10 files | `  ... and N more rules`, `  ... and N more files` |
-| `find` | 100 lines, summarized per parent directory | `Total: N entries in M directories` |
+| `find` | 100 entries, summarized per parent directory | `Total: N entries in M directories` |
 | HTTP client | 200 body lines | `[... N more lines]` |
 
 Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged.

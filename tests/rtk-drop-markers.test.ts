@@ -70,6 +70,10 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     const result = compact("cargo build", raw);
 
     expect(result.output).toContain("... and 2 more errors");
+    const shortErrors = compact("cargo build", text(lines(7, (n) => error(n, 1)).flat()));
+    expect(shortErrors.lines).toContain("... and 2 more errors");
+    expect(shortErrors.output).not.toContain("more lines");
+    expect(shortErrors.truncated).toBe(true);
     const longFirst = text([...error(1, 13), ...error(2, 1)]);
     const first = compact("cargo build", longFirst);
     expect(first.lines).toContain("  ... and 4 more lines");
@@ -94,6 +98,11 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     const ten = compact("npx eslint .", text(lines(10, (i) => `src/f${i}.js:1:1: problem [rule-${i}]`)));
     expect(ten.output).not.toContain("more");
     expect(ten.truncated).toBe(false);
+
+    const oneFile = compact("npx eslint .", text(lines(12, (i) => `src/f.js:${i + 1}:1: problem [rule-${i}]`)));
+    expect(oneFile.lines).toContain("  ... and 2 more rules");
+    expect(oneFile.output).not.toContain("more files");
+    expect(oneFile.truncated).toBe(true);
   });
 
   it("find's summary counts entries, directories included, and sets truncated", () => {
@@ -103,6 +112,14 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     expect(result.lines).toContain("src/ (74 entries)");
     expect(result.lines).toContain("Total: 150 entries in 3 directories");
     expect(result.truncated).toBe(true);
+  });
+
+  it("find keeps diagnostics-only output unchanged, since no entry is dropped", () => {
+    const raw = text(lines(120, (i) => `find: '/missing${i}': No such file or directory`));
+    const result = compact("find /missing* || true", raw);
+
+    expect(result.output.startsWith(raw)).toBe(true);
+    expect(result).toMatchObject({ applied: false, truncated: false });
   });
 
   it("http-client counts the body lines it cuts, not the trailing newline", () => {

@@ -20,8 +20,6 @@ export function compressFileListingOutput(output: string): string | null {
   const rawLines = output.split("\n");
   if (rawLines.some(isLongFormatLsLine)) return null;
   const lines = rawLines.filter((line) => line.trim() !== "");
-  if (lines.length <= 100) return output;
-
   const errors: string[] = [];
   const dirCounts = new Map<string, number>();
   let totalFiles = 0;
@@ -44,6 +42,7 @@ export function compressFileListingOutput(output: string): string | null {
     dirCounts.set(dir, (dirCounts.get(dir) || 0) + 1);
     totalFiles++;
   }
+  if (totalFiles <= 100) return output;
 
   const result: string[] = [];
 
