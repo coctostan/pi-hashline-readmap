@@ -1,5 +1,6 @@
 import { dirname } from "path";
 import { dropMarker, type Drop } from "./drops.ts";
+import { parseShellCommands } from "../bash-command-state.ts";
 
 const LONG_FORMAT_LS_ROW_RE = /^[bcdlps-][rwxStTs-]{9}[+@.]?\s+/;
 const LONG_FORMAT_LS_TOTAL_RE = /^total\s+\d+\s*$/;
@@ -14,10 +15,20 @@ function isLongFormatLsLine(line: string): boolean {
 // Actions whose output is no one bare path per line (`-ls`, `-printf`, a command's own output, NUL separators, prompts).
 const OUTPUT_SHAPING_ACTIONS = new Set(["-printf", "-fprintf", "-ls", "-fls", "-exec", "-execdir", "-ok", "-okdir", "-print0", "-fprint0"]);
 
+/** A `find` command's words, quotes removed; undefined for any other command. */
+function findWords(cmd: string): readonly string[] | undefined {
+  const words = parseShellCommands(cmd, undefined).commands.find((part) => !part.inSubstitution)?.words ?? [];
+  return words[0]?.toLowerCase() === "find" ? words : undefined;
+}
+
+export function isFindCommand(cmd: string): boolean {
+  return findWords(cmd) !== undefined;
+}
+
 // Only plain `find` prints one path per line; an `ls -R` or `tree` summary would count headers and tree lines as entries.
 export function isFileListingCommand(cmd: string): boolean {
-  const words = cmd.trim().toLowerCase().split(/\s+/);
-  return words[0] === "find" && !words.some((word) => OUTPUT_SHAPING_ACTIONS.has(word));
+  const words = findWords(cmd);
+  return words !== undefined && !words.some((word) => OUTPUT_SHAPING_ACTIONS.has(word));
 }
 
 export function compressFileListingOutput(output: string, drops: Drop[] = []): string | null {

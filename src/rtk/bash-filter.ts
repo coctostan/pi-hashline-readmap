@@ -171,8 +171,10 @@ export function filterBashOutput(
         },
         { matches: transfer.isTransferCommand(part), technique: "transfer", apply: () => transfer.compressTransferOutput(stripped) },
       ];
+      // A `find` part goes to the file-listing route alone: an `-exec eslint` is no linter run to summarize.
+      const findOnly = fileListing.isFindCommand(part);
       for (const route of routes) {
-        if (!route.matches) continue;
+        if (!route.matches || (findOnly && route.technique !== "file-listing")) continue;
         technique = route.technique;
         const drops: Drop[] = [];
         const next = route.apply(drops);

@@ -19,6 +19,13 @@ describe("isFileListingCommand", () => {
     expect(isFileListingCommand("find src/-printf -type f")).toBe(true);
   });
 
+  it("reads the shell's words, so a quoted or escaped action is still refused", () => {
+    expect(isFileListingCommand("find src '-printf' '%s %p\\n'")).toBe(false);
+    expect(isFileListingCommand("find src \\-ls")).toBe(false);
+    expect(isFileListingCommand("find $(pwd) -ls")).toBe(false);
+    expect(isFileListingCommand("find $(pwd) -type f")).toBe(true);
+  });
+
   it("does not match ls -R, ls -la or tree, whose entries a summary can't count", () => {
     expect(isFileListingCommand("ls -R")).toBe(false);
     expect(isFileListingCommand("ls -la /tmp")).toBe(false);
