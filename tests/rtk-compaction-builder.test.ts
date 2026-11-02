@@ -197,6 +197,13 @@ describe("buildRtkCompaction — truncated", () => {
     expect(result.truncated).toBe(true);
   });
 
+  it("leaves truncated=false when no compactor changed the output, so truncated implies applied", () => {
+    const rawInput = "a\n";
+    const output = "a\n... and 3 more commits\n";
+    const info: CompressionInfo = { originalBytes: 2, outputBytes: output.length, compressionRatio: 1, technique: "git" };
+    const result = buildRtkCompaction({ rawInput, output, compacted: false, info });
+    expect(result).toMatchObject({ applied: false, truncated: false });
+  });
   it("leaves truncated=false when output has no truncation marker", () => {
     const rawInput = "a\nb\n";
     const output = "a-compressed\n";
