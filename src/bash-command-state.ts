@@ -3,7 +3,7 @@ import {
   classifyCommandForContextHygiene,
   normalizeCommandForContextHygiene,
   type ContextHygieneCommandKind,
-} from "./context-hygiene.js";
+} from "./context-hygiene.ts";
 
 export type BashCommandStateKind =
   | "repo-status"
@@ -298,7 +298,7 @@ export function parseShellCommands(
 }
 
 /** A simple command's words from its name on, past keywords and `NAME=value` prefixes. */
-function commandWords(words: readonly string[]): readonly string[] {
+export function commandWords(words: readonly string[]): readonly string[] {
   const start = words.findIndex((word) => !COMMAND_PREFIX_KEYWORDS.has(word) && !/^[A-Za-z_][A-Za-z0-9_]*=/.test(word));
   return start < 0 ? [] : words.slice(start);
 }
