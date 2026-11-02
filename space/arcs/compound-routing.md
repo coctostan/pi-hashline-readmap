@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Chained bash output is never mislabeled
 
@@ -7,13 +7,12 @@ status: active
 Bash compression never drops or mislabels output from a chained or piped command: a command line compresses only when exactly one of its parts prints, and that part picks the compactor; any result a compactor changed names `PI_RTK_BYPASS=1`. Ships as 0.19.1.
 
 ## Done when
-- [ ] `git log -3; gh pr view 259 --json body` and `git log -1 --format=%B && cat README.md` come back with every output line and technique `none` — verified by a new `tests/rtk-compound-routing.test.ts` (main 2026-11-02, `filterBashOutput` probe: technique `git`, 38 and 23 lines replaced by "… and N more commits")
-- [ ] A command line whose one printing part has a compactor still routes to it, the rest of its parts being known-silent (`cd`, `pushd`, `popd`, `export`, `unset`, `set`, `mkdir -p`, `true`, `:`, bare assignments) or feeding a pipe: `cd sub && git diff` and `export X=1; git diff` route `git`, `git diff | cat` routes as `cat` (none), and `git status && git diff` passes through — verified by `tests/rtk-compound-routing.test.ts` (main 2026-11-02: `cd sub && git diff` technique `none`)
-- [ ] Every bash result a compactor changed starts with the `[RTK: compressed …]` line naming `PI_RTK_BYPASS=1 <command>`, whatever its size and ratio — verified by `tests/rtk-metadata.test.ts` (main 2026-11-02: it pins the notice's absence at an original of 2000 B and at a ratio of 0.5)
-- [ ] 0.19.1 is released: the version is bumped, a `[0.19.1]` CHANGELOG entry names the fix under Fixed, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run, `tests/package-version.test.ts` and `tests/package-changelog.test.ts` (main 2026-11-02: 0.19.0)
+- [x] `git log -3; gh pr view 259 --json body` and `git log -1 --format=%B && cat README.md` come back with every output line and technique `none` — verified by a new `tests/rtk-compound-routing.test.ts` (main 2026-11-02, `filterBashOutput` probe: technique `git`, 38 and 23 lines replaced by "… and N more commits") · close 2026-11-02: both cases pass; live drive of `git log -3; echo done` returned all 31 lines, `done` kept, `applied: false`
+- [x] A command line whose one printing part has a compactor still routes to it, the rest of its parts being known-silent (`cd`, `pushd`, `popd`, `export`, `unset`, `set`, `mkdir -p`, `true`, `:`, bare assignments) or feeding a pipe: `cd sub && git diff` and `export X=1; git diff` route `git`, `git diff | cat` routes as `cat` (none), and `git status && git diff` passes through — verified by `tests/rtk-compound-routing.test.ts` (main 2026-11-02: `cd sub && git diff` technique `none`) · close 2026-11-02: 21/21 pass
+- [x] Every bash result a compactor changed has the `[RTK: compressed …]` line naming `PI_RTK_BYPASS=1 <command>` opening its own output, after any doom-loop or context-hygiene warning, whatever its size and ratio — verified by `tests/rtk-metadata.test.ts` (main 2026-11-02: it pins the notice's absence at an original of 2000 B and at a ratio of 0.5) · close 2026-11-02: 27/27 pass; live drive of `git log -3` (560 B) opened with the notice; reworded by owner ruling (chat) after the close's spec review found the warning prefix ahead of the notice, an order already on main at shape (`index.ts` `applyWarning`)
+- [x] 0.19.1 is released: the version is bumped, a `[0.19.1]` CHANGELOG entry names the fix under Fixed, and the `pi-compatibility` workflow passes on the release commit — verified by that workflow run, `tests/package-version.test.ts` and `tests/package-changelog.test.ts` (main 2026-11-02: 0.19.0) · close 2026-11-02: `pi-compatibility` run 41500369725 success on release commit `a3be26a4`; both tests pass; `npm test` 656 files, 2702 passed, 1 skipped; typecheck clean
 
 ## Now
-Slice 4 (Release 0.19.1) merged as #263; `pi-compatibility` passed on the release commit. Every slice is done. Next action: `close` the arc in a fresh session; the owner publishes 0.19.1.
 
 ## Seams
 - `parseShellCommands` in `src/bash-command-state.ts` → `tests/bash-command-state.test.ts`
@@ -43,4 +42,5 @@ Slice 4 (Release 0.19.1) merged as #263; `pi-compatibility` passed on the releas
 - Schema simplification on Pi 1.5's pi-schema (stays in NOW.md's Next)
 
 ## Decisions
-- None new. The binding rule is AGENTS.md's hard rule: shrink a tool result only when the full result stays recoverable.
+- None binding beyond AGENTS.md's hard rule: shrink a tool result only when the full result stays recoverable.
+- Close 2026-11-02, owner (chat): done-when 3's "starts with" means the notice opens the tool's own output; a doom-loop or context-hygiene warning, or the context guard's preview header, may precede it. The notice still names the bypass in every compacted result, which is what the hard rule needs.
