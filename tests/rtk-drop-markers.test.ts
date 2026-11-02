@@ -96,7 +96,8 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     const raw = text(["## main...origin/main", ...lines(8, (i) => ` M f${i}`), ...lines(6, (i) => `M  s${i}`), ...lines(5, (i) => `?? u${i}`)]);
     const result = compact("git status --short --branch", raw);
 
-    expect(result.lines.filter((line) => line.includes("..."))).toEqual(["  ... and 1 more files", "  ... and 3 more files", "  ... and 2 more files"]);
+    expect(result.lines.filter((line) => line.startsWith("  ..."))).toEqual(["  ... and 1 more files", "  ... and 3 more files", "  ... and 2 more files"]);
+    expect(result.lines[0]).toBe("📌 main...origin/main");
     expect(result.truncated).toBe(true);
   });
 

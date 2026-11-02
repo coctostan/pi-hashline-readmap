@@ -162,13 +162,15 @@ interface StatusStats {
 	staged: number;
 	modified: number;
 	untracked: number;
-	conflicts: number;
 	stagedFiles: string[];
 	modifiedFiles: string[];
 	untrackedFiles: string[];
+	conflictFiles: string[];
 }
 
 const SHORT_STATUS_CODES = new Set([" ", "M", "A", "D", "R", "C", "U", "T", "?", "!"]);
+// The unmerged pairs of git-status(1)'s short-format table: a conflict, whatever its index code.
+const UNMERGED_STATUSES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
 
 function isRecognizedShortStatusLine(line: string): boolean {
 	if (line.startsWith("## ")) {
@@ -199,21 +201,18 @@ export function compactStatus(output: string, drops: Drop[] = []): string {
 		staged: 0,
 		modified: 0,
 		untracked: 0,
-		conflicts: 0,
 		stagedFiles: [],
 		modifiedFiles: [],
 		untrackedFiles: [],
+		conflictFiles: [],
 	};
 
 	let branchName = "";
 
 	for (const line of lines) {
-		// Extract branch name from first line
+		// The branch line, tracking included (`main...origin/main [ahead 1]`)
 		if (line.startsWith("##")) {
-			const match = line.match(/## (.+)/);
-			if (match) {
-				branchName = match[1].split("...")[0];
-			}
+			branchName = line.slice(3);
 			continue;
 		}
 
@@ -224,6 +223,11 @@ export function compactStatus(output: string, drops: Drop[] = []): string {
 		const status = line.slice(0, 2);
 		const filename = line.slice(3);
 
+		if (UNMERGED_STATUSES.has(status)) {
+			stats.conflictFiles.push(line);
+			continue;
+		}
+
 		// Parse two-character status
 		const indexStatus = status[0];
 		const worktreeStatus = status[1];
@@ -231,10 +235,6 @@ export function compactStatus(output: string, drops: Drop[] = []): string {
 		if (["M", "A", "D", "R", "C"].includes(indexStatus)) {
 			stats.staged++;
 			stats.stagedFiles.push(filename);
-		}
-
-		if (indexStatus === "U") {
-			stats.conflicts++;
 		}
 
 		if (["M", "D"].includes(worktreeStatus)) {
@@ -284,8 +284,12 @@ export function compactStatus(output: string, drops: Drop[] = []): string {
 		}
 	}
 
-	if (stats.conflicts > 0) {
-		result += `⚠️  Conflicts: ${stats.conflicts} files\n`;
+	// No budget: every conflict is listed, its code naming each side.
+	if (stats.conflictFiles.length > 0) {
+		result += `⚠️ Conflicts: ${stats.conflictFiles.length} files\n`;
+		for (const line of stats.conflictFiles) {
+			result += `  ${line}\n`;
+		}
 	}
 
 	return result.trim();

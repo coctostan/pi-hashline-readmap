@@ -52,7 +52,7 @@ A compressor that cuts output past a size budget ends the cut with a marker nami
 | --- | --- | --- |
 | `git diff` | 100 output lines | `... and N more lines` |
 | `git diff` | 3 context lines per side of a hunk (`-U`, `-W`) | `  ... (N context lines)` |
-| `git status` | 5 staged, 5 modified, 3 untracked files | `  ... and N more files` |
+| `git status` | 5 staged, 5 modified, 3 untracked files; conflicts (`DD AU UD UA DU AA UU`) are all listed with their codes, never cut, and the branch line keeps its tracking | `  ... and N more files` |
 | `git log` | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
 | build | 5 errors, 10 lines per error | `... and N more errors`, `  ... and N more lines` |
 | linter | top 10 rules, top 10 files | `  ... and N more rules`, `  ... and N more files` |

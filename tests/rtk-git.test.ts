@@ -7,6 +7,7 @@ import {
   compactGitOutput,
 } from "../src/rtk/git.js";
 import { gitLog, gitLogGraph, gitLogOneline, sha } from "./helpers/git-log-fixture.js";
+import type { Drop } from "../src/rtk/drops.js";
 
 describe("isGitCommand", () => {
   it("matches git diff", () => {
@@ -137,6 +138,26 @@ describe("compactStatus", () => {
     const result = compactStatus(output);
     expect(result).toContain("Untracked");
     expect(result).toContain("newfile.ts");
+  });
+
+  it("keeps the branch line's tracking and lists a conflict under Conflicts, not Staged", () => {
+    const output = ["## main...origin/main [ahead 1]", "DU a.ts", "M  b.ts", ""].join("\n");
+    expect(compactStatus(output)).toBe(
+      ["📌 main...origin/main [ahead 1]", "✅ Staged: 1 files", "  b.ts", "⚠️ Conflicts: 1 files", "  DU a.ts"].join("\n"),
+    );
+  });
+
+  // The unmerged pairs of git-status(1)'s short-format table.
+  it.each(["DD", "AU", "UD", "UA", "DU", "AA", "UU"])("lists %s only under Conflicts", (code) => {
+    expect(compactStatus(`## main\n${code} a.ts`)).toBe(`📌 main\n⚠️ Conflicts: 1 files\n  ${code} a.ts`);
+  });
+
+  it("never cuts the conflicts", () => {
+    const conflicts = Array.from({ length: 7 }, (_, i) => `UU c${i}.ts`);
+    const drops: Drop[] = [];
+    const result = compactStatus(["## main", ...conflicts].join("\n"), drops);
+    expect(result).toBe(["📌 main", "⚠️ Conflicts: 7 files", ...conflicts.map((line) => `  ${line}`)].join("\n"));
+    expect(drops).toEqual([]);
   });
 
   it("preserves unsupported long-form status output across working-tree states", () => {
