@@ -126,7 +126,7 @@ describe("compactStatus", () => {
 
     const result = compactStatus(output);
     expect(result).toContain("Modified");
-    expect(result).toContain("src/changed.ts");
+    expect(result).toBe("📌 feature\n📝 Modified: 1 files\n  src/changed.ts");
   });
 
   it("shows untracked files", () => {
