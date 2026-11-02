@@ -1,5 +1,5 @@
 # Now
-- [truthful-compaction](arcs/truthful-compaction.md) (Compacted bash output is truthful and recoverable): compactors state no falsehood, report their drops and name a saved original; slice 1 (Compactors report their drops), slice 2 (Notice names the saved original) and slice 3 (`git status` reports tracking and conflicts) merged, slice 4 (`find` passes shaped output through) is next
+- [truthful-compaction](arcs/truthful-compaction.md) (Compacted bash output is truthful and recoverable): compactors state no falsehood, report their drops and name a saved original; slice 1 (Compactors report their drops), slice 2 (Notice names the saved original) and slice 3 (`git status` reports tracking and conflicts) merged, slice 4 (`find` passes shaped output through) is active on `truthful-compaction/04-find-shaped-output`
 
 ## Next
 - Pi 1.5 host follow-ups, from pi-1-5-host (Pi 1.5 is the one tested host): a later 1.5.x may break more than 1.5.0 did (try it through `PI_COMPAT_HOST` before moving the lock); no real-loader test pins the optional enum schemas (`find.type`, `find.sortBy`, `read.bundle`, `grep.scope`), so a host that dropped the `TUnsafe` `StringEnum` view would leak `"~optional": true` into provider schemas unnoticed; `vitest.config.ts` aliases pi-ai to the locked host's internal `dist/core/extensions/pi-ai-extension-view.js`, not an override's
