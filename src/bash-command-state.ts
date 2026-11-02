@@ -83,11 +83,18 @@ function pushUniqueTarget(targets: string[], target: string | undefined): void {
   targets.push(target);
 }
 
-/** One simple command: its words with quotes removed, the files its redirections write, and the directory it runs in. */
-interface SimpleCommand {
+/**
+ * One simple command: its source text (first word to last, redirections included), its words with quotes
+ * removed, the files its redirections write, the directory it runs in, whether it runs inside a `$(…)`,
+ * backtick, `<(…)` or `>(…)` substitution, and whether a `|` or `|&` sends its stdout on.
+ */
+export interface SimpleCommand {
+  text: string;
   words: string[];
   writes: string[];
   cwd: string | undefined;
+  inSubstitution: boolean;
+  feedsPipe: boolean;
 }
 
 interface Heredoc {
@@ -130,10 +137,11 @@ function skipHeredocBodies(source: string, start: number, heredocs: readonly Her
  *
  * shortcut: a subset of bash, the one agents write; known misses: `case` patterns' `)` inside `$(…)`,
  * `$'…'` quoting, `[[ a > b ]]` read as a redirection, a `cd` taken as done even when it fails, sits
- * in a function body, or runs in a pipeline or behind `&`, `CDPATH` ignored. Upgrade to a real bash
- * parser if misses turn up.
+ * in a function body, or runs in a pipeline or behind `&`, `CDPATH` ignored, a group piped as a whole
+ * (`(a; b) | c`, `{ …; } | c`, `done | c`) leaving its inner commands' `feedsPipe` false. Upgrade to a
+ * real bash parser if misses turn up.
  */
-function parseShellCommands(
+export function parseShellCommands(
   source: string,
   cwd: string | undefined,
   start = 0,
@@ -143,14 +151,20 @@ function parseShellCommands(
   const heredocs: Heredoc[] = [];
   // The directory each open subshell returns to at its `)`.
   const subshellDirs: (string | undefined)[] = [];
-  let command: Omit<SimpleCommand, "cwd"> = { words: [], writes: [] };
+  let command: Pick<SimpleCommand, "words" | "writes"> = { words: [], writes: [] };
   let word = "";
   let inWord = false;
   let quoted = false;
   let pending: (typeof REDIRECTION_OPERATORS)[string] | undefined;
+  // Source span of the current word and of the current command; a start of -1 is none yet.
+  let wordStart = -1;
+  let textStart = -1;
+  let textEnd = -1;
 
   const endWord = () => {
     if (!inWord) return;
+    if (textStart < 0) textStart = wordStart;
+    textEnd = index;
     if (pending === "write" || (pending === "dup" && !/^(?:\d+-?|-)$/.test(word))) command.writes.push(word);
     else if (pending === "heredoc" || pending === "heredoc-strip") heredocs.push({ delimiter: word, stripTabs: pending === "heredoc-strip" });
     else if (pending === undefined) command.words.push(word);
@@ -158,10 +172,10 @@ function parseShellCommands(
     inWord = quoted = false;
     pending = undefined;
   };
-  const endCommand = () => {
+  const endCommand = (feedsPipe = false) => {
     endWord();
     if (command.words.length > 0 || command.writes.length > 0) {
-      commands.push({ ...command, cwd });
+      commands.push({ ...command, text: source.slice(textStart, textEnd), cwd, inSubstitution, feedsPipe });
       const words = commandWords(command.words);
       if (words[0] === "cd") {
         const operands = nonOptionOperands(words.slice(1));
@@ -170,6 +184,7 @@ function parseShellCommands(
     }
     command = { words: [], writes: [] };
     pending = undefined;
+    textStart = -1;
   };
   const opensExpansion = (at: number): boolean =>
     source[at] === "`" || (source[at] === "$" && (source[at + 1] === "(" || source[at + 1] === "{"));
@@ -177,7 +192,8 @@ function parseShellCommands(
   const scanExpansion = (start: number): number => {
     if (source[start] === "`") {
       const end = closingQuote(source, start);
-      commands.push(...parseShellCommands(source.slice(start + 1, end), cwd).commands);
+      const inner = parseShellCommands(source.slice(start + 1, end), cwd).commands;
+      commands.push(...inner.map((part) => ({ ...part, inSubstitution: true })));
       return end;
     }
     if (source[start + 1] === "{") return inertSpan(start + 2, "{", "}");
@@ -219,6 +235,7 @@ function parseShellCommands(
   for (; index < source.length; index += 1) {
     const char = source[index];
     const next = source[index + 1];
+    if (!inWord) wordStart = index;
     if (char === "\\") {
       if (next !== "\n") {
         word += next ?? "";
@@ -242,6 +259,7 @@ function parseShellCommands(
     } else if (opensExpansion(index) || (next === "(" && (char === "<" || char === ">"))) {
       index = expansion(index);
     } else if (char === ">" || char === "<" || (char === "&" && next === ">")) {
+      if (textStart < 0) textStart = inWord ? wordStart : index;
       // A bare fd number right before the operator (`2>`) belongs to it, not to the words.
       if (inWord && !quoted && /^\d+$/.test(word)) {
         word = "";
@@ -258,7 +276,9 @@ function parseShellCommands(
     } else if (char === ")" && inSubstitution && subshellDirs.length === 0) {
       break;
     } else if (char === ";" || char === "&" || char === "|" || char === "(" || char === ")") {
-      endCommand();
+      endCommand(char === "|" && next !== "|");
+      // `||` and `|&` are one operator each.
+      if (char === "|" && (next === "|" || next === "&")) index += 1;
       if (char === "(") subshellDirs.push(cwd);
       if (char === ")" && subshellDirs.length > 0) cwd = subshellDirs.pop();
     } else if (char === "\n") {
