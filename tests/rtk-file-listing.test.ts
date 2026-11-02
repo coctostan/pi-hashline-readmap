@@ -7,6 +7,27 @@ describe("isFileListingCommand", () => {
     expect(isFileListingCommand("find /tmp -type f")).toBe(true);
   });
 
+  it.each(["-printf '%s %p\\n'", "-fprintf /dev/stdout '%p'", "-ls", "-fls /dev/stdout", "-exec wc -l {} +", "-execdir ls {} \\;", "-ok rm {} \\;", "-okdir rm {} \\;", "-print0", "-fprint0 /dev/stdout"])(
+    "does not match find with the output-shaping action %s, whose lines are no bare paths",
+    (action) => {
+      expect(isFileListingCommand(`find src -type f ${action}`)).toBe(false);
+    },
+  );
+
+  it("still matches find whose words only contain an action's name", () => {
+    expect(isFileListingCommand("find src -name '*-ls*' -print")).toBe(true);
+    expect(isFileListingCommand("find src/-printf -type f")).toBe(true);
+  });
+
+  it("reads the shell's words, so a quoted or escaped action is still refused", () => {
+    expect(isFileListingCommand("find src '-printf' '%s %p\\n'")).toBe(false);
+    expect(isFileListingCommand("find src \\-ls")).toBe(false);
+    expect(isFileListingCommand("find $(pwd) -ls")).toBe(false);
+    expect(isFileListingCommand("find $(pwd) -type f")).toBe(true);
+    expect(isFileListingCommand("LC_ALL=C find src -ls")).toBe(false);
+    expect(isFileListingCommand("LC_ALL=C find src")).toBe(true);
+  });
+
   it("does not match ls -R, ls -la or tree, whose entries a summary can't count", () => {
     expect(isFileListingCommand("ls -R")).toBe(false);
     expect(isFileListingCommand("ls -la /tmp")).toBe(false);

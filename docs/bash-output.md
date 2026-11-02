@@ -59,7 +59,7 @@ A compressor that cuts output past a size budget ends the cut with a marker nami
 | `find` | 100 entries, summarized per parent directory | `Total: N entries in M directories` |
 | HTTP client | 200 body lines | `[... N more lines]` |
 
-Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged.
+Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged. So does `find` with an action that shapes its output (`-printf`, `-fprintf`, `-ls`, `-fls`, `-exec`, `-execdir`, `-ok`, `-okdir`, `-print0`, `-fprint0`), since its lines are no bare paths.
 
 ## Bypass route compression
 

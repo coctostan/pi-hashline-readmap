@@ -159,6 +159,19 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     expect(result).toMatchObject({ applied: false, truncated: false });
   });
 
+  it.each([
+    ["find src -ls", (i: number) => `  ${1000 + i}      8 -rw-r--r--   1 me  staff  120 Nov  2 10:00 src/a${i}.ts`],
+    ["find src -printf '%s %p\\n'", (i: number) => `120 src/a${i}.ts`],
+    ["find src -exec eslint -f unix {} \\;", (i: number) => `src/a${i}.js:1:1: problem [rule-${i % 3}]`],
+    ["LC_ALL=C find src -exec eslint -f unix {} \\;", (i: number) => `src/a${i}.js:1:1: problem [rule-${i % 3}]`],
+  ])("%s passes through uncompacted, since its lines are no bare paths", (command, row) => {
+    const raw = text(lines(150, row));
+    const result = compact(command, raw);
+
+    expect(result.output.startsWith(raw)).toBe(true);
+    expect(result).toMatchObject({ technique: "none", applied: false, truncated: false });
+  });
+
   it("http-client counts the body lines it cuts, not the trailing newline", () => {
     const body = lines(250, (i) => `{"i": ${i}}`);
     expect(compact("curl -s https://x", text(body)).lines.at(-1)).toBe("[... 50 more lines]");
