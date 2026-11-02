@@ -230,6 +230,7 @@ describe("compactLog", () => {
     ["--graph --boundary", ["o commit SHA", "o | commit SHA"]],
     ["--graph with a blank first column", ["  * commit SHA", "|   * commit SHA"]],
     ["--graph octopus merge", ["*---.   commit SHA"]],
+    ["--abbrev-commit --abbrev=4", ["commit 5bcd"]],
   ])("counts %s headers", (_, shapes) => {
     const headers = [`commit ${sha(0)}`, ...shapes.map((shape, i) => shape.replace("SHA", sha(i + 1)))];
     const log = headers.map((header) => `${header}\nAuthor: A <a@example.test>`).join("\n");

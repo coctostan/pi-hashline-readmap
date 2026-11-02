@@ -279,11 +279,11 @@ export function compactStatus(output: string): string {
 	return result.trim();
 }
 
-// `commit [<>=+-] <sha>` at column 0, or `commit <sha>` after a `--graph` prefix ending in the commit's node (`*`, `<`, `>`,
-// `o`). A body line puts 4 or more spaces before its text (`    commit 1234567`, `|     * commit 1234567`), so the graph
-// before a node may hold no run of 4 spaces.
+// `commit [<>=+-] <sha>` at column 0, or `commit <sha>` after a `--graph` prefix ending in the commit's node (`*`, `<`,
+// `>`, `o`); git abbreviates a sha to no fewer than 4 digits. A body line puts 4 or more spaces before its text
+// (`    commit 1234567`, `|     * commit 1234567`), so the graph before a node may hold no run of 4 spaces.
 // shortcut: a graph with two adjacent blank columns before a node reads as a body line, upgrade if such a graph turns up.
-const LOG_COMMIT_HEADER = /^(?:(?:[|/\\]| (?! {3}))*[*<>o][-.|/\\ ]*)?commit (?:[<>=+-] )?[0-9a-f]{7,64}\b/;
+const LOG_COMMIT_HEADER = /^(?:(?:[|/\\]| (?! {3}))*[*<>o][-.|/\\ ]*)?commit (?:[<>=+-] )?[0-9a-f]{4,64}\b/;
 
 /** Keeps the first `limit` whole commits, or `limit` lines of output with no commit header (`--oneline`, `--format`). */
 export function compactLog(output: string, limit: number = 20): string {
