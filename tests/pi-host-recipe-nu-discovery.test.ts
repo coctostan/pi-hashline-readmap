@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, seeded, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram, seeded } from "./helpers/codemode-recipes.js";
 
 const code = recipe("nu-discovery");
-it.skipIf(!supported)("joins bounded file discovery without pretending it is exhaustive", () => {
+it("joins bounded file discovery without pretending it is exhaustive", () => {
   const report = runProgram({
     files: {
       "migration/a.ts": "a", "migration/b.ts": "bbb", "migration/c.ts": "cccc",

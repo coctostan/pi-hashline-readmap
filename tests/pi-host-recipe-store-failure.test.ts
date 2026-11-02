@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("discards failed store writes while retaining earlier file mutations", () => {
+it("discards failed store writes while retaining earlier file mutations", () => {
   const report = runProgram({
     inspect: ["failed.txt"],
     steps: [

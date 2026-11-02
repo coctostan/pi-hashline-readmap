@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("projects an independent batch without duplicated file text", () => {
+it("projects an independent batch without duplicated file text", () => {
   const report = runProgram({
     files: { "alpha.txt": "alpha\nbeta\n", "search.txt": "needle\n" },
     steps: [{ code: recipe("independent") }],

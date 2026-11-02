@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("stores small cursor state but edits using a fresh read after mutation", () => {
+it("stores small cursor state but edits using a fresh read after mutation", () => {
   const report = runProgram({
     files: { "stored.txt": "old\nsecond\n" }, inspect: ["stored.txt"],
     steps: [

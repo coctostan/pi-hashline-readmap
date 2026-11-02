@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("loads ancestor store values without leaking sibling writes", () => {
+it("loads ancestor store values without leaking sibling writes", () => {
   const report = runProgram({ steps: [
     { code: 'store("common","root");text({root:true});' },
     { checkpoint: "root" },

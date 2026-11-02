@@ -1,12 +1,7 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { expect, it } from "vitest";
-import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
-
-const { host, version } = selectCompatHost();
-const supported = existsSync(join(host, "dist/extensions/codemode/execute.js"));
-if (process.env.PI_COMPAT_HOST && !supported) throw new Error("Explicit compatibility host has no codemode executor");
+import { host, version } from "./helpers/codemode-recipes.js";
 type BoundaryCase = {
   name: string; code: string; images?: number; visible?: boolean;
   directImage?: boolean; discovery?: boolean; bash?: boolean;
@@ -189,7 +184,7 @@ const cases: BoundaryCase[] = [
   },
 ];
 
-it.skipIf(!supported).each(cases)("$name", boundary => {
+it.each(cases)("$name", boundary => {
   const code = 'function check(ok, message) { if (!ok) throw new Error(message); }\n'
     + boundary.code + '\ntext("case=PASS");';
   const stdout = execFileSync(process.execPath, [resolve("tests/helpers/selected-host-codemode.mjs"), host], {

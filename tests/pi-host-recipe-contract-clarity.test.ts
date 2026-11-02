@@ -3,10 +3,10 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { it } from "vitest";
-import { jsonOf, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram } from "./helpers/codemode-recipes.js";
 import { NUMERIC_HINTS } from "./helpers/tool-contract-pins.js";
 
-it.skipIf(!supported).each(["read", "grep", "ast_search"])(
+it.each(["read", "grep", "ast_search"])(
   "preserves %s numeric parameter hints in real codemode declarations", (tool) => {
     const declaration = jsonOf(runProgram({
       steps: [{code: 'text({declaration: await describeTool(' + JSON.stringify(tool) + ')});'}],
@@ -21,7 +21,7 @@ it.skipIf(!supported).each(["read", "grep", "ast_search"])(
   }, 130_000,
 );
 
-it.skipIf(!supported)("documents find search-root resolution in registered guidance", () => {
+it("documents find search-root resolution in registered guidance", () => {
   const declaration = jsonOf(runProgram({
     steps: [{code: 'text({find: await describeTool("find")});'}],
   })).find;
@@ -32,7 +32,7 @@ it.skipIf(!supported)("documents find search-root resolution in registered guida
   assert.match(guidance, /relative roots use cwd/i);
 }, 130_000);
 
-it.skipIf(!supported)("requires joining an external find root before reading returned entries", () => {
+it("requires joining an external find root before reading returned entries", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-external-"));
   const basename = "pi-279-unique-fixture.txt";
   try {
@@ -60,7 +60,7 @@ it.skipIf(!supported)("requires joining an external find root before reading ret
   }
 }, 130_000);
 
-it.skipIf(!supported)("codes missing external-root PNG reads while preserving joined images", () => {
+it("codes missing external-root PNG reads while preserving joined images", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-external-png-"));
   const basename = "pi-279-unique-image.png";
   try {
@@ -92,7 +92,7 @@ it.skipIf(!supported)("codes missing external-root PNG reads while preserving jo
   }
 }, 130_000);
 
-it.skipIf(!supported)("retains read numeric-string execution equivalence", () => {
+it("retains read numeric-string execution equivalence", () => {
   const result = jsonOf(runProgram({
     files: {"numeric.ts": "export function target() { return 2; }\n"},
     steps: [{code: `
@@ -111,7 +111,7 @@ it.skipIf(!supported)("retains read numeric-string execution equivalence", () =>
   for (const pair of result.pairs) assert.deepEqual(pair.strings, pair.numeric);
 }, 130_000);
 
-it.skipIf(!supported)("retains grep numeric-string execution equivalence", () => {
+it("retains grep numeric-string execution equivalence", () => {
   const result = jsonOf(runProgram({
     files: {"numeric.ts": "export function target() { return 2; }\n"},
     steps: [{code: `
@@ -130,7 +130,7 @@ it.skipIf(!supported)("retains grep numeric-string execution equivalence", () =>
   for (const pair of result.pairs) assert.deepEqual(pair.strings, pair.numeric);
 }, 130_000);
 
-it.skipIf(!supported)("retains ast_search numeric-string execution equivalence", () => {
+it("retains ast_search numeric-string execution equivalence", () => {
   const result = jsonOf(runProgram({
     files: {"numeric.ts": "export function target() { return 2; }\n"},
     steps: [{code: `
@@ -149,7 +149,7 @@ it.skipIf(!supported)("retains ast_search numeric-string execution equivalence",
   for (const pair of result.pairs) assert.deepEqual(pair.strings, pair.numeric);
 }, 130_000);
 
-it.skipIf(!supported)("documents find output resolution without changing root-relative paths", () => {
+it("documents find output resolution without changing root-relative paths", () => {
   const declaration = jsonOf(runProgram({
     steps: [{code: 'text({declaration: await describeTool("find")});'}],
   })).declaration;
@@ -159,7 +159,7 @@ it.skipIf(!supported)("documents find output resolution without changing root-re
     "find output entry path must carry a resolution comment");
 }, 130_000);
 
-it.skipIf(!supported)("retains find root-relative joined-read composition", () => {
+it("retains find root-relative joined-read composition", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-find-output-"));
   try {
     writeFileSync(join(root, "pi-279-absolute.txt"), "absolute root\n");
@@ -196,7 +196,7 @@ it.skipIf(!supported)("retains find root-relative joined-read composition", () =
   }
 }, 130_000);
 
-it.skipIf(!supported)("retains find limit truncation", () => {
+it("retains find limit truncation", () => {
   const result = jsonOf(runProgram({
     files: {"bounded/a.txt": "a\n", "bounded/b.txt": "b\n"},
     steps: [{code: `
@@ -207,7 +207,7 @@ it.skipIf(!supported)("retains find limit truncation", () => {
   assert.deepEqual(result, {length: 1, truncated: true});
 }, 130_000);
 
-it.skipIf(!supported)("documents ls basename resolution in registered guidance", () => {
+it("documents ls basename resolution in registered guidance", () => {
   const declaration = jsonOf(runProgram({
     steps: [{code: 'text({ls: await describeTool("ls")});'}],
   })).ls;
@@ -218,7 +218,7 @@ it.skipIf(!supported)("documents ls basename resolution in registered guidance",
   assert.match(guidance, /Join ls result\.path with entries\[\]\.name before read\/edit/i);
 }, 130_000);
 
-it.skipIf(!supported)("documents ls output basenames with the resolved directory", () => {
+it("documents ls output basenames with the resolved directory", () => {
   const declaration = jsonOf(runProgram({
     steps: [{code: 'text({declaration: await describeTool("ls")});'}],
   })).declaration;
@@ -231,7 +231,7 @@ it.skipIf(!supported)("documents ls output basenames with the resolved directory
     "ls output path must identify the resolved directory");
 }, 130_000);
 
-it.skipIf(!supported)("retains ls returned-directory joined-read composition", () => {
+it("retains ls returned-directory joined-read composition", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-ls-output-"));
   try {
     writeFileSync(join(root, "pi-279-ls-absolute.txt"), "absolute listing\n");

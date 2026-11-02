@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("loads committed store values after reopening a real persisted session", () => {
+it("loads committed store values after reopening a real persisted session", () => {
   const report = runProgram({ persist: true, steps: [
     { code: 'store("work",{path:"persisted.txt",nextOffset:9});text({saved:true});' },
     { resume: true },

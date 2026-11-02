@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("commits successful store writes for later scripts", () => {
+it("commits successful store writes for later scripts", () => {
   const report = runProgram({ steps: [
     { code: 'store("work",{path:"stored.txt",nextOffset:2,summary:"prepared"});text({saved:true});' },
     { code: 'text({work:load("work")});' },

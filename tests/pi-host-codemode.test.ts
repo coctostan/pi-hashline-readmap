@@ -1,20 +1,15 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import init from "../index.js";
-import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
+import { executor, version } from "./helpers/codemode-recipes.js";
 
 /**
  * Runs real codemode scripts from the selected Pi host against Hashline tools: the locked host,
  * or the install PI_COMPAT_HOST selects.
  */
-const { host, version: hostVersion } = selectCompatHost();
-const executorPath = join(host, "dist/extensions/codemode/execute.js");
-if (process.env.PI_COMPAT_HOST && !existsSync(executorPath)) {
-  throw new Error("Explicit compatibility host has no codemode executor");
-}
 
 function registerHashlineTools() {
   const tools = new Map<string, any>();
@@ -28,9 +23,9 @@ function registerHashlineTools() {
   return tools;
 }
 
-describe.skipIf(!existsSync(executorPath))(`Pi ${hostVersion} codemode scripts`, () => {
+describe(`Pi ${version} codemode scripts`, () => {
   it("receive structured Hashline values and can chain grep anchors into edit", async () => {
-    const { executeCodemode } = await import(pathToFileURL(executorPath).href);
+    const { executeCodemode } = await import(pathToFileURL(executor).href);
     const cwd = mkdtempSync(join(tmpdir(), "pi-host-codemode-"));
     writeFileSync(join(cwd, "a.ts"), "const a = 1; // TODO\nconst b = 2;\n", "utf8");
     const registered = registerHashlineTools();

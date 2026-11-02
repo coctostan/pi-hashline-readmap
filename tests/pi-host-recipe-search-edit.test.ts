@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram } from "./helpers/codemode-recipes.js";
 
-it.skipIf(!supported)("edits only filtered matches without intermediate source output", () => {
+it("edits only filtered matches without intermediate source output", () => {
   const report = runProgram({
     files: { "edit-target.txt": "TODO: change first\nKEEP\nTODO: leave this\n" },
     inspect: ["edit-target.txt"],

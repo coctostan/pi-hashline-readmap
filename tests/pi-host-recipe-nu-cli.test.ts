@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
 import { it } from "vitest";
-import { jsonOf, recipe, runProgram, seeded, supported } from "./helpers/codemode-recipes.js";
+import { jsonOf, recipe, runProgram, seeded } from "./helpers/codemode-recipes.js";
 
 const code = recipe("nu-cli");
-it.skipIf(!supported)("parses bounded CLI JSON while preserving failure and truncation metadata", () => {
+it("parses bounded CLI JSON while preserving failure and truncation metadata", () => {
   const report = runProgram({
     files: {
       "migration-report.cjs": 'console.log(JSON.stringify([{number:1,title:"first",state:"OPEN"},{number:2,title:"second",state:"CLOSED"}]));',
