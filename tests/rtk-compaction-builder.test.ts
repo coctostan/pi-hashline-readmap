@@ -166,7 +166,7 @@ describe("buildRtkCompaction — truncated", () => {
 
   it("sets truncated=true when a route introduces a git diff budget marker", () => {
     const rawInput = "diff --git a/a b/a\n";
-    const output = "diff --git a/a b/a\n  ... +12 more changes\n";
+    const output = "diff --git a/a b/a\n... and 12 more lines\n";
     const result = buildRtkCompaction({
       rawInput,
       output,
@@ -261,7 +261,7 @@ describe("buildRtkCompaction — truncated", () => {
 
   it("detects an introduced marker even when another marker from raw input was removed", () => {
     const rawInput = "... 16 lines omitted ...\n";
-    const output = "  ... +12 more changes\n";
+    const output = "... and 12 more lines\n";
     const result = buildRtkCompaction({
       rawInput,
       output,
@@ -277,8 +277,8 @@ describe("buildRtkCompaction — truncated", () => {
   });
 
   it("detects an introduced marker when raw input had a different marker of the same pattern", () => {
-    const rawInput = "  ... +1 more\n";
-    const output = "  ... +50 more\n";
+    const rawInput = "  ... and 1 more files\n";
+    const output = "  ... and 50 more files\n";
     const result = buildRtkCompaction({
       rawInput,
       output,

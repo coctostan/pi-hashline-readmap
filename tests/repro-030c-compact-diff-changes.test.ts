@@ -86,7 +86,7 @@ describe("Feature #030c: compactDiff preserves change lines, compresses context"
     expect(result).toContain("-old 99");
     expect(result).toContain("+new 99");
     // Should contain a truncation indicator with the count of omitted lines
-    expect(result).toMatch(/\.\.\. \+\d+ more changes/);
+    expect(result).toMatch(/^\.\.\. and \d+ more lines$/m);
     // Should NOT contain middle lines that were truncated
     expect(result).not.toContain("+new 50");
   });

@@ -79,6 +79,7 @@ export function filterBuildOutput(
 	}
 
 	const lines = output.split("\n");
+	if (output.endsWith("\n")) lines.pop();
 	const stats: BuildStats = {
 		compiled: 0,
 		errors: [],
@@ -162,7 +163,7 @@ export function filterBuildOutput(
 		for (const error of stats.errors.slice(0, 5)) {
 			result.push(...error.slice(0, 10));
 			if (error.length > 10) {
-				result.push("  ...");
+				result.push(`  ... and ${error.length - 10} more lines`);
 			}
 		}
 		if (stats.errors.length > 5) {

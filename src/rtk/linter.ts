@@ -140,6 +140,9 @@ export function aggregateLinterOutput(
 	for (const [rule, count] of sortedRules) {
 		result += `  ${rule} (${count}x)\n`;
 	}
+	if (byRule.size > 10) {
+		result += `  ... and ${byRule.size - 10} more rules\n`;
+	}
 
 	// Top files
 	result += "\nTop files:\n";
@@ -164,6 +167,9 @@ export function aggregateLinterOutput(
 		for (const [rule, count] of sortedFileRules) {
 			result += `    ${rule} (${count})\n`;
 		}
+	}
+	if (byFile.size > 10) {
+		result += `  ... and ${byFile.size - 10} more files\n`;
 	}
 
 	return result;

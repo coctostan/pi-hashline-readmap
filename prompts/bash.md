@@ -31,12 +31,14 @@ The same value is mirrored at `details.ptcValue.rtkCompaction` (deep-equal).
   values used in `src/rtk/bash-filter.ts`: `git`, `linter`, `build-tools`,
   `build`, `package-manager`, `docker`, `file-listing`, `http-client`,
   `transfer`, `test-output`.
-- **`truncated`** — `true` iff an RTK route truncated output beyond a size
-  budget *inside* the routed compression step. This is detected from the
-  deterministic truncation markers emitted by current RTK routes (for example
-  `... N lines omitted ...`, `... +N more changes`, and `[... N more lines]`).
-  Only routed RTK compression techniques can set this field; post-RTK guard
-  trimming and test-output ANSI normalization do not.
+- **`truncated`** — `true` iff an RTK route cut output past a size budget
+  *inside* the routed compression step, ending the cut with a marker that
+  names the true count in its unit (for example `... and N more lines`,
+  `  ... and N more files`, `[... N more lines]`, `Total: N entries in M
+  directories`; `docs/bash-output.md` lists them all). Noise filters, such as
+  dropped progress lines, set nothing. Only routed RTK compression techniques
+  can set this field; post-RTK guard trimming and test-output ANSI
+  normalization do not.
 - **`originalLineCount` / `compactedLineCount`** — newline-split line counts of
   the pre-RTK and post-RTK strings, the post-RTK one counting any anti-pattern
   hint. Both are present when measurable; both are omitted when not (e.g. the

@@ -80,7 +80,7 @@ describe("compactDiff", () => {
     const resultLines = result.split("\n");
     // Should be dramatically smaller than the 200+ input lines
     expect(resultLines.length).toBeLessThan(30);
-    expect(result).toContain("more changes");
+    expect(result).toMatch(/^\.\.\. and \d+ more lines$/m);
   });
 
   it("returns output unchanged when under maxLines", () => {

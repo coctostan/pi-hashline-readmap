@@ -11,6 +11,7 @@ export function isGitCommand(command: string | undefined | null): boolean {
 
 export function compactDiff(output: string, maxLines: number = 100): string {
 	const lines = output.split("\n");
+	if (output.endsWith("\n")) lines.pop();
 	const result: string[] = [];
 	let currentFile = "";
 	let added = 0;
@@ -50,7 +51,7 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 			}
 			const match = line.match(/diff --git a\/(.+) b\/(.+)/);
 			currentFile = match ? match[2] : "unknown";
-			result.push(`\n📄 ${currentFile}`);
+			result.push("", `📄 ${currentFile}`);
 			added = 0;
 			removed = 0;
 			inHunk = false;
@@ -130,7 +131,7 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 		const head = result.slice(0, halfBudget);
 		const tail = result.slice(result.length - halfBudget);
 		const omitted = result.length - halfBudget * 2;
-		return [...head, `  ... +${omitted} more changes`, ...tail].join("\n");
+		return [...head, `... and ${omitted} more lines`, ...tail].join("\n");
 	}
 
 	// Remove middle change lines, keep first N and last N change lines
@@ -143,7 +144,7 @@ export function compactDiff(output: string, maxLines: number = 100): string {
 
 	const head = result.slice(0, cutStart);
 	const tail = result.slice(cutEnd + 1);
-	return [...head, `  ... +${omitted} more changes`, ...tail].join("\n");
+	return [...head, `... and ${omitted} more lines`, ...tail].join("\n");
 }
 
 interface StatusStats {
@@ -246,7 +247,7 @@ export function compactStatus(output: string): string {
 			result += `  ${file}\n`;
 		}
 		if (stats.staged > 5) {
-			result += `  ... +${stats.staged - 5} more\n`;
+			result += `  ... and ${stats.staged - 5} more files\n`;
 		}
 	}
 
@@ -257,7 +258,7 @@ export function compactStatus(output: string): string {
 			result += `  ${file}\n`;
 		}
 		if (stats.modified > 5) {
-			result += `  ... +${stats.modified - 5} more\n`;
+			result += `  ... and ${stats.modified - 5} more files\n`;
 		}
 	}
 
@@ -268,7 +269,7 @@ export function compactStatus(output: string): string {
 			result += `  ${file}\n`;
 		}
 		if (stats.untracked > 3) {
-			result += `  ... +${stats.untracked - 3} more\n`;
+			result += `  ... and ${stats.untracked - 3} more files\n`;
 		}
 	}
 

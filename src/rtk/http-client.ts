@@ -21,6 +21,8 @@ function isCurlProgressLine(line: string): boolean {
 
 export function compressHttpOutput(output: string): string | null {
   const lines = output.split("\n");
+  const trailingNewline = output.endsWith("\n");
+  if (trailingNewline) lines.pop();
   const hasHttpHeaders = lines.some((line) => HTTP_HEADER_RE.test(line.trim()));
   if (lines.length < 10) return hasHttpHeaders ? output : null;
 
@@ -62,6 +64,8 @@ export function compressHttpOutput(output: string): string | null {
 
   if (truncatedCount > 0) {
     kept.push(`[... ${truncatedCount} more lines]`);
+  } else if (trailingNewline) {
+    kept.push("");
   }
 
   if (kept.length === 0 || kept.every((line) => line.trim() === "")) {

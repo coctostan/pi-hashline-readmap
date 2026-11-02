@@ -135,14 +135,14 @@ describe("issue #231: lossless file-listing reduction", () => {
       bashEvent("listing-recognized", "find . -type f", writeFullOutput(barePaths), false),
     );
 
-    expect(result.content[0].text).toContain("src/a/ (60 files)");
-    expect(result.content[0].text).toContain("src/b/ (50 files)");
-    expect(result.content[0].text).toContain("Total: 110 files in 2 directories");
+    expect(result.content[0].text).toContain("src/a/ (60 entries)");
+    expect(result.content[0].text).toContain("src/b/ (50 entries)");
+    expect(result.content[0].text).toContain("Total: 110 entries in 2 directories");
     expect(result.details.compressionInfo.technique).toBe("file-listing");
     expect(result.details.rtkCompaction).toMatchObject({
       applied: true,
       techniques: ["file-listing"],
-      truncated: false,
+      truncated: true,
     });
     expect(result.details.ptcValue.rtkCompaction).toEqual(result.details.rtkCompaction);
   });

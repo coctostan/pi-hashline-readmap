@@ -2,14 +2,17 @@ import { describe, it, expect } from "vitest";
 import { isFileListingCommand, compressFileListingOutput } from "../src/rtk/file-listing.js";
 
 describe("isFileListingCommand", () => {
-  it("matches find, ls -R, ls -la, tree", () => {
+  it("matches find", () => {
     expect(isFileListingCommand("find . -name '*.ts'")).toBe(true);
     expect(isFileListingCommand("find /tmp -type f")).toBe(true);
-    expect(isFileListingCommand("ls -R")).toBe(true);
-    expect(isFileListingCommand("ls -la /tmp")).toBe(true);
-    expect(isFileListingCommand("ls -lR")).toBe(true);
-    expect(isFileListingCommand("tree")).toBe(true);
-    expect(isFileListingCommand("tree src/")).toBe(true);
+  });
+
+  it("does not match ls -R, ls -la or tree, whose entries a summary can't count", () => {
+    expect(isFileListingCommand("ls -R")).toBe(false);
+    expect(isFileListingCommand("ls -la /tmp")).toBe(false);
+    expect(isFileListingCommand("ls -lR")).toBe(false);
+    expect(isFileListingCommand("tree")).toBe(false);
+    expect(isFileListingCommand("tree src/")).toBe(false);
   });
 
   it("does not match bare ls, cat, grep", () => {
@@ -29,6 +32,7 @@ describe("compressFileListingOutput", () => {
   it("returns output unchanged if ≤100 lines", () => {
     const shortOutput = Array(100).fill("./src/file.ts").join("\n");
     expect(compressFileListingOutput(shortOutput)).toBe(shortOutput);
+    expect(compressFileListingOutput(`${shortOutput}\n`)).toBe(`${shortOutput}\n`);
   });
 
   it("groups large find output by directory with counts", () => {
