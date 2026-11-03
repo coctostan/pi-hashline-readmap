@@ -169,7 +169,7 @@ export function filterBashOutput(
           technique: "http-client",
           apply: (drops) => httpClient.compressHttpOutput(stripped, drops),
         },
-        { matches: transfer.isTransferCommand(part), technique: "transfer", apply: (drops) => transfer.compressTransferOutput(stripped, drops) },
+        { matches: transfer.isTransferCommand(part), technique: "transfer", apply: (drops) => transfer.compressTransferOutput(stripped, drops, part) },
       ];
       // A `find` part goes to the file-listing route alone: an `-exec eslint` is no linter run to summarize.
       const findOnly = fileListing.isFindCommand(part);

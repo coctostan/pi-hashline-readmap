@@ -328,11 +328,11 @@ const ROUTES: { route: string; command: string; raw: string[]; shown: string[]; 
     route: "transfer",
     command: "rsync -av src/ dst/",
     raw: [
-      ...["sending incremental file list", "deleting report(xfr#1, to-chk=5/7)", "./", ...lines(12, (i) => `f${i}.txt`), ""],
+      ...["sending incremental file list", "deleting report(xfr#1, to-chk=5/7)", "deleting report 100%  1234   1.2KB/s   00:00", "./", ...lines(12, (i) => `f${i}.txt`), ""],
       ...["sent 1,234 bytes  received 56 bytes  2,580.00 bytes/sec", "total size is 1,000  speedup is 0.78"],
     ],
     // `./` and f0–f8 fill the budget of 10; f9–f11 are counted.
-    shown: ["deleting report(xfr#1, to-chk=5/7)", ...lines(9, (i) => `f${i}.txt`), "sent 1,234 bytes  received 56 bytes", "total size is 1,000  speedup is 0.78"],
+    shown: ["deleting report(xfr#1, to-chk=5/7)", "deleting report 100%  1234   1.2KB/s   00:00", ...lines(9, (i) => `f${i}.txt`), "sent 1,234 bytes  received 56 bytes", "total size is 1,000  speedup is 0.78"],
     dropped: [{ count: 3, unit: "files" }],
   },
 ];

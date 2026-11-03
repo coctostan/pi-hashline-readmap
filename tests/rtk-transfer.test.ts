@@ -94,6 +94,16 @@ describe("compressTransferOutput", () => {
     expect(compressTransferOutput(input)).toBe("sent 1 bytes  received 2 bytes");
   });
 
+  it("strips each tool's progress rows only from its own output", () => {
+    const rsyncRow = "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)";
+    const scpRow = "file.txt                    100%  1234   1.2KB/s   00:00";
+    const input = [...Array.from({ length: 5 }, () => [rsyncRow, scpRow]).flat(), "done"].join("\n");
+
+    expect(compressTransferOutput(input, [], "rsync -av --delete src/ dst/")).toBe([...Array(5).fill(scpRow), "done"].join("\n"));
+    expect(compressTransferOutput(input, [], "scp file.txt host:/tmp/")).toBe([...Array(5).fill(rsyncRow), "done"].join("\n"));
+    expect(compressTransferOutput(input)).toBe("done");
+  });
+
   it("keeps lines that only start or end like a progress row", () => {
     const kept = [
       "deleting report(xfr#1, to-chk=5/7)",

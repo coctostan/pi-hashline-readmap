@@ -22,8 +22,11 @@ const SIGNAL_PATTERNS: RegExp[] = [
   /error/i,
 ];
 
-function isNoise(line: string): boolean {
-  return RSYNC_PROGRESS_RE.test(line) || SCP_PROGRESS_RE.test(line) || RSYNC_AV_HEADER_RE.test(line);
+// Each tool's rows are noise only in its own output: an scp row ends a line of free text, which rsync prints as a
+// file name (`deleting report 100%  1234   1.2KB/s   00:00`). With no command given, both apply.
+function isNoise(line: string, tool: string | undefined): boolean {
+  if (tool !== "scp" && (RSYNC_PROGRESS_RE.test(line) || RSYNC_AV_HEADER_RE.test(line))) return true;
+  return tool !== "rsync" && SCP_PROGRESS_RE.test(line);
 }
 
 function isSignal(line: string): boolean {
@@ -52,7 +55,8 @@ function fileListEntries(lines: string[]): Set<number> {
   return entries;
 }
 
-export function compressTransferOutput(output: string, drops: Drop[] = []): string | null {
+export function compressTransferOutput(output: string, drops: Drop[] = [], command?: string): string | null {
+  const tool = command?.trim().split(/\s+/)[0].toLowerCase();
   if (output.length === 0) return null; // AC-12: null for empty (must be before short-circuit)
   const lines = output.split("\n");
   if (lines.length < 10) return output; // AC-9: short-circuit
@@ -67,7 +71,7 @@ export function compressTransferOutput(output: string, drops: Drop[] = []): stri
       else if (listed === FILE_LIST_BUDGET + 1) {
         kept.push(dropMarker(drops, entries.size - FILE_LIST_BUDGET, "files", `... and ${entries.size - FILE_LIST_BUDGET} more files`));
       }
-    } else if (isSignal(line) || !isNoise(line)) {
+    } else if (isSignal(line) || !isNoise(line, tool)) {
       kept.push(line);
     }
   });
