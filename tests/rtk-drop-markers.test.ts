@@ -121,6 +121,20 @@ describe("budget cuts end in a marker naming the true count, and set truncated",
     expect(longLast.lines).toContain("  ... and 4 more lines");
   });
 
+  it("build names the lines it cuts from a long warning, and the warnings past 5, beside its errors", () => {
+    const diagnostic = (kind: string, n: number, extra: number) => [`${kind}: unused ${n}`, ...lines(extra, (i) => `  --> src/x.rs:${i}`)];
+    const warnings = [...diagnostic("warning", 1, 11), ...lines(6, (n) => diagnostic("warning", n + 2, 1)).flat()];
+    const result = compact("cargo build", text([...diagnostic("error", 1, 12), ...warnings]));
+
+    expect(result.lines).toContain("... and 2 more warnings");
+    expect(result.dropped).toEqual([
+      { count: 3, unit: "lines" },
+      { count: 2, unit: "lines" },
+      { count: 2, unit: "warnings" },
+    ]);
+    expect(result.truncated).toBe(true);
+  });
+
   it("linter names the rules and files past its top 10", () => {
     const raw = text(lines(12, (i) => `src/f${i}.js:1:1: problem [rule-${i}]`));
     const result = compact("npx eslint .", raw);
