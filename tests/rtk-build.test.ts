@@ -79,10 +79,14 @@ describe("filterBuildOutput keeps warnings", () => {
       "warning: `demo` (lib test) generated 2 warnings (1 duplicate)",
       "warning: `demo` (lib) generated 3 warnings (1 duplicate) (run `cargo fix --lib -p demo` to apply 2 suggestions)",
     ];
-    const real = "warning: build script generated 2 warnings-as-errors; see target/build.log";
-    const result = build("cargo build", text(["   Compiling demo v0.1.0 (/tmp/demo)", ...summaries, real]));
+    const real = [
+      "warning: build script generated 2 warnings-as-errors; see target/build.log",
+      "warning: build script generated 2 warnings (diagnostics unavailable)",
+      "warning: `demo` (lib) generated 2 warnings (ABI mismatch; inspect generated bindings)",
+    ];
+    const result = build("cargo build", text(["   Compiling demo v0.1.0 (/tmp/demo)", ...summaries, ...real]));
 
-    expect(result.output).toBe(["✓ Build successful (1 units compiled)", "⚠️  1 warning(s):", real].join("\n"));
+    expect(result.output).toBe(["✓ Build successful (1 units compiled)", "⚠️  3 warning(s):", ...real].join("\n"));
   });
 
   it("cuts nothing at the budget, and reports the first warning and line past it", () => {

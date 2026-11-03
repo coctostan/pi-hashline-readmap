@@ -41,7 +41,7 @@ const SKIP_PATTERNS = [
 	/^\s*Finished\s+/,
 	// cargo's per-package count of the warnings it printed above, whole: "warning: `foo` (lib) generated 2 warnings",
 	// then any " (1 duplicate)" and " (run `cargo fix …` to apply N suggestions)"
-	/^warning: .+ generated \d+ warnings?(?: \([^()]*\))*$/,
+	/^warning: `[^`]+` \([^()]+\) generated \d+ warnings?(?: \(\d+ duplicates?\))?(?: \(run `[^`]+` to apply \d+ suggestions?\))?$/,
 ];
 
 const ERROR_START_PATTERNS = [
