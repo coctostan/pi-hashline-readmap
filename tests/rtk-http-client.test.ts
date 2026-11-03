@@ -156,6 +156,8 @@ describe("compressHttpOutput", () => {
       modern.replace(" 99999 100", " 99999  100"),
       modern.replace("1:01:05", "1:01:5 "),
       `${modern}\rrow b`,
+      // Rows curl never prints: two glued with no '\r' between them.
+      `${classic}${classic}`,
     ];
     const raw = ["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...body, "row a", "row c"];
     const result = compressHttpOutput(raw.join("\n"));

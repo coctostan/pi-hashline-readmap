@@ -36,7 +36,8 @@ const CURL_ROWS = [
     " ",
   ),
 ];
-const CURL_PROGRESS_ROW_RE = new RegExp(`^(?:\\r?(?:${CURL_ROWS.join("|")}))+\\r?$`);
+const CURL_ROW = `(?:${CURL_ROWS.join("|")})`;
+const CURL_PROGRESS_ROW_RE = new RegExp(`^\\r?${CURL_ROW}(?:\\r${CURL_ROW})*\\r?$`);
 // A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes), then
 // stats. Known length: "%3d%%", a " %4.*f%c" rate (0, 1 or 2 decimals as it shrinks; unit ' ', K, M, G or T),
 // then " " ETA or "=" total time. Unknown length: the rate alone, or the rate then "=" total time on the last row.
