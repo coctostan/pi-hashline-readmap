@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- The HTTP compressor drops a line as wget progress only when the whole line is a wget dot-progress row (`NK`, dot clusters, then its percent, rate and ETA or total time), so response bodies keep lines that merely start like one. Before, `curl` output holding `du`'s `12K\t./src` or `0K .NET runtime missing` lost those lines with nothing in `dropped`; a resumed download's `,` rows are now dropped as progress too.
+
 ## [0.20.0] - 2026-11-02
 
 Compressed `bash` output no longer misstates `git status` tracking and conflicts, shaped `find` output or build warnings. Each compressor drops only named noise without saying so and reports every other drop in its metadata, and every compressed result names a saved copy of its output before compression, so recovering what was cut never needs a re-run.

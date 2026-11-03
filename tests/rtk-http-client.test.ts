@@ -62,6 +62,39 @@ describe("compressHttpOutput", () => {
     expect(result).not.toMatch(/\d+K \./);
   });
 
+  // Row shapes from wget's src/progress.c dot backend: "%6sK", clusters of '.' (',' for resumed bytes), then
+  // "%3d%%" when the length is known, " %4.*f%c" rate, and an ETA, or "=" total time on the last row.
+  it("strips wget dot-progress rows in each stats form", () => {
+    const rows = [
+      "     0K .......... .......... .......... .......... ..........  4% 1.23M 3s",
+      "    50K .......... .......... .......... .......... ..........  9%  512K 1m5s",
+      "   100K .......... .......... .......... .......... .......... 14%  123  2h3m",
+      "   150K .......... .......... .......... .......... .......... 2.10M",
+      "   350K ,,,,,,,,,, ,,,,,..... .......... .......... .......... 80% 1.20M 0s",
+      "  3072K ........ ........ ........ ........ ........ ........ 50% 2.00M 2s",
+      "   200K .......... ....                                       100% 3.45M=0.06s",
+      "   200K ..                                                    100% 1.00M=1m5s",
+      "   200K .                                                     100%  123 =0.06s",
+      "   150K .......... ....                                        2.10M=0.5s",
+    ];
+    const raw = ["--2024-01-01 12:00:00--  https://example.com/", "HTTP request sent, awaiting response... 200 OK", ...rows, "saved"];
+    const result = compressHttpOutput(raw.join("\n"));
+
+    expect(result?.split("\n")).toEqual(["--2024-01-01 12:00:00--  https://example.com/", "HTTP request sent, awaiting response... 200 OK", "saved"]);
+  });
+
+  it("keeps body lines that only start like wget progress", () => {
+    const body = ["12K\t./src", "4K ./docs", "0K .NET runtime missing", "10K ... and more", "  5K .", "1K . 2 files",
+      // Stats wget never prints: a time touching the rate, a unitless rate, a known length without a time, a space
+      // before "=".
+      "     0K .......... 100% 1.23M3s", "     0K .......... 100% 123 3s",
+      "     0K .......... 100% 1.234567M 3s", "     0K .......... 100% 1.23M=0.123456s", "     0K .......... 100% 1.23M", "     0K .......... 2.10M =0.5s"];
+    const raw = ["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...body, "row a", "row b", "row c"];
+    const result = compressHttpOutput(raw.join("\n"));
+
+    expect(result?.split("\n")).toEqual(raw);
+  });
+
   it("truncates body to 200 lines if larger", () => {
     const lines = ["HTTP/1.1 200 OK", "Content-Type: text/plain", ""];
     for (let i = 0; i < 250; i++) lines.push(`line ${i}`);
