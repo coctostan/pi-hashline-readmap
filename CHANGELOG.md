@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-02
+
+Compressed `bash` output no longer misstates `git status` tracking and conflicts, shaped `find` output or build warnings. Each compressor drops only named noise without saying so and reports every other drop in its metadata, and every compressed result names a saved copy of its output before compression, so recovering what was cut never needs a re-run.
+
+### Added
+
+- `details.rtkCompaction.dropped` (mirrored at `details.ptcValue.rtkCompaction`): one `{ count, unit }` per drop marker in the output, in output order, as the compressor reported it when it wrote the marker, so `... and 3 more commits` is `{ count: 3, unit: "commits" }`. A marker-like line the command printed itself is no drop. Always present; `[]` when nothing was dropped.
+- Every compressed result's `[RTK: compressed …]` notice names `Original output: <path>`, the output before compression: Pi's own full-output file when Pi truncated it, else a `0600` temp file holding the compressor's input byte for byte, also with `PI_HASHLINE_BASH_CONTEXT_GUARD=0`. `details.bashOriginalOutput.originalPath` holds the same path, and the context guard's preview reuses it. If the copy cannot be written, the output is not compressed: it passes through as under `PI_RTK_BYPASS=1`, with `details.compressionInfo.bypassedBy: "unsaved-original"` and `details.bashOriginalOutput.snapshotWriteError` saying why. Before, a copy was saved only when the context guard trimmed, and the notice named only `PI_RTK_BYPASS=1 <command>`.
+
+### Fixed
+
+- `details.rtkCompaction.truncated` is true exactly when `dropped` is non-empty, set by the compressor's own drop rather than by matching marker text. Before, a 21-line `git log --oneline` whose dropped 21st line read `... and 1 more lines` reported `truncated: false`.
+- `git status -sb` keeps the branch line's tracking (`📌 main...origin/main [ahead 1]`) and lists every unmerged path with its code (`DD AU UD UA DU AA UU`) under a last `⚠️ Conflicts: N files` section that no budget cuts. Before, it showed `📌 main` and listed `DU a.ts` under Staged. Type changes (`T`), worktree renames and copies, and intent-to-add files are listed as changes, and `!!` paths under `🚫 Ignored`, cut at 3 with `  ... and N more files`.
+- `find` with an action that shapes its output (`-printf`, `-fprintf`, `-ls`, `-fls`, `-exec`, `-execdir`, `-ok`, `-okdir`, `-print0`, `-fprint0`) passes through unchanged. Before, `find src -printf '%s %p\n'` was summarized into per-directory counts and lost its file names, and `find -exec eslint` was read as a linter run.
+- A successful build keeps its warnings: up to 5, each cut at 10 lines by `  ... and N more lines`, then `... and N more warnings`, the budget errors already had. A failed command's output still passes through uncompressed. Only real diagnostics count: cargo's `generated N warnings` summary is no warning, so one cargo warning reports `1 warning(s)`, not 2. tsc warnings (`path(l,c): warning TSn:`) are read too. Before, `npm run build` with a tsc warning returned only `✓ Build successful (1 units compiled)`.
+- Every route drops only the noise `docs/bash-output.md` names beside its markers, and keeps or counts every other line: the linter's per-file cut of its top 3 rules ends `    ... and N more rules` and lines that are no finding are kept; `git diff` keeps renames, file modes, binary-file lines, git's warnings and headers it can't read, and passes output without `diff --git` through; a build keeps lines outside its diagnostics; Gradle keeps a `FAILED` task line; Docker builds and package-manager installs drop only their named noise; `rsync`'s file list is kept to 10 entries, then `... and N more files`.
+
 ## [0.19.2] - 2026-11-02
 
 Compressed `bash` output says more truthfully what it dropped: `git log` keeps whole commits, each size-budget cut listed below ends in a marker with the true count and unit, and `details.rtkCompaction` reports `applied` and `truncated` as the compressor acted.
