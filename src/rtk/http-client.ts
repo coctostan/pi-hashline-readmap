@@ -13,9 +13,15 @@ const CURL_PROGRESS_HEADER_RE =
   /^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\b|^\s*Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed\s*$/;
 const CURL_PROGRESS_ROW_RE =
   /^\s*\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\S+\s+\S+\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+\S+\s*$/;
-// A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes),
-// then "%3d%%" when the length is known, a " %4.*f%c" rate, and an ETA ("3s", "1m5s") or "=" total time.
-const WGET_PROGRESS_RE = /^\s*\d+K(?: [.,]+)+ +(?:\d{1,3}% +)?\d+(?:\.\d+)?[KMGT]?(?: *=?\d+(?:\.\d+)?[smhd](?:\d+[smh])?)?\s*$/;
+// A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes), then
+// stats. Known length: "%3d%%", a " %4.*f%c" rate (unit ' ', K, M, G or T), then " " ETA or "=" total time.
+// Unknown length: the rate alone, or the rate then "=" total time on the last row.
+const WGET_ETA = String.raw`(?:\d+s|\d+m\d+s|\d+h\d+m|\d+d\d+h|\d+d)`;
+const WGET_TOTAL = String.raw`=(?:\d+(?:\.\d+)?s|${WGET_ETA})`;
+const WGET_RATE = String.raw`\d+(?:\.\d+)?[KMGT ]`;
+const WGET_PROGRESS_RE = new RegExp(
+  String.raw`^\s*\d+K(?: [.,]+)+ +(?:\d{1,3}% +${WGET_RATE}(?: ${WGET_ETA}|${WGET_TOTAL})|${WGET_RATE}(?:${WGET_TOTAL})?)\s*$`,
+);
 const HTTP_HEADER_RE = /^(HTTP\/|< HTTP\/|Content-|Host:)/i;
 
 function isCurlProgressLine(line: string): boolean {

@@ -73,7 +73,9 @@ describe("compressHttpOutput", () => {
       "   350K ,,,,,,,,,, ,,,,,..... .......... .......... .......... 80% 1.20M 0s",
       "  3072K ........ ........ ........ ........ ........ ........ 50% 2.00M 2s",
       "   200K .......... ....                                       100% 3.45M=0.06s",
-      "   200K ..                                                    100% 1.0M=1m5s",
+      "   200K ..                                                    100% 1.00M=1m5s",
+      "   200K .                                                     100%  123 =0.06s",
+      "   150K .......... ....                                        2.10M=0.5s",
     ];
     const raw = ["--2024-01-01 12:00:00--  https://example.com/", "HTTP request sent, awaiting response... 200 OK", ...rows, "saved"];
     const result = compressHttpOutput(raw.join("\n"));
@@ -82,7 +84,10 @@ describe("compressHttpOutput", () => {
   });
 
   it("keeps body lines that only start like wget progress", () => {
-    const body = ["12K\t./src", "4K ./docs", "0K .NET runtime missing", "10K ... and more", "  5K .", "1K . 2 files"];
+    const body = ["12K\t./src", "4K ./docs", "0K .NET runtime missing", "10K ... and more", "  5K .", "1K . 2 files",
+      // Stats wget never prints: a time touching the rate, a unitless rate, a known length without a time, a space
+      // before "=".
+      "     0K .......... 100% 1.23M3s", "     0K .......... 100% 123 3s", "     0K .......... 100% 1.23M", "     0K .......... 2.10M =0.5s"];
     const raw = ["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...body, "row a", "row b", "row c"];
     const result = compressHttpOutput(raw.join("\n"));
 
