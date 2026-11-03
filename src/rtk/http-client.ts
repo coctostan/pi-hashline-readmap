@@ -14,11 +14,12 @@ const CURL_PROGRESS_HEADER_RE =
 const CURL_PROGRESS_ROW_RE =
   /^\s*\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\S+\s+\S+\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+\S+\s*$/;
 // A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes), then
-// stats. Known length: "%3d%%", a " %4.*f%c" rate (unit ' ', K, M, G or T), then " " ETA or "=" total time.
-// Unknown length: the rate alone, or the rate then "=" total time on the last row.
+// stats. Known length: "%3d%%", a " %4.*f%c" rate (0, 1 or 2 decimals as it shrinks; unit ' ', K, M, G or T),
+// then " " ETA or "=" total time. Unknown length: the rate alone, or the rate then "=" total time on the last row.
+// A total under 10s is utils.c's print_decimal: "10", "%.1f", "%.1g" ("0.04"), "0.001" or "0".
 const WGET_ETA = String.raw`(?:\d+s|\d+m\d+s|\d+h\d+m|\d+d\d+h|\d+d)`;
-const WGET_TOTAL = String.raw`=(?:\d+(?:\.\d+)?s|${WGET_ETA})`;
-const WGET_RATE = String.raw`\d+(?:\.\d+)?[KMGT ]`;
+const WGET_TOTAL = String.raw`=(?:(?:\d{1,2}|\d\.\d|0\.0{0,2}\d)s|${WGET_ETA})`;
+const WGET_RATE = String.raw`(?:\d{3,}|\d{2}\.\d|\d\.\d{2})[KMGT ]`;
 const WGET_PROGRESS_RE = new RegExp(
   String.raw`^\s*\d+K(?: [.,]+)+ +(?:\d{1,3}% +${WGET_RATE}(?: ${WGET_ETA}|${WGET_TOTAL})|${WGET_RATE}(?:${WGET_TOTAL})?)\s*$`,
 );

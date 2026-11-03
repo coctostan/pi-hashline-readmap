@@ -87,7 +87,8 @@ describe("compressHttpOutput", () => {
     const body = ["12K\t./src", "4K ./docs", "0K .NET runtime missing", "10K ... and more", "  5K .", "1K . 2 files",
       // Stats wget never prints: a time touching the rate, a unitless rate, a known length without a time, a space
       // before "=".
-      "     0K .......... 100% 1.23M3s", "     0K .......... 100% 123 3s", "     0K .......... 100% 1.23M", "     0K .......... 2.10M =0.5s"];
+      "     0K .......... 100% 1.23M3s", "     0K .......... 100% 123 3s",
+      "     0K .......... 100% 1.234567M 3s", "     0K .......... 100% 1.23M=0.123456s", "     0K .......... 100% 1.23M", "     0K .......... 2.10M =0.5s"];
     const raw = ["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...body, "row a", "row b", "row c"];
     const result = compressHttpOutput(raw.join("\n"));
 
