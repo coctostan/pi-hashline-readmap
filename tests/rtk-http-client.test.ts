@@ -153,7 +153,7 @@ describe("compressHttpOutput", () => {
       classic.replace("  0     0    0", "  0     0   0"),
       modern.replace(" 99999", " users"),
       modern.replace("  99999", "  99999k"),
-      modern.replace("100 97.65k", "100  97.65k"),
+      modern.replace(" 99999 100", " 99999  100"),
       modern.replace("1:01:05", "1:01:5 "),
       `${modern}\rrow b`,
     ];
