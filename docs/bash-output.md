@@ -52,7 +52,7 @@ Each route drops only the noise this table names without saying so; it keeps eve
 
 | Route | Noise, dropped silently | Budget | Marker |
 | --- | --- | --- | --- |
-| `git diff` | git's whole `index <hash>..<hash>[ <mode>]` line, the `---`/`+++` file headers, `\ No newline at end of file`, a hunk header's function context; output with no `diff --git` passes through | 100 output lines | `... and N more lines` |
+| `git diff` | git's whole `index <hash>..<hash>[ <mode>]` line, the `---`/`+++` file headers, `\ No newline at end of file`, a hunk header's function context; output with no `diff --git`, and a word diff, pass through | 100 output lines | `... and N more lines` |
 | `git diff` | | 3 context lines per side of a hunk (`-U`, `-W`) | `  ... (N context lines)` |
 | `git status` | blank lines | 5 staged, 5 modified (worktree changes, `T` and intent-to-add included), 3 untracked, 3 ignored files; conflicts (`DD AU UD UA DU AA UU`) are all listed with their codes, never cut, and the branch line keeps its tracking | `  ... and N more files` |
 | `git log` | none | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
@@ -66,6 +66,8 @@ Each route drops only the noise this table names without saying so; it keeps eve
 | transfer (`rsync`, `scp`) | rsync's and scp's whole progress rows, each only in its own tool's output (size, percent, rate, time, then rsync's `(xfr#N, to-chk=N/N)` or openrsync's `(xfer#N, to-check=N/N)`; a line that merely ends like one is kept), rsync's `sending/receiving incremental file list` | rsync's file list, the path-shaped lines from its header (or openrsync's `Transfer starting: N files`) to the next blank line: 10 entries | `... and N more files` |
 
 Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged. So does `find` with an action that shapes its output (`-printf`, `-fprintf`, `-ls`, `-fls`, `-exec`, `-execdir`, `-ok`, `-okdir`, `-print0`, `-fprint0`), since its lines are no bare paths.
+
+A `git diff` given `--word-diff` (any mode), `--word-diff-regex` or `--color-words` passes through unchanged: it marks an edit inside a line (`[-old-]{+new+}`, porcelain's `~` lines, or colour alone), where the route reads a change only from a leading `+` or `-`. `--color-words` output keeps every line, but ANSI stripping removes the colours that told old words from new; run `--word-diff=plain` to see them.
 
 ## Bypass route compression
 

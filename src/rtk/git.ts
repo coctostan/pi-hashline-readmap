@@ -1,4 +1,5 @@
 import { dropMarker, outputLines, type Drop } from "./drops.ts";
+import { commandWords, parseShellCommands } from "../bash-command-state.ts";
 
 const GIT_COMMANDS = ["git diff", "git status", "git log", "git show", "git stash"];
 
@@ -9,6 +10,14 @@ export function isGitCommand(command: string | undefined | null): boolean {
 
 	const cmdLower = command.toLowerCase();
 	return GIT_COMMANDS.some((gc) => cmdLower.startsWith(gc));
+}
+
+// A word diff marks edits inline (`[-a-]{+b+}`, colour, porcelain's `~`), so `compactDiff` would take them for context.
+const WORD_DIFF_OPTION_RE = /^--(?:word-diff|word-diff-regex|color-words)(?:=|$)/;
+
+function isWordDiff(command: string): boolean {
+	const part = parseShellCommands(command, undefined).commands.find((p) => !p.inSubstitution);
+	return commandWords(part?.words ?? []).some((word) => WORD_DIFF_OPTION_RE.test(word));
 }
 
 export function compactDiff(output: string, maxLines: number = 100, drops: Drop[] = []): string {
@@ -278,6 +287,7 @@ export function compactGitOutput(
 	const cmdLower = command.toLowerCase();
 
 	if (cmdLower.startsWith("git diff")) {
+		if (isWordDiff(command)) return null;
 		const compacted = compactDiff(output, undefined, drops);
 		return compacted === output ? null : compacted;
 	}
