@@ -109,6 +109,10 @@ describe("compactDiff", () => {
     );
   });
 
+  it("keeps a file header it can't read, such as git's quoted non-ASCII path", () => {
+    const header = 'diff --git "a/caf\\303\\251.txt" "b/caf\\303\\251.txt"';
+    expect(compactDiff([header, "@@ -1 +1 @@", "-a", "+b"].join("\n"))).toContain(`📄 ${header}`);
+  });
   it("passes output with no file diff through, such as --stat", () => {
     const stat = " src/a.ts | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n";
     expect(compactDiff(stat)).toBe(stat);

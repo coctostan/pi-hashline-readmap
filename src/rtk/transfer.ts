@@ -35,27 +35,40 @@ export function isTransferCommand(cmd: string): boolean {
 
 // rsync's file list is kept up to this many entries, then counted.
 const FILE_LIST_BUDGET = 10;
+// What opens rsync's file list: its `-v` header, or openrsync's (macOS) `Transfer starting: N files`.
+const FILE_LIST_START_RE = /^(?:(?:sending|receiving) incremental file list|Transfer starting: \d+ files)$/;
+
+/** The indices of rsync's file list entries: path-shaped lines after its start, up to the blank line ending it. */
+function fileListEntries(lines: string[]): Set<number> {
+  const entries = new Set<number>();
+  let inList = false;
+  lines.forEach((line, i) => {
+    if (FILE_LIST_START_RE.test(line)) inList = true;
+    else if (line.trim() === "") inList = false;
+    else if (inList && !isSignal(line) && RSYNC_AV_FILE_RE.test(line) && !RSYNC_AV_STATUS_RE.test(line)) entries.add(i);
+  });
+  return entries;
+}
 
 export function compressTransferOutput(output: string, drops: Drop[] = []): string | null {
   if (output.length === 0) return null; // AC-12: null for empty (must be before short-circuit)
   const lines = output.split("\n");
   if (lines.length < 10) return output; // AC-9: short-circuit
 
-  const isListedFile = (line: string) => !isSignal(line) && RSYNC_AV_FILE_RE.test(line) && !RSYNC_AV_STATUS_RE.test(line);
-  const files = lines.filter(isListedFile).length;
+  const entries = fileListEntries(lines);
   let listed = 0;
   const kept: string[] = [];
-  for (const line of lines) {
-    if (isListedFile(line)) {
+  lines.forEach((line, i) => {
+    if (entries.has(i)) {
       listed++;
       if (listed <= FILE_LIST_BUDGET) kept.push(line);
       else if (listed === FILE_LIST_BUDGET + 1) {
-        kept.push(dropMarker(drops, files - FILE_LIST_BUDGET, "files", `... and ${files - FILE_LIST_BUDGET} more files`));
+        kept.push(dropMarker(drops, entries.size - FILE_LIST_BUDGET, "files", `... and ${entries.size - FILE_LIST_BUDGET} more files`));
       }
     } else if (isSignal(line) || !isNoise(line)) {
       kept.push(line);
     }
-  }
+  });
   if (kept.length === 0 || kept.every((line) => line.trim() === "")) return null;
   return kept.join("\n");
 }

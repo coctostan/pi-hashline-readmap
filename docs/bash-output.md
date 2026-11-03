@@ -63,7 +63,7 @@ Each route drops only the noise this table names without saying so; it keeps eve
 | build tools (`make`, `cmake`, `gradle`, `mvn`) | `make[N]: Entering/Leaving directory`, CMake's `[ N%]` lines, Gradle's `> Task :x` and `:x` lines (a `FAILED` one is kept), Maven's `[INFO] Downloading/Compiling/Building/Unpacking` | none | none |
 | package manager (`npm`, `yarn`, `pnpm` installs) | spinner lines, `npm http`, `npm timing`, yarn's `Resolution step details:`, blank lines | none | none |
 | Docker build | `---> <id>`, `---> Running in`, `Removing intermediate container`, `Sending build context`, blank lines; a step's own output is kept | none | none |
-| transfer (`rsync`, `scp`) | rsync's and scp's progress lines, rsync's `sending/receiving incremental file list` | rsync's file list: 10 entries | `... and N more files` |
+| transfer (`rsync`, `scp`) | rsync's and scp's progress lines, rsync's `sending/receiving incremental file list` | rsync's file list, the path-shaped lines from its header (or openrsync's `Transfer starting: N files`) to the next blank line: 10 entries | `... and N more files` |
 
 Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged. So does `find` with an action that shapes its output (`-printf`, `-fprintf`, `-ls`, `-fls`, `-exec`, `-execdir`, `-ok`, `-okdir`, `-print0`, `-fprint0`), since its lines are no bare paths.
 

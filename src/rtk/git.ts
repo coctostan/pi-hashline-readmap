@@ -57,7 +57,8 @@ export function compactDiff(output: string, maxLines: number = 100, drops: Drop[
 				result.push(`  +${added} -${removed}`);
 			}
 			const match = line.match(/diff --git a\/(.+) b\/(.+)/);
-			currentFile = match ? match[2] : "unknown";
+			// A header the pattern can't read (git C-quotes paths holding tabs or non-ASCII) is kept as printed.
+			currentFile = match ? match[2] : line;
 			result.push("", `📄 ${currentFile}`);
 			added = 0;
 			removed = 0;

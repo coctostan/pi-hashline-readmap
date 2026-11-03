@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { Drop } from "../src/rtk/drops.js";
 import { isTransferCommand, compressTransferOutput } from "../src/rtk/transfer.js";
 
 describe("isTransferCommand", () => {
@@ -68,5 +69,20 @@ describe("compressTransferOutput", () => {
 
   it("returns null for empty string", () => {
     expect(compressTransferOutput("")).toBeNull();
+  });
+
+  it("counts only entries of rsync's file list, keeping path-shaped lines outside it", () => {
+    // `--out-format='%l'` sizes or a banner print no file list header: they are kept, not counted as files.
+    const outside = Array.from({ length: 12 }, (_, i) => `${1000 + i}`);
+    const drops: Drop[] = [];
+    expect(compressTransferOutput([...outside, "sent 1 bytes  received 2 bytes"].join("\n"), drops)).toBe(
+      [...outside, "sent 1 bytes  received 2 bytes"].join("\n"),
+    );
+    expect(drops).toEqual([]);
+
+    const list = Array.from({ length: 11 }, (_, i) => `f${i}.txt`);
+    const result = compressTransferOutput(["Transfer starting: 11 files", ...list, "", ...outside].join("\n"), drops);
+    expect(result).toBe(["Transfer starting: 11 files", ...list.slice(0, 10), "... and 1 more files", "", ...outside].join("\n"));
+    expect(drops).toEqual([{ count: 1, unit: "files" }]);
   });
 });

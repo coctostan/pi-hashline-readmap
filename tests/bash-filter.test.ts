@@ -215,6 +215,7 @@ describe("filterBashOutput routing", () => {
   });
   it("keeps rsync completion status words and counts the file list past 10 entries", () => {
     const input = [
+      "sending incremental file list",
       "src/file1.txt",
       "src/file2.txt",
       "src/file3.txt",
