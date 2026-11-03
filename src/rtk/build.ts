@@ -167,8 +167,8 @@ export function filterBuildOutput(
 function diagnosticLines(diagnostics: string[][], unit: string, drops: Drop[]): string[] {
 	const result: string[] = [];
 	for (const diagnostic of diagnostics.slice(0, 5)) {
-		// A blank line ending a diagnostic only separated it from the next.
-		while (diagnostic.length > 1 && diagnostic[diagnostic.length - 1].trim() === "") diagnostic.pop();
+		// A blank line ending a diagnostic only separated it from the next; its start line is never blank.
+		while (diagnostic[diagnostic.length - 1].trim() === "") diagnostic.pop();
 		result.push(...diagnostic.slice(0, 10));
 		if (diagnostic.length > 10) {
 			result.push(dropMarker(drops, diagnostic.length - 10, "lines", `  ... and ${diagnostic.length - 10} more lines`));
