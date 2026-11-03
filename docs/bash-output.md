@@ -48,16 +48,22 @@ When Pi truncated the output itself, the path is Pi's own full-output file; othe
 
 A compressor that cuts output past a size budget ends the cut with a marker naming the true count in its own unit, and reports that drop as one `{ count, unit }` entry of `details.rtkCompaction.dropped`, in output order; any entry sets `details.rtkCompaction.truncated`. A marker-like line the command printed itself is reported as no drop. Filters that drop only noise (progress meters, `Compiling` lines, intermediate Docker containers) set nothing. A trailing newline is not a line. A `git diff` context marker that the line cap cuts in turn is counted by the cap's marker, not reported on its own.
 
-| Route | Budget | Marker |
-| --- | --- | --- |
-| `git diff` | 100 output lines | `... and N more lines` |
-| `git diff` | 3 context lines per side of a hunk (`-U`, `-W`) | `  ... (N context lines)` |
-| `git status` | 5 staged, 5 modified, 3 untracked files; conflicts (`DD AU UD UA DU AA UU`) are all listed with their codes, never cut, and the branch line keeps its tracking | `  ... and N more files` |
-| `git log` | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
-| build | 5 errors and 5 warnings, 10 lines each; cargo's `generated N warnings` summary is not counted | `... and N more errors`, `... and N more warnings`, `  ... and N more lines` |
-| linter | top 10 rules, top 10 files | `  ... and N more rules`, `  ... and N more files` |
-| `find` | 100 entries, summarized per parent directory | `Total: N entries in M directories` |
-| HTTP client | 200 body lines | `[... N more lines]` |
+Each route drops only the noise this table names without saying so; it keeps every other line, or cuts it under its budget and counts it in its marker. A line a route can't classify is kept.
+
+| Route | Noise, dropped silently | Budget | Marker |
+| --- | --- | --- | --- |
+| `git diff` | `index` lines, the `---`/`+++` file headers, `\ No newline at end of file`, a hunk header's function context; output with no `diff --git` passes through | 100 output lines | `... and N more lines` |
+| `git diff` | | 3 context lines per side of a hunk (`-U`, `-W`) | `  ... (N context lines)` |
+| `git status` | blank lines | 5 staged, 5 modified (worktree changes, `T` and intent-to-add included), 3 untracked, 3 ignored files; conflicts (`DD AU UD UA DU AA UU`) are all listed with their codes, never cut, and the branch line keeps its tracking | `  ... and N more files` |
+| `git log` | none | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
+| build | `Compiling`, `Checking`, `Building` (counted as units), `Downloading`, `Downloaded`, `Fetching`, `Fetched`, `Updating`, `Updated`, `Generated`, `Creating`, `Running`, `Finished` lines, cargo's `generated N warnings` summary, blank lines outside a diagnostic; other lines are kept after the diagnostics | 5 errors and 5 warnings, 10 lines each | `... and N more errors`, `... and N more warnings`, `  ... and N more lines` |
+| linter | blank lines; each finding is counted under its file and its rule, and a line that is no finding is kept | top 10 rules, top 10 files, top 3 rules per file | `  ... and N more rules`, `  ... and N more files`, `    ... and N more rules` |
+| `find` | blank lines; each entry is counted under its directory | 100 entries, summarized per parent directory | `Total: N entries in M directories` |
+| HTTP client | curl's progress meter, wget's download progress | 200 body lines | `[... N more lines]` |
+| build tools (`make`, `cmake`, `gradle`, `mvn`) | `make[N]: Entering/Leaving directory`, CMake's `[ N%]` lines, Gradle's `> Task :x` and `:x` lines (a `FAILED` one is kept), Maven's `[INFO] Downloading/Compiling/Building/Unpacking` | none | none |
+| package manager (`npm`, `yarn`, `pnpm` installs) | spinner lines, `npm http`, `npm timing`, yarn's `Resolution step details:`, blank lines | none | none |
+| Docker build | `---> <id>`, `---> Running in`, `Removing intermediate container`, `Sending build context`, blank lines; a step's own output is kept | none | none |
+| transfer (`rsync`, `scp`) | rsync's and scp's progress lines, rsync's `sending/receiving incremental file list` | rsync's file list, the path-shaped lines from its header (or openrsync's `Transfer starting: N files`) to the next blank line: 10 entries | `... and N more files` |
 
 Only `find` output is summarized as a listing: `ls -R` and `tree` print headers and tree lines a summary can't count as entries, so they pass through unchanged. So does `find` with an action that shapes its output (`-printf`, `-fprintf`, `-ls`, `-fls`, `-exec`, `-execdir`, `-ok`, `-okdir`, `-print0`, `-fprint0`), since its lines are no bare paths.
 

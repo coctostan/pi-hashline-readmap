@@ -13,6 +13,7 @@ const SIGNAL_PATTERNS: RegExp[] = [
   /\[WARNING\]/,
   /make: \*\*\*/,
   /BUILD (SUCCESSFUL|FAILED|SUCCESS|FAILURE)/,
+  /\bFAILED\b/, // a Gradle task's own outcome: `> Task :test FAILED`
 ];
 
 function isNoise(line: string): boolean {

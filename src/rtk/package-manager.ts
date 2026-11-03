@@ -10,23 +10,13 @@ const INSTALL_COMMAND_PATTERNS = [
   /^pnpm\s+add(?:\s|$)/,
 ];
 
+// Spinners, npm's fetch and timing logs, yarn's resolution details and blank lines; every other line is kept.
 const STRIP_LINE_PATTERNS = [
-  /[⸩⠋⠹]/,
+  /^\s*[⸩⠋⠹]\s/, // a spinner frame leading the line
   /^npm\s+http\b/i,
   /^npm\s+timing\b/i,
   /^Resolution\s+step\s+details:/i,
-];
-
-const KEEP_LINE_PATTERNS = [
-  /\badded\b/i,
-  /\bremoved\b/i,
-  /\bup to date\b/i,
-  /\baudited\b/i,
-  /WARN/,
-  /ERR!/,
-  /\berror\b/i,
-  /\bin\s+\d+(?:\.\d+)?(?:ms|s|m)\b/i,
-  /^Done in\s+\d+(?:\.\d+)?s\.?$/i,
+  /^\s*$/,
 ];
 
 export function isPackageManagerCommand(cmd: string): boolean {
@@ -41,13 +31,7 @@ export function compressPackageManagerOutput(output: string): string | null {
     return output;
   }
 
-  const kept = lines.filter((line) => {
-    if (STRIP_LINE_PATTERNS.some((pattern) => pattern.test(line))) {
-      return false;
-    }
-
-    return KEEP_LINE_PATTERNS.some((pattern) => pattern.test(line));
-  });
+  const kept = lines.filter((line) => !STRIP_LINE_PATTERNS.some((pattern) => pattern.test(line)));
 
   if (kept.length === 0) {
     return null;

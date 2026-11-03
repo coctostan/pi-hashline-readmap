@@ -103,6 +103,8 @@ export function filterBuildOutput(
 	// The diagnostic being read: an entry of stats.errors or stats.warnings.
 	let current: string[] | undefined;
 	let blankCount = 0;
+	// Lines outside any diagnostic that no noise pattern names, kept as printed (npm's `> build` echo, tsc's `Found N`).
+	const other: string[] = [];
 
 	for (const line of lines) {
 		// Count compilation units
@@ -124,25 +126,26 @@ export function filterBuildOutput(
 			continue;
 		}
 
-		if (current === undefined) continue;
-		if (line.trim() === "") {
-			blankCount++;
-			if (blankCount >= 2 && current.length > 3) current = undefined;
-			else current.push(line);
-		} else if (CONTINUATION_PATTERN.test(line)) {
-			current.push(line);
-			blankCount = 0;
-		} else {
+		if (current !== undefined) {
+			if (line.trim() === "") {
+				blankCount++;
+				if (blankCount >= 2 && current.length > 3) current = undefined;
+				else current.push(line);
+				continue;
+			}
+			if (CONTINUATION_PATTERN.test(line)) {
+				current.push(line);
+				blankCount = 0;
+				continue;
+			}
 			current = undefined;
 		}
+		if (line.trim() !== "") other.push(line);
 	}
 
 	// Format output
-	if (stats.errors.length === 0 && stats.warnings.length === 0) {
-		if (stats.compiled === 0) {
-			return null;
-		}
-		return `✓ Build successful (${stats.compiled} units compiled)`;
+	if (stats.errors.length === 0 && stats.warnings.length === 0 && stats.compiled === 0) {
+		return null;
 	}
 
 	const result: string[] = [];
@@ -159,6 +162,8 @@ export function filterBuildOutput(
 		if (stats.errors.length > 0) result.push("");
 		result.push(`⚠️  ${stats.warnings.length} warning(s):`, ...diagnosticLines(stats.warnings, "warnings", drops));
 	}
+
+	if (other.length > 0) result.push("", ...other);
 
 	return result.join("\n");
 }

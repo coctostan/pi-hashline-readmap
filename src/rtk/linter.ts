@@ -170,9 +170,18 @@ export function aggregateLinterOutput(
 		for (const [rule, count] of sortedFileRules) {
 			result += `    ${rule} (${count})\n`;
 		}
+		if (fileRules.size > 3) {
+			result += `${dropMarker(drops, fileRules.size - 3, "rules", `    ... and ${fileRules.size - 3} more rules`)}\n`;
+		}
 	}
 	if (byFile.size > 10) {
 		result += `${dropMarker(drops, byFile.size - 10, "files", `  ... and ${byFile.size - 10} more files`)}\n`;
+	}
+
+	// A line that is no finding, such as ESLint's `N problems`, is kept as printed; only blank lines go.
+	const unparsed = output.split("\n").filter((line) => line.trim() !== "" && parseLine(line, linterType) === null);
+	if (unparsed.length > 0) {
+		result += `\n${unparsed.join("\n")}\n`;
 	}
 
 	return result;
