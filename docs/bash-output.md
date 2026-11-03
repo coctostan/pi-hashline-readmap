@@ -54,7 +54,7 @@ A compressor that cuts output past a size budget ends the cut with a marker nami
 | `git diff` | 3 context lines per side of a hunk (`-U`, `-W`) | `  ... (N context lines)` |
 | `git status` | 5 staged, 5 modified, 3 untracked files; conflicts (`DD AU UD UA DU AA UU`) are all listed with their codes, never cut, and the branch line keeps its tracking | `  ... and N more files` |
 | `git log` | 20 commits, or 20 lines without commit headers | `... and N more commits`, `... and N more lines` |
-| build | 5 errors, 10 lines per error | `... and N more errors`, `  ... and N more lines` |
+| build | 5 errors and 5 warnings, 10 lines each; cargo's `generated N warnings` summary is not counted | `... and N more errors`, `... and N more warnings`, `  ... and N more lines` |
 | linter | top 10 rules, top 10 files | `  ... and N more rules`, `  ... and N more files` |
 | `find` | 100 entries, summarized per parent directory | `Total: N entries in M directories` |
 | HTTP client | 200 body lines | `[... N more lines]` |
