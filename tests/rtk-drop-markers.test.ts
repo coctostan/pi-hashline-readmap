@@ -318,10 +318,12 @@ const ROUTES: { route: string; command: string; raw: string[]; shown: string[]; 
       "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current",
       "100  1234  100  1234    0     0   5678      0 --:--:-- --:--:-- --:--:--  5678",
       ...["HTTP/1.1 200 OK", "Content-Type: text/plain", "", "12K\t./src", "0K .NET runtime missing", "% Total % Received % Xferd tax report"],
-      ...lines(247, (i) => `row ${i}`),
+      "100 users 100 active 0 banned n/a n/a --:--:-- --:--:-- --:--:-- n/a",
+      ...lines(246, (i) => `row ${i}`),
     ],
-    // Body lines that start like wget's `%6sK .` progress prefix or curl's progress header are body, not progress.
-    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "12K\t./src", "0K .NET runtime missing", "% Total % Received % Xferd tax report", "row 0", "row 196"],
+    // Body lines that start like wget's `%6sK .` progress prefix or curl's progress header, or that hold words in curl's
+    // progress-row columns, are body, not progress.
+    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "12K\t./src", "0K .NET runtime missing", "% Total % Received % Xferd tax report", "100 users 100 active 0 banned n/a n/a --:--:-- --:--:-- --:--:-- n/a", "row 0", "row 195"],
     dropped: [{ count: 50, unit: "lines" }],
   },
   {
