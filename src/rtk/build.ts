@@ -54,12 +54,12 @@ const WARNING_PATTERNS = [
 	/^warning:/,
 	/^\[WARNING\]/,
 	/^warn:/,
-	/^\S+\(\d+,\d+\): warning TS\d+:/,
-	/^\S+:\d+:\d+ - warning TS\d+:/,
+	/^\S.*\(\d+,\d+\): warning TS\d+:/,
+	/^\S.*:\d+:\d+ - warning TS\d+:/,
 ];
 
-// An indented line, a `-->` location, or rustc's source gutter (`2 |     let x = 5;`).
-const CONTINUATION_PATTERN = /^(?:\s|-->|\d+\s+\|)/;
+// An indented line, a `-->` location, or a numbered source line (rustc's `2 |     let x = 5;`, tsc's `1 const x = 1;`).
+const CONTINUATION_PATTERN = /^(?:\s|-->|\d+\s)/;
 
 function isSkipLine(line: string): boolean {
 	return SKIP_PATTERNS.some((pattern) => pattern.test(line));

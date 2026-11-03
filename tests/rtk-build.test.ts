@@ -20,6 +20,11 @@ const CARGO_WARNING = [
   "  = note: `#[warn(unused_variables)]` on by default",
 ];
 
+const warning = (n: number, extra: number) => [
+  `warning: unused import ${n}`,
+  ...Array.from({ length: extra }, (_, i) => `  --> src/w${n}.rs:${i}`),
+];
+
 describe("filterBuildOutput keeps warnings", () => {
   it("keeps a tsc warning from a successful build", () => {
     const raw = text([
@@ -37,9 +42,18 @@ describe("filterBuildOutput keeps warnings", () => {
     expect(result.drops).toEqual([]);
   });
 
-  it("keeps tsc's pretty warning line", () => {
-    const raw = text(["src/a.ts:1:7 - warning TS6133: 'x' is declared but its value is never read."]);
-    expect(build("tsc --pretty", raw).lines).toContain("src/a.ts:1:7 - warning TS6133: 'x' is declared but its value is never read.");
+  it("keeps tsc's pretty warning with its source excerpt", () => {
+    const pretty = ["src/a.ts:1:7 - warning TS6133: 'x' is declared but its value is never read.", "", "1 const x = 1;", "        ~"];
+    expect(build("tsc --pretty", text([...pretty, "", "Found 1 warning."])).output).toBe(["⚠️  1 warning(s):", ...pretty].join("\n"));
+  });
+
+  it("keeps a tsc warning whose path holds a space", () => {
+    const raw = text(["Building app", "src/my file.ts(1,7): warning TS6133: unused", "src/my file.ts:2:7 - warning TS6133: unused"]);
+    expect(build("npm run build", raw).lines.slice(1)).toEqual([
+      "⚠️  2 warning(s):",
+      "src/my file.ts(1,7): warning TS6133: unused",
+      "src/my file.ts:2:7 - warning TS6133: unused",
+    ]);
   });
 
   it("reports one cargo warning as 1 warning, whole, beside the success line", () => {
@@ -56,11 +70,21 @@ describe("filterBuildOutput keeps warnings", () => {
     expect(result.drops).toEqual([]);
   });
 
+  it("cuts nothing at the budget, and reports the first warning and line past it", () => {
+    const atBudget = build("cargo build", text([warning(1, 9), ...[2, 3, 4, 5].map((n) => warning(n, 0))].flat()));
+    expect(atBudget.lines).toHaveLength(15);
+    expect(atBudget.drops).toEqual([]);
+
+    const past = build("cargo build", text([warning(1, 10), ...[2, 3, 4, 5, 6].map((n) => warning(n, 0))].flat()));
+    expect(past.lines).toContain("  ... and 1 more lines");
+    expect(past.lines.at(-1)).toBe("... and 1 more warnings");
+    expect(past.drops).toEqual([
+      { count: 1, unit: "lines" },
+      { count: 1, unit: "warnings" },
+    ]);
+  });
+
   it("keeps 5 of 7 warnings, cuts a long one at 10 lines, and reports both cuts", () => {
-    const warning = (n: number, extra: number) => [
-      `warning: unused import ${n}`,
-      ...Array.from({ length: extra }, (_, i) => `  --> src/w${n}.rs:${i}`),
-    ];
     const raw = text([warning(1, 12), ...[2, 3, 4, 5, 6, 7].map((n) => warning(n, 1))].flat());
     const result = build("cargo build", raw);
 
