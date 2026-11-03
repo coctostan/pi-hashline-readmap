@@ -201,7 +201,7 @@ describe("filterBashOutput routing", () => {
   it("routes rsync commands to compressTransferOutput", () => {
     const spy = vi.spyOn(transferModule, "compressTransferOutput").mockReturnValue("compressed rsync output");
     const result = filterBashOutput("rsync -av src/ dst/", "raw rsync output");
-    expect(spy).toHaveBeenCalledWith("raw rsync output", []);
+    expect(spy).toHaveBeenCalledWith("raw rsync output", [], "rsync -av src/ dst/");
     expect(result.output).toBe("compressed rsync output");
     spy.mockRestore();
   });
@@ -209,7 +209,7 @@ describe("filterBashOutput routing", () => {
   it("routes scp commands to compressTransferOutput", () => {
     const spy = vi.spyOn(transferModule, "compressTransferOutput").mockReturnValue("compressed scp output");
     const result = filterBashOutput("scp file host:/path", "raw scp output");
-    expect(spy).toHaveBeenCalledWith("raw scp output", []);
+    expect(spy).toHaveBeenCalledWith("raw scp output", [], "scp file host:/path");
     expect(result.output).toBe("compressed scp output");
     spy.mockRestore();
   });

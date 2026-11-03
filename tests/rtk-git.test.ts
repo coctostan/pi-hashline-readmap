@@ -109,6 +109,13 @@ describe("compactDiff", () => {
     );
   });
 
+  it("drops only git's whole index header, keeping a message line that starts with index", () => {
+    // `git show --format=%B -p`: the message precedes the first file diff, unindented.
+    const message = ["index page rewritten", "index 1111111..2222222 is the range to review", ""];
+    const output = [...message, "diff --git a/a.ts b/a.ts", "index 1111111..2222222 100644", "--- a/a.ts", "+++ b/a.ts", "@@ -1 +1 @@", "-a", "+b"];
+    expect(compactDiff(output.join("\n")).split("\n")).toEqual([...message, "", "📄 a.ts", "  @@ -1 +1 @@", "  -a", "  +b", "  +1 -1"]);
+  });
+
   it("keeps a file header it can't read, such as git's quoted non-ASCII path", () => {
     const header = 'diff --git "a/caf\\303\\251.txt" "b/caf\\303\\251.txt"';
     expect(compactDiff([header, "@@ -1 +1 @@", "-a", "+b"].join("\n"))).toContain(`📄 ${header}`);

@@ -50,6 +50,14 @@ describe("compressPackageManagerOutput", () => {
     expect(result).not.toContain("Resolution step details");
   });
 
+  it("strips npm's http and timing log lines only, not a line that merely starts like one", () => {
+    const kept = ["npm http-server@14.1.1 needs a peer it could not find", "npm timing-safe-equal@1.0.0 is deprecated"];
+    const noise = ["npm http fetch GET 200 https://registry.npmjs.org/react 150ms", "npm timing arborist:ctor Completed in 1ms"];
+    const output = [...noise, ...kept, ...Array.from({ length: 8 }, (_, i) => `added ${i} packages`)].join("\n");
+
+    expect(compressPackageManagerOutput(output)?.split("\n").slice(0, 2)).toEqual(kept);
+  });
+
   it("preserves package summary line", () => {
     const output = [
       "line 1",

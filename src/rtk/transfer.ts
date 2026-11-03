@@ -1,11 +1,13 @@
 import { dropMarker, type Drop } from "./drops.ts";
 
-// rsync per-file progress: "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)"
-const RSYNC_PROGRESS_RE = /^\s+[\d,]+\s+\d+%/;
-// rsync xfr detail: a line ending in (xfr#N, to-chk=N/N) or (xfr#N, ir-chk=N/N)
-const RSYNC_XFR_RE = /\(\s*xfr#\d+, (?:to|ir)-chk=\d+\/\d+\)$/;
-// scp progress bar: "file.txt    100%  1234   1.2KB/s   00:00"
-const SCP_PROGRESS_RE = /\d+%\s+\d+\s+[\d.]+[KMGkmg]B\/s/;
+// A whole rsync progress row, per its progress.c: "%15s %3d%% %7.2f%s %s%s" (3.2.7) or "%15sB %3d%% %7sB/s %s%s"
+// (master): size, percent, rate, remaining time, then " (xfr#N, to-chk=N/N)" on a file's last row; openrsync (macOS)
+// prints "(xfer#N, to-check=N/N)". Updates rewritten in place arrive as several rows joined by '\r' on one line.
+const RSYNC_ROW = String.raw`\s*[\d,.]+[KMGTP]?B? +\d{1,3}% +[\d,.]+[kKMGTP]?B\/s +(?:\d+:\d{2}:\d{2}|\?\?:\?\?:\?\?)(?: \((?:xfr|xfer)#\d+, (?:to|ir)-(?:chk|check)=\d+\/\d+\))?`;
+const RSYNC_PROGRESS_RE = new RegExp(String.raw`^(?:${RSYNC_ROW})+\s*$`);
+// A whole scp progress row, per OpenSSH's progressmeter.c: the file name (free text), " %3d%% ", a "%4lld%c%s"
+// size, a "%3lld.%1lld%cB" rate (any case, issue 044) then "/s ", and an ETA, a total time, "  --:-- ETA" or "- stalled -".
+const SCP_PROGRESS_RE = /\s\d{1,3}% +\d+(?:[KMGT]B)? +\d+\.\d(?:[KMGTkmgt]B| +)\/s +(?:(?:\d+:)?\d{2}:\d{2}(?: ETA)?|--:-- ETA|- stalled -)\s*$/;
 // rsync -av header: "sending incremental file list" / "receiving incremental file list"
 const RSYNC_AV_HEADER_RE = /^(sending|receiving) incremental file list$/;
 // rsync -av file list entries: no whitespace, only path-safe chars (word chars, dots, slashes, hyphens)
@@ -20,8 +22,11 @@ const SIGNAL_PATTERNS: RegExp[] = [
   /error/i,
 ];
 
-function isNoise(line: string): boolean {
-  return RSYNC_PROGRESS_RE.test(line) || RSYNC_XFR_RE.test(line) || SCP_PROGRESS_RE.test(line) || RSYNC_AV_HEADER_RE.test(line);
+// Each tool's rows are noise only in its own output: an scp row ends a line of free text, which rsync prints as a
+// file name (`deleting report 100%  1234   1.2KB/s   00:00`). With no command given, both apply.
+function isNoise(line: string, tool: string | undefined): boolean {
+  if (tool !== "scp" && (RSYNC_PROGRESS_RE.test(line) || RSYNC_AV_HEADER_RE.test(line))) return true;
+  return tool !== "rsync" && SCP_PROGRESS_RE.test(line);
 }
 
 function isSignal(line: string): boolean {
@@ -50,7 +55,8 @@ function fileListEntries(lines: string[]): Set<number> {
   return entries;
 }
 
-export function compressTransferOutput(output: string, drops: Drop[] = []): string | null {
+export function compressTransferOutput(output: string, drops: Drop[] = [], command?: string): string | null {
+  const tool = command?.trim().split(/\s+/)[0].toLowerCase();
   if (output.length === 0) return null; // AC-12: null for empty (must be before short-circuit)
   const lines = output.split("\n");
   if (lines.length < 10) return output; // AC-9: short-circuit
@@ -65,7 +71,7 @@ export function compressTransferOutput(output: string, drops: Drop[] = []): stri
       else if (listed === FILE_LIST_BUDGET + 1) {
         kept.push(dropMarker(drops, entries.size - FILE_LIST_BUDGET, "files", `... and ${entries.size - FILE_LIST_BUDGET} more files`));
       }
-    } else if (isSignal(line) || !isNoise(line)) {
+    } else if (isSignal(line) || !isNoise(line, tool)) {
       kept.push(line);
     }
   });

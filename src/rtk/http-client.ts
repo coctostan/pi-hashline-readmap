@@ -9,8 +9,9 @@ export function isHttpCommand(cmd: string): boolean {
   return false;
 }
 
+// curl's lib/progress.c header, both lines whole (releases differ in spacing).
 const CURL_PROGRESS_HEADER_RE =
-  /^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\b|^\s*Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed\s*$/;
+  /^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\s+Average\s+Speed\s+Time\s+Time\s+Time\s+Current\s*$|^\s*Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed\s*$/;
 const CURL_PROGRESS_ROW_RE =
   /^\s*\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\S+\s+\S+\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+\S+\s*$/;
 // A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes), then

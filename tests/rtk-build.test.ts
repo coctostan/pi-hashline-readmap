@@ -73,6 +73,22 @@ describe("filterBuildOutput keeps warnings", () => {
     expect(result.drops).toEqual([]);
   });
 
+  // cargo's summary (rust-lang/cargo#9675, #11558): "warning: `foo` (lib test) generated 1 warning (1 duplicate)".
+  it("drops only a whole cargo warning summary, keeping a warning that merely mentions one", () => {
+    const summaries = [
+      "warning: `demo` (lib test) generated 2 warnings (1 duplicate)",
+      "warning: `demo` (lib) generated 3 warnings (1 duplicate) (run `cargo fix --lib -p demo` to apply 2 suggestions)",
+    ];
+    const real = [
+      "warning: build script generated 2 warnings-as-errors; see target/build.log",
+      "warning: build script generated 2 warnings (diagnostics unavailable)",
+      "warning: `demo` (lib) generated 2 warnings (ABI mismatch; inspect generated bindings)",
+    ];
+    const result = build("cargo build", text(["   Compiling demo v0.1.0 (/tmp/demo)", ...summaries, ...real]));
+
+    expect(result.output).toBe(["✓ Build successful (1 units compiled)", "⚠️  3 warning(s):", ...real].join("\n"));
+  });
+
   it("cuts nothing at the budget, and reports the first warning and line past it", () => {
     const atBudget = build("cargo build", text([warning(1, 9), ...[2, 3, 4, 5].map((n) => warning(n, 0))].flat()));
     expect(atBudget.lines).toHaveLength(15);

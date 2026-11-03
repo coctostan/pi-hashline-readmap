@@ -73,6 +73,50 @@ describe("compressTransferOutput", () => {
     expect(compressTransferOutput(input)).toBe(["deleting report(xfr#1).txt", "sent 1 bytes  received 2 bytes"].join("\n"));
   });
 
+  // Rows as rsync's progress.c prints them (3.2.7: "%15s %3d%% %7.2f%s %s%s"; master: "%15sB %3d%% %7sB/s %s%s"),
+  // openrsync's (macOS, measured), several updates joined by '\r', and OpenSSH progressmeter.c's scp rows.
+  it("strips each progress row shape whole", () => {
+    const rows = [
+      "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)",
+      "     32,768  50%   31.25kB/s    0:00:01  ",
+      "     32,768  50%   31.25kB/s  ??:??:??",
+      "      1,234B 100%    1.00MB/s    0:00:00 (xfr#2, ir-chk=1/9)",
+      "          1.23K  12%  512.00kB/s    0:00:09",
+      "              3 100%  267.13KB/s   00:00:00 (xfer#1, to-check=1/3)",
+      "\r     32,768  50%   31.25kB/s    0:00:01\r     65,536 100%   62.50kB/s    0:00:00 (xfr#3, to-chk=0/1)",
+      "file.txt                    100%  1234   1.2KB/s   00:00",
+      " big.iso                                45%  450MB  10.2MB/s   00:53 ETA",
+      " big.iso                                45%  450MB   0.0KB/s  --:-- ETA",
+      " big.iso                                45%  450MB   0.0KB/s - stalled -",
+      " big.iso                               100% 1000MB  10.2MB/s 1:02:03    ",
+    ];
+    const input = [...rows, "sent 1 bytes  received 2 bytes"].join("\n");
+    expect(compressTransferOutput(input)).toBe("sent 1 bytes  received 2 bytes");
+  });
+
+  it("strips each tool's progress rows only from its own output", () => {
+    const rsyncRow = "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)";
+    const scpRow = "file.txt                    100%  1234   1.2KB/s   00:00";
+    const input = [...Array.from({ length: 5 }, () => [rsyncRow, scpRow]).flat(), "done"].join("\n");
+
+    expect(compressTransferOutput(input, [], "rsync -av --delete src/ dst/")).toBe([...Array(5).fill(scpRow), "done"].join("\n"));
+    expect(compressTransferOutput(input, [], "scp file.txt host:/tmp/")).toBe([...Array(5).fill(rsyncRow), "done"].join("\n"));
+    expect(compressTransferOutput(input)).toBe("done");
+  });
+
+  it("keeps lines that only start or end like a progress row", () => {
+    const kept = [
+      "deleting report(xfr#1, to-chk=5/7)",
+      "notes (xfer#1, to-check=1/3)",
+      "    1,234 100% of the files were checked",
+      "     32,768  50%   31.25kB/s    0:00:01 then stalled",
+      "report 100%  1234   1.2KB/s   00:00 measured upstream",
+    ];
+    const progress = "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)";
+    const input = [...kept, ...Array.from({ length: 10 }, () => progress), "sent 1 bytes  received 2 bytes"].join("\n");
+    expect(compressTransferOutput(input)).toBe([...kept, "sent 1 bytes  received 2 bytes"].join("\n"));
+  });
+
   it("returns null for empty string", () => {
     expect(compressTransferOutput("")).toBeNull();
   });
