@@ -68,11 +68,6 @@ function byteCount(text: string): number {
   return Buffer.byteLength(text, "utf8");
 }
 
-export function extractVisibleFullOutputPath(visibleText: string): string | undefined {
-  const match = visibleText.match(/Full output:\s*([^\]\r\n]+)/);
-  return match?.[1]?.trim() || undefined;
-}
-
 function isPathInside(parent: string, candidate: string): boolean {
   const relativePath = relative(parent, candidate);
   return relativePath === "" || (relativePath !== ".." && !relativePath.startsWith(`..${sep}`) && !isAbsolute(relativePath));
@@ -97,9 +92,8 @@ export function selectBashOriginalOutput(options: SelectBashOriginalOutputOption
   const fs = mergeFs(options.fs);
   const visibleLineCount = lineCount(visibleText);
   const visibleByteCount = byteCount(visibleText);
-  const metadataPath = validateFullOutputPath(fs, options.fullOutputPath);
-  const visibleNoticePath = validateFullOutputPath(fs, extractVisibleFullOutputPath(visibleText));
-  const fullOutputPath = metadataPath ?? visibleNoticePath;
+  // Only Pi's metadata names its file: a command can print a `Full output:` line itself.
+  const fullOutputPath = validateFullOutputPath(fs, options.fullOutputPath);
 
   let fallbackSource: BashOriginalOutputSource = "pi-visible";
   let fullOutputReadError: string | undefined;

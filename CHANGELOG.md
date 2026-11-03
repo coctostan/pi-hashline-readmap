@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Fixed
 
 - The HTTP compressor drops a line as wget progress only when the whole line is a wget dot-progress row (`NK`, dot clusters, then its percent, rate and ETA or total time), so response bodies keep lines that merely start like one. Before, `curl` output holding `du`'s `12K\t./src` or `0K .NET runtime missing` lost those lines with nothing in `dropped`; a resumed download's `,` rows are now dropped as progress too.
+- Every compressor drops a line as noise only when the whole line has its noise's shape, or, for a tool's status prefix followed by its own message, only with the separator after the prefix, so output lines that merely start or end like noise are kept. Before, a `curl -s` body line `% Total % Received % Xferd tax report` and rsync's `deleting report(xfr#1, to-chk=5/7)` vanished with nothing in `dropped`; the same applied to scp, make, Gradle, Docker, cargo, npm and `git diff` noise. `docs/bash-output.md` lists which noise is matched whole and which by prefix; prefix noise still drops a line of the command's own that starts with the same word, like a build script's `Running out of memory`.
+- `Original output:` names Pi's full-output file only when Pi's result metadata (`details.fullOutputPath`) names it, never from a `Full output: <path>` line in the text. Before, a command that printed such a line, like a commit message in `git log --oneline`, had its output replaced by that file's content, or, with `PI_HASHLINE_BASH_CONTEXT_GUARD=0`, had that file named as its original; now its own output is compressed and a `0600` copy of it is named.
 
 ## [0.20.0] - 2026-11-02
 

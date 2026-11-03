@@ -21,6 +21,33 @@ async function loadHandlers(tag: string) {
   return handlers;
 }
 
+// The close input of slice 10 (Only Pi's metadata names its full output): a command's own
+// `Full output: <temp path>` line, with no Pi truncation behind it.
+function decoyGitLog(dir: string) {
+  const decoyPath = join(dir, "decoy.txt");
+  writeFileSync(decoyPath, "DECOY CONTENT\n", "utf8");
+  const lines = [`a000000 Full output: ${decoyPath}`];
+  for (let i = 1; i < 26; i++) lines.push(`a${String(i).padStart(6, "0")} commit ${i}`);
+  return { decoyPath, visible: `${lines.join("\n")}\n` };
+}
+
+async function runDecoy(tag: string, dir: string) {
+  const { decoyPath, visible } = decoyGitLog(dir);
+  const handlers = await loadHandlers(tag);
+  const result = await handlers["tool_result"]({
+    type: "tool_result",
+    toolName: "bash",
+    toolCallId: `bash-${tag}`,
+    input: { command: "git log --oneline" },
+    content: [{ type: "text", text: visible }],
+    details: undefined,
+    isError: false,
+  });
+  const text: string = result.content[0].text;
+  const path = text.match(/Original output: (\S+)\. Use/)?.[1];
+  return { decoyPath, visible, result, text, path };
+}
+
 describe("bash original output integration", () => {
   it("passes readable full-output file contents to RTK and preserves existing details", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hashline-full-"));
@@ -112,6 +139,24 @@ describe("bash original output integration", () => {
     });
   });
 
+  it("compacts the command's own output when it prints a Full output: line, never the file it names", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "hashline-decoy-on-"));
+    const { decoyPath, visible, result, text, path } = await runDecoy("decoy-guard-on", dir);
+    try {
+      expect(text).not.toContain("DECOY CONTENT");
+      expect(text).toContain(`a000000 Full output: ${decoyPath}`);
+      expect(text).toContain("a000019 commit 19");
+      expect(result.details.rtkCompaction.dropped).toEqual([{ count: 6, unit: "lines" }]);
+      expect(path, text).toBeDefined();
+      expect(path).not.toBe(decoyPath);
+      expect(readFileSync(path!)).toEqual(Buffer.from(visible, "utf8"));
+      expect(result.details.bashOriginalOutput).toMatchObject({ source: "pi-visible", restoredContentForRtk: false, originalPath: path });
+    } finally {
+      if (path) rmSync(path, { force: true });
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   describe("with the context guard off (PI_HASHLINE_BASH_CONTEXT_GUARD=0)", () => {
     const saved = process.env.PI_HASHLINE_BASH_CONTEXT_GUARD;
     beforeEach(() => { process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = "0"; });
@@ -174,6 +219,21 @@ describe("bash original output integration", () => {
         expect(result.details.bashOriginalOutput).toMatchObject({ originalPath: path, snapshotWritten: true });
       } finally {
         rmSync(path!, { force: true });
+      }
+    });
+
+    it("names a snapshot of a command's own Full output: line, never the file it names", async () => {
+      const dir = mkdtempSync(join(tmpdir(), "hashline-decoy-off-"));
+      const { decoyPath, visible, result, text, path } = await runDecoy("decoy-guard-off", dir);
+      try {
+        expect(path, text).toBeDefined();
+        expect(path).not.toBe(decoyPath);
+        expect(readFileSync(path!)).toEqual(Buffer.from(visible, "utf8"));
+        expect(statSync(path!).mode & 0o777).toBe(0o600);
+        expect(result.details.bashOriginalOutput).toMatchObject({ source: "pi-visible", originalPath: path, snapshotWritten: true });
+      } finally {
+        if (path) rmSync(path, { force: true });
+        rmSync(dir, { recursive: true, force: true });
       }
     });
   });

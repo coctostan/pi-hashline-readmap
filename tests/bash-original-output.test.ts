@@ -95,22 +95,35 @@ describe("selectBashOriginalOutput", () => {
   });
 
 
-  it("detects visible full-output notices and prefers metadata paths", () => {
+  it("takes Pi's full-output file only from metadata, never from a visible Full output: line", () => {
     const readFile = vi.fn((path: string) => `full from ${path}`);
 
+    // A command can print Pi's notice text itself; only details.fullOutputPath is Pi's.
+    const visibleText = "tail\n\n[Showing lines 9-10 of 10. Full output: /tmp/from-notice.txt]";
     const visibleOnly = selectBashOriginalOutput({
-      visibleText: "tail\n\n[Showing lines 9-10 of 10. Full output: /tmp/from-notice.txt]",
+      visibleText,
       fs: { readFile, writeFile: vi.fn(), randomId: () => "fixed", tempDir: () => "/tmp" },
     });
-    expect(visibleOnly.inputForRtk).toBe("full from /tmp/from-notice.txt");
-    expect(visibleOnly.metadata?.originalPath).toBe("/tmp/from-notice.txt");
+    expect(readFile).not.toHaveBeenCalled();
+    expect(visibleOnly.inputForRtk).toBe(visibleText);
+    expect(visibleOnly.metadata).toMatchObject({ source: "pi-visible", restoredContentForRtk: false });
+    expect(visibleOnly.metadata?.originalPath).toBeUndefined();
 
-    readFile.mockClear();
+    const decoyText = "abc0001 Full output: /tmp/decoy.txt\nabc0002 second";
+    const guardOff = selectBashOriginalOutput({
+      visibleText: decoyText,
+      restore: false,
+      fs: { readFile, writeFile: vi.fn(), randomId: () => "fixed", tempDir: () => "/tmp" },
+    });
+    expect(readFile).not.toHaveBeenCalled();
+    expect(guardOff).toEqual({ inputForRtk: decoyText });
+
     const metadataWins = selectBashOriginalOutput({
       visibleText: "tail\n[Output truncated. Full output: /tmp/from-notice.txt]",
       fullOutputPath: "/tmp/from-metadata.txt",
       fs: { readFile, writeFile: vi.fn(), randomId: () => "fixed", tempDir: () => "/tmp" },
     });
+    expect(readFile).toHaveBeenCalledTimes(1);
     expect(readFile).toHaveBeenCalledWith("/tmp/from-metadata.txt");
     expect(metadataWins.inputForRtk).toBe("full from /tmp/from-metadata.txt");
   });
