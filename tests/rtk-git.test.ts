@@ -8,6 +8,8 @@ import {
 } from "../src/rtk/git.js";
 import { gitLog, gitLogGraph, gitLogOneline, sha } from "./helpers/git-log-fixture.js";
 import type { Drop } from "../src/rtk/drops.js";
+import { filterBashOutput } from "../src/rtk/bash-filter.js";
+import { stripAnsi } from "../src/rtk/ansi.js";
 
 describe("isGitCommand", () => {
   it("matches git diff", () => {
@@ -349,5 +351,37 @@ describe("compactGitOutput", () => {
 
   it("returns null for unrecognized git subcommands", () => {
     expect(compactGitOutput("output", "git push origin main")).toBeNull();
+  });
+});
+
+// Real git 2.56.0 output: a file of 4 lines `line oldN` edited to `line newN`.
+describe("word diffs pass through", () => {
+  const header = ["diff --git a/f.txt b/f.txt", "index 41377b5..2217a90 100644", "--- a/f.txt", "+++ b/f.txt", "@@ -1,4 +1,4 @@"];
+  const plain = [...header, ...[1, 2, 3, 4].map((n) => `line [-old${n}-]{+new${n}+}`)].join("\n") + "\n";
+  const regex = [...header, ...[1, 2, 3, 4].map((n) => `line [-old-]{+new+}${n}`)].join("\n") + "\n";
+  const porcelain = [...header, ...[1, 2, 3, 4].flatMap((n) => [" line ", `-old${n}`, `+new${n}`, "~"])].join("\n") + "\n";
+  // `--color-words` marks words by colour alone; `filterBashOutput` strips it before any route.
+  const colorWords = [...header.map((l) => `\x1b[1m${l}\x1b[m`), ...[1, 2, 3, 4].map((n) => `line \x1b[31mold${n}\x1b[m\x1b[32mnew${n}\x1b[m`)].join("\n") + "\n";
+
+  it.each([
+    ["git diff --word-diff=plain", plain],
+    ["git diff --word-diff", plain],
+    ["git diff '--word-diff=plain'", plain],
+    ["git diff --word-diff=porcelain", porcelain],
+    ["git diff --word-diff-regex '[a-z]+'", regex],
+    ["git diff --word-diff-regex=[a-z]+", regex],
+    ["git diff --color-words", colorWords],
+    ["git diff --color-words='[a-z]+'", colorWords],
+    ["cd sub && git diff HEAD~1 --word-diff=plain -- f.txt", plain],
+  ])("%s keeps every line, dropping nothing", (command, output) => {
+    const result = filterBashOutput(command, output);
+    expect(result.output).toBe(stripAnsi(output));
+    expect(result.compacted).toBe(false);
+    expect(result.dropped).toEqual([]);
+  });
+
+  it("still compacts a line diff, whose context the word diff mistook edits for", () => {
+    const lineDiff = [...header, " a", " b", " c", " d", "-x", "+y"].join("\n");
+    expect(filterBashOutput("git diff", lineDiff).dropped).toEqual([{ count: 1, unit: "context lines" }]);
   });
 });
