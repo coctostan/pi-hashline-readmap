@@ -67,6 +67,12 @@ describe("compressTransferOutput", () => {
     expect(result).toContain("No such file");
   });
 
+  it("keeps a filename holding an xfr-like substring, dropping only whole xfr progress lines", () => {
+    const progress = "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)";
+    const input = ["deleting report(xfr#1).txt", ...Array.from({ length: 10 }, () => progress), "sent 1 bytes  received 2 bytes"].join("\n");
+    expect(compressTransferOutput(input)).toBe(["deleting report(xfr#1).txt", "sent 1 bytes  received 2 bytes"].join("\n"));
+  });
+
   it("returns null for empty string", () => {
     expect(compressTransferOutput("")).toBeNull();
   });

@@ -107,6 +107,12 @@ describe("compressPackageManagerOutput", () => {
     expect(result).toContain("npm ERR! syscall open");
   });
 
+  it("drops a spinner frame leading a line, keeping a warning that merely holds one", () => {
+    const warning = "npm WARN cleanup could not remove /tmp/⠋/cache";
+    const output = [...Array.from({ length: 9 }, () => "⠋ idealTree:resolve"), warning, "added 1 package in 1s"].join("\n");
+    expect(compressPackageManagerOutput(output)).toBe([warning, "added 1 package in 1s"].join("\n"));
+  });
+
   it("returns output unchanged if fewer than 10 lines", () => {
     const shortOutput = [
       "npm http fetch GET 200 https://registry.npmjs.org/react 150ms",

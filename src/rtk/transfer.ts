@@ -2,8 +2,8 @@ import { dropMarker, type Drop } from "./drops.ts";
 
 // rsync per-file progress: "      1,234 100%    1.00MB/s    0:00:00 (xfr#1, to-chk=5/7)"
 const RSYNC_PROGRESS_RE = /^\s+[\d,]+\s+\d+%/;
-// rsync xfr detail: lines with (xfr#N, to-chk=N/N)
-const RSYNC_XFR_RE = /\(\s*xfr#\d+/;
+// rsync xfr detail: a line ending in (xfr#N, to-chk=N/N) or (xfr#N, ir-chk=N/N)
+const RSYNC_XFR_RE = /\(\s*xfr#\d+, (?:to|ir)-chk=\d+\/\d+\)$/;
 // scp progress bar: "file.txt    100%  1234   1.2KB/s   00:00"
 const SCP_PROGRESS_RE = /\d+%\s+\d+\s+[\d.]+[KMGkmg]B\/s/;
 // rsync -av header: "sending incremental file list" / "receiving incremental file list"
