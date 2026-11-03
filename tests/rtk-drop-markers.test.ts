@@ -317,9 +317,10 @@ const ROUTES: { route: string; command: string; raw: string[]; shown: string[]; 
     raw: [
       "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current",
       "100  1234  100  1234    0     0   5678      0 --:--:-- --:--:-- --:--:--  5678",
-      ...["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...lines(250, (i) => `row ${i}`)],
+      ...["HTTP/1.1 200 OK", "Content-Type: text/plain", "", "12K\t./src", "0K .NET runtime missing", ...lines(248, (i) => `row ${i}`)],
     ],
-    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "row 0", "row 199"],
+    // Body lines that start like wget's `%6sK .` progress prefix are body, not progress.
+    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "12K\t./src", "0K .NET runtime missing", "row 0", "row 197"],
     dropped: [{ count: 50, unit: "lines" }],
   },
   {

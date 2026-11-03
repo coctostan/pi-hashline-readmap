@@ -13,8 +13,9 @@ const CURL_PROGRESS_HEADER_RE =
   /^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\b|^\s*Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed\s*$/;
 const CURL_PROGRESS_ROW_RE =
   /^\s*\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\S+\s+\S+\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+\S+\s*$/;
-// Wget download progress: "     0K .       100%"
-const WGET_PROGRESS_RE = /^\s*\d+K\s+\./;
+// A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes),
+// then "%3d%%" when the length is known, a " %4.*f%c" rate, and an ETA ("3s", "1m5s") or "=" total time.
+const WGET_PROGRESS_RE = /^\s*\d+K(?: [.,]+)+ +(?:\d{1,3}% +)?\d+(?:\.\d+)?[KMGT]?(?: *=?\d+(?:\.\d+)?[smhd](?:\d+[smh])?)?\s*$/;
 const HTTP_HEADER_RE = /^(HTTP\/|< HTTP\/|Content-|Host:)/i;
 
 function isCurlProgressLine(line: string): boolean {
