@@ -145,12 +145,15 @@ describe("compressHttpOutput", () => {
     const modern = CURL_8_18_ROWS[1];
     const body = [
       "100 users 100 active 0 banned n/a n/a --:--:-- --:--:-- --:--:-- n/a",
-      // One column off per kind: a percent, a size, a time, a gap, a size from another release's grammar.
+      // One column off per kind in a classic and an 8.18.0 row: a percent, a size, a time, a gap; a size wider than its
+      // column; a row joined by '\r' to a line that is none.
       classic.replace("  0     0 ", "abc     0 "),
       classic.replace("    0      0 --", "    0  users --"),
       classic.replace("--:--:-- --:--:-- --:--:--", "--:--:-- tomorrow --:--:--"),
       classic.replace("  0     0    0", "  0     0   0"),
+      modern.replace(" 99999", " users"),
       modern.replace("  99999", "  99999k"),
+      modern.replace("100 97.65k", "100  97.65k"),
       modern.replace("1:01:05", "1:01:5 "),
       `${modern}\rrow b`,
     ];
