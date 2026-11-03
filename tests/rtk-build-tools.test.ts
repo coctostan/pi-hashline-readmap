@@ -41,6 +41,28 @@ describe("compressBuildToolsOutput", () => {
     expect(result).toContain("BUILD SUCCESSFUL");
   });
 
+  // GNU make's output.c prints "%s[%u]: Entering directory '%s'" (3.81 quoted `%s'); Gradle's task outcomes are
+  // UP-TO-DATE, NO-SOURCE, FROM-CACHE, SKIPPED (FAILED is kept as a signal).
+  it("strips make's directory lines and Gradle's task lines only whole", () => {
+    const noise = [
+      "make[1]: Entering directory '/src/sub'",
+      "make[2]: Leaving directory `/src/sub'",
+      "gmake[1]: Entering directory '/src'",
+      "> Task :app:compileJava",
+      "> Task :app:processResources NO-SOURCE",
+      "> Task :app:jar UP-TO-DATE",
+      "> Task :app:compileTestJava FROM-CACHE",
+      "> Task :app:test SKIPPED",
+    ];
+    const kept = [
+      "make[1]: Entering directory '/src' was printed twice",
+      "log: make[1]: Entering directory '/src'",
+      "> Task :app:test took 3m longer than budgeted",
+    ];
+    const input = [...noise, ...kept, "BUILD SUCCESSFUL in 3s"].join("\n");
+    expect(compressBuildToolsOutput(input)).toBe([...kept, "BUILD SUCCESSFUL in 3s"].join("\n"));
+  });
+
   it("strips Maven [INFO] Downloading lines", () => {
     const lines = Array(15).fill("[INFO] Downloading: https://repo.maven.apache.org/foo\n").join("") + "[INFO] BUILD SUCCESS\n";
     const result = compressBuildToolsOutput(lines)!;

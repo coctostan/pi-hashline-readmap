@@ -13,8 +13,8 @@ const INSTALL_COMMAND_PATTERNS = [
 // Spinners, npm's fetch and timing logs, yarn's resolution details and blank lines; every other line is kept.
 const STRIP_LINE_PATTERNS = [
   /^\s*[⸩⠋⠹]\s/, // a spinner frame leading the line
-  /^npm\s+http\b/i,
-  /^npm\s+timing\b/i,
+  /^npm\s+http\s/i, // npm's log level, then its message
+  /^npm\s+timing\s/i,
   /^Resolution\s+step\s+details:/i,
   /^\s*$/,
 ];

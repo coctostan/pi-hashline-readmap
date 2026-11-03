@@ -1,7 +1,9 @@
 const NOISE_PATTERNS: RegExp[] = [
-  /make\[\d+\]: (Entering|Leaving) directory/,
+  // GNU make's output.c: "%s[%u]: Entering directory '%s'" (3.81 quotes `%s')
+  /^\S*make\[\d+\]: (?:Entering|Leaving) directory [`'].*'\s*$/,
   /^\s*\[\s*\d+%\]/, // CMake: [ 10%] Building ...
-  /^>\s+Task\s+:/, // Gradle: > Task :compileJava
+  // Gradle: "> Task :app:jar" and its outcome label, as Gradle's task outcomes list them; FAILED is a signal
+  /^> Task :\S+(?: (?:UP-TO-DATE|NO-SOURCE|FROM-CACHE|SKIPPED))?\s*$/,
   /^\[INFO\]\s+(Downloading|Compiling|Building|Unpacking)/, // Maven noise
   /^:\w+$/, // plain Gradle task: :compileJava
 ];

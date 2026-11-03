@@ -317,21 +317,22 @@ const ROUTES: { route: string; command: string; raw: string[]; shown: string[]; 
     raw: [
       "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current",
       "100  1234  100  1234    0     0   5678      0 --:--:-- --:--:-- --:--:--  5678",
-      ...["HTTP/1.1 200 OK", "Content-Type: text/plain", "", "12K\t./src", "0K .NET runtime missing", ...lines(248, (i) => `row ${i}`)],
+      ...["HTTP/1.1 200 OK", "Content-Type: text/plain", "", "12K\t./src", "0K .NET runtime missing", "% Total % Received % Xferd tax report"],
+      ...lines(247, (i) => `row ${i}`),
     ],
-    // Body lines that start like wget's `%6sK .` progress prefix are body, not progress.
-    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "12K\t./src", "0K .NET runtime missing", "row 0", "row 197"],
+    // Body lines that start like wget's `%6sK .` progress prefix or curl's progress header are body, not progress.
+    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "12K\t./src", "0K .NET runtime missing", "% Total % Received % Xferd tax report", "row 0", "row 196"],
     dropped: [{ count: 50, unit: "lines" }],
   },
   {
     route: "transfer",
     command: "rsync -av src/ dst/",
     raw: [
-      ...["sending incremental file list", "./", ...lines(12, (i) => `f${i}.txt`), ""],
+      ...["sending incremental file list", "deleting report(xfr#1, to-chk=5/7)", "./", ...lines(12, (i) => `f${i}.txt`), ""],
       ...["sent 1,234 bytes  received 56 bytes  2,580.00 bytes/sec", "total size is 1,000  speedup is 0.78"],
     ],
     // `./` and f0–f8 fill the budget of 10; f9–f11 are counted.
-    shown: [...lines(9, (i) => `f${i}.txt`), "sent 1,234 bytes  received 56 bytes", "total size is 1,000  speedup is 0.78"],
+    shown: ["deleting report(xfr#1, to-chk=5/7)", ...lines(9, (i) => `f${i}.txt`), "sent 1,234 bytes  received 56 bytes", "total size is 1,000  speedup is 0.78"],
     dropped: [{ count: 3, unit: "files" }],
   },
 ];

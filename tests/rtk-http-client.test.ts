@@ -95,6 +95,19 @@ describe("compressHttpOutput", () => {
     expect(result?.split("\n")).toEqual(raw);
   });
 
+  // curl's lib/progress.c prints the meter's two header lines whole; older releases spaced them differently.
+  it("strips curl's progress header only as a whole line", () => {
+    const header = [
+      "  % Total    % Received % Xferd  Average Speed  Time    Time    Time   Current",
+      "                                 Dload  Upload  Total   Spent   Left   Speed",
+    ];
+    const body = ["% Total % Received % Xferd tax report", "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current!"];
+    const raw = [...header, "HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...body, "row a", "row b", "row c"];
+    const result = compressHttpOutput(raw.join("\n"));
+
+    expect(result?.split("\n")).toEqual(raw.slice(2));
+  });
+
   it("truncates body to 200 lines if larger", () => {
     const lines = ["HTTP/1.1 200 OK", "Content-Type: text/plain", ""];
     for (let i = 0; i < 250; i++) lines.push(`line ${i}`);

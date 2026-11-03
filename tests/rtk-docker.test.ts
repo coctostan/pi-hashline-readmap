@@ -29,15 +29,15 @@ describe("compressDockerOutput", () => {
       "Step 1/5 : FROM node:18-alpine",
       " ---> abc123def456",
       "Step 2/5 : WORKDIR /app",
-      " ---> Running in 789xyz",
-      "Removing intermediate container 789xyz",
+      " ---> Running in 789abc012def",
+      "Removing intermediate container 789abc012def",
       " ---> def456abc789",
       "Step 3/5 : COPY package*.json ./",
       " ---> abc111222333",
       "Step 4/5 : RUN npm install",
-      " ---> Running in aaa111bbb",
+      " ---> Running in aaa111bbb222",
       "added 142 packages in 3.2s",
-      "Removing intermediate container aaa111bbb",
+      "Removing intermediate container aaa111bbb222",
       " ---> ccc333ddd444",
       "Step 5/5 : COPY . .",
       " ---> eee555fff666",
@@ -56,6 +56,28 @@ describe("compressDockerOutput", () => {
     expect(result).not.toContain("Running in");
     expect(result).not.toContain("Removing intermediate container");
     expect(result).not.toMatch(/---> [0-9a-f]{8,}/);
+  });
+
+  // moby's legacy builder prints " ---> %s", " ---> Running in %s" and "Removing intermediate container %s" with
+  // stringid.TruncateID's 12 hex digits, and the CLI the context size as units.HumanSize ("%.4g%s").
+  it("drops the builder's noise only as whole lines", () => {
+    const noise = [
+      "Sending build context to Docker daemon  2.048kB",
+      "Sending build context to Docker daemon  512B",
+      " ---> 0123456789ab",
+      " ---> Running in abc123def456",
+      "Removing intermediate container abc123def456",
+    ];
+    const kept = [
+      "Step 1/2 : RUN ./publish.sh",
+      "---> 0123456789ab pushed to the registry",
+      "---> Running in abc123def456 failed over to a retry",
+      "Removing intermediate container abc123def456 took 40s",
+      "Sending build context to Docker daemon  2.048kB of 9GB, then stalled",
+      "Step 2/2 : CMD [\"node\"]",
+    ];
+    const input = [...noise, ...kept, "Successfully built 0123456789cd", "Successfully tagged app:latest"].join("\n");
+    expect(compressDockerOutput(input)).toBe([...kept, "Successfully built 0123456789cd", "Successfully tagged app:latest"].join("\n"));
   });
 
   it("preserves error messages", () => {

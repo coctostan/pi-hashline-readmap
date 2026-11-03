@@ -78,10 +78,11 @@ export function compactDiff(output: string, maxLines: number = 100, drops: Drop[
 			continue;
 		}
 
-		// Before a file's first hunk, `index` and the `---`/`+++` file headers are noise; any other line (a rename, a
-		// mode, a binary change, git's own warning) is kept. Inside a hunk, ---... and +++... are change records.
+		// Before a file's first hunk, git's whole `index <hash>..<hash>[ <mode>]` line and the `---`/`+++` file headers are
+		// noise; any other line (a rename, a mode, a binary change, git's own warning) is kept. Inside a hunk, ---... and
+		// +++... are change records.
 		if (!inHunk) {
-			if (!/^(?:index |--- |\+\+\+ )/.test(line)) result.push(currentFile ? `  ${line}` : line);
+			if (!/^(?:index [0-9a-f]+(?:,[0-9a-f]+)*\.\.[0-9a-f]+(?: [0-7]{6})?$|--- |\+\+\+ )/.test(line)) result.push(currentFile ? `  ${line}` : line);
 			continue;
 		}
 		// Hunk content
