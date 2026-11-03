@@ -222,6 +222,129 @@ describe("listings whose entries can't be counted pass through", () => {
   });
 });
 
+// Ruling 0006: a route drops silently only the noise docs/bash-output.md names for it. Each fixture below holds that
+// noise, the lines whose text must stay visible (`shown`), and any lines a budget cuts, which `dropped` must count.
+const ROUTES: { route: string; command: string; raw: string[]; shown: string[]; dropped: Drop[] }[] = [
+  {
+    route: "git diff",
+    command: "git diff -M",
+    raw: [
+      "warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it",
+      ...["diff --git a/old.ts b/new.ts", "similarity index 90%", "rename from old.ts", "rename to new.ts"],
+      ...["index 1111111..2222222 100644", "--- a/old.ts", "+++ b/new.ts", "@@ -1 +1 @@", "-old line", "+new line"],
+      ...["diff --git a/run.sh b/run.sh", "old mode 100644", "new mode 100755"],
+      ...["diff --git a/logo.png b/logo.png", "index 3333333..4444444 100644", "Binary files a/logo.png and b/logo.png differ"],
+      ...["diff --git a/added.ts b/added.ts", "new file mode 100644", "index 0000000..5555555", "--- /dev/null", "+++ b/added.ts"],
+      ...["@@ -0,0 +1 @@", "+first", "\\ No newline at end of file"],
+    ],
+    shown: [
+      "warning: in the working copy of 'a.txt', LF will be replaced by CRLF the next time Git touches it",
+      ...["📄 new.ts", "similarity index 90%", "rename from old.ts", "rename to new.ts", "@@ -1 +1 @@", "-old line", "+new line"],
+      ...["📄 run.sh", "old mode 100644", "new mode 100755", "📄 logo.png", "Binary files a/logo.png and b/logo.png differ"],
+      ...["📄 added.ts", "new file mode 100644", "@@ -0,0 +1 @@", "+first"],
+    ],
+    dropped: [],
+  },
+  {
+    route: "git status",
+    command: "git status --short --branch",
+    raw: ["## main", "T  index-type.ts", " T worktree-type.ts", " R worktree-rename.ts", " A intent-to-add.ts", "!! ignored.log"],
+    shown: ["📌 main", "index-type.ts", "worktree-type.ts", "worktree-rename.ts", "intent-to-add.ts", "ignored.log"],
+    dropped: [],
+  },
+  {
+    route: "linter",
+    command: "npx eslint -f unix .",
+    raw: [...lines(5, (i) => `/src/a.js:${i + 1}:1: problem ${i} [Error/rule-${i}]`), "/src/b.js:1:1: problem [Error/rule-0]", "", "6 problems"],
+    // The findings are counted, each in its file's and its rule's count; the 2 rules past a.js's top 3 in the marker.
+    shown: ["6 errors, 0 warnings in 2 files", "/src/a.js (5 issues)", "/src/b.js (1 issues)", "Error/rule-0 (2x)", "6 problems"],
+    dropped: [{ count: 2, unit: "rules" }],
+  },
+  {
+    route: "build-tools",
+    command: "./gradlew build || true",
+    raw: [...lines(10, (i) => `> Task :step${i} UP-TO-DATE`), "> Task :test FAILED", "FAILURE: Build failed with an exception.", "BUILD FAILED in 3s"],
+    shown: ["> Task :test FAILED", "FAILURE: Build failed with an exception.", "BUILD FAILED in 3s"],
+    dropped: [],
+  },
+  {
+    route: "build",
+    command: "npm run build",
+    raw: ["", "> app@1.0.0 build", "> tsc", "", "src/a.ts(1,7): warning TS6133: 'x' is declared but its value is never read.", "", "Found 1 warning."],
+    shown: ["> app@1.0.0 build", "> tsc", "src/a.ts(1,7): warning TS6133: 'x' is declared but its value is never read.", "Found 1 warning."],
+    dropped: [],
+  },
+  {
+    route: "package-manager",
+    command: "npm install",
+    raw: [
+      ...lines(8, (i) => `npm http fetch GET 200 https://registry.npmjs.org/pkg${i} 12ms`),
+      ...["npm warn deprecated inflight@1.0.6: This module is not supported", "", "added 12 packages, and audited 13 packages in 2s", ""],
+      ...["3 packages are looking for funding", "  run `npm fund` for details", "", "found 0 vulnerabilities"],
+    ],
+    shown: [
+      ...["npm warn deprecated inflight@1.0.6: This module is not supported", "added 12 packages, and audited 13 packages in 2s"],
+      ...["3 packages are looking for funding", "run `npm fund` for details", "found 0 vulnerabilities"],
+    ],
+    dropped: [],
+  },
+  {
+    route: "docker",
+    command: "docker build .",
+    raw: [
+      ...["Sending build context to Docker daemon  2.048kB", "Step 1/2 : FROM node:20", " ---> 0123456789ab", "Step 2/2 : RUN npm install"],
+      ...[" ---> Running in abc123def456", "npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported"],
+      ...["added 142 packages in 3s", "Removing intermediate container abc123def456", " ---> 0123456789cd", ""],
+      ...["Successfully built 0123456789cd", "Successfully tagged app:latest"],
+    ],
+    shown: [
+      ...["Step 1/2 : FROM node:20", "Step 2/2 : RUN npm install", "added 142 packages in 3s"],
+      ...["npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported"],
+      ...["Successfully built 0123456789cd", "Successfully tagged app:latest"],
+    ],
+    dropped: [],
+  },
+  {
+    route: "file-listing",
+    command: "find . -name '*.ts'",
+    raw: [...lines(150, (i) => `./src/a${i}.ts`), "find: './private': Permission denied"],
+    shown: ["find: './private': Permission denied", "./src/ (150 entries)"],
+    dropped: [{ count: 150, unit: "entries" }],
+  },
+  {
+    route: "http-client",
+    command: "curl -i https://x",
+    raw: [
+      "  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current",
+      "100  1234  100  1234    0     0   5678      0 --:--:-- --:--:-- --:--:--  5678",
+      ...["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...lines(250, (i) => `row ${i}`)],
+    ],
+    shown: ["HTTP/1.1 200 OK", "Content-Type: text/plain", "row 0", "row 199"],
+    dropped: [{ count: 50, unit: "lines" }],
+  },
+  {
+    route: "transfer",
+    command: "rsync -av src/ dst/",
+    raw: [
+      ...["sending incremental file list", "./", ...lines(12, (i) => `f${i}.txt`), ""],
+      ...["sent 1,234 bytes  received 56 bytes  2,580.00 bytes/sec", "total size is 1,000  speedup is 0.78"],
+    ],
+    // `./` and f0–f8 fill the budget of 10; f9–f11 are counted.
+    shown: [...lines(9, (i) => `f${i}.txt`), "sent 1,234 bytes  received 56 bytes", "total size is 1,000  speedup is 0.78"],
+    dropped: [{ count: 3, unit: "files" }],
+  },
+];
+
+describe("every route drops only its noise silently", () => {
+  it.each(ROUTES)("$route keeps or counts each line but its noise", ({ command, raw, shown, dropped }) => {
+    const result = compact(command, text(raw));
+
+    expect(result.applied).toBe(true);
+    expect(shown.filter((line) => !result.output.includes(line))).toEqual([]);
+    expect(result.dropped).toEqual(dropped);
+  });
+});
+
 describe("noise filters set nothing", () => {
   it("docker build dropping intermediate-container noise is applied, not truncated", () => {
     const raw = text(["Sending build context to Docker daemon  2.048kB", ...lines(6, (i) => [`Step ${i + 1}/6 : RUN echo ${i}`, " ---> Running in abc123def456", "Removing intermediate container abc123def456", " ---> 0123456789ab"]).flat(), "Successfully built 0123456789ab"]);

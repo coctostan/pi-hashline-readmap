@@ -13,6 +13,8 @@ export function isGitCommand(command: string | undefined | null): boolean {
 
 export function compactDiff(output: string, maxLines: number = 100, drops: Drop[] = []): string {
 	const lines = outputLines(output);
+	// No file diff to compact (`--stat`, `--name-only`, `--cc`): pass it through.
+	if (!lines.some((line) => line.startsWith("diff --git"))) return output;
 	const result: string[] = [];
 	let currentFile = "";
 	let added = 0;
@@ -75,33 +77,28 @@ export function compactDiff(output: string, maxLines: number = 100, drops: Drop[
 			continue;
 		}
 
-		// File headers are metadata only before hunk parsing starts. Inside a
-		// hunk, ---... and +++... are valid change records whose content starts
-		// with -- or ++.
-		if (!inHunk && (line.startsWith("--- ") || line.startsWith("+++ "))) {
+		// Before a file's first hunk, `index` and the `---`/`+++` file headers are noise; any other line (a rename, a
+		// mode, a binary change, git's own warning) is kept. Inside a hunk, ---... and +++... are change records.
+		if (!inHunk) {
+			if (!/^(?:index |--- |\+\+\+ )/.test(line)) result.push(currentFile ? `  ${line}` : line);
 			continue;
 		}
 		// Hunk content
-		if (inHunk) {
-			if (line.startsWith("+") || line.startsWith("-")) {
-				if (line.startsWith("+")) added++;
-				else removed++;
-				// If we had post-context and hit more changes, that context
-				// is interstitial — add it inline
-				if (hunkPostContext.length > 0) {
-					for (const c of hunkPostContext) hunkChangeLines.push(c);
-					hunkPostContext = [];
-				}
-				hunkChangeLines.push(line);
-				seenChanges = true;
-			} else {
-				// Context line
-				if (seenChanges) {
-					hunkPostContext.push(line);
-				} else {
-					hunkPreContext.push(line);
-				}
+		if (line.startsWith("+") || line.startsWith("-")) {
+			if (line.startsWith("+")) added++;
+			else removed++;
+			// If we had post-context and hit more changes, that context
+			// is interstitial — add it inline
+			if (hunkPostContext.length > 0) {
+				for (const c of hunkPostContext) hunkChangeLines.push(c);
+				hunkPostContext = [];
 			}
+			hunkChangeLines.push(line);
+			seenChanges = true;
+		} else if (seenChanges) {
+			hunkPostContext.push(line);
+		} else {
+			hunkPreContext.push(line);
 		}
 	}
 
@@ -158,16 +155,6 @@ export function compactDiff(output: string, maxLines: number = 100, drops: Drop[
 	return cut(cutStart, cutEnd + 1);
 }
 
-interface StatusStats {
-	staged: number;
-	modified: number;
-	untracked: number;
-	stagedFiles: string[];
-	modifiedFiles: string[];
-	untrackedFiles: string[];
-	conflictFiles: string[];
-}
-
 const SHORT_STATUS_CODES = new Set([" ", "M", "A", "D", "R", "C", "U", "T", "?", "!"]);
 // The unmerged pairs of git-status(1)'s short-format table: a conflict, whatever its index code.
 const UNMERGED_STATUSES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
@@ -197,15 +184,11 @@ export function compactStatus(output: string, drops: Drop[] = []): string {
 		return output;
 	}
 
-	const stats: StatusStats = {
-		staged: 0,
-		modified: 0,
-		untracked: 0,
-		stagedFiles: [],
-		modifiedFiles: [],
-		untrackedFiles: [],
-		conflictFiles: [],
-	};
+	const staged: string[] = [];
+	const modified: string[] = [];
+	const untracked: string[] = [];
+	const ignored: string[] = [];
+	const conflicts: string[] = [];
 
 	let branchName = "";
 
@@ -223,71 +206,36 @@ export function compactStatus(output: string, drops: Drop[] = []): string {
 		const status = line.slice(0, 2);
 		const filename = line.slice(3);
 
-		if (UNMERGED_STATUSES.has(status)) {
-			stats.conflictFiles.push(line);
-			continue;
-		}
-
-		// Parse two-character status
-		const indexStatus = status[0];
-		const worktreeStatus = status[1];
-
-		if (["M", "A", "D", "R", "C"].includes(indexStatus)) {
-			stats.staged++;
-			stats.stagedFiles.push(filename);
-		}
-
-		if (["M", "D"].includes(worktreeStatus)) {
-			stats.modified++;
-			stats.modifiedFiles.push(filename);
-		}
-
-		if (status === "??") {
-			stats.untracked++;
-			stats.untrackedFiles.push(filename);
+		if (UNMERGED_STATUSES.has(status)) conflicts.push(line);
+		else if (status === "??") untracked.push(filename);
+		else if (status === "!!") ignored.push(filename);
+		else {
+			// Any other code is a change: in the index on the left, in the worktree (` T`, ` A` intent to add) on the right.
+			if (status[0] !== " ") staged.push(filename);
+			if (status[1] !== " ") modified.push(filename);
 		}
 	}
 
-	// Build summary
 	let result = `📌 ${branchName}\n`;
-
-	if (stats.staged > 0) {
-		result += `✅ Staged: ${stats.staged} files\n`;
-		const shown = stats.stagedFiles.slice(0, 5);
-		for (const file of shown) {
-			result += `  ${file}\n`;
-		}
-		if (stats.staged > 5) {
-			result += `${dropMarker(drops, stats.staged - 5, "files", `  ... and ${stats.staged - 5} more files`)}\n`;
-		}
-	}
-
-	if (stats.modified > 0) {
-		result += `📝 Modified: ${stats.modified} files\n`;
-		const shown = stats.modifiedFiles.slice(0, 5);
-		for (const file of shown) {
-			result += `  ${file}\n`;
-		}
-		if (stats.modified > 5) {
-			result += `${dropMarker(drops, stats.modified - 5, "files", `  ... and ${stats.modified - 5} more files`)}\n`;
-		}
-	}
-
-	if (stats.untracked > 0) {
-		result += `❓ Untracked: ${stats.untracked} files\n`;
-		const shown = stats.untrackedFiles.slice(0, 3);
-		for (const file of shown) {
-			result += `  ${file}\n`;
-		}
-		if (stats.untracked > 3) {
-			result += `${dropMarker(drops, stats.untracked - 3, "files", `  ... and ${stats.untracked - 3} more files`)}\n`;
+	const sections: [title: string, files: string[], budget: number][] = [
+		["✅ Staged", staged, 5],
+		["📝 Modified", modified, 5],
+		["❓ Untracked", untracked, 3],
+		["🚫 Ignored", ignored, 3],
+	];
+	for (const [title, files, budget] of sections) {
+		if (files.length === 0) continue;
+		result += `${title}: ${files.length} files\n`;
+		for (const file of files.slice(0, budget)) result += `  ${file}\n`;
+		if (files.length > budget) {
+			result += `${dropMarker(drops, files.length - budget, "files", `  ... and ${files.length - budget} more files`)}\n`;
 		}
 	}
 
 	// No budget: every conflict is listed, its code naming each side.
-	if (stats.conflictFiles.length > 0) {
-		result += `⚠️ Conflicts: ${stats.conflictFiles.length} files\n`;
-		for (const line of stats.conflictFiles) {
+	if (conflicts.length > 0) {
+		result += `⚠️ Conflicts: ${conflicts.length} files\n`;
+		for (const line of conflicts) {
 			result += `  ${line}\n`;
 		}
 	}
@@ -328,7 +276,8 @@ export function compactGitOutput(
 	const cmdLower = command.toLowerCase();
 
 	if (cmdLower.startsWith("git diff")) {
-		return compactDiff(output, undefined, drops);
+		const compacted = compactDiff(output, undefined, drops);
+		return compacted === output ? null : compacted;
 	}
 
 	if (cmdLower.startsWith("git status")) {

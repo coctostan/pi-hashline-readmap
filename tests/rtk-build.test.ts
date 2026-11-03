@@ -36,15 +36,18 @@ describe("filterBuildOutput keeps warnings", () => {
     ]);
     const result = build("npm run build", raw);
 
+    // npm's echo of the script is no diagnostic, and no noise either: it is kept after them.
     expect(result.output).toBe(
-      "⚠️  1 warning(s):\nsrc/a.ts(1,7): warning TS6133: 'x' is declared but its value is never read.",
+      "⚠️  1 warning(s):\nsrc/a.ts(1,7): warning TS6133: 'x' is declared but its value is never read.\n\n> demo@1.0.0 build\n> tsc",
     );
     expect(result.drops).toEqual([]);
   });
 
   it("keeps tsc's pretty warning with its source excerpt", () => {
     const pretty = ["src/a.ts:1:7 - warning TS6133: 'x' is declared but its value is never read.", "", "1 const x = 1;", "        ~"];
-    expect(build("tsc --pretty", text([...pretty, "", "Found 1 warning."])).output).toBe(["⚠️  1 warning(s):", ...pretty].join("\n"));
+    expect(build("tsc --pretty", text([...pretty, "", "Found 1 warning."])).output).toBe(
+      ["⚠️  1 warning(s):", ...pretty, "", "Found 1 warning."].join("\n"),
+    );
   });
 
   it("keeps a tsc warning whose path holds a space", () => {

@@ -98,6 +98,22 @@ describe("compactDiff", () => {
     expect(result).toContain("+new");
     expect(result).toContain("-old");
   });
+
+  it("keeps a file's rename, mode and binary lines, dropping only index and the ---/+++ headers", () => {
+    const output = [
+      ...["diff --git a/old.ts b/new.ts", "similarity index 100%", "rename from old.ts", "rename to new.ts"],
+      ...["diff --git a/logo.png b/logo.png", "index 1111111..2222222 100644", "Binary files a/logo.png and b/logo.png differ"],
+    ].join("\n");
+    expect(compactDiff(output)).toBe(
+      ["", "📄 new.ts", "  similarity index 100%", "  rename from old.ts", "  rename to new.ts", "", "📄 logo.png", "  Binary files a/logo.png and b/logo.png differ"].join("\n"),
+    );
+  });
+
+  it("passes output with no file diff through, such as --stat", () => {
+    const stat = " src/a.ts | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)\n";
+    expect(compactDiff(stat)).toBe(stat);
+    expect(compactGitOutput(stat, "git diff --stat")).toBeNull();
+  });
 });
 
 describe("compactStatus", () => {
@@ -158,6 +174,19 @@ describe("compactStatus", () => {
     const result = compactStatus(["## main", ...conflicts].join("\n"), drops);
     expect(result).toBe(["📌 main", "⚠️ Conflicts: 7 files", ...conflicts.map((line) => `  ${line}`)].join("\n"));
     expect(drops).toEqual([]);
+  });
+
+  it("lists type changes and intent-to-add as changes, and ignored files under Ignored, cut at 3", () => {
+    const ignored = Array.from({ length: 5 }, (_, i) => `!! build/${i}.o`);
+    const drops: Drop[] = [];
+    const result = compactStatus(["## main", "T  link", " T tool", " A intent.ts", ...ignored].join("\n"), drops);
+    expect(result).toBe(
+      [
+        ...["📌 main", "✅ Staged: 1 files", "  link", "📝 Modified: 2 files", "  tool", "  intent.ts"],
+        ...["🚫 Ignored: 5 files", "  build/0.o", "  build/1.o", "  build/2.o", "  ... and 2 more files"],
+      ].join("\n"),
+    );
+    expect(drops).toEqual([{ count: 2, unit: "files" }]);
   });
 
   it("preserves unsupported long-form status output across working-tree states", () => {

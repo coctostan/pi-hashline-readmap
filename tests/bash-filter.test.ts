@@ -201,7 +201,7 @@ describe("filterBashOutput routing", () => {
   it("routes rsync commands to compressTransferOutput", () => {
     const spy = vi.spyOn(transferModule, "compressTransferOutput").mockReturnValue("compressed rsync output");
     const result = filterBashOutput("rsync -av src/ dst/", "raw rsync output");
-    expect(spy).toHaveBeenCalledWith("raw rsync output");
+    expect(spy).toHaveBeenCalledWith("raw rsync output", []);
     expect(result.output).toBe("compressed rsync output");
     spy.mockRestore();
   });
@@ -209,11 +209,11 @@ describe("filterBashOutput routing", () => {
   it("routes scp commands to compressTransferOutput", () => {
     const spy = vi.spyOn(transferModule, "compressTransferOutput").mockReturnValue("compressed scp output");
     const result = filterBashOutput("scp file host:/path", "raw scp output");
-    expect(spy).toHaveBeenCalledWith("raw scp output");
+    expect(spy).toHaveBeenCalledWith("raw scp output", []);
     expect(result.output).toBe("compressed scp output");
     spy.mockRestore();
   });
-  it("keeps rsync completion status words while removing listing noise", () => {
+  it("keeps rsync completion status words and counts the file list past 10 entries", () => {
     const input = [
       "src/file1.txt",
       "src/file2.txt",
@@ -236,8 +236,10 @@ describe("filterBashOutput routing", () => {
     expect(result.output).toContain("done");
     expect(result.output).toContain("transfer-complete");
     expect(result.output).toContain("sent 12000 bytes");
-    expect(result.output).not.toContain("src/file1.txt");
+    // The file list is kept to 10 entries, the rest counted.
+    expect(result.output).toContain("src/file10.txt\n... and 1 more files");
     expect(result.output).not.toContain("src/file11.txt");
+    expect(result.dropped).toEqual([{ count: 1, unit: "files" }]);
   });
 
 
