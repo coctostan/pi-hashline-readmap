@@ -1,0 +1,4 @@
+{"type":"session","version":3,"id":"s-46","timestamp":"2026-11-04T10:00:49.000Z","cwd":"/old"}
+{"type":"message","id":"0000002f","parentId":null,"timestamp":"2026-11-04T10:00:50.000Z","message":{"role":"user","content":"Search.","timestamp":1793786450000}}
+{"type":"message","id":"00000030","parentId":"0000002f","timestamp":"2026-11-04T10:00:51.000Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"c15","name":"bash","arguments":{"command":"grep foo x"}}],"provider":"p","model":"m","stopReason":"toolUse","timestamp":1793786451000}}
+{"type":"message","id":"00000031","parentId":"00000030","timestamp":"2026-11-04T10:00:52.000Z","message":{"role":"toolResult","toolCallId":"c15","toolName":"bash","content":[{"type":"text","text":"x:foo"}],"isError":false,"timestamp":1793786452000}}

@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
-import { accountDeclarations, findCrossReferences, formatDeclarationReport } from "../scripts/bench/tool-cost.mjs";
+import { accountDeclarations, findCrossReferences, formatDeclarationReport, formatSessionReport, scanSessions } from "../scripts/bench/tool-cost.mjs";
 import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
 
 const bytes = (text: string) => Buffer.byteLength(text);
@@ -110,4 +110,37 @@ describe("tool-cost.mjs --declarations on the selected host", () => {
 			ref.tool === "bash" && ref.text === "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.");
 		expect(bashGuideline?.names).toEqual(expect.arrayContaining(["grep", "find", "ls"]));
 	}, 120_000);
+});
+
+const corpus = new URL("./fixtures/bench/corpus", import.meta.url).pathname;
+
+describe("tool-cost.mjs --sessions", () => {
+	it("scores every session file under the directory, counting a fork's copied calls once, and nothing else", () => {
+		const report = scanSessions(corpus);
+		// notes.txt is skipped; the fork's two copied calls count once
+		expect(report).toMatchObject({ dir: corpus, sessions: 3, calls: 19, duplicates: 2, unknownToolSet: 1 });
+		expect(report.tasks.count).toBe(3);
+	});
+
+	it("prints a row per tool, the wrong-tool hints and the task line", () => {
+		const text = formatSessionReport(scanSessions(corpus));
+		expect(text).toContain(`3 session files under ${corpus}: 19 tool calls, 2 more copied from a forked parent and counted once`);
+		expect(text).toMatch(/^bash\s+7\s+0\s+0\s+1\s+2\s+9\s+34\s+34\s+85$/m);
+		expect(text).toMatch(/^find\s+1\s+1\s+1\s+0\s+0\s+62\s+62\s+62\s+62$/m);
+		expect(text).toContain("       1  [Hint: Prefer the grep tool for content search.]");
+		expect(text).toContain("Tasks with an edit: 3; tool calls before the first naming the edited file: p50 1, p90 2, p99 2");
+		expect(text).toContain("First named by: grep 1, bash 1, read 1");
+	});
+
+	it("runs alone from the command line without loading the host", () => {
+		const stdout = execFileSync(process.execPath, ["scripts/bench/tool-cost.mjs", "--sessions", corpus, "--json"], { encoding: "utf8", timeout: 30_000 });
+		const report = JSON.parse(stdout);
+		expect(report.version).toBeUndefined();
+		expect(report.sessions).toEqual(JSON.parse(JSON.stringify(scanSessions(corpus))));
+	});
+
+	it("refuses --sessions without a directory", () => {
+		expect(() => execFileSync(process.execPath, ["scripts/bench/tool-cost.mjs", "--sessions", "--json"], { encoding: "utf8", stdio: "pipe" }))
+			.toThrow(/--sessions needs a directory/);
+	});
 });
