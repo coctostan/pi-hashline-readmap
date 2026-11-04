@@ -1,8 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-
-const benchModule: string = "../scripts/bench/explicit-edit.mjs";
-const { summarizeEvents } = await import(benchModule);
+import { summarizeEvents } from "../scripts/bench/lib.mjs";
 
 // A real `pi --mode json` stream (Pi 1.5.0, openai-codex/gpt-6-luna, Explicit Edit task unique-1000-plain),
 // with message_update events dropped and long strings and arrays trimmed.
