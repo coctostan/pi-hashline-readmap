@@ -86,8 +86,8 @@ node scripts/bench/tool-cost.mjs --declarations --sessions <dir> --json   # both
 
 - **errors**: results marked `isError`; **rejected** is the subset Pi refused before the tool ran, invalid arguments or an unknown tool name (`Invalid arguments for tool`, `Validation failed for tool`, `Tool … not found`).
 - **redundant**: a search, a `grep`, `find`, `ls` or `ast_search` call or a bash command whose pipeline heads run `grep`, `rg`, `find`, `fd`, `ls` or `tree`, that repeats an earlier call's tool and arguments in the same file (keys in any order, nulls dropped) with no `edit` or `write` between.
-- **wrong-tool**: a bash call that `getBashAntiPatternHint` (`src/bash-anti-pattern-hints.ts`) would hint toward a tool active at that point, judged on each pipeline's first command, so `npm test | grep x` is no content search. The active set is the replay of the system messages' `toolsAdded` and `toolsRemoved`; a call before any is unscored.
-- **calls before the first touch**: per task (a user message to the next) with an `edit`, the tool calls before the first one whose arguments or result name the first edited file: as the edit gives it, absolute, or relative to the session's cwd with or without `./`. The edit itself counts as a touch. It also reports which tool made that first touch.
+- **wrong-tool**: a bash call that `getBashAntiPatternHint` (`src/bash-anti-pattern-hints.ts`) would hint toward a tool active at that point, judged on each pipeline's first command, so `npm test | grep x` is no content search. The active set is the replay of the system messages' `toolsRemoved` then `toolsAdded`, as Pi replays them, a compaction's `systemMessage` replacing it whole; a call before any is unscored.
+- **calls before the first touch**: per task (a user message to the next) with an `edit`, the tool calls before the first one whose arguments or result name the first edited file: as the edit gives it, absolute, or relative to the session's cwd with or without `./`, as a whole path (`src/a.ts.bak` and `lib/src/a.ts` are other files). The edit itself counts as a touch. It also reports which tool made that first touch.
 
 A forked session copies its parent's history; the copies carry the parent's tool-call ids, so a call whose id an earlier file (by file name, oldest first) already holds counts once.
 
@@ -100,27 +100,27 @@ Bounds:
 
 ### Recorded baseline, 2026-11-04
 
-`~/.pi/agent/sessions` on the owner's machine, Node v26.13.0, at `3ca04e23` with the script from slice 4 (Session corpus is scored); 11.3 s, 1.07 GB peak memory. The corpus is live, so a rerun differs.
+`~/.pi/agent/sessions` on the owner's machine, Node v26.13.0, with the script at `6a50a370` from slice 4 (Session corpus is scored); 13.5 s, 0.98 GB peak memory. The corpus is live, so a rerun differs.
 
-2454 session files, 128,615 tool calls across 66 tool names, 319 more copied from a forked parent and counted once. 58,038 calls (45%) come before any recorded tool set, from Pi versions that did not record system messages, so they have no wrong-tool score.
+2507 session files, 128,739 tool calls across 66 tool names, 370 more copied from a forked parent and counted once. 58,038 calls (45%) come before any recorded tool set, from Pi versions that did not record system messages, so they have no wrong-tool score.
 
 | tool | calls | errors | rejected | redundant | wrong-tool | bytes p50 | p90 | p99 | total bytes |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| read | 35909 | 314 | 1 | 0 | 0 | 3350 | 14394 | 39865 | 209753014 |
-| bash | 31545 | 2710 | 0 | 2 | 4909 | 487 | 3838 | 28106 | 56691571 |
-| edit | 15747 | 452 | 67 | 0 | 0 | 529 | 985 | 1591 | 8145292 |
-| grep | 13298 | 150 | 10 | 13 | 0 | 1058 | 6106 | 27949 | 34818679 |
-| codemode | 8046 | 579 | 1 | 0 | 0 | 6845 | 37646 | 40804 | 97517477 |
-| write | 5308 | 71 | 0 | 0 | 0 | 4412 | 16560 | 36254 | 37237359 |
+| read | 35946 | 316 | 1 | 0 | 0 | 3349 | 14391 | 39865 | 209859233 |
+| bash | 31572 | 2711 | 0 | 2 | 5070 | 487 | 3833 | 28106 | 56717299 |
+| edit | 15764 | 452 | 67 | 0 | 0 | 529 | 986 | 1591 | 8158618 |
+| grep | 13323 | 150 | 10 | 13 | 0 | 1060 | 6106 | 27949 | 34902639 |
+| codemode | 8056 | 582 | 1 | 0 | 0 | 6845 | 37646 | 40804 | 97622983 |
+| write | 5310 | 71 | 0 | 0 | 0 | 4412 | 16560 | 36254 | 37243025 |
 | find | 3179 | 11 | 3 | 10 | 0 | 46 | 534 | 5494 | 1235688 |
-| ls | 1797 | 13 | 0 | 6 | 0 | 92 | 627 | 4779 | 594841 |
+| ls | 1801 | 13 | 0 | 6 | 0 | 92 | 627 | 4779 | 595093 |
 | nu | 1772 | 14 | 0 | 0 | 0 | 590 | 4193 | 20483 | 3439701 |
 | ast_search | 515 | 1 | 0 | 1 | 0 | 259 | 2567 | 26473 | 878534 |
 
-The other 56 tool names, from other extensions and MCP servers, make up the remaining 11,499 calls; the script prints them all.
+The other 56 tool names, from other extensions and MCP servers, make up the remaining 11,501 calls; the script prints them all.
 
-Wrong-tool picks by hint: 3056 toward `grep`, 1499 toward `read` (`cat`), 332 toward `read` and `edit` (`sed -n`), 22 toward `find`. Scored on whole commands instead of pipeline heads, a separate pass over the same files gives 6788 `grep` picks: 3780 of them (56%) run `grep` or `rg` only after a pipe, as in `npm test | grep x`, and the live hint still fires on those. 48 picks count only on heads, where a `cat` in the dropped pipe tail had taken the hint's priority.
+Wrong-tool picks by hint: 3130 toward `grep`, 1565 toward `read` (`cat`), 353 toward `read` and `edit` (`sed -n`), 22 toward `find`. Scored on whole commands instead of pipeline heads, a separate pass a minute later (2511 files) gives 6964 `grep` picks against 3131 on heads: 3881 of them (56%) run `grep` or `rg` only after a pipe, as in `npm test | grep x`, and the live hint still fires on those. 48 picks count only on heads, where a `cat` in the dropped pipe tail had taken the hint's priority.
 
-Tasks with an edit: 3195. Tool calls before the first touch of the edited file: p50 2, p90 10, p99 46. First touch by `read` 1474, `write` 508, `grep` 373, `edit` 367, `codemode` 258, `bash` 177, `find` 2, others 36.
+Tasks with an edit: 3196. Tool calls before the first touch of the edited file: p50 2, p90 10, p99 46. First touch by `read` 1475, `write` 508, `grep` 373, `edit` 367, `codemode` 258, `bash` 177, `find` 2, others 36.
 
-On this corpus the three tools under ruling look quiet: `grep`, `find` and `ls` together had 174 errors (13 rejected) and 29 redundant repeats in 18,274 calls. `grep` returned 34.8 MB in all, its p99 result 27.9 KB, against 1.2 MB for `find` and 0.6 MB for `ls`.
+On this corpus the three tools under ruling look quiet: `grep`, `find` and `ls` together had 174 errors (13 rejected) and 29 redundant repeats in 18,303 calls. `grep` returned 34.9 MB in all, its p99 result 27.9 KB, against 1.2 MB for `find` and 0.6 MB for `ls`.
