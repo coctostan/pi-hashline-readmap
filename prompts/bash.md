@@ -11,9 +11,9 @@ summarizes, reorders or trims it beyond Pi's own truncation, which keeps the
 last 2000 lines or 50 KB and names the full output's file. Two kinds of notice
 may join it:
 
-- an anti-pattern hint, after a blank line, when the command reaches for a
-  dedicated tool that is active (`[Hint: Prefer the grep tool for content
-  search.]` after `rg foo`, and no hint once `grep` is inactive);
+- an anti-pattern hint, after a blank line, when the command reaches for an
+  active dedicated tool (`[Hint: Prefer the grep tool for content search.]`
+  after `rg foo`, and no hint once `grep` is inactive);
 - the doom-loop and context-hygiene notices, before the output and a `---`
   line.
 
