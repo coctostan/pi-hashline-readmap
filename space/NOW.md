@@ -1,5 +1,5 @@
 # Now
-- [tools-vs-bash](arcs/tools-vs-bash.md) (Each search tool earns its place over bash): an A/B against stock Pi rules whether `find`, `ls` and `grep` beat bash on context and confusion; slice 2 (Bench helpers are shared) merged as #284; slice 3 (Declaration cost is measured) active on `tools-vs-bash/03-declaration-cost`
+- [tools-vs-bash](arcs/tools-vs-bash.md) (Each search tool earns its place over bash): an A/B against stock Pi rules whether `find`, `ls` and `grep` beat bash on context and confusion; slice 3 (Declaration cost is measured) merged as #285; next: slice 4 (Session corpus is scored)
 
 ## Next
 - Pi 1.5 host follow-ups, from pi-1-5-host (Pi 1.5 is the one tested host): a later 1.5.x may break more than 1.5.0 did (try it through `PI_COMPAT_HOST` before moving the lock); no real-loader test pins the optional enum schemas (`find.type`, `find.sortBy`, `read.bundle`, `grep.scope`), so a host that dropped the `TUnsafe` `StringEnum` view would leak `"~optional": true` into provider schemas unnoticed; `vitest.config.ts` aliases pi-ai to the locked host's internal `dist/core/extensions/pi-ai-extension-view.js`, not an override's
