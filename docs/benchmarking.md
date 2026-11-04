@@ -39,3 +39,7 @@ Model providers:
 - `anthropic-cc/<model>` loads `../pi-claude-header/src/index.ts`; pass `--provider-extension PATH` for another location or provider.
 
 Repeated runs of the same configuration differ by about two percentage points on the public leaderboard, so treat smaller differences as noise and confirm with `--repeat` or more tasks.
+
+## Tool cost
+
+`scripts/bench/tool-cost.mjs` measures what each registered tool costs in context at the host boundary; [Tool cost](tool-cost.md) records its runs.
