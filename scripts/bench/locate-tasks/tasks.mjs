@@ -61,8 +61,9 @@ const mapperVersion = (text) => Number(text.match(/MAPPER_VERSION\s*=\s*(\d+)/)?
 
 // ─── Tasks ──────────────────────────────────────────────────────────────────
 
-const OUTLINE_SCRIPTS = ["scripts/python_outline.py", "scripts/gdscript_outline.py", "scripts/go_outline.go"];
-const SPDX_LINE = /^\s*(#|\/\/)\s*SPDX-License-Identifier:\s*MIT\s*$/;
+/** Each outline helper with its language's comment prefix. */
+const OUTLINE_SCRIPTS = { "scripts/python_outline.py": "#", "scripts/gdscript_outline.py": "#", "scripts/go_outline.go": "//" };
+const spdxLine = (prefix) => new RegExp(`^\\s*${prefix}\\s*SPDX-License-Identifier:\\s*MIT\\s*$`);
 const MAPPERS_DIR = "src/readmap/mappers";
 
 const tasks = [
@@ -201,18 +202,18 @@ const tasks = [
 		id: "outline-script-license",
 		prompt: "Add an `SPDX-License-Identifier: MIT` comment, in each file's own comment syntax, near the top of every helper program the structural map runs to outline source files (not the TypeScript mappers that run them). Change nothing else in them.",
 		solve: (root) => {
-			for (const path of OUTLINE_SCRIPTS) {
+			for (const [path, prefix] of Object.entries(OUTLINE_SCRIPTS)) {
 				const text = read(root, path);
-				writeFileSync(join(root, path), path.endsWith(".go")
-					? `// SPDX-License-Identifier: MIT\n${text}`
-					: text.replace(/^(#!.*\n)/, "$1# SPDX-License-Identifier: MIT\n"));
+				const header = `${prefix} SPDX-License-Identifier: MIT\n`;
+				writeFileSync(join(root, path), text.startsWith("#!") ? text.replace(/^(#!.*\n)/, `$1${header}`) : header + text);
 			}
 		},
-		check: async (root) => OUTLINE_SCRIPTS.flatMap((path) => {
+		check: async (root) => Object.entries(OUTLINE_SCRIPTS).flatMap(([path, prefix]) => {
 			const text = read(root, path);
+			const spdx = spdxLine(prefix);
 			return compare([
-				[`${path} has the identifier near the top`, text.split("\n").slice(0, 5).some((line) => SPDX_LINE.test(line)), true],
-				[`${path} is otherwise unchanged`, nonBlankLines(text).filter((line) => !SPDX_LINE.test(line)).join("\n") === nonBlankLines(snapshotFile(path)).join("\n"), true],
+				[`${path} has the identifier near the top`, text.split("\n").slice(0, 5).some((line) => spdx.test(line)), true],
+				[`${path} is otherwise unchanged`, nonBlankLines(text).filter((line) => !spdx.test(line)).join("\n") === nonBlankLines(snapshotFile(path)).join("\n"), true],
 			]);
 		}),
 	},
@@ -220,14 +221,13 @@ const tasks = [
 		id: "markdown-map-cache-version",
 		prompt: "The Markdown structural map's output shape changed, so maps cached in the old shape must be invalidated. Bump the Markdown mapper's cache version, and no other mapper's.",
 		solve: (root) => replace(root, `${MAPPERS_DIR}/markdown.ts`, "MAPPER_VERSION = 1;", "MAPPER_VERSION = 2;"),
+		// The inventory comes from the snapshot, so a deleted file or declaration fails rather than drops out.
 		check: async (root) => compare(
-			readdirSync(join(root, MAPPERS_DIR))
+			snapshotFile(`${MAPPERS_DIR}/`).split("\n").filter((name) => name.endsWith(".ts"))
 				.map((name) => `${MAPPERS_DIR}/${name}`)
-				.filter((path) => /MAPPER_VERSION/.test(read(root, path)))
-				.map((path) => {
-					const before = mapperVersion(snapshotFile(path));
-					return [path, mapperVersion(read(root, path)), path.endsWith("/markdown.ts") ? before + 1 : before];
-				}),
+				.map((path) => [path, mapperVersion(snapshotFile(path))])
+				.filter(([, before]) => !Number.isNaN(before))
+				.map(([path, before]) => [path, mapperVersion(read(root, path)), path.endsWith("/markdown.ts") ? before + 1 : before]),
 		),
 	},
 	{

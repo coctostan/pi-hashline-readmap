@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -54,5 +54,31 @@ describe("locate-first tasks", () => {
 			task.solve(workspace);
 			expect(await task.check(workspace)).toEqual([]);
 		});
+	});
+
+	const edit = (root: string, path: string, from: string, to: string) => {
+		const text = readFileSync(join(root, path), "utf8");
+		if (!text.includes(from)) throw new Error(`${path} lacks ${from}`);
+		writeFileSync(join(root, path), text.replace(from, to));
+	};
+	const wrongAnswers: Array<[string, string, (root: string) => void]> = [
+		["rename-format-not-found", "renamed at its definition only", (root) => edit(root, "src/readmap/symbol-error-format.ts", "formatNotFound", "formatMissingSymbol")],
+		["ls-default-limit", "code changed, documentation left at 500", (root) => edit(root, "src/ls.ts", "DEFAULT_LIMIT = 500", "DEFAULT_LIMIT = 1000")],
+		["outline-script-license", "a Python helper given a // comment", (root) => {
+			TASKS.find((task) => task.id === "outline-script-license")!.solve(root);
+			edit(root, "scripts/python_outline.py", "# SPDX", "// SPDX");
+		}],
+		["markdown-map-cache-version", "the Markdown version declaration deleted", (root) => edit(root, "src/readmap/mappers/markdown.ts", "export const MAPPER_VERSION = 1;", "")],
+		["markdown-map-cache-version", "another mapper bumped too", (root) => {
+			edit(root, "src/readmap/mappers/markdown.ts", "MAPPER_VERSION = 1", "MAPPER_VERSION = 2");
+			edit(root, "src/readmap/mappers/yaml.ts", "MAPPER_VERSION = 1", "MAPPER_VERSION = 2");
+		}],
+	];
+
+	it.each(wrongAnswers)("%s refuses a wrong answer: %s", async (id, _label, apply) => {
+		const workspace = mkdtempSync(join(scratch, `wrong-${id}-`));
+		cpSync(pristine, workspace, { recursive: true });
+		apply(workspace);
+		expect(await TASKS.find((task) => task.id === id)!.check(workspace)).not.toEqual([]);
 	});
 });
