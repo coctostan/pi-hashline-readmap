@@ -26,10 +26,12 @@ const argumentKey = (value) => JSON.stringify(value, (_key, inner) => inner && t
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /**
  * Each pipeline's first command, joined: `npm test | grep x` filters output and searches no files, so it scores as `npm test`.
- * shortcut: splits on `|`, `;`, `&&` and `||` even inside quotes, which can only keep a command's head; use a bash parser if a miss turns up.
+ * shortcut: splits on `|`, `;`, `&&` and `||` even inside quotes, so `echo "a; grep x"` yields a false head; use a bash parser if a miss turns up.
  */
 const pipelineHeads = (command) => command.split(/&&|\|\||;|\n/).map((part) => part.split("|")[0].trim()).filter(Boolean).join("; ");
 
+// shortcut: reads a session file in file order, not along its /tree branches, so a tool-set change on an abandoned branch
+// carries over; 2 of 2524 corpus files branch and no score changed (2026-11-04), replay along parentId if branching grows.
 function messagesOf(text) {
 	let cwd = null;
 	const messages = [];

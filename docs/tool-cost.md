@@ -97,6 +97,7 @@ Bounds:
 - Wrong-tool picks are as broad as the hint table: `git grep` counts as a grep pick, `cat` anywhere in a pipeline head as a read pick. Splitting a command into pipelines ignores quoting. A call inside a codemode script is not seen at all: only `codemode` is.
 - A touch is a path match in text. A file named another way (`cd src && cat a.ts`, a glob) is missed, which pushes the count toward the edit itself; a file named in passing, in a long listing, counts as found.
 - The corpus is one owner's sessions across many projects, extensions and models, most with this extension's tools active (inferred from the `read`, `grep` and `edit` counts); it is a baseline for what the A/B arms change, not a measure of any one tool in isolation.
+- A session file is read in file order, not along its `/tree` branches, so a tool-set change or a search on an abandoned branch carries into the next one. 2 of 2524 corpus files branch, and replaying along each call's ancestry changed none of their 109 bash calls' wrong-tool scores (measured 2026-11-04). `--mode json` streams never branch.
 
 ### Recorded baseline, 2026-11-04
 
