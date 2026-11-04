@@ -13,8 +13,7 @@ import { isNestedToolEvent, withCodemodeIntegration } from "./src/codemode-integ
 import { resolveShellPath } from "./src/hashline-settings.js";
 import { ServedLines, recordServedFromResult } from "./src/served-lines.js";
 import { resolveToCwd } from "./src/path-utils.js";
-import { filterBashOutput } from "./src/rtk/bash-filter.js";
-import { buildRtkCompaction } from "./src/rtk/rtk-compaction.js";
+import { presentBashOutput } from "./src/bash-output.js";
 import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
 import { applyBashContextGuard, resolveBashContextGuardConfig, type BashContextGuardConfig } from "./src/rtk/bash-context-guard.js";
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
@@ -134,23 +133,6 @@ function summarizeBashAppliedEffects(eventId: number): ContextHygieneAppliedEffe
 
 function hasAppliedEffects(effects: ContextHygieneAppliedEffects): boolean {
   return effects.retired.count > 0 || effects.stale.count > 0;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  return `${(bytes / 1024).toFixed(1)} KB`;
-}
-
-// Every compaction names its saved original and its bypass, whatever its size: the full output
-// must stay recoverable. Only a compacted result passes a path.
-function buildRtkNotice(
-  info: { originalBytes: number; outputBytes: number; compressionRatio: number; technique: string },
-  command: string,
-  originalPath: string | undefined,
-): string | null {
-  if (!originalPath) return null;
-  const pct = Math.round((1 - info.compressionRatio) * 100);
-  return `[RTK: compressed ${info.technique} output ${formatBytes(info.originalBytes)} → ${formatBytes(info.outputBytes)} (${pct}% saved). Original output: ${originalPath}. Use \`PI_RTK_BYPASS=1 ${command}\` to re-run uncompressed.]`;
 }
 
 function willBashContextGuardTrim(text: string, config: BashContextGuardConfig): boolean {
@@ -318,26 +300,8 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       if (prefixParts.length === 0) return body;
       return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
-    const filterOptions = { isError: event.isError === true };
-    let filtered = filterBashOutput(command, originalSelection.inputForRtk, filterOptions);
-    // A compacted result names a saved pre-RTK copy; the guard's preview reuses it.
-    const originalMetadata = filtered.compacted
-      ? ensureBashOriginalOutputSnapshot({
-          visibleText: originalSelection.inputForRtk,
-          metadata: originalSelection.metadata,
-        })
-      : originalSelection.metadata;
-    // No saved copy, no cut: what a compactor drops must stay recoverable without a re-run.
-    if (filtered.compacted && !originalMetadata?.originalPath) {
-      filtered = filterBashOutput(command, originalSelection.inputForRtk, { ...filterOptions, bypass: "unsaved-original" });
-    }
-    const { output, savedChars, compacted, dropped, info } = filtered;
-    if (process.env.PI_RTK_SAVINGS === "1") {
-      process.stderr.write(`[RTK] Saved ${savedChars} chars (${command})\n`);
-    }
-    const notice = buildRtkNotice(info, command, compacted ? originalMetadata?.originalPath : undefined);
-    const body = notice ? `${notice}\n${output}` : output;
-    const finalText = applyWarning(body);
+    const finalText = applyWarning(presentBashOutput(command, originalSelection.inputForRtk));
+    const originalMetadata = originalSelection.metadata;
     const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)
       ? ensureBashOriginalOutputSnapshot({
           visibleText: originalText,
@@ -352,29 +316,15 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       config: bashContextGuardConfig,
     });
     const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalMetadata;
-    const rtkCompaction = buildRtkCompaction({
-      rawInput: originalSelection.inputForRtk,
-      output,
-      compacted,
-      dropped,
-      info,
-    });
-    const existingPtcValue =
-      existingDetails.ptcValue && typeof existingDetails.ptcValue === "object"
-        ? (existingDetails.ptcValue as Record<string, unknown>)
-        : {};
     return {
       content: [{ type: "text" as const, text: guarded.text }, ...nonTextContent],
-      // Compression changes presentation only; retain the native machine-readable result.
+      // Notices change presentation only; retain the native machine-readable result.
       ...(event.structuredContent !== undefined ? { structuredContent: event.structuredContent } : {}),
       details: {
         ...existingDetails,
-        compressionInfo: info,
         contextHygiene: contextHygieneForDetails,
         bashContextGuard: guarded.metadata,
         ...(bashOriginalOutput ? { bashOriginalOutput } : {}),
-        rtkCompaction,
-        ptcValue: { ...existingPtcValue, rtkCompaction },
       },
     };
   });

@@ -39,7 +39,7 @@ function bashEvent(
 }
 
 describe("issue #222: Bash build failure integration", () => {
-  it("uses process outcome for filtering while preserving public metadata", async () => {
+  it("records the process outcome while presenting the output as given", async () => {
     const handleToolResult = await loadToolResultHandler();
 
     const failedRaw = "\u001b[31mCompiling demo v0.1.0\nlinker terminated unexpectedly\u001b[0m\n";
@@ -52,15 +52,7 @@ describe("issue #222: Bash build failure integration", () => {
     );
     expect(failed.details.existing).toBe("kept");
     expect(failed.details.contextHygiene.commandState.outcome).toBe("failure");
-    expect(failed.details.compressionInfo.technique).toBe("none");
-    expect(failed.details.rtkCompaction).toMatchObject({
-      applied: false,
-      techniques: [],
-      truncated: false,
-    });
-    expect(failed.details.ptcValue.rtkCompaction).toEqual(
-      failed.details.rtkCompaction,
-    );
+    expect(Object.keys(failed.details).sort()).toEqual(["bashContextGuard", "bashOriginalOutput", "contextHygiene", "existing"]);
 
     const compilerError = "error TS5023: Unknown compiler option '--nonexistentflag'.\n\nCommand exited with code 1";
     const exactReproduction = await handleToolResult(
@@ -73,8 +65,6 @@ describe("issue #222: Bash build failure integration", () => {
     );
 
     expect(exactReproduction.content[0].text).toBe(compilerError);
-    expect(exactReproduction.details.compressionInfo.technique).toBe("none");
-    expect(exactReproduction.details.rtkCompaction.applied).toBe(false);
 
     const uncertainRaw = "builder emitted an unfamiliar success message\n";
     const uncertain = await handleToolResult(
@@ -83,12 +73,6 @@ describe("issue #222: Bash build failure integration", () => {
 
     expect(uncertain.content[0].text).toContain("[Context hygiene]");
     expect(uncertain.content[0].text.endsWith(`---\n${uncertainRaw}`)).toBe(true);
-    expect(uncertain.details.compressionInfo.technique).toBe("none");
-    expect(uncertain.details.rtkCompaction).toMatchObject({
-      applied: false,
-      techniques: [],
-      truncated: false,
-    });
 
     const successful = await handleToolResult(
       bashEvent(
@@ -100,16 +84,7 @@ describe("issue #222: Bash build failure integration", () => {
     );
 
     expect(successful.content[0].text).toContain("[Context hygiene]");
-    expect(successful.content[0].text).toMatch(/---\n\[RTK: compressed build output .* Original output: \S+\. Use `PI_RTK_BYPASS=1 cargo build` to re-run uncompressed\.\]\n✓ Build successful \(1 units compiled\)$/);
+    expect(successful.content[0].text.endsWith("---\nCompiling demo v0.1.0\nFinished dev profile\n")).toBe(true);
     expect(successful.details.contextHygiene.commandState.outcome).toBe("success");
-    expect(successful.details.compressionInfo.technique).toBe("build");
-    expect(successful.details.rtkCompaction).toMatchObject({
-      applied: true,
-      techniques: ["build"],
-      truncated: false,
-    });
-    expect(successful.details.ptcValue.rtkCompaction).toEqual(
-      successful.details.rtkCompaction,
-    );
   });
 });

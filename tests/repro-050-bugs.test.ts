@@ -3,13 +3,12 @@
  * - 045: Binary file detection only checks NUL bytes — NUL-free binaries silently garble
  * - 046: Grep anchors/snippets wrong on bare-CR line-ending files
  * - 047: Grep silently returns 0 matches on non-NUL binary-ish files containing ASCII
- * - 048: TS source imports use .js specifiers — blocks node --experimental-strip-types
  *
  * All tests below FAIL (assert the *buggy* behavior) and should PASS after the fix.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { writeFileSync, mkdirSync, rmSync } from "fs";
-import { execFileSync, spawnSync } from "child_process";
+import { spawnSync } from "child_process";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { registerReadTool } from "../src/read.js";
@@ -174,43 +173,5 @@ describe("Issue #047: grep silently returns 0 matches on non-NUL binary with ASC
     expect(result.signal).toBeNull();
     expect(result.stdout).toBe("");
     expect(result.stderr).toBe("");
-  });
-});
-
-// ─── Issue #048: .js specifiers block node --experimental-strip-types ─────────
-
-describe("Issue #048: .js import specifiers block node --experimental-strip-types", () => {
-  it("bash-filter.ts loads successfully via node --experimental-strip-types", () => {
-    // After fix: .ts specifiers resolve correctly — no ERR_MODULE_NOT_FOUND
-    let error: Error | null = null;
-    let stdout = "";
-    try {
-      stdout = execFileSync(
-        process.execPath,
-        [
-          "--experimental-strip-types",
-          "--input-type=module",
-          "-e",
-          "import * as m from './src/rtk/bash-filter.ts'; console.log(Object.keys(m).join(','));",
-        ],
-        { cwd: process.cwd(), encoding: "utf8" },
-      );
-    } catch (e: any) {
-      error = e;
-    }
-    expect(error).toBeNull();
-    expect(stdout).toContain("filterBashOutput");
-  });
-
-  it(".ts specifiers are used in rtk source files (no .js imports)", async () => {
-    const { readFileSync } = await import("fs");
-    const { join } = await import("path");
-    const bashFilterSrc = readFileSync(
-      join(process.cwd(), "src/rtk/bash-filter.ts"),
-      "utf8",
-    );
-    // After fix: .js specifiers gone, .ts specifiers present
-    expect(bashFilterSrc).not.toMatch(/from "\.\/.*\.js"/);
-    expect(bashFilterSrc).toMatch(/from "\.\/.*\.ts"/);
   });
 });

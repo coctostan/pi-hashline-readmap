@@ -60,13 +60,13 @@ describe("context hygiene annotation preserves provider-visible content", () => 
       reason: "same-command-success-rerun",
       command: "git log",
     });
-    const message = toolResult("log-old", "bash", "old history", { compressionInfo: { technique: "git" } });
+    const message = toolResult("log-old", "bash", "old history", { existing: "kept" });
 
     const annotated = annotateRetiredToolResultMessage(message, record);
 
     expect(annotated.content).toEqual([{ type: "text", text: "old history" }]);
     expect(annotated.details).toMatchObject({
-      compressionInfo: { technique: "git" },
+      existing: "kept",
       contextHygieneRetired: {
         status: "retired",
         originalTool: "bash",

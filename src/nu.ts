@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { buildPtcError } from "./ptc-value.js";
 import { packageFileUrl } from "./package-root.js";
-import { stripAnsi } from "./rtk/ansi.js";
+import { stripAnsi } from "./ansi.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { executableCommand, resolveBundledBin } from "./binary-resolution.js";
