@@ -45,6 +45,13 @@ describe("scoreSession", () => {
 			{ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "k1", name: "bash", arguments: { command: "rg foo" } }] } },
 		].map((entry) => JSON.stringify(entry)).join("\n");
 		expect(scoreSession(compacted).calls[0]).toMatchObject({ wrongTool: null, toolSetKnown: true });
+		// Pi sends a changed declaration as a removal plus an addition of the same name, and replays removals first
+		const redefined = [
+			{ type: "message", message: { role: "system", toolsAdded: [{ name: "bash" }, { name: "grep" }] } },
+			{ type: "message", message: { role: "system", toolsRemoved: [{ name: "grep" }], toolsAdded: [{ name: "grep" }] } },
+			{ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "k2", name: "bash", arguments: { command: "rg foo" } }] } },
+		].map((entry) => JSON.stringify(entry)).join("\n");
+		expect(scoreSession(redefined).calls[0].wrongTool).toBe("[Hint: Prefer the grep tool for content search.]");
 	});
 
 	it("counts, per task with an edit, the calls before the first one naming the edited file", () => {
@@ -57,6 +64,18 @@ describe("scoreSession", () => {
 			{ editId: "c18", callsBeforeTouch: 1, touchedBy: "read" },
 		]);
 		expect(scoreSession(legacy).tasks).toEqual([]);
+		// src/a.ts.bak is another file; a sentence ending in src/a.ts. names the edited one
+		const dotted = [
+			{ type: "session", cwd: "/repo" },
+			{ type: "message", message: { role: "user", content: "Fix a." } },
+			{ type: "message", message: { role: "assistant", content: [
+				{ type: "toolCall", id: "d1", name: "read", arguments: { path: "src/a.ts.bak" } },
+				{ type: "toolCall", id: "d2", name: "bash", arguments: { command: "git log -1 --stat" } },
+				{ type: "toolCall", id: "d3", name: "edit", arguments: { path: "src/a.ts", edits: [] } },
+			] } },
+			{ type: "message", message: { role: "toolResult", toolCallId: "d2", toolName: "bash", content: [{ type: "text", text: "Changed src/a.ts." }] } },
+		].map((entry) => JSON.stringify(entry)).join("\n");
+		expect(scoreSession(dotted).tasks).toEqual([{ editId: "d3", callsBeforeTouch: 1, touchedBy: "bash" }]);
 	});
 
 	it("scores a --mode json event stream as it scores a session file", () => {

@@ -61,7 +61,8 @@ export function scoreSession(text) {
 		const rel = cwd ? relative(cwd, target) : null;
 		const inside = rel && !rel.startsWith("..") && !isAbsolute(rel) ? [rel, `./${rel}`] : [];
 		const forms = [...new Set([given, target, ...inside])];
-		const pattern = new RegExp(`(^|[^\\w./-])(${forms.map(escapeRegExp).join("|")})(?![\\w/-])`);
+		// After the path: no name character, and no `.` running into another extension (src/a.ts.bak), though a full stop may end it.
+		const pattern = new RegExp(`(^|[^\\w./-])(${forms.map(escapeRegExp).join("|")})(?![\\w/-]|\\.\\w)`);
 		return (text) => pattern.test(text);
 	};
 	const closeTask = () => {
@@ -78,8 +79,9 @@ export function scoreSession(text) {
 		if (!message) continue;
 		if (message.role === "system") {
 			if (message.checkpoint || !activeTools) activeTools = new Set();
-			for (const tool of message.toolsAdded ?? []) activeTools.add(tool.name);
+			// Removals first, as Pi replays them: a changed declaration is a removal plus an addition of the same name.
 			for (const tool of message.toolsRemoved ?? []) activeTools.delete(tool.name);
+			for (const tool of message.toolsAdded ?? []) activeTools.add(tool.name);
 		} else if (message.role === "user") {
 			closeTask();
 			task = { calls: [], edit: null };
