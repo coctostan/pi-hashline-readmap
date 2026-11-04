@@ -74,7 +74,7 @@ export function accountDeclarations({ systemPrompt, tools, prompts }) {
 
 function parameterDescriptions(node, path = "$", out = []) {
 	if (!node || typeof node !== "object") return out;
-	if (typeof node.description === "string" && path !== "$") out.push([path, node.description]);
+	if (typeof node.description === "string") out.push([path, node.description]);
 	for (const [key, child] of Object.entries(node)) {
 		if (Array.isArray(child)) child.forEach((item, index) => parameterDescriptions(item, `${path}.${key}[${index}]`, out));
 		else if (child && typeof child === "object") parameterDescriptions(child, `${path}.${key}`, out);
