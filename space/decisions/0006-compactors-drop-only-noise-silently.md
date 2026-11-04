@@ -1,4 +1,5 @@
 ---
+status: superseded
 from: chat 2026-11-02, shaping truthful-compaction (Compacted bash output is truthful and recoverable)
 ---
 # Compactors drop only noise silently

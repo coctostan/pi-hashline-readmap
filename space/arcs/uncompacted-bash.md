@@ -1,0 +1,50 @@
+---
+status: active
+---
+# Bash output reaches the model as Pi gives it
+
+Today this extension shortens what shell commands print before the AI model sees it, guessing which lines are noise, and those guesses kept dropping lines that mattered. This arc takes the shortening out, so the model reads command output as Pi itself returns it, and the coming tool comparison measures the shell people will actually get.
+
+## Destination
+A `bash` result is Pi's own output, ANSI codes stripped, plus the anti-pattern hints and the hygiene and doom-loop notices. Every compactor, the RTK notice and bypass, the context guard, their temp files, settings and `details` fields are gone, and the unpublished 0.20.0 ships the removal.
+
+## Done when
+- [ ] Bash output passes through uncompacted: through the selected host's real loader and runner, the model-facing text of `git log -25` is its native `structuredContent.output`, ANSI stripped, with no `[RTK:` notice; `find` and `ls` output passes through the same way; a non-error result's text is Pi's text plus any hint — verified by `tests/pi-host-codemode-boundaries.test.ts` through `tests/helpers/selected-host-codemode.mjs`, and a new `tests/bash-output.test.ts` (main 2026-11-04: the helper asserts `[RTK:` in the direct presentation, `tests/helpers/selected-host-codemode.mjs:191`)
+- [ ] Large output is Pi's own view: a command printing 5000 lines returns Pi's last 2000 lines with its `Full output:` path, no `[Bash context guard: preview]`, and no `hashline-bash-original-*` or `hashline-bash-post-rtk-*` temp file is written — verified by a new `tests/bash-large-output-integration.test.ts` (main 2026-11-04: the guard restores Pi's full output and keeps 80 head and 120 tail lines, `src/rtk/bash-original-output.ts:104`, `src/rtk/bash-context-guard.ts:11`)
+- [ ] Hints still fire: `rg foo` in bash ends with `[Hint: Prefer the grep tool for content search.]`, appended by `presentBashOutput` in `src/bash-output.ts` — verified by `tests/bash-anti-pattern-hints.test.ts` and `tests/bash-output.test.ts` (main 2026-11-04: reached only through `filterBashOutput`, `src/rtk/bash-filter.ts:115` and `:197`)
+- [ ] Nothing of compaction remains: `src/rtk/` is gone, and `git grep -nE 'rtkCompaction|compressionInfo|bashContextGuard|bashOriginalOutput|PI_RTK_BYPASS|PI_RTK_SAVINGS|PI_HASHLINE_BASH_CONTEXT_GUARD|filterBashOutput' -- index.ts src prompts docs tests README.md AGENTS.md ':!tests/hashline-settings.test.ts'` prints nothing; that excluded test shows a settings file still holding a `bashContextGuard` key loads without error; `npm test && npm run typecheck` is green — verified by that command, `tests/hashline-settings.test.ts` and `npm test && npm run typecheck` (main 2026-11-04: the command lists 55 files; `src/rtk/` holds 19 files, 2065 lines)
+- [ ] The provider-visible text tells the truth: the `bash` description and `prompts/bash.md` say results are Pi's output with ANSI stripped plus hints, and name no RTK, compression or context guard — verified by `tests/pi-prompt-metadata-integration.test.ts`, `tests/bash-renderer-wrapper.test.ts` and `tests/prompts-bash-contract-doc.test.ts` (main 2026-11-04: `src/bash-renderer.ts:13` names RTK and `PI_RTK_BYPASS=1`)
+- [ ] 0.20.0 ships the removal: the `[0.20.0]` CHANGELOG entry has a Removed section naming the compactors, the RTK notice, `PI_RTK_BYPASS`, the context guard, its setting and variables, and the five `details` fields; neither `[0.20.0]` nor `[Unreleased]` keeps a compaction Added or Fixed line; the version stays 0.20.0 — verified by `tests/package-changelog.test.ts`, `tests/package-version.test.ts` and the `pi-compatibility` workflow on slice 3's merge commit (main 2026-11-04: `[0.20.0]` adds `rtkCompaction.dropped` and `Original output:`)
+
+## Now
+No slice started; next action: slice 1 (Compactors are removed), in a fresh session with `slice`.
+
+## Seams
+- `presentBashOutput(command, output)` in `src/bash-output.ts` (new; ANSI stripping and the hint, with `ansi.ts` and `bash-anti-pattern-hints.ts` moved to `src/`) → `tests/bash-output.test.ts` (new), `tests/bash-anti-pattern-hints.test.ts`
+- The bash `tool_result` handler in `index.ts`, reached through the selected host's loader, runner and bash tool by `tests/helpers/selected-host-codemode.mjs` → `tests/pi-host-codemode-boundaries.test.ts`, `tests/bash-large-output-integration.test.ts` (new)
+- `resolveHashlineJsonSettings` in `src/hashline-settings.ts` → `tests/hashline-settings.test.ts`
+- The `bash` description and guidelines in `src/bash-renderer.ts`, `prompts/bash.md` → `tests/pi-prompt-metadata-integration.test.ts`, `tests/bash-renderer-wrapper.test.ts`, `tests/prompts-bash-contract-doc.test.ts`
+- `docs/`, `README.md`, `AGENTS.md` → `tests/documentation-*.test.ts`
+- `CHANGELOG.md`, `package.json` → `tests/package-changelog.test.ts`, `tests/package-version.test.ts`, the `pi-compatibility` workflow
+- Real artifact: in a scratch git repo, `pi --no-extensions --no-session -e <repo>/index.ts --model openai-codex/gpt-6-luna --mode json -p "<prompt>"`, observing the bash `tool_execution_end` events and the temp directory
+
+## Slices
+1. **Compactors are removed** — delivers `presentBashOutput` in `src/bash-output.ts`, called by the bash handler in place of `filterBashOutput`, and deletes the 10 routes, `bash-filter.ts`, `drops.ts`, `rtk-compaction.ts`, `truncate.ts`, `test-output.ts`, `src/rtk/index.ts`, the RTK notice, `PI_RTK_BYPASS` and `PI_RTK_SAVINGS`, `details.rtkCompaction`, `ptcValue.rtkCompaction` and `compressionInfo`, with their tests; the `bash` description and `prompts/bash.md` drop RTK; the guard still runs, on uncompacted text · proof: red first in `tests/bash-output.test.ts` and the flipped `git log -25` assertion in `tests/helpers/selected-host-codemode.mjs`; `npm test && npm run typecheck`; a live drive running `git log -25`, `find . -name '*.ts'` and `rg foo` · blocked-by — · status next
+2. **Context guard is removed** — delivers the deletion of `bash-context-guard.ts` and `bash-original-output.ts` (the full-output restore and both temp-file kinds), the `bashContextGuard` setting (a file still holding it loads without error), the `PI_HASHLINE_BASH_CONTEXT_GUARD*` variables, `details.bashContextGuard` and `details.bashOriginalOutput`, with their tests, leaving `src/rtk/` gone; bash's context-hygiene diagnostics then read Pi's visible text, not the restored full output · proof: red first in `tests/bash-large-output-integration.test.ts`; `tests/hashline-settings.test.ts`; a live drive running `seq 1 5000` and listing the temp directory · blocked-by 1 · status next
+3. **Docs ship the removal** — delivers `docs/bash-output.md` deleted, `docs/configuration.md`, the codemode docs, `docs/startup-performance.md`, `docs/exploratory-functional-testing.md`, `README.md` and `AGENTS.md` (its "New bash compression technique" steps, source map and opening) rewritten for uncompacted bash, and the `[0.20.0]` CHANGELOG entry rewritten as it ships, `[Unreleased]` folded in · proof: the documentation and package tests; the `git grep` command of done-when 4; the `pi-compatibility` workflow on the merge commit · blocked-by 2 · status next
+
+## Not yet specified
+- Context-hygiene diagnostics from Pi's tail alone: `buildBashCommandState` (`src/bash-command-state.ts:408`) today reads the restored full output, so an error printed before Pi's last 2000 lines goes unseen after slice 2 (inferred). Act if a miss turns up in use.
+
+## Out of scope
+- Publishing 0.20.0 to npm: the owner's.
+- Changing Pi's own truncation, or replacing it with ours.
+- tools-vs-bash (Each search tool earns its place over bash) beyond its seam pointer and ruling number, edited at this shape.
+- The bash parser's known misses (`src/bash-command-state.ts:138`), a Next item of their own.
+- CHANGELOG sections 0.19.2 and earlier, `space/arcs/` history and `.megapowers/`.
+
+## Decisions
+- Owner, 2026-11-04 (chat): remove the context guard with the compactors; keep ANSI stripping; drop the five `details` fields outright, with no stub, under CHANGELOG Removed, and give `PI_RTK_BYPASS=1` no special handling; fold the removal into the unpublished 0.20.0 (npm's latest is 0.19.0, measured 2026-11-04); this arc runs before tools-vs-bash (Each search tool earns its place over bash).
+- [Ruling 0007](../decisions/0007-bash-output-reaches-the-model-uncompacted.md) supersedes [ruling 0006](../decisions/0006-compactors-drop-only-noise-silently.md).
+- Context, measured 2026-11-04 from the locked Pi 1.5.0's `dist/core/tools/bash.js`: Pi's bash tool keeps the last 2000 lines or 50 KB, saves the full output and names it as `Full output: <path>`; it strips no ANSI codes from the model-facing text (inferred from its source).
+- At close, prune the NOW.md items the removal moots: truthful-compaction (Compacted bash output is truthful and recoverable)'s open rsync finding, Not yet specified items and compaction `→ accepted:` lines, the `shortcut:`s at `src/rtk/bash-filter.ts:76` and `src/rtk/git.ts:260`, the Bash tool gaps' route-matching and linter-format items, and the compaction notes of compound-routing (Chained bash output is never mislabeled) and honest-compaction (Compacted bash output names what it dropped) under Accepted.
