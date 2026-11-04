@@ -12,8 +12,32 @@ export function isHttpCommand(cmd: string): boolean {
 // curl's lib/progress.c header, both lines whole (releases differ in spacing).
 const CURL_PROGRESS_HEADER_RE =
   /^\s*%\s+Total\s+%\s+Received\s+%\s+Xferd\s+Average\s+Speed\s+Time\s+Time\s+Time\s+Current\s*$|^\s*Dload\s+Upload\s+Total\s+Spent\s+Left\s+Speed\s*$/;
-const CURL_PROGRESS_ROW_RE =
-  /^\s*\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\d{1,3}\s+\S+\s+\S+\s+\S+\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+(?:\d+|--):(?:\d{2}|--):(?:\d{2}|--)\s+\S+\s*$/;
+// A whole curl progress row, per lib/progress.c: three "%3d %s" percent-size pairs, the download and upload speeds,
+// three times and the current speed, each field at its printf width. Sizes, times and gaps differ by release; updates
+// rewritten in place arrive as several rows joined by '\r' on one line.
+const padInt = (width: number) =>
+  `(?:${Array.from({ length: width }, (_, spaces) => `${" ".repeat(spaces)}\\d{${width - spaces}}`).join("|")})`;
+function curlRow(size: string, time: string, gap: string, beforeTimes: string): string {
+  const pair = `${padInt(3)} ${size}`;
+  return `${pair}${gap}${pair}${gap}${pair}${gap}${size}${gap}${size}${beforeTimes}${time} ${time} ${time} ${size}`;
+}
+// A field that outgrows its buffer is cut: a tenth of 10 loses its size unit ("15.10"), an 8-digit day count its "d".
+const CLASSIC_TIME = String.raw`(?:--:--:--|${padInt(2)}:\d{2}:\d{2}|${padInt(3)}d \d{2}h|${padInt(7)}d|\d{8})`;
+const CURL_ROWS = [
+  // curl-8_16_0 and earlier: max5data.
+  curlRow(String.raw`(?:${padInt(5)}|${padInt(4)}[kMGTP]|${padInt(2)}\.(?:\d[MG]|10))`, CLASSIC_TIME, "  ", " "),
+  // curl-8_17_0: max6data.
+  curlRow(String.raw`(?:${padInt(5)}|\d{6}|${padInt(3)}\.(?:\d[kMGTP]|10)|${padInt(5)}[kMGTP])`, CLASSIC_TIME, " ", "  "),
+  // curl-8_18_0 and later: max6out and a 7-wide time, blank while unknown.
+  curlRow(
+    String.raw`(?:${padInt(6)}|${padInt(2)}\.\d{2}[kMGTPE]|${padInt(3)}\.\d[kMGTPE])`,
+    String.raw`(?: {7}|  \d{2}:\d{2}|\d:\d{2}:\d{2}|\d{2}h \d{2}m|${padInt(2)}d \d{2}h|${padInt(6)}[dmy]|>99999y)`,
+    " ",
+    " ",
+  ),
+];
+const CURL_ROW = `(?:${CURL_ROWS.join("|")})`;
+const CURL_PROGRESS_ROW_RE = new RegExp(`^\\r?${CURL_ROW}(?:\\r${CURL_ROW})*\\r?$`);
 // A whole wget dot-progress row, per wget's src/progress.c: "%6sK", clusters of '.' (',' for resumed bytes), then
 // stats. Known length: "%3d%%", a " %4.*f%c" rate (0, 1 or 2 decimals as it shrinks; unit ' ', K, M, G or T),
 // then " " ETA or "=" total time. Unknown length: the rate alone, or the rate then "=" total time on the last row.

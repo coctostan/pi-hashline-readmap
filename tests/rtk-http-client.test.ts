@@ -108,6 +108,64 @@ describe("compressHttpOutput", () => {
     expect(result?.split("\n")).toEqual(raw.slice(2));
   });
 
+  // Rows as lib/progress.c prints them, every field at its printf width: max5data and the 8-wide time2str with two-space
+  // gaps up to curl-8_16_0; max6data, one-space gaps and two before the times at curl-8_17_0; max6out, the 7-wide
+  // time2str (blank while unknown) and one-space gaps from curl-8_18_0 (unchanged at curl-8_23_0).
+  const CLASSIC_ROWS = [
+    "  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0",
+    " 42  1234   42  292k    0     0  15.0M   500M  0:01:05  0:00:05  0:01:00 15.10",
+    "  7 20.0G    7  500G    0     0  3072G    19P   8d 04h    1000d  0:00:01     0",
+    // 900G at 1 byte/s: "%7dd" outgrows its buffer, which cuts the "d".
+    "  0  900G    0     0    0     0      1      0 11184810  0:00:05 11184810     0",
+  ];
+  const CURL_8_17_ROWS = [
+    "  0     0   0     0   0     0     0     0  --:--:-- --:--:-- --:--:--     0",
+    " 42 999999  42 976.5k   0     0  1953k 999.10   0:01:05  0:00:05  0:01:00  3072M",
+    "  7 20480M   7 500.0T 100  1234  3072T     0    8d 04h    1000d  0:00:01     0",
+  ];
+  const CURL_8_18_ROWS = [
+    "  0      0   0      0   0      0      0      0                              0",
+    "100  99999 100 97.65k   0      0  1.90M  5.00G   01:05 1:01:05 10h 00m  4.00E",
+    "  7 20.00G   7 500.0T   0   1234  3.00P      0  5d 00h    100d     33m      0",
+    "  7      1   7      2   0      3      4      5     82y >99999y              6",
+  ];
+
+  it("strips curl progress rows of each release, and in-place updates joined by '\\r'", () => {
+    const rows = [...CLASSIC_ROWS, ...CURL_8_17_ROWS, ...CURL_8_18_ROWS];
+    // curl 8.7.1, captured: each update starts with '\r', and the meter's last row ends the line.
+    const joined = `\r${CLASSIC_ROWS[0]}\r100  292k  100  292k    0     0   238M      0 --:--:-- --:--:-- --:--:--  286M`;
+    const raw = [...rows, joined, `\r${CURL_8_18_ROWS[0]}\r${CURL_8_18_ROWS[1]}`, "HTTP/1.1 200 OK", "Content-Type: text/plain", "", "row a"];
+    const result = compressHttpOutput(raw.join("\n"));
+
+    expect(result?.split("\n")).toEqual(["HTTP/1.1 200 OK", "Content-Type: text/plain", "", "row a"]);
+  });
+
+  it("keeps body lines unless every column has curl's printed shape", () => {
+    const classic = CLASSIC_ROWS[0];
+    const modern = CURL_8_18_ROWS[1];
+    const body = [
+      "100 users 100 active 0 banned n/a n/a --:--:-- --:--:-- --:--:-- n/a",
+      // One column off per kind in a classic and an 8.18.0 row: a percent, a size, a time, a gap; a size wider than its
+      // column; a row joined by '\r' to a line that is none.
+      classic.replace("  0     0 ", "abc     0 "),
+      classic.replace("    0      0 --", "    0  users --"),
+      classic.replace("--:--:-- --:--:-- --:--:--", "--:--:-- tomorrow --:--:--"),
+      classic.replace("  0     0    0", "  0     0   0"),
+      modern.replace(" 99999", " users"),
+      modern.replace(" 99999", "users"),
+      modern.replace("  99999", "  99999k"),
+      modern.replace(" 99999 100", " 99999  100"),
+      modern.replace("1:01:05", "1:01:5 "),
+      `${modern}\rrow b`,
+      // Rows curl never prints: two glued with no '\r' between them.
+      `${classic}${classic}`,
+    ];
+    const raw = ["HTTP/1.1 200 OK", "Content-Type: text/plain", "", ...body, "row a", "row c"];
+    const result = compressHttpOutput(raw.join("\n"));
+
+    expect(result?.split("\n")).toEqual(raw);
+  });
+
   it("truncates body to 200 lines if larger", () => {
     const lines = ["HTTP/1.1 200 OK", "Content-Type: text/plain", ""];
     for (let i = 0; i < 250; i++) lines.push(`line ${i}`);
