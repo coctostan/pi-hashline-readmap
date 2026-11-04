@@ -6,7 +6,6 @@ import { CONFIG_DIR_NAME, SettingsManager } from "@earendil-works/pi-coding-agen
 export interface HashlineJsonSettings {
   grep?: { maxLines?: number; maxBytes?: number };
   mapCache?: { dir?: string; enabled?: boolean };
-  bashContextGuard?: { enabled?: boolean; maxLines?: number; maxBytes?: number; headLines?: number; tailLines?: number };
   gdscript?: { enabled?: boolean };
   edit?: { diffDisplay?: "collapsed" | "expanded" };
   display?: { previewLines?: number };
@@ -186,16 +185,6 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
     if (enabled !== undefined) mapCache.enabled = enabled;
     if (Object.keys(mapCache).length > 0) settings.mapCache = mapCache;
   }
-  if (isRecord(raw.bashContextGuard)) {
-    const bashContextGuard: NonNullable<HashlineJsonSettings["bashContextGuard"]> = {};
-    const enabled = readBoolean(raw.bashContextGuard, "enabled", "bashContextGuard.enabled", source, warnings);
-    if (enabled !== undefined) bashContextGuard.enabled = enabled;
-    for (const key of ["maxLines", "maxBytes", "headLines", "tailLines"] as const) {
-      const value = readPositive(raw.bashContextGuard, key, `bashContextGuard.${key}`, source, rawText, warnings);
-      if (value !== undefined) bashContextGuard[key] = value;
-    }
-    if (Object.keys(bashContextGuard).length > 0) settings.bashContextGuard = bashContextGuard;
-  }
   if (isRecord(raw.gdscript)) {
     const gdscript: NonNullable<HashlineJsonSettings["gdscript"]> = {};
     const enabled = readBoolean(raw.gdscript, "enabled", "gdscript.enabled", source, warnings);
@@ -243,8 +232,6 @@ function mergeSettings(base: HashlineJsonSettings, override: HashlineJsonSetting
   if (Object.keys(grep).length > 0) merged.grep = grep;
   const mapCache = { ...(base.mapCache ?? {}), ...(override.mapCache ?? {}) };
   if (Object.keys(mapCache).length > 0) merged.mapCache = mapCache;
-  const bashContextGuard = { ...(base.bashContextGuard ?? {}), ...(override.bashContextGuard ?? {}) };
-  if (Object.keys(bashContextGuard).length > 0) merged.bashContextGuard = bashContextGuard;
   const gdscript = { ...(base.gdscript ?? {}), ...(override.gdscript ?? {}) };
   if (Object.keys(gdscript).length > 0) merged.gdscript = gdscript;
   const edit = { ...(base.edit ?? {}), ...(override.edit ?? {}) };

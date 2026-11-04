@@ -141,6 +141,7 @@ try {
   }
   const nativeImages = [];
   let directBashRaw;
+  let largeBash;
   let serial = 0;
   const presentedBash = [];
   async function invoke(name, args, nested = true, signal) {
@@ -161,7 +162,8 @@ try {
         }
         const override = await runner.emitToolResult({ type: "tool_result", toolName: name, toolCallId: id, input: args, ...result, isError, ...parent });
         // Pi's own truncation notice joins a truncated result's text, so only whole outputs compare.
-        if (process.env.PI_CODEMODE_BASH === "1" && name === "bash" && !isError && result.structuredContent?.truncated === false) {
+        // structuredContent keeps up to 1 MB while the text keeps 2000 lines or 50 KB: Pi's text cut is details.truncation.
+        if (process.env.PI_CODEMODE_BASH === "1" && name === "bash" && !isError && result.details?.truncation === undefined) {
           assert.equal(override.structuredContent, result.structuredContent, "Bash raw object must survive hook by identity");
           const text = override.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
           const raw = result.structuredContent.output;
@@ -171,6 +173,10 @@ try {
             assert.equal(raw, directBashRaw, "direct and nested native raw output");
           }
           presentedBash.push(args.command);
+        }
+        if (name === "bash" && args.command === "seq 1 5000") {
+          const textOf = value => value.content.filter(c => c.type === "text").map(c => c.text).join("\n");
+          largeBash = { piText: textOf(result), text: textOf(override ?? result), details: (override ?? result).details };
         }
         return override;
       },
@@ -197,6 +203,9 @@ try {
       "direct Bash presentation is its native output");
     assert.equal(directBashRaw.split("\ncommit ").length, 25, "all 25 commits reach the model");
     directBashChecked = true;
+  }
+  if (process.env.PI_CODEMODE_BASH_LARGE === "1") {
+    assert.equal((await invoke("bash", { command: "seq 1 5000" }, false)).isError, false, "large Bash succeeded");
   }
   const ctx = { cwd, tools: declared, sessionManager,
     executeTool: (name, args, options = {}) => invoke(name, args, true, options.signal) };
@@ -389,7 +398,7 @@ try {
       persistedImages,
       permissionBlocks, blockedWriteExecutions,
       cancelStarted, cancelObserved,
-      directBashChecked,
+      directBashChecked, largeBash,
       images: result.content.filter(c => c.type === "image").length,
       staleNotice, duplicateNotice, presentedBash,
     }));

@@ -14,8 +14,8 @@ describe("prompts/bash.md — bash output contract doc", () => {
     expect(content).toContain("structuredContent");
   });
 
-  it("names no compaction", () => {
+  it("names no compaction or context guard", () => {
     const content = readFileSync(docPath, "utf8");
-    expect(content).not.toMatch(/RTK|compress/i);
+    expect(content).not.toMatch(/RTK|compress|context guard|details\.bash/i);
   });
 });

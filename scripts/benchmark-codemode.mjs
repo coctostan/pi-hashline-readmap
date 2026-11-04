@@ -25,7 +25,7 @@ function run(program) {
     encoding: "utf8", timeout: 120_000, maxBuffer: 10 * 1024 * 1024,
     env: {
       ...process.env, PI_CODEMODE_PROGRAM: JSON.stringify(program),
-      PI_CODEMODE_CASE: 'text("case=PASS");', PI_HASHLINE_BASH_CONTEXT_GUARD: "0",
+      PI_CODEMODE_CASE: 'text("case=PASS");',
     },
   });
   const processMs = performance.now() - started;
