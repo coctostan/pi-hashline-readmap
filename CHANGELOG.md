@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- A `bash` anti-pattern hint names only active tools: with `grep` inactive (`--exclude-tools grep`), `rg foo` carries no `Prefer the grep tool` hint, and the same holds for `find`'s file-search hint and the `read` and `edit` hints.
+
 ## [0.20.0] - 2026-11-04
 
 `bash` output reaches the model as Pi gives it, ANSI codes stripped, plus the hints toward the dedicated tools. The compressors and the context guard kept guessing which lines were noise and dropping lines that mattered, so they are gone.

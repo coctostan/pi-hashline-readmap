@@ -289,7 +289,11 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
     return {
-      content: [{ type: "text" as const, text: applyWarning(presentBashOutput(command, originalText)) }, ...nonTextContent],
+      content: [
+        // Manual handler calls may pass a pi without getActiveTools; an unknown tool set gets no hint.
+        { type: "text" as const, text: applyWarning(presentBashOutput(command, originalText, pi.getActiveTools?.() ?? [])) },
+        ...nonTextContent,
+      ],
       // Notices change presentation only; retain the native machine-readable result.
       ...(event.structuredContent !== undefined ? { structuredContent: event.structuredContent } : {}),
       details: {
