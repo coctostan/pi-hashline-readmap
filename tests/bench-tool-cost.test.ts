@@ -7,9 +7,9 @@ const bytes = (text: string) => Buffer.byteLength(text);
 const alpha = {
 	name: "alpha",
 	description: "Alpha does a; prefer beta for b.",
-	parameters: { type: "object", properties: { x: { type: "string", description: "Not betamax, but beta/alpha." } } },
+	parameters: { type: "object", properties: { x: { type: "string", description: "Not betamax, but the beta-ready path." } } },
 };
-const beta = { name: "beta", description: "Beta — not alpha-ish, nor alphabet.", parameters: { type: "object", properties: {} } };
+const beta = { name: "beta", description: "Beta — not alphabet.", parameters: { type: "object", properties: {} } };
 const systemPrompt = [
 	"Intro.",
 	"<tools>",
@@ -65,7 +65,7 @@ describe("findCrossReferences", () => {
 	it("lists each provider-visible text of one tool naming another, as a whole case-sensitive word", () => {
 		expect(findCrossReferences(capture)).toEqual([
 			{ tool: "alpha", where: "description", names: ["beta"], text: "Alpha does a; prefer beta for b." },
-			{ tool: "alpha", where: "$.properties.x", names: ["beta"], text: "Not betamax, but beta/alpha." },
+			{ tool: "alpha", where: "$.properties.x", names: ["beta"], text: "Not betamax, but the beta-ready path." },
 			{ tool: "alpha", where: "guideline", names: ["beta"], text: "Shared rule names beta." },
 			{ tool: "beta", where: "snippet", names: ["alpha"], text: "Beta snippet naming alpha" },
 		]);
@@ -78,8 +78,15 @@ describe("formatDeclarationReport", () => {
 		const text = formatDeclarationReport(report);
 		expect(text).toContain("Pi 9.9.9 (/host)");
 		expect(text).toMatch(/^alpha\s+\d+\s+23\s+45\s+\d+\s+\d+$/m);
-		expect(text).toMatch(new RegExp(`^shared system prompt\\s+${report.shared.bytes}\\s+${report.shared.tokens}$`, "m"));
-		expect(text).toMatch(new RegExp(`^total\\s+${report.total.bytes}\\s+${report.total.tokens}$`, "m"));
+		const lines = text.split("\n");
+		const header = lines.find((line) => line.startsWith("tool ")) ?? "";
+		const bytesEnd = header.indexOf("bytes") + "bytes".length;
+		for (const [label, cost] of [["shared system prompt", report.shared], ["total", report.total]] as const) {
+			const line = lines.find((candidate) => candidate.startsWith(label)) ?? "";
+			expect(line.length, label).toBe(header.length);
+			expect(line.slice(bytesEnd - 11, bytesEnd).trim(), label).toBe(String(cost.bytes));
+			expect(line.slice(bytesEnd).trim(), label).toBe(String(cost.tokens));
+		}
 		expect(text).toContain("beta snippet names alpha: Beta snippet naming alpha");
 	});
 });

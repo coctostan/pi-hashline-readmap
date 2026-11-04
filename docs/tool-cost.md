@@ -48,7 +48,7 @@ Locked Pi 1.5.0, Node v26.13.0, macOS, nu 0.116.1 and ast-grep 0.51.0 installed,
 
 The three tools under ruling, `grep`, `find` and `ls`, together cost 4146 bytes, about 1037 tokens, 28% of the total bytes. That excludes the text in other tools that names them, below.
 
-Text in one tool naming another, matched as a whole case-sensitive word. Some hits use the name as a plain word ("after write", "edit anchors"); the list keeps them for a reader to judge:
+Text in one tool naming another, matched as a whole case-sensitive word, a hyphen counting as a word break. Some hits use the name as a plain word ("after write", "edit anchors") or inside another name ("ast-grep", the CLI); the list keeps them for a reader to judge:
 
 | tool | where | names | text |
 |---|---|---|---|
@@ -63,7 +63,12 @@ Text in one tool naming another, matched as a whole case-sensitive word. Some hi
 | write | snippet | edit | Create or overwrite a complete file and return edit anchors |
 | write | guideline | edit | Use edit, not write, for small changes. |
 | grep | `$.properties.summary` | edit | Per-file counts only; no edit anchors |
+| grep | snippet | edit | Search file contents and return edit-ready hashline anchors |
+| grep | guideline | edit | Grep text for edit-ready anchors. |
 | grep | guideline | ast_search | Use grep summary for counts; use ast_search for structural code patterns. |
+| ast_search | description | grep | ast-grep search; return anchors. |
+| ast_search | `$.properties.pattern` | grep | ast-grep structural pattern |
+| ast_search | snippet | edit, grep | Search code structurally with ast-grep and return edit-ready anchors |
 | nu | guideline | read, bash, grep, ast_search, ls, find | Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs. |
 | ls | guideline | read, edit | Join ls result.path with entries[].name before read/edit. |
 | find | guideline | read, edit | Join find entries to resolved path (default cwd) before read/edit; relative roots use cwd. |

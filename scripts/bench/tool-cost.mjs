@@ -85,7 +85,7 @@ function parameterDescriptions(node, path = "$", out = []) {
 /** Each provider-visible text of one tool naming another declared tool, as a whole case-sensitive word. */
 export function findCrossReferences({ tools, prompts }) {
 	const names = tools.map((tool) => tool.name);
-	const named = (text, own) => names.filter((name) => name !== own && new RegExp(`(?<![\\w-])${name}(?![\\w-])`).test(text));
+	const named = (text, own) => names.filter((name) => name !== own && new RegExp(`\\b${name}\\b`).test(text));
 	return tools.flatMap((tool) => {
 		const { snippet, guidelines = [] } = prompts[tool.name] ?? {};
 		const texts = [
@@ -110,8 +110,8 @@ export function formatDeclarationReport({ host, version, tools, shared, total, c
 		"",
 		row(["tool", "declaration", "snippet", "guidelines", "bytes", "~tokens"]),
 		...tools.map((tool) => row([tool.name, tool.declarationBytes, tool.snippetBytes, tool.guidelineBytes, tool.bytes, tool.tokens])),
-		row(["shared system prompt", shared.bytes, shared.tokens]),
-		row(["total", total.bytes, total.tokens]),
+		row(["shared system prompt", "", "", "", shared.bytes, shared.tokens]),
+		row(["total", "", "", "", total.bytes, total.tokens]),
 		"",
 		"Text in one tool naming another:",
 		...crossReferences.map((ref) => `${ref.tool} ${ref.where} names ${ref.names.join(", ")}: ${ref.text}`),
