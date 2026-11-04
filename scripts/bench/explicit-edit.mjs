@@ -268,7 +268,7 @@ function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs }) {
 	});
 }
 
-function summarizeEvents(stdout) {
+export function summarizeEvents(stdout) {
 	const summary = { toolCalls: {}, toolErrors: 0, turns: 0, tokens: 0, cost: 0, models: new Set(), errors: [] };
 	for (const line of stdout.split("\n")) {
 		if (!line.trim()) continue;
@@ -440,7 +440,7 @@ async function main() {
 	console.log(markdown);
 }
 
-main().catch((error) => {
+if (process.argv[1] === fileURLToPath(import.meta.url)) main().catch((error) => {
 	console.error(error instanceof Error ? error.stack ?? error.message : error);
 	process.exit(1);
 });
