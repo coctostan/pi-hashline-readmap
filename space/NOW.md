@@ -1,5 +1,5 @@
 # Now
-- [uncompacted-bash](arcs/uncompacted-bash.md) (Bash output reaches the model as Pi gives it): removes every bash compactor and the context guard, so the model reads Pi's own output; ships in 0.20.0; active: slice 3 (Docs ship the removal), on `uncompacted-bash/03-docs-ship-the-removal`
+- [uncompacted-bash](arcs/uncompacted-bash.md) (Bash output reaches the model as Pi gives it): removes every bash compactor and the context guard, so the model reads Pi's own output; ships in 0.20.0; all slices merged; next: `close`
 - [tools-vs-bash](arcs/tools-vs-bash.md) (Each search tool earns its place over bash): an A/B against stock Pi rules whether `find`, `ls` and `grep` beat bash on context and confusion; waits for uncompacted-bash (Bash output reaches the model as Pi gives it); next: slice 1 (Bash hints name only active tools)
 
 ## Next
