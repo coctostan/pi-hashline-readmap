@@ -118,7 +118,7 @@ Prerequisite:
 Expected behavior:
 
 - returns Pi's own output with ANSI codes stripped; nothing summarizes, reorders or trims it beyond Pi's own truncation, which keeps the last 2000 lines or 50 KB and names its `Full output:` file
-- appends an anti-pattern hint after a blank line when the command reaches for a dedicated tool (`rg foo` ends with `[Hint: Prefer the grep tool for content search.]`)
+- appends an anti-pattern hint after a blank line when the command reaches for a dedicated tool that is active (`rg foo` ends with `[Hint: Prefer the grep tool for content search.]`, and with `--exclude-tools grep` carries no hint)
 - prefixes doom-loop and context-hygiene notices before the output and a `---` line
 - leaves `structuredContent` as Pi's native value, so scripts receive the raw output, `exit_code`, and Pi's own truncation and `full_output_path`
 - writes no temp files of its own
