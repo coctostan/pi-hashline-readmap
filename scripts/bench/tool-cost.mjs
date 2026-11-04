@@ -3,7 +3,7 @@
  * What each tool costs in context: its provider-visible declaration bytes and estimated tokens.
  *
  * Usage:
- *   node scripts/bench/tool-cost.mjs [--declarations] [--json]
+ *   node scripts/bench/tool-cost.mjs [--declarations] [--sessions <dir>] [--json]
  *
  * --declarations (the default) loads this checkout's index.ts alone into the selected host
  * (PI_COMPAT_HOST, else the locked Pi) through createAgentSession, sends one prompt to a stub
@@ -12,13 +12,18 @@
  * `- name: snippet` line and its guideline lines; the rest of the system prompt is shared.
  * Bytes are UTF-8; tokens are characters / 4, an estimate, not a provider tokenizer. Then it
  * lists each provider-visible text of one tool that names another declared tool.
+ *
+ * --sessions <dir> scores every Pi session file under dir (such as ~/.pi/agent/sessions) with
+ * confusion.mjs: per tool its calls, result bytes and confusion signals, and per task the calls
+ * before the edited file is first named. Alone it skips the declarations; add --declarations for both.
  */
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { selectCompatHost } from "../pi-compat-host.mjs";
+import { scoreSession, summarizeCorpus } from "./confusion.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const encoder = new TextEncoder();
@@ -168,15 +173,62 @@ export async function captureDeclarations() {
 	}
 }
 
+/** Score every `.jsonl` session file under `dir`, oldest first by file name, so a fork follows its parent. */
+export function scanSessions(dir) {
+	const files = readdirSync(dir, { recursive: true })
+		.map(String)
+		.filter((name) => name.endsWith(".jsonl"))
+		.sort((a, b) => basename(a).localeCompare(basename(b)) || a.localeCompare(b));
+	return { dir: resolve(dir), ...summarizeCorpus(files.map((name) => scoreSession(readFileSync(join(dir, name), "utf8")))) };
+}
+
+export function formatSessionReport({ dir, sessions, calls, duplicates, unknownToolSet, tools, wrongTool, tasks }) {
+	const width = Math.max(10, ...tools.map((tool) => tool.name.length));
+	const row = (cells) => cells.map((cell, index) => (index === 0 ? String(cell).padEnd(width) : String(cell).padStart(10))).join(" ").trimEnd();
+	const counts = (record) => Object.entries(record).sort((a, b) => b[1] - a[1]);
+	const spread = (p) => (p ? `p50 ${p.p50}, p90 ${p.p90}, p99 ${p.p99}` : "none");
+	return [
+		`${sessions} session files under ${dir}: ${calls} tool calls, ${duplicates} more copied from a forked parent and counted once`,
+		`${unknownToolSet} calls have no recorded tool set, so no wrong-tool score`,
+		"result bytes are UTF-8 of the result's text blocks",
+		"",
+		row(["tool", "calls", "errors", "rejected", "redundant", "wrong-tool", "bytes p50", "p90", "p99", "total"]),
+		...tools.map((tool) => row([
+			tool.name, tool.calls, tool.errors, tool.rejected, tool.redundant, tool.wrongTool,
+			...(tool.bytes ? [tool.bytes.p50, tool.bytes.p90, tool.bytes.p99, tool.bytes.total] : ["", "", "", ""]),
+		])),
+		"",
+		"Wrong-tool picks, by the hint bash would add:",
+		...counts(wrongTool).map(([hint, count]) => `${String(count).padStart(8)}  ${hint}`),
+		"",
+		`Tasks with an edit: ${tasks.count}; tool calls before the first naming the edited file: ${spread(tasks.callsBeforeTouch)}`,
+		`First named by: ${counts(tasks.touchedBy).map(([tool, count]) => `${tool} ${count}`).join(", ")}`,
+	].join("\n");
+}
+
+const USAGE = "usage: node scripts/bench/tool-cost.mjs [--declarations] [--sessions <dir>] [--json]";
+
 async function main(args) {
-	const unknown = args.filter((arg) => arg !== "--declarations" && arg !== "--json");
-	if (unknown.length) {
-		console.error(`unknown argument: ${unknown.join(" ")}\nusage: node scripts/bench/tool-cost.mjs [--declarations] [--json]`);
+	const sessionsAt = args.indexOf("--sessions");
+	const sessionsDir = sessionsAt === -1 ? null : args[sessionsAt + 1];
+	const rest = sessionsAt === -1 ? args : args.filter((_arg, index) => index !== sessionsAt && index !== sessionsAt + 1);
+	const unknown = rest.filter((arg) => arg !== "--declarations" && arg !== "--json");
+	if (unknown.length || (sessionsAt !== -1 && (!sessionsDir || sessionsDir.startsWith("--")))) {
+		console.error(`${unknown.length ? `unknown argument: ${unknown.join(" ")}` : "--sessions needs a directory"}\n${USAGE}`);
 		process.exit(2);
 	}
-	const capture = await captureDeclarations();
-	const report = { host: capture.host, version: capture.version, ...accountDeclarations(capture), crossReferences: findCrossReferences(capture) };
-	console.log(args.includes("--json") ? JSON.stringify(report, null, 2) : formatDeclarationReport(report));
+	const declarations = !sessionsDir || rest.includes("--declarations");
+	let report = {};
+	if (declarations) {
+		const capture = await captureDeclarations();
+		report = { host: capture.host, version: capture.version, ...accountDeclarations(capture), crossReferences: findCrossReferences(capture) };
+	}
+	if (sessionsDir) report.sessions = scanSessions(sessionsDir);
+	if (rest.includes("--json")) console.log(JSON.stringify(report, null, 2));
+	else console.log([
+		...(declarations ? [formatDeclarationReport(report)] : []),
+		...(sessionsDir ? [formatSessionReport(report.sessions)] : []),
+	].join("\n\n"));
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main(process.argv.slice(2));

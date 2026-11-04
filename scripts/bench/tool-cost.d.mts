@@ -1,3 +1,5 @@
+import type { CorpusSummary } from "./confusion.mjs";
+
 export interface ProviderTool { name: string; description: string; parameters: unknown }
 export interface ToolPrompt { snippet?: string; guidelines?: string[] }
 export interface DeclarationCapture { systemPrompt: string; tools: ProviderTool[]; prompts: Record<string, ToolPrompt> }
@@ -18,3 +20,5 @@ export function accountDeclarations(capture: DeclarationCapture): DeclarationAcc
 export function findCrossReferences(capture: Pick<DeclarationCapture, "tools" | "prompts">): CrossReference[];
 export function formatDeclarationReport(report: DeclarationReport): string;
 export function captureDeclarations(): Promise<DeclarationCapture & { host: string; version: string }>;
+export function scanSessions(dir: string): CorpusSummary & { dir: string };
+export function formatSessionReport(report: CorpusSummary & { dir: string }): string;
