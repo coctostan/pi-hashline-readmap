@@ -18,6 +18,9 @@ jobs:
         npm: ["11.0.0", "12.1.0"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # tests/bench-locate-tasks.test.ts extracts a pinned commit with git archive.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
