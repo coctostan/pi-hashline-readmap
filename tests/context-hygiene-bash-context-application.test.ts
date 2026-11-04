@@ -40,8 +40,6 @@ describe("Bash context hygiene context application", () => {
     const staleStatus = toolResult("status-before", "bash", " M src/example.ts", {
       existing: "kept",
       contextHygiene: { tool: "bash" },
-      bashContextGuard: { trimmed: false },
-      bashOriginalOutput: { source: "pi-visible" },
     });
     const edit = toolResult("edit-file", "edit", "edit succeeded");
 
@@ -51,8 +49,6 @@ describe("Bash context hygiene context application", () => {
     expect(applied[0].details).toMatchObject({
       existing: "kept",
       contextHygiene: { tool: "bash" },
-      bashContextGuard: { trimmed: false },
-      bashOriginalOutput: { source: "pi-visible" },
       contextHygieneStale: {
         status: "stale",
         originalTool: "bash",

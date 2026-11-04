@@ -25,7 +25,7 @@ export function runProgram(program: RecipeProgram, env: Record<string, string> =
     encoding: "utf8", timeout: 120_000, maxBuffer: 10 * 1024 * 1024,
     env: {
       ...process.env, PI_CODEMODE_CASE: 'text("case=PASS");',
-      PI_HASHLINE_BASH_CONTEXT_GUARD: "0", PI_CODEMODE_PROGRAM: JSON.stringify(program), ...env,
+      PI_CODEMODE_PROGRAM: JSON.stringify(program), ...env,
     },
   });
   const value = JSON.parse(stdout.trim().split("\n").at(-1)!);

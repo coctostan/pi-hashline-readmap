@@ -14,8 +14,6 @@ import { resolveShellPath } from "./src/hashline-settings.js";
 import { ServedLines, recordServedFromResult } from "./src/served-lines.js";
 import { resolveToCwd } from "./src/path-utils.js";
 import { presentBashOutput } from "./src/bash-output.js";
-import { ensureBashOriginalOutputSnapshot, selectBashOriginalOutput } from "./src/rtk/bash-original-output.js";
-import { applyBashContextGuard, resolveBashContextGuardConfig, type BashContextGuardConfig } from "./src/rtk/bash-context-guard.js";
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
 import { consumeContextHygieneNotice, resetContextHygieneNoticeLedger } from "./src/context-hygiene-notices.js";
 import { buildBashCommandState } from "./src/bash-command-state.js";
@@ -135,10 +133,6 @@ function hasAppliedEffects(effects: ContextHygieneAppliedEffects): boolean {
   return effects.retired.count > 0 || effects.stale.count > 0;
 }
 
-function willBashContextGuardTrim(text: string, config: BashContextGuardConfig): boolean {
-  return config.enabled && text !== "" && (text.split("\n").length > config.maxLines || Buffer.byteLength(text, "utf8") > config.maxBytes);
-}
-
 export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   // Codemode integration wraps outermost so annotations/outputSchema are set before the raw
   // argument guard forwards the (same, mutated) definition to Pi.
@@ -254,12 +248,6 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
 
     const existingDetails =
       event.details && typeof event.details === "object" ? (event.details as Record<string, unknown>) : {};
-    const bashContextGuardConfig = resolveBashContextGuardConfig();
-    const originalSelection = selectBashOriginalOutput({
-      visibleText: originalText,
-      fullOutputPath: existingDetails.fullOutputPath,
-      restore: bashContextGuardConfig.enabled,
-    });
 
     const command =
       event.input && typeof event.input === "object" && typeof (event.input as { command?: unknown }).command === "string"
@@ -271,7 +259,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
           // Prefer the live host context; legacy/manual handler calls may omit ctx.
           cwd: ctx?.cwd ?? process.cwd(),
           isError: event.isError === true,
-          text: originalSelection.inputForRtk || originalText,
+          text: originalText,
         })
       : undefined;
     const contextHygieneResources: ContextHygieneResource[] = command ? [buildCommandResource(command)] : [];
@@ -300,31 +288,13 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       if (prefixParts.length === 0) return body;
       return `${prefixParts.join("\n\n")}\n\n---\n${body}`;
     };
-    const finalText = applyWarning(presentBashOutput(command, originalSelection.inputForRtk));
-    const originalMetadata = originalSelection.metadata;
-    const originalMetadataForGuard = willBashContextGuardTrim(finalText, bashContextGuardConfig)
-      ? ensureBashOriginalOutputSnapshot({
-          visibleText: originalText,
-          metadata: originalMetadata,
-          enabled: bashContextGuardConfig.enabled,
-        })
-      : originalMetadata;
-    const guarded = applyBashContextGuard({
-      text: finalText,
-      command,
-      originalMetadata: originalMetadataForGuard,
-      config: bashContextGuardConfig,
-    });
-    const bashOriginalOutput = guarded.metadata.trimmed ? originalMetadataForGuard : originalMetadata;
     return {
-      content: [{ type: "text" as const, text: guarded.text }, ...nonTextContent],
+      content: [{ type: "text" as const, text: applyWarning(presentBashOutput(command, originalText)) }, ...nonTextContent],
       // Notices change presentation only; retain the native machine-readable result.
       ...(event.structuredContent !== undefined ? { structuredContent: event.structuredContent } : {}),
       details: {
         ...existingDetails,
         contextHygiene: contextHygieneForDetails,
-        bashContextGuard: guarded.metadata,
-        ...(bashOriginalOutput ? { bashOriginalOutput } : {}),
       },
     };
   });

@@ -52,7 +52,7 @@ describe("issue #222: Bash build failure integration", () => {
     );
     expect(failed.details.existing).toBe("kept");
     expect(failed.details.contextHygiene.commandState.outcome).toBe("failure");
-    expect(Object.keys(failed.details).sort()).toEqual(["bashContextGuard", "bashOriginalOutput", "contextHygiene", "existing"]);
+    expect(Object.keys(failed.details).sort()).toEqual(["contextHygiene", "existing"]);
 
     const compilerError = "error TS5023: Unknown compiler option '--nonexistentflag'.\n\nCommand exited with code 1";
     const exactReproduction = await handleToolResult(

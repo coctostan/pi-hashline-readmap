@@ -191,7 +191,7 @@ it.each(cases)("$name", boundary => {
   const stdout = execFileSync(process.execPath, [resolve("tests/helpers/selected-host-codemode.mjs"), host], {
     cwd: process.cwd(), encoding: "utf8", timeout: 120_000, maxBuffer: 10 * 1024 * 1024,
     env: {
-      ...process.env, PI_CODEMODE_CASE: code, PI_HASHLINE_BASH_CONTEXT_GUARD: "0",
+      ...process.env, PI_CODEMODE_CASE: code,
       PI_CODEMODE_VISIBLE: boundary.visible ? "1" : "0",
       PI_CODEMODE_DIRECT_IMAGE: boundary.directImage ? "1" : "0",
       PI_CODEMODE_DISCOVERY: boundary.discovery ? "1" : "0",

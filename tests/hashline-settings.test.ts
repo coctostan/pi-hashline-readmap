@@ -91,7 +91,22 @@ describe("resolveHashlineJsonSettings", () => {
     expect(result.warnings[0].message).toContain("Invalid JSON");
   });
 
+  it("loads a file still holding the removed bashContextGuard section, silently ignoring it", async () => {
+    const root = tempRoot("hashline-settings-removed-guard");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({
+      grep: { maxLines: 12 },
+      bashContextGuard: { enabled: false, maxLines: 1e3, maxBytes: 1.5, headLines: 0, tailLines: 5 },
+    }));
+    __setHashlineSettingsPathsForTest({
+      globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
+      projectSettingsPath,
+    });
 
+    expect(resolveHashlineJsonSettings()).toEqual({ settings: { grep: { maxLines: 12 } }, warnings: [] });
+  });
   it("ignores invalid field values without discarding valid fields", async () => {
     const root = tempRoot("hashline-settings-invalid-fields");
     cleanup.push(root);
@@ -100,7 +115,7 @@ describe("resolveHashlineJsonSettings", () => {
     await writeFile(projectSettingsPath, `{
       "grep": { "maxLines": 1e3, "maxBytes": 1.5 },
       "mapCache": { "dir": "", "enabled": "no" },
-      "bashContextGuard": { "enabled": false, "maxLines": 1e3, "maxBytes": 1.5, "headLines": 0, "tailLines": 5 }
+      "display": { "previewLines": 0 }
     }`);
     __setHashlineSettingsPathsForTest({
       globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
@@ -109,16 +124,13 @@ describe("resolveHashlineJsonSettings", () => {
 
     const result = resolveHashlineJsonSettings();
     expect(result.settings).toEqual({
-      bashContextGuard: { enabled: false, tailLines: 5 },
+      display: { previewLines: 0 },
     });
     expect(result.warnings.map((warning) => warning.path)).toEqual([
       "grep.maxLines",
       "grep.maxBytes",
       "mapCache.dir",
       "mapCache.enabled",
-      "bashContextGuard.maxLines",
-      "bashContextGuard.maxBytes",
-      "bashContextGuard.headLines",
     ]);
   });
 
@@ -129,7 +141,7 @@ describe("resolveHashlineJsonSettings", () => {
     await mkdir(join(projectSettingsPath, ".."), { recursive: true });
     await writeFile(projectSettingsPath, `{
       "grep": { "maxLines": 12, "maxLines": 0 },
-      "bashContextGuard": { "tailLines": 5, "tailLines": 1e3 }
+      "display": { "previewLines": 5, "previewLines": 1e3 }
     }`);
     __setHashlineSettingsPathsForTest({
       globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
@@ -140,7 +152,7 @@ describe("resolveHashlineJsonSettings", () => {
     expect(result.settings).toEqual({});
     expect(result.warnings.map((warning) => warning.path)).toEqual([
       "grep.maxLines",
-      "bashContextGuard.tailLines",
+      "display.previewLines",
     ]);
   });
 
@@ -190,7 +202,7 @@ describe("resolveHashlineJsonSettings", () => {
     await mkdir(join(projectSettingsPath, ".."), { recursive: true });
     await writeFile(projectSettingsPath, `{
       "grep": { "note": "literal } brace", "nested": { "maxLines": 0 }, "maxLines": 12, "maxBytes": 1024 },
-      "bashContextGuard": { "nested": { "tailLines": 0 }, "tailLines": 5 }
+      "display": { "nested": { "previewLines": 1e3 }, "previewLines": 5 }
     }`);
     __setHashlineSettingsPathsForTest({
       globalSettingsPath: join(root, "home/.pi/agent/hashline-readmap/settings.json"),
@@ -199,7 +211,7 @@ describe("resolveHashlineJsonSettings", () => {
 
     const result = resolveHashlineJsonSettings();
     expect(result.settings.grep).toEqual({ maxLines: 12, maxBytes: 1024 });
-    expect(result.settings.bashContextGuard).toEqual({ tailLines: 5 });
+    expect(result.settings.display).toEqual({ previewLines: 5 });
     expect(result.warnings).toEqual([]);
   });
 
