@@ -38,6 +38,13 @@ describe("scoreSession", () => {
 		expect(legacyCall).toMatchObject({ tool: "bash", wrongTool: null, toolSetKnown: false });
 		// a pipe filter is no repo search: only each pipeline's head is scored
 		expect(byId(fork).c19).toMatchObject({ tool: "bash", wrongTool: null, redundant: false, toolSetKnown: true });
+		// a compaction's systemMessage is a complete checkpoint: it replaces the tool set rather than adding to it
+		const compacted = [
+			{ type: "message", message: { role: "system", toolsAdded: [{ name: "bash" }, { name: "grep" }] } },
+			{ type: "compaction", systemMessage: { role: "system", toolsAdded: [{ name: "bash" }] } },
+			{ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "k1", name: "bash", arguments: { command: "rg foo" } }] } },
+		].map((entry) => JSON.stringify(entry)).join("\n");
+		expect(scoreSession(compacted).calls[0]).toMatchObject({ wrongTool: null, toolSetKnown: true });
 	});
 
 	it("counts, per task with an edit, the calls before the first one naming the edited file", () => {
