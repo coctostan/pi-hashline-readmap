@@ -416,7 +416,7 @@ text({ inputs, joined, counts: { joinedFiles: joined.length },
 
 ## Migrate external CLI JSON
 
-Bash remains the path for external commands. Codemode cannot spawn a process itself. Run a CLI with a timeout, check native exit/truncation metadata, then parse and project its JSON privately. Do not parse RTK/rendered output or print both raw output and summaries.
+Bash remains the path for external commands. Codemode cannot spawn a process itself. Run a CLI with a timeout, check native exit/truncation metadata, then parse and project its JSON privately. Do not parse rendered output or print both raw output and summaries.
 
 For a credential-free demonstration, seed migration-report.cjs with:
 ```js
@@ -427,7 +427,7 @@ console.log(JSON.stringify([
 ```
 The labeled codemode script invokes that Node CLI. Adapt cliCommand deliberately for a real external CLI producing the same bounded shape, for example gh issue list --limit 5 --json number,title,state (requires its own installation/authentication). This fixture verifies the tool/JSON boundary, not a remote GitHub integration or provider credentials. It is not a Bash replacement for reading repository files.
 
-The CLI must return at most five issue rows. Parse at most 65536 output characters and print at most five 120-character titles; the Bash timeout is ten seconds and codemode has a 60-second deadline and 2000-token recovery cap. Counts describe returned rows only, not all remote issues. Failed/rejected, nonzero, truncated, oversized, malformed JSON, and wrong-shape responses are reported before aggregation. Native Bash may retain at most 1 MiB in output; truncated JSON must not be parsed. Retain full_output_path for deliberate recovery. PI_RTK_BYPASS does not bypass native truncation.
+The CLI must return at most five issue rows. Parse at most 65536 output characters and print at most five 120-character titles; the Bash timeout is ten seconds and codemode has a 60-second deadline and 2000-token recovery cap. Counts describe returned rows only, not all remote issues. Failed/rejected, nonzero, truncated, oversized, malformed JSON, and wrong-shape responses are reported before aggregation. Native Bash may retain at most 1 MiB in output; truncated JSON must not be parsed. Retain full_output_path for deliberate recovery.
 
 <!-- recipe:nu-cli -->
 ~~~js

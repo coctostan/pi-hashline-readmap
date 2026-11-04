@@ -6,30 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-### Fixed
+## [0.20.0] - 2026-11-04
 
-- The HTTP compressor drops a line as wget progress only when the whole line is a wget dot-progress row (`NK`, dot clusters, then its percent, rate and ETA or total time), so response bodies keep lines that merely start like one. Before, `curl` output holding `du`'s `12K\t./src` or `0K .NET runtime missing` lost those lines with nothing in `dropped`; a resumed download's `,` rows are now dropped as progress too.
-- Every compressor drops a line as noise only when the whole line has its noise's shape, or, for a tool's status prefix followed by its own message, only with the separator after the prefix, so output lines that merely start or end like noise are kept. Before, a `curl -s` body line `% Total % Received % Xferd tax report` and rsync's `deleting report(xfr#1, to-chk=5/7)` vanished with nothing in `dropped`; the same applied to scp, make, Gradle, Docker, cargo, npm and `git diff` noise. `docs/bash-output.md` lists which noise is matched whole and which by prefix; prefix noise still drops a line of the command's own that starts with the same word, like a build script's `Running out of memory`.
-- `Original output:` names Pi's full-output file only when Pi's result metadata (`details.fullOutputPath`) names it, never from a `Full output: <path>` line in the text. Before, a command that printed such a line, like a commit message in `git log --oneline`, had its output replaced by that file's content, or, with `PI_HASHLINE_BASH_CONTEXT_GUARD=0`, had that file named as its original; now its own output is compressed and a `0600` copy of it is named.
-- `git diff` with `--word-diff`, `--word-diff-regex` or `--color-words` passes through unchanged. Before, the compressor read only a leading `+` or `-` as a change, so `--word-diff=plain` cut an edited line like `line [-old1-]{+new1+}` as `... (1 context lines)`, `--color-words` did the same, and porcelain's word lines were summed as `+N -N` lines.
-- The HTTP compressor drops a line as a curl progress row only when every column has the shape and width curl's `lib/progress.c` prints, in the grammar of curl up to 8.16.0, of 8.17.0 or of 8.18.0 and later. Before, any word in a size or speed column passed, so a `curl -s` body line like `100 users 100 active 0 banned n/a n/a --:--:-- --:--:-- --:--:-- n/a` vanished with nothing in `dropped`; and a meter whose in-place updates arrive joined by `\r` on one line, as curl prints them, and most of 8.18.0's rows were kept; they are now dropped as noise.
+`bash` output reaches the model as Pi gives it, ANSI codes stripped, plus the hints toward the dedicated tools. The compressors and the context guard kept guessing which lines were noise and dropping lines that mattered, so they are gone.
 
-## [0.20.0] - 2026-11-02
+### Changed
 
-Compressed `bash` output no longer misstates `git status` tracking and conflicts, shaped `find` output or build warnings. Each compressor drops only named noise without saying so and reports every other drop in its metadata, and every compressed result names a saved copy of its output before compression, so recovering what was cut never needs a re-run.
+- A `bash` result's text is Pi's own output with ANSI codes stripped, followed by an anti-pattern hint when the command reaches for a dedicated tool and preceded by any doom-loop or context-hygiene notice. Nothing summarizes, reorders or trims it beyond Pi's own truncation, which keeps the last 2000 lines or 50 KB and names its `Full output:` file. `structuredContent` stays Pi's native value.
+- Bash context-hygiene diagnostics read the text Pi returns, not a restored full output.
+- The `bash` description and `prompts/bash.md` name no compression or context guard.
 
-### Added
+### Removed (breaking)
 
-- `details.rtkCompaction.dropped` (mirrored at `details.ptcValue.rtkCompaction`): one `{ count, unit }` per drop marker in the output, in output order, as the compressor reported it when it wrote the marker, so `... and 3 more commits` is `{ count: 3, unit: "commits" }`. A marker-like line the command printed itself is no drop. Always present; `[]` when nothing was dropped.
-- Every compressed result's `[RTK: compressed …]` notice names `Original output: <path>`, the output before compression: Pi's own full-output file when Pi truncated it, else a `0600` temp file holding the compressor's input byte for byte, also with `PI_HASHLINE_BASH_CONTEXT_GUARD=0`. `details.bashOriginalOutput.originalPath` holds the same path, and the context guard's preview reuses it. If the copy cannot be written, the output is not compressed: it passes through as under `PI_RTK_BYPASS=1`, with `details.compressionInfo.bypassedBy: "unsaved-original"` and `details.bashOriginalOutput.snapshotWriteError` saying why. Before, a copy was saved only when the context guard trimmed, and the notice named only `PI_RTK_BYPASS=1 <command>`.
-
-### Fixed
-
-- `details.rtkCompaction.truncated` is true exactly when `dropped` is non-empty, set by the compressor's own drop rather than by matching marker text. Before, a 21-line `git log --oneline` whose dropped 21st line read `... and 1 more lines` reported `truncated: false`.
-- `git status -sb` keeps the branch line's tracking (`📌 main...origin/main [ahead 1]`) and lists every unmerged path with its code (`DD AU UD UA DU AA UU`) under a last `⚠️ Conflicts: N files` section that no budget cuts. Before, it showed `📌 main` and listed `DU a.ts` under Staged. Type changes (`T`), worktree renames and copies, and intent-to-add files are listed as changes, and `!!` paths under `🚫 Ignored`, cut at 3 with `  ... and N more files`.
-- `find` with an action that shapes its output (`-printf`, `-fprintf`, `-ls`, `-fls`, `-exec`, `-execdir`, `-ok`, `-okdir`, `-print0`, `-fprint0`) passes through unchanged. Before, `find src -printf '%s %p\n'` was summarized into per-directory counts and lost its file names, and `find -exec eslint` was read as a linter run.
-- A successful build keeps its warnings: up to 5, each cut at 10 lines by `  ... and N more lines`, then `... and N more warnings`, the budget errors already had. A failed command's output still passes through uncompressed. Only real diagnostics count: cargo's `generated N warnings` summary is no warning, so one cargo warning reports `1 warning(s)`, not 2. tsc warnings (`path(l,c): warning TSn:`) are read too. Before, `npm run build` with a tsc warning returned only `✓ Build successful (1 units compiled)`.
-- Every route drops only the noise `docs/bash-output.md` names beside its markers, and keeps or counts every other line: the linter's per-file cut of its top 3 rules ends `    ... and N more rules` and lines that are no finding are kept; `git diff` keeps renames, file modes, binary-file lines, git's warnings and headers it can't read, and passes output without `diff --git` through; a build keeps lines outside its diagnostics; Gradle keeps a `FAILED` task line; Docker builds and package-manager installs drop only their named noise; `rsync`'s file list is kept to 10 entries, then `... and N more files`.
+- The command-aware compressors (test runners, builds and build tools, Git, linters, Docker, package managers, HTTP clients, transfer tools, `find` listings and the generic truncation) and their `[RTK: compressed …]` notice with its `Original output:` path.
+- `PI_RTK_BYPASS=1`, which a command now carries to the shell with no special handling, and the `PI_RTK_SAVINGS=1` savings log.
+- The Bash context guard, its preview of oversized output, and the `hashline-bash-original-*` and `hashline-bash-post-rtk-*` temp files it and the compressors wrote.
+- The `bashContextGuard` settings section, which a settings file may still hold: it is ignored without a warning. The `PI_HASHLINE_BASH_CONTEXT_GUARD`, `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES`, `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES`, `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES` and `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES` variables.
+- Five `bash` `details` fields, with no stub: `rtkCompaction`, `ptcValue.rtkCompaction`, `compressionInfo`, `bashContextGuard` and `bashOriginalOutput`.
+- `docs/bash-output.md`; the README's Bash section points to `prompts/bash.md`.
 
 ## [0.19.2] - 2026-11-02
 

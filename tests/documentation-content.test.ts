@@ -4,16 +4,14 @@ import { describe, expect, it } from "vitest";
 const load = (name: string) => readFileSync(`docs/${name}.md`, "utf8");
 describe("extracted documentation homes", () => {
   it("keeps each advanced document self-contained and linked back", () => {
-    for (const name of ["bash-output", "context-hygiene", "integrations", "structured-output", "configuration", "tool-metadata"]) {
+    for (const name of ["context-hygiene", "integrations", "structured-output", "configuration", "tool-metadata"]) {
       const text = load(name);
       expect(text, name).toContain("pi-hashline-readmap");
       expect(text, name).toContain("[Back to README](../README.md)");
     }
   });
 
-  it("preserves Bash recovery and context-hygiene contracts", () => {
-    const bash = load("bash-output");
-    for (const value of ["RTK route compression", "Bash context guard", "PI_RTK_BYPASS=1", "PI_HASHLINE_BASH_CONTEXT_GUARD=0", "Original/pre-RTK output", "details.rtkCompaction", "details.ptcValue.rtkCompaction", "0600"]) expect(bash, value).toContain(value);
+  it("preserves context-hygiene contracts", () => {
     const hygiene = load("context-hygiene");
     for (const value of ["read-context", "search-context", "command-output", "mutation-after-read", "same-command-success-rerun", "forward-only", "file-not-read", "hash-mismatch", "PI_CONTEXT_HYGIENE_DEBUG=1", "rehydrate"]) expect(hygiene, value).toContain(value);
   });

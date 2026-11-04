@@ -55,7 +55,7 @@ This inventory describes the current deprecation surface. Review it again on the
 | Shared tests | `tests/binary-resolution.test.ts`; `tests/tool-prompt-metadata.test.ts`; `tests/pi-prompt-metadata-integration.test.ts`; `tests/prompt-reference-role.test.ts`; `tests/ptc-error-{contract,codes}.test.ts`; renderer coverage; `tests/codemode-integration.test.ts`; documentation/tool-selection tests | Remove only Nu expectations/cases, retaining other tool, binary, rendering, dependency, and contract coverage. |
 | Mandatory selected-host assertions | `.github/workflows/pi-compatibility.yml`; `tests/pi-host-null-pipeline.test.ts`; `tests/helpers/selected-host-codemode.mjs` | Replace/remove PI_COMPAT_REQUIRE_NU assertions explicitly in the removal release; retain required tool inventories and host failure guards. |
 | User/contributor guidance | README, CHANGELOG, `docs/{configuration,structured-output,integrations,tool-metadata,pi-host-api-audit,codemode-recipes}.md`, AGENTS.md | Update current availability/removal statements without rewriting historical changelog evidence. |
-| Shared guards/results/rendering | `src/{normalize-tool-params,raw-argument-guard,ptc-value,codemode-integration,tui-render-utils}.ts`, `src/rtk/ansi.ts` | Retain functionality used by other tools; do not remove shared APIs. |
+| Shared guards/results/rendering | `src/{normalize-tool-params,raw-argument-guard,ptc-value,codemode-integration,tui-render-utils,ansi}.ts` | Retain functionality used by other tools; do not remove shared APIs. |
 
 No Nu references were found in `scripts/` during the initial scoped audit. This does not replace a fresh repository audit at removal time.
 

@@ -4,9 +4,9 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) [![npm](https://img.shields.io/npm/v/pi-hashline-readmap)](https://www.npmjs.com/package/pi-hashline-readmap)
 
-Upgrade Pi's local coding workflow with hash-anchored reads and edits, structural navigation, safer file exploration, and quieter command output.
+Upgrade Pi's local coding workflow with hash-anchored reads and edits, structural navigation, and safer file exploration.
 
-`pi-hashline-readmap` replaces Pi's `read`, `edit`, `grep`, `write`, `ls`, and `find`; adds enhanced `ast_search`; retains deprecated optional `nu`; and post-processes `bash`.
+`pi-hashline-readmap` replaces Pi's `read`, `edit`, `grep`, `write`, `ls`, and `find`; adds enhanced `ast_search`; retains deprecated optional `nu`; and strips ANSI codes from `bash` output, adding hints toward the dedicated tools.
 
 Bundled `nu` is deprecated but retained. It stays available for at least one published deprecation release; removal requires a separately announced breaking release after migration-example verification and the removal checklist pass. See [Nu deprecation and migration](docs/nu-deprecation.md).
 
@@ -74,8 +74,8 @@ If the file changed between `read` and `edit`, the edit reports a mismatch inste
 - Turn `grep` and `ast_search` results into edit-ready anchors.
 - Read supported images through Pi attachments.
 - Create with `write`; explore with `ls` and `find`, then compose structured results in codemode.
-- Compress noisy test, build, Git, Docker, linter, package-manager, and generic command output while retaining recovery paths.
-- Use one coordinated extension instead of stacking overlapping read, grep, edit, and Bash-output packages.
+- Read `bash` output as Pi returns it, ANSI codes stripped, never summarized.
+- Use one coordinated extension instead of stacking overlapping read, grep, edit, and file-exploration packages.
 
 ## Common workflows
 
@@ -123,7 +123,7 @@ Normal grep output has anchors; summary mode has counts only. `ls` lists one dir
 
 ## Bash output
 
-`PI_RTK_BYPASS=1` skips route compression, but the default-on context guard can still trim oversized output. See [Bash compression and recovery](docs/bash-output.md) for routes, limits, snapshots, bypass behavior, and metadata.
+`bash` returns Pi's own output with ANSI codes stripped; nothing summarizes or trims it beyond Pi's own truncation, which keeps the last 2000 lines or 50 KB and names a `Full output:` file. A hint follows when a command reaches for a dedicated tool, such as `rg` for `grep`. Scripts receive Pi's native Bash value. See the [bash output contract](prompts/bash.md).
 
 ## Configuration
 
@@ -149,7 +149,6 @@ Compact descriptions, parameter descriptions, snippets, and guidelines are provi
 
 Advanced behavior and integration contracts are documented in the references below.
 
-- [Bash output and recovery](docs/bash-output.md)
 - [Configuration and dependencies](docs/configuration.md)
 - [Context hygiene](docs/context-hygiene.md)
 - [Integration surfaces](docs/integrations.md)
@@ -187,7 +186,6 @@ src/
   ls.ts / find.ts         # file exploration
   nu.ts                   # deprecated specialist shell
   readmap/                # structural mapping and symbol lookup
-  rtk/                    # Bash output compression
 prompts/                  # detailed tool references
 docs/                     # advanced user and integration references
 tests/                    # Vitest suite
@@ -204,7 +202,7 @@ PRs are welcome. Update focused tests, prompt references, public docs, and mappe
 - [pi-hashline-edit](https://github.com/nicholasgasior/pi-hashline-edit) — hash-anchored editing
 - [pi-read-map](https://github.com/nicholasgasior/pi-read-map) — structural file maps
 - [pi-repo-map](https://github.com/PurpleMyst/pi-repo-map) — repository-map and tree-sitter inspiration
-- [pi-rtk](https://github.com/mcowger/pi-rtk) — Bash output compression
+- [pi-rtk](https://github.com/mcowger/pi-rtk) — Bash output compression, which this extension carried until 0.20.0
 
 ## License
 
