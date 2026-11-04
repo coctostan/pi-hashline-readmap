@@ -24,7 +24,7 @@ describe("README new-user path", () => {
     expect(proseWords(readme)).toBeLessThanOrEqual(1250);
   });
   it("links extracted references and documents post-248 composition", () => {
-    for (const path of ["docs/bash-output.md", "docs/context-hygiene.md", "docs/integrations.md", "docs/structured-output.md", "docs/configuration.md", "docs/tool-metadata.md"]) expect(readme).toContain(`](${path})`);
+    for (const path of ["docs/context-hygiene.md", "docs/integrations.md", "docs/structured-output.md", "docs/configuration.md", "docs/tool-metadata.md"]) expect(readme).toContain(`](${path})`);
     expect(readme).toContain("Advanced behavior and integration contracts are documented in the references below.");
     expect(readme).toContain('symbol: "registerReadTool", limit: 80'); expect(readme).toContain('symbol: "createDemoDirectory", map: true'); expect(readme).toContain('bundle: "local", map: true');
     expect(readme).toContain("`symbol+offset` is invalid"); expect(readme).toContain("bundle without `symbol` is invalid");

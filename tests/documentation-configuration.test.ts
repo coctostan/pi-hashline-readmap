@@ -30,7 +30,6 @@ describe("configuration reference", () => {
       "<repo>/.pi/hashline-readmap.json",
       "grep.maxLines",
       "mapCache.enabled",
-      "bashContextGuard.enabled",
       "edit.diffDisplay",
       "display.previewLines",
       "bash.shellPath",

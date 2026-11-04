@@ -77,10 +77,10 @@ Every tool result the agent sees carries:
   shown after a mismatch encode the *current* file contents. If the file
   changes again, the same query produces different help text, so
   retries don't fingerprint identically.
-- **Bash output passes through RTK compression.** RTK is deterministic
-  per input, so it doesn't introduce nondeterminism — but it doesn't
-  shield against upstream nondeterminism (timestamps, paths, ANSI codes
-  from tools the user runs) either.
+- **Bash output is Pi's own, ANSI codes stripped.** Stripping is
+  deterministic per input, so it doesn't introduce nondeterminism — but
+  it doesn't shield against upstream nondeterminism (timestamps, paths,
+  progress output from tools the user runs) either.
 
 ### Neutral / depends on usage
 

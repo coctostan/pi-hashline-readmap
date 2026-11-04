@@ -33,7 +33,7 @@ Expected behavior:
 - reads project settings from `<repo>/.pi/hashline-readmap/settings.json`
 - does not read unsupported paths such as `~/.pi/agent/settings.json`, `<repo>/.pi/settings.json`, `~/.pi/hashline-readmap/settings.json`, or `<repo>/.pi/hashline-readmap.json`
 - applies precedence as env vars > project JSON > global JSON > built-in defaults
-- supports JSON fields for grep budgets, map-cache directory/enabled state, and Bash context guard settings
+- supports JSON fields for grep budgets, map-cache directory/enabled state, the GDScript mapper, edit diff display, preview lines, and the Bash shell path
 - preserves existing env-only behavior for all supported `PI_HASHLINE_*` variables
 - ignores malformed JSON files safely and reports non-fatal warnings where available
 - ignores invalid field values field-by-field where practical
@@ -47,8 +47,8 @@ JSON settings verification procedure:
 
 - create a temporary global settings file at `~/.pi/agent/hashline-readmap/settings.json` with a below-default `grep.maxLines`, run `grep` against a result set larger than that limit, and confirm the visible output budget follows the JSON value
 - create a project settings file at `<repo>/.pi/hashline-readmap/settings.json` with a different `grep.maxLines` and confirm it overrides the global JSON value when no `PI_HASHLINE_GREP_MAX_LINES` env var is set
-- remove or rename both canonical JSON files, set the equivalent `PI_HASHLINE_*` env vars, and confirm the existing env-only grep, map-cache, and Bash context-guard behavior still applies
-- set both JSON and env values for the same field, then confirm the env value wins; include `PI_HASHLINE_MAP_CACHE_DIR`, `PI_HASHLINE_NO_PERSIST_MAPS=1`, and `PI_HASHLINE_BASH_CONTEXT_GUARD=0` in this override check
+- remove or rename both canonical JSON files, set the equivalent `PI_HASHLINE_*` env vars, and confirm the existing env-only grep and map-cache behavior still applies
+- set both JSON and env values for the same field, then confirm the env value wins; include `PI_HASHLINE_MAP_CACHE_DIR` and `PI_HASHLINE_NO_PERSIST_MAPS=1` in this override check
 - put settings in unsupported paths such as `~/.pi/agent/settings.json`, `<repo>/.pi/settings.json`, `~/.pi/hashline-readmap/settings.json`, or `<repo>/.pi/hashline-readmap.json`, with canonical files absent, and confirm those files have no effect
 - introduce malformed JSON and invalid budget values, then confirm public tool resolvers continue without throwing and fall back to valid env, valid other JSON fields, or defaults
 
@@ -113,24 +113,19 @@ Prerequisite:
 
 - `ast-grep` must be installed locally for real execution
 
-### `bash` output filtering
+### `bash` output
 
 Expected behavior:
 
-- reduces noisy output while preserving useful signal for common command classes
-- includes targeted compression for tests, build tools, git, linters, docker, package managers, HTTP clients, transfer tools, and file-listing commands
-- strips ANSI noise
-- leaves truly useful output intact enough that the command result remains actionable
-- validates Pi-provided Bash `fullOutputPath` values before reading them and only restores from valid temporary full-output files
-- writes recoverable full post-RTK output when the Bash context guard trims final output
-- writes an original/pre-RTK snapshot when the guard trims and Pi did not provide a valid original full-output path
-- exposes stricter-only guard controls through `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_LINES`, `PI_HASHLINE_BASH_CONTEXT_GUARD_MAX_BYTES`, `PI_HASHLINE_BASH_CONTEXT_GUARD_HEAD_LINES`, and `PI_HASHLINE_BASH_CONTEXT_GUARD_TAIL_LINES`
-- disables the guard/original-restoration layer only when `PI_HASHLINE_BASH_CONTEXT_GUARD=0`
-- keeps `PI_RTK_BYPASS=1` scoped to RTK compression; bypassed raw output is still eligible for context-guard trimming
+- returns Pi's own output with ANSI codes stripped; nothing summarizes, reorders or trims it beyond Pi's own truncation, which keeps the last 2000 lines or 50 KB and names its `Full output:` file
+- appends an anti-pattern hint after a blank line when the command reaches for a dedicated tool (`rg foo` ends with `[Hint: Prefer the grep tool for content search.]`)
+- prefixes doom-loop and context-hygiene notices before the output and a `---` line
+- leaves `structuredContent` as Pi's native value, so scripts receive the raw output, `exit_code`, and Pi's own truncation and `full_output_path`
+- writes no temp files of its own
 
 Practical expectation:
 
-- common local development commands should consume less context than raw terminal output
+- a command's result reads as it would in a terminal, without colour codes
 
 ### Context hygiene metadata
 
@@ -152,7 +147,7 @@ The present test suite covers, at minimum:
 - `ast_search` formatting, schema handling, execution behavior, no-match behavior, and path handling
 - binary / control-character handling regressions
 - map cache behavior
-- RTK / bash filter routing, Bash context guard recoverability, guard configuration, and compressor-specific behavior
+- bash output presentation (ANSI stripping, anti-pattern hints, Pi's own truncation passing through)
 - structured result (`ptcValue` / codemode `structuredContent`) contracts and tool annotations
 - context-hygiene metadata and debug-tool registration
 - configurable grep output budgets
@@ -167,7 +162,7 @@ When doing manual validation beyond the automated suite, the highest-value check
 3. `grep(..., scope: "symbol")` on a mapped TypeScript or Python file
 4. `ast_search(...)` with both a match and a deliberate no-match query
 5. `edit` using a fresh anchor, then repeating with a stale anchor to confirm mismatch handling
-6. representative `bash` commands such as `npm test`, `tsc --noEmit`, `git diff`, `docker build`, `curl`, and `find`
+6. `bash` with a colored command, a command past 2000 lines such as `seq 1 5000`, and `rg foo`, to confirm stripped ANSI, Pi's own truncation and the grep hint
 
 ## Non-goals of this note
 

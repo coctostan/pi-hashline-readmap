@@ -23,7 +23,7 @@ Earlier releases published an executor map on the `hashline:tool-executors` Even
 | `write` | File creation/full-write tool with hashlined output. Destructive. |
 | `ls` | Single-directory listing. Read-only. |
 | `find` | Recursive file discovery. Read-only. |
-| `bash` | Built-in bash with Hashline rendering and output compression. Conservative default annotations. |
+| `bash` | Built-in bash with Hashline rendering; the model reads Pi's own output, ANSI codes stripped, plus anti-pattern hints. Conservative default annotations. |
 | `nu` | Deprecated but retained; present only when Nushell registers successfully. Conservative default annotations. See [Nu migration](nu-deprecation.md). |
 | `context_hygiene_report` | Present only when `PI_CONTEXT_HYGIENE_DEBUG=1`. Read-only. |
 
@@ -44,4 +44,4 @@ At Pi's real `createAgentSession` boundary, every registered tool can expose `de
 
 - [structured-output.md](structured-output.md) for `details.ptcValue`, `structuredContent`, and codemode.
 - [context-hygiene.md](context-hygiene.md) for stale-context metadata attached to tool results.
-- [bash-output.md](bash-output.md) for Bash result post-processing and recovery behavior.
+- [prompts/bash.md](../prompts/bash.md) for the `bash` result's model-facing text and native script value.

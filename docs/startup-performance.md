@@ -14,7 +14,7 @@ Reproduce with `node scripts/bench-startup.mjs --runs 5 --lazy-dir <lazy> --bund
 
 - (a) no extension.
 - (b) the current source entry, `-e <repo>/index.ts` (jiti transforms the ~107-module TypeScript graph).
-- (c) lazy-import prototype: a copy of the repo where every static import in `src/readmap/mapper.ts` becomes a dynamic `import()` wrapper. Scope is the readmap mappers only; `src/rtk/*` techniques are consumed through the synchronous `filterBashOutput` API, so lazy-loading them would need an async filter API and is excluded.
+- (c) lazy-import prototype: a copy of the repo where every static import in `src/readmap/mapper.ts` becomes a dynamic `import()` wrapper. Scope is the readmap mappers only; the `src/rtk/*` Bash compression techniques of the time, since removed, were consumed through a synchronous filter API, so lazy-loading them would have needed an async one and was excluded.
 - (d) bundle prototype: `index.ts` bundled with esbuild 0.28.2 (ESM syntax, `packages: "external"`) to `dist/index.js`, with `dist/package.json` `{"type":"commonjs"}`. It is loaded by passing the package directory (`-e <dir>`) so Pi resolves it through the `pi.extensions` manifest. The tree contains the runtime dependencies but no Pi peers and no `typebox`, like an installed extension.
 - Warm = jiti transform cache enabled: one discarded warm-up run, then 5 timed runs. Cold = `JITI_FS_CACHE=false` on every run (5 timed runs).
 

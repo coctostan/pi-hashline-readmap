@@ -2,7 +2,7 @@
 
 Repo-local guide for working on `pi-hashline-readmap`.
 
-A Pi extension that replaces Pi's `read`, `edit`, `grep`, `write`, `ls` and `find` with hash-anchored, structure-aware versions, adds `ast_search`, and compresses `bash` output. It must keep anchored read→edit chains exact and stay loadable on both the locked and the current Pi host.
+A Pi extension that replaces Pi's `read`, `edit`, `grep`, `write`, `ls` and `find` with hash-anchored, structure-aware versions, adds `ast_search`, and strips ANSI codes from `bash` output, adding hints toward the dedicated tools. It must keep anchored read→edit chains exact and stay loadable on both the locked and the current Pi host.
 
 ## Space
 type: dev
@@ -28,7 +28,7 @@ git: { merge: agent, push: free, main-direct: process-only }
 - `edit` — hash-anchored edits with semantic diff summaries
 - `grep` — hashlined search results
 - `ast_search` — ast-grep wrapper with hashlined output
-- `bash` filtering — command-aware output compression
+- `bash` — Pi's own output, ANSI codes stripped, plus anti-pattern hints
 
 The extension is loaded via an absolute path entry in `~/.pi/agent/settings.json`'s `extensions` array (pointing at this workspace's `index.ts`), so **new agent sessions** pick up local edits automatically. Running sessions do **not** hot-reload the module graph — restart any in-flight agent session to see changes take effect.
 
@@ -141,7 +141,7 @@ Pi loads this extension through jiti, which transforms the ~107-module TypeScrip
 - `src/read.ts`, `src/edit.ts`, `src/grep.ts`, `src/sg.ts`, `src/nu.ts` — core tool implementations
 - `src/*-output.ts`, `src/*-render-helpers.ts` — tool result shaping / rendering
 - `src/readmap/` — structural mapping, symbol lookup, language detection, per-language mappers
-- `src/rtk/` — bash output routing and compression techniques
+- `src/bash-output.ts`, `src/ansi.ts`, `src/bash-anti-pattern-hints.ts` — bash output presentation: ANSI stripping and hints
 - `prompts/` — tool prompt/schema docs
 - `scripts/` — helper scripts used by readmap internals
 - `tests/` — feature-focused tests and fixtures
@@ -155,13 +155,6 @@ Pi loads this extension through jiti, which transforms the ~107-module TypeScrip
 3. Update `src/readmap/language-detect.ts`
 4. Add tests in `tests/readmap-mappers-files.test.ts` and any focused integration tests needed
 5. Set `export const MAPPER_VERSION = 1` in the new mapper file. Bump it any time the mapper's output shape changes so the persistent map cache (`src/persistent-map-cache.ts`) invalidates stale entries.
-
-### New bash compression technique
-
-1. Add implementation under `src/rtk/`
-2. Register it in `src/rtk/index.ts`
-3. Add/update focused `tests/rtk-*.test.ts`
-4. Verify `tests/bash-filter.test.ts` still covers the routing correctly
 
 ### Tool output contract change
 
