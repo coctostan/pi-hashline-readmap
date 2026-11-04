@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import init from "../index.js";
 import { presentBashOutput } from "../src/bash-output.js";
 
 const ALL = ["read", "bash", "edit", "write", "grep", "find", "ls"];
@@ -52,5 +53,22 @@ describe("bash anti-pattern hints", () => {
     expect(presentBashOutput("cat a.ts | grep foo", "foo", without("read"))).toBe(
       "foo\n\n[Hint: Prefer the grep tool for content search.]",
     );
+  });
+
+  it("reads the active tools from pi in the bash tool_result handler", () => {
+    const resultText = (activeTools: string[] | undefined) => {
+      const handlers: Record<string, Function> = {};
+      init({
+        registerTool() {},
+        on(name: string, fn: Function) { handlers[name] = fn; },
+        events: { emit() {}, on() {} },
+        ...(activeTools ? { getActiveTools: () => activeTools } : {}),
+      } as any);
+      const event = { toolName: "bash", toolCallId: "rg-hint", input: { command: "rg foo" }, content: [{ type: "text", text: "a.ts:1:foo" }] };
+      return handlers.tool_result(event, { cwd: process.cwd() }).content[0].text;
+    };
+    expect(resultText(ALL)).toBe("a.ts:1:foo\n\n[Hint: Prefer the grep tool for content search.]");
+    expect(resultText(without("grep"))).toBe("a.ts:1:foo");
+    expect(resultText(undefined)).toBe("a.ts:1:foo");
   });
 });
