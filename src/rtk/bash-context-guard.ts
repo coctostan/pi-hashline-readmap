@@ -133,9 +133,7 @@ function isRawCommandWrapper(line: string): boolean {
 function isProtectedNotice(line: string): boolean {
   const trimmed = line.trim();
   return (
-    trimmed.startsWith("[RTK:") ||
     trimmed.startsWith("[Hint:") ||
-    trimmed.includes("PI_RTK_BYPASS=1") ||
     trimmed.includes("Full output:") ||
     /^Full output:\s*\S+/.test(trimmed) ||
     /^Command exited with code \d+/.test(trimmed) ||

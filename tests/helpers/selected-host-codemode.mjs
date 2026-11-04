@@ -50,7 +50,7 @@ try {
   writeFileSync(join(cwd, "magic.dat"), png);
   if (process.env.PI_CODEMODE_BASH === "1") {
     execFileSync("git", ["init", "-q", cwd]);
-    // More than the 20 commits `git log` compaction keeps, so the direct presentation is compacted.
+    // More than the 20 commits the removed `git log` compaction kept, so a cut would show.
     for (let i = 0; i < 25; i++) {
       writeFileSync(join(cwd, "seed.txt"), String(i));
       execFileSync("git", ["add", "seed.txt"], { cwd });
@@ -142,7 +142,7 @@ try {
   const nativeImages = [];
   let directBashRaw;
   let serial = 0;
-  let compressed = false;
+  const presentedBash = [];
   async function invoke(name, args, nested = true, signal) {
     const id = "call-" + serial++;
     const call = { type: "toolCall", id, name, arguments: args };
@@ -160,13 +160,17 @@ try {
           }
         }
         const override = await runner.emitToolResult({ type: "tool_result", toolName: name, toolCallId: id, input: args, ...result, isError, ...parent });
-        if (name === "bash" && args.command === "git log -25") {
+        // Pi's own truncation notice joins a truncated result's text, so only whole outputs compare.
+        if (process.env.PI_CODEMODE_BASH === "1" && name === "bash" && !isError && result.structuredContent?.truncated === false) {
           assert.equal(override.structuredContent, result.structuredContent, "Bash raw object must survive hook by identity");
-          assert.ok(override.content.some((c) => c.type === "text" && c.text.includes("[RTK:")));
-          if (nested && directBashRaw !== undefined) {
-            assert.equal(result.structuredContent.output, directBashRaw, "direct and nested native raw output");
+          const text = override.content.filter((c) => c.type === "text").map((c) => c.text).join("\n");
+          const raw = result.structuredContent.output;
+          assert.ok(text === raw || (text.startsWith(raw + "\n\n[Hint: ") && !text.slice(raw.length + 2).includes("\n")),
+            "Bash presentation is Pi's own output plus any hint: " + args.command);
+          if (args.command === "git log -25" && nested && directBashRaw !== undefined) {
+            assert.equal(raw, directBashRaw, "direct and nested native raw output");
           }
-          compressed = true;
+          presentedBash.push(args.command);
         }
         return override;
       },
@@ -188,10 +192,10 @@ try {
   if (process.env.PI_CODEMODE_BASH === "1") {
     const direct = await invoke("bash", { command: "git log -25" }, false);
     assert.equal(direct.isError, false, "direct Bash succeeded");
-    assert.ok(direct.result.content.some(item => item.type === "text" && item.text.includes("[RTK:")),
-      "direct Bash presentation must be filtered");
     directBashRaw = direct.result.structuredContent.output;
-    assert.ok(!directBashRaw.includes("[RTK:"), "direct native raw output is unfiltered");
+    assert.deepEqual(direct.result.content.filter(item => item.type === "text").map(item => item.text), [directBashRaw],
+      "direct Bash presentation is its native output");
+    assert.equal(directBashRaw.split("\ncommit ").length, 25, "all 25 commits reach the model");
     directBashChecked = true;
   }
   const ctx = { cwd, tools: declared, sessionManager,
@@ -387,7 +391,7 @@ try {
       cancelStarted, cancelObserved,
       directBashChecked,
       images: result.content.filter(c => c.type === "image").length,
-      staleNotice, duplicateNotice, compressed,
+      staleNotice, duplicateNotice, presentedBash,
     }));
   }
 } finally {

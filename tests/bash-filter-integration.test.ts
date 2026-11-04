@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -17,7 +17,7 @@ function makeEvent(toolName: string, toolCallId: string, input: Record<string, u
   };
 }
 
-describe("bash filter integration", () => {
+describe("bash tool_result integration", () => {
   it("tool_result handler is registered and only modifies bash results", async () => {
     const mod = await import(pathToFileURL(resolve(root, "index.ts")).href);
     const handlers: Record<string, Function> = {};
@@ -46,33 +46,5 @@ describe("bash filter integration", () => {
     expect(result).toBeDefined();
     expect(result.content[0].type).toBe("text");
     expect(result.content[0].text).toBe("hello");
-  });
-});
-describe("savings logging", () => {
-  it("logs savings to stderr when PI_RTK_SAVINGS=1 and is silent when unset", async () => {
-    // Cache-bust imports so env changes are observed.
-    const modUrl = pathToFileURL(resolve(root, "index.ts")).href + "?t=" + Date.now();
-    const handlers: Record<string, Function> = {};
-    const mockPi = {
-      registerTool() {},
-      on(event: string, handler: Function) {
-        handlers[event] = handler;
-      },
-      events: { emit() {}, on() {} },
-    };
-
-    const bashEvent = makeEvent("bash", "t-log", { command: "echo hello" }, "\x1b[32mhello\x1b[0m");
-    const origEnv = process.env.PI_RTK_SAVINGS;
-    // No [RTK] output when savings logging is off
-    delete process.env.PI_RTK_SAVINGS;
-    const stderrSpy = vi.spyOn(process.stderr, "write").mockReturnValue(true);
-    const mod = await import(modUrl + "-v2");
-    mod.default(mockPi as any);
-    await handlers["tool_result"](bashEvent);
-    const rtkCalls = stderrSpy.mock.calls.filter((c) => String(c[0]).includes("[RTK]"));
-    expect(rtkCalls).toHaveLength(0);
-    stderrSpy.mockRestore();
-    if (origEnv === undefined) delete process.env.PI_RTK_SAVINGS;
-    else process.env.PI_RTK_SAVINGS = origEnv;
   });
 });

@@ -7,15 +7,15 @@ function occurrences(haystack: string, needle: string): number {
 
 describe("guarded Bash preview protected notices", () => {
   it("deduplicates protected notices, removes wrapper lines, and truncates the command in the header", () => {
-    const rtkNotice = "[RTK: compressed git output 100.0 KB → 1.0 KB (99% saved). Original output: /tmp/hashline-bash-original-x.txt. Use `PI_RTK_BYPASS=1 git diff` to re-run uncompressed.]";
+    const hint = "[Hint: Prefer the grep tool for content search.]";
     const exitNotice = "Command exited with code 1";
     const text = [
-      rtkNotice,
+      hint,
       "Ran bash command: git diff --stat",
       "body-1",
       exitNotice,
       "body-2",
-      rtkNotice,
+      hint,
       "body-3",
       exitNotice,
       "body-4",
@@ -35,7 +35,7 @@ describe("guarded Bash preview protected notices", () => {
     });
 
     expect(result.text).toContain("Preserved notices:");
-    expect(occurrences(result.text, rtkNotice)).toBe(1);
+    expect(occurrences(result.text, hint)).toBe(1);
     expect(occurrences(result.text, exitNotice)).toBe(1);
     expect(result.text).not.toContain("Ran bash command");
     expect(result.text).toContain(`Command: ${expectedCommand}`);

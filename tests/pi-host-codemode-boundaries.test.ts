@@ -173,12 +173,13 @@ const cases: BoundaryCase[] = [
     `,
   },
   {
-    name: "native Bash raw output survives RTK and bypass",
+    name: "native Bash raw output reaches the model as Pi gives it",
     bash: true,
     code: String.raw`
       const b = await tools.bash({command:"git log -25"});
-      const bypass = await tools.bash({command:"PI_RTK_BYPASS=1 git log -25"});
-      check(b.output === bypass.output && !b.output.includes("[RTK:"), "native Bash output");
+      check(b.output.split("\ncommit ").length === 25, "all 25 commits in native Bash output");
+      check((await tools.bash({command:"find . -name '*.png'"})).output.includes("fixture.png"), "find output");
+      check((await tools.bash({command:"ls -la"})).output.includes("fixture.png"), "ls output");
       check((await tools.bash({command:"printf 'nonzero\\n'; exit 7"})).exit_code === 7, "nonzero exit");
     `,
   },
@@ -204,6 +205,6 @@ it.each(cases)("$name", boundary => {
   expect(result).toMatchObject({
     version, host, completed: true, images: boundary.images ?? 0,
     staleNotice: boundary.visible ?? false, duplicateNotice: false,
-    compressed: boundary.bash ?? false,
+    presentedBash: boundary.bash ? ["git log -25", "git log -25", "find . -name '*.png'", "ls -la"] : [],
   });
 }, 130_000);

@@ -1,35 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const docPath = resolve(__dirname, "..", "prompts", "bash.md");
 
-describe("prompts/bash.md — rtkCompaction contract doc", () => {
-  it("exists", () => {
-    expect(existsSync(docPath)).toBe(true);
+describe("prompts/bash.md — bash output contract doc", () => {
+  it("says the model reads Pi's output, ANSI stripped, plus hints", () => {
+    const content = readFileSync(docPath, "utf8");
+    expect(content).toContain("Pi's own bash output with ANSI escape codes stripped");
+    expect(content).toContain("[Hint: Prefer the grep tool for content search.]");
+    expect(content).toContain("structuredContent");
   });
 
-  it("documents every RtkCompaction field and the contract guarantees", () => {
+  it("names no compaction", () => {
     const content = readFileSync(docPath, "utf8");
-    for (const term of [
-      "rtkCompaction",
-      "RtkCompaction",
-      "applied",
-      "techniques",
-      "truncated",
-      "dropped",
-      "originalLineCount",
-      "compactedLineCount",
-      "details.ptcValue",
-      "bashContextGuard",
-    ]) {
-      expect(content).toContain(term);
-    }
-    // The "had the opportunity to run" guarantee must be stated.
-    expect(content.toLowerCase()).toMatch(/opportunity|chance/);
-    // The exclusion of bashContextGuard trimming from truncated must be explicit.
-    expect(content).toMatch(/bashContextGuard[\s\S]{0,200}truncated|truncated[\s\S]{0,200}bashContextGuard/);
+    expect(content).not.toMatch(/RTK|compress/i);
   });
 });

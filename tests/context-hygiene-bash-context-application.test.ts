@@ -38,7 +38,7 @@ describe("Bash context hygiene context application", () => {
     tracker.record(buildContextHygieneMetadata({ tool: "edit", classification: "mutation", resources: [file] }), { resultId: "edit-file" });
 
     const staleStatus = toolResult("status-before", "bash", " M src/example.ts", {
-      compressionInfo: { technique: "git" },
+      existing: "kept",
       contextHygiene: { tool: "bash" },
       bashContextGuard: { trimmed: false },
       bashOriginalOutput: { source: "pi-visible" },
@@ -49,7 +49,7 @@ describe("Bash context hygiene context application", () => {
 
     expect(applied[0].content).toEqual([{ type: "text", text: " M src/example.ts" }]);
     expect(applied[0].details).toMatchObject({
-      compressionInfo: { technique: "git" },
+      existing: "kept",
       contextHygiene: { tool: "bash" },
       bashContextGuard: { trimmed: false },
       bashOriginalOutput: { source: "pi-visible" },
@@ -70,14 +70,14 @@ describe("Bash context hygiene context application", () => {
     tracker.record(bashMetadata("git log --oneline -5", "old history"), { resultId: "log-old" });
     tracker.record(bashMetadata("git log --oneline -5", "new history"), { resultId: "log-new" });
 
-    const oldLog = toolResult("log-old", "bash", "old history", { compressionInfo: { technique: "git" } });
+    const oldLog = toolResult("log-old", "bash", "old history", { existing: "kept" });
     const newLog = toolResult("log-new", "bash", "new history");
 
     const applied = applyContextHygieneStaleContext([oldLog, newLog], tracker.generateReport());
 
     expect(applied[0].content).toEqual([{ type: "text", text: "old history" }]);
     expect(applied[0].details).toMatchObject({
-      compressionInfo: { technique: "git" },
+      existing: "kept",
       contextHygieneRetired: {
         status: "retired",
         originalTool: "bash",

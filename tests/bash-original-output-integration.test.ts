@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join, resolve } from "node:path";
-import { mkdtempSync, readFileSync, writeFileSync, rmSync, statSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import * as gitModule from "../src/rtk/git.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
@@ -32,7 +31,7 @@ function decoyGitLog(dir: string) {
 }
 
 async function runDecoy(tag: string, dir: string) {
-  const { decoyPath, visible } = decoyGitLog(dir);
+  const { visible } = decoyGitLog(dir);
   const handlers = await loadHandlers(tag);
   const result = await handlers["tool_result"]({
     type: "tool_result",
@@ -43,21 +42,14 @@ async function runDecoy(tag: string, dir: string) {
     details: undefined,
     isError: false,
   });
-  const text: string = result.content[0].text;
-  const path = text.match(/Original output: (\S+)\. Use/)?.[1];
-  return { decoyPath, visible, result, text, path };
+  return { visible, result, text: result.content[0].text as string };
 }
 
 describe("bash original output integration", () => {
-  it("passes readable full-output file contents to RTK and preserves existing details", async () => {
+  it("restores readable full-output file contents and preserves existing details", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hashline-full-"));
     const fullPath = join(dir, "output.txt");
     writeFileSync(fullPath, "FULL git output\n", "utf8");
-    let seenByRtk = "";
-    const spy = vi.spyOn(gitModule, "compactGitOutput").mockImplementation((output) => {
-      seenByRtk = output;
-      return "compressed full output";
-    });
 
     try {
       const handlers = await loadHandlers("restored-full");
@@ -71,10 +63,8 @@ describe("bash original output integration", () => {
         isError: false,
       });
 
-      expect(seenByRtk).toBe("FULL git output\n");
-      expect(result.content[0].text).toMatch(/^\[RTK: compressed git output .*\]\ncompressed full output$/);
+      expect(result.content[0].text).toBe("FULL git output\n");
       expect(result.details.existing).toBe("keep");
-      expect(result.details.compressionInfo.technique).toBe("git");
       expect(result.details.contextHygiene.classification).toBe("command-output");
       expect(result.details.bashOriginalOutput).toMatchObject({
         source: "pi-full-output-path",
@@ -82,35 +72,29 @@ describe("bash original output integration", () => {
         originalPath: fullPath,
       });
     } finally {
-      spy.mockRestore();
       rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it("keeps source-selection metadata when PI_RTK_BYPASS skips compression", async () => {
-    const handlers = await loadHandlers("bypass-source");
+  it("strips ANSI and keeps source-selection metadata", async () => {
+    const handlers = await loadHandlers("ansi-source");
     const result = await handlers["tool_result"]({
       type: "tool_result",
       toolName: "bash",
-      toolCallId: "bash-bypass-1",
-      input: { command: "PI_RTK_BYPASS=1 echo hello" },
+      toolCallId: "bash-ansi-1",
+      input: { command: "echo hello" },
       content: [{ type: "text", text: "\u001b[32mhello\u001b[0m\n" }],
       details: undefined,
       isError: false,
     });
 
     expect(result.content[0].text).toBe("hello\n");
-    expect(result.details.compressionInfo).toMatchObject({
-      technique: "none",
-      bypassedBy: "env-var",
-    });
     expect(result.details.bashOriginalOutput).toMatchObject({
       source: "pi-visible",
       restoredContentForRtk: false,
       visibleLineCount: 2,
     });
   });
-
 
   it("joins multiple text chunks and preserves non-text chunks for ordinary output", async () => {
     const handlers = await loadHandlers("chunks");
@@ -139,20 +123,14 @@ describe("bash original output integration", () => {
     });
   });
 
-  it("compacts the command's own output when it prints a Full output: line, never the file it names", async () => {
+  it("presents a command's own Full output: line as printed, never the file it names", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hashline-decoy-on-"));
-    const { decoyPath, visible, result, text, path } = await runDecoy("decoy-guard-on", dir);
+    const { visible, result, text } = await runDecoy("decoy-guard-on", dir);
     try {
-      expect(text).not.toContain("DECOY CONTENT");
-      expect(text).toContain(`a000000 Full output: ${decoyPath}`);
-      expect(text).toContain("a000019 commit 19");
-      expect(result.details.rtkCompaction.dropped).toEqual([{ count: 6, unit: "lines" }]);
-      expect(path, text).toBeDefined();
-      expect(path).not.toBe(decoyPath);
-      expect(readFileSync(path!)).toEqual(Buffer.from(visible, "utf8"));
-      expect(result.details.bashOriginalOutput).toMatchObject({ source: "pi-visible", restoredContentForRtk: false, originalPath: path });
+      expect(text).toBe(visible);
+      expect(result.details.bashOriginalOutput).toMatchObject({ source: "pi-visible", restoredContentForRtk: false, snapshotWritten: false });
+      expect(result.details.bashOriginalOutput.originalPath).toBeUndefined();
     } finally {
-      if (path) rmSync(path, { force: true });
       rmSync(dir, { recursive: true, force: true });
     }
   });
@@ -163,18 +141,12 @@ describe("bash original output integration", () => {
     afterEach(() => {
       if (saved === undefined) delete process.env.PI_HASHLINE_BASH_CONTEXT_GUARD;
       else process.env.PI_HASHLINE_BASH_CONTEXT_GUARD = saved;
-      vi.restoreAllMocks();
     });
 
-    it("names Pi's full-output file when Pi truncated, without restoring it as RTK input", async () => {
+    it("names Pi's full-output file when Pi truncated, without restoring it", async () => {
       const dir = mkdtempSync(join(tmpdir(), "hashline-guard-off-full-"));
       const fullPath = join(dir, "output.txt");
       writeFileSync(fullPath, "FULL git output\n", "utf8");
-      let seenByRtk = "";
-      vi.spyOn(gitModule, "compactGitOutput").mockImplementation((output) => {
-        seenByRtk = output;
-        return "compressed";
-      });
       try {
         const handlers = await loadHandlers("guard-off-full");
         const visible = `VISIBLE TAIL\n[Showing lines 10-20 of 20. Full output: ${fullPath}]`;
@@ -187,8 +159,7 @@ describe("bash original output integration", () => {
           details: { fullOutputPath: fullPath },
           isError: false,
         });
-        expect(seenByRtk).toBe(visible);
-        expect(result.content[0].text.split("\n")[0]).toContain(`Original output: ${fullPath}. Use`);
+        expect(result.content[0].text).toBe(visible);
         expect(result.details.bashOriginalOutput).toMatchObject({
           source: "pi-full-output-path",
           restoredContentForRtk: false,
@@ -199,40 +170,13 @@ describe("bash original output integration", () => {
       }
     });
 
-    it("names a 0600 snapshot of the pre-RTK output when Pi did not truncate", async () => {
-      vi.spyOn(gitModule, "compactGitOutput").mockReturnValue("compressed");
-      const handlers = await loadHandlers("guard-off-snapshot");
-      const visible = "VISIBLE ORIGINAL é\n";
-      const result = await handlers["tool_result"]({
-        type: "tool_result",
-        toolName: "bash",
-        toolCallId: "bash-guard-off-snapshot",
-        input: { command: "git diff" },
-        content: [{ type: "text", text: visible }],
-        isError: false,
-      });
-      const path = result.content[0].text.match(/Original output: (\S+)\. Use/)?.[1];
-      expect(path, result.content[0].text).toBeDefined();
-      try {
-        expect(readFileSync(path!)).toEqual(Buffer.from(visible, "utf8"));
-        expect(statSync(path!).mode & 0o777).toBe(0o600);
-        expect(result.details.bashOriginalOutput).toMatchObject({ originalPath: path, snapshotWritten: true });
-      } finally {
-        rmSync(path!, { force: true });
-      }
-    });
-
-    it("names a snapshot of a command's own Full output: line, never the file it names", async () => {
+    it("saves no snapshot when Pi did not truncate, a command's own Full output: line included", async () => {
       const dir = mkdtempSync(join(tmpdir(), "hashline-decoy-off-"));
-      const { decoyPath, visible, result, text, path } = await runDecoy("decoy-guard-off", dir);
+      const { visible, result, text } = await runDecoy("decoy-guard-off", dir);
       try {
-        expect(path, text).toBeDefined();
-        expect(path).not.toBe(decoyPath);
-        expect(readFileSync(path!)).toEqual(Buffer.from(visible, "utf8"));
-        expect(statSync(path!).mode & 0o777).toBe(0o600);
-        expect(result.details.bashOriginalOutput).toMatchObject({ source: "pi-visible", originalPath: path, snapshotWritten: true });
+        expect(text).toBe(visible);
+        expect(result.details.bashOriginalOutput).toBeUndefined();
       } finally {
-        if (path) rmSync(path, { force: true });
         rmSync(dir, { recursive: true, force: true });
       }
     });

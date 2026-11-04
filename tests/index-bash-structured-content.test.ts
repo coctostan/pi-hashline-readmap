@@ -19,7 +19,8 @@ it("preserves native structured bash failure after host merge", () => {
   expect(mergeLikeHost(event, result).structuredContent).toBe(structuredContent);
   expect(result.structuredContent).toBe(structuredContent);
   expect(mergeLikeHost(event, result).isError).toBe(true);
-  expect(result.details.compressionInfo).toBeDefined();
+  expect(result.details.contextHygiene).toBeDefined();
+  expect(result.content).toEqual([{ type: "text", text: "audit" }]);
   const { structuredContent: omitted, ...legacy } = event;
   const legacyResult = handlers.tool_result({ ...legacy, toolCallId: "bash-legacy" }, {});
   expect(legacyResult.structuredContent).toBeUndefined();

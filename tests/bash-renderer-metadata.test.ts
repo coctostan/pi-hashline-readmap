@@ -38,7 +38,7 @@ describe("bash renderer provider-visible metadata", () => {
     });
 
     expect(captured.tool).toBe(tool);
-    expect(tool.description).toBe("Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; RTK and context-budget compression affect model presentation only. PI_RTK_BYPASS=1 bypasses RTK, not native output limits. Nonzero exits remain native values on structured-output hosts.");
+    expect(tool.description).toBe(EXPECTED_BASH_DESCRIPTION);
     expect(tool.promptSnippet).toBe("Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.");
     expect(tool.promptGuidelines).toEqual([
       "Use bash for tests, builds, git, package managers, and external CLIs.",
@@ -55,7 +55,7 @@ describe("bash renderer provider-visible metadata", () => {
 
 afterEach(() => vi.unstubAllEnvs());
 
-const EXPECTED_BASH_DESCRIPTION = "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; RTK and context-budget compression affect model presentation only. PI_RTK_BYPASS=1 bypasses RTK, not native output limits. Nonzero exits remain native values on structured-output hosts.";
+const EXPECTED_BASH_DESCRIPTION = "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint, and a context-budget preview affects model presentation only. Nonzero exits remain native values on structured-output hosts.";
 
 function hookHarness() {
   vi.stubEnv("PI_HASHLINE_BASH_CONTEXT_GUARD", "0");
@@ -82,24 +82,14 @@ it("advertises native raw Bash values explicitly", () => {
   expect(tools.get("bash").description).toBe(EXPECTED_BASH_DESCRIPTION);
 });
 
-it.each([false, true])("compresses presentation while preserving raw identity (nested=%s)", async nested => {
+it.each([false, true])("presents Pi's text unchanged while preserving raw identity (nested=%s)", async nested => {
   const { emit } = hookHarness();
   const raw = rawLog();
   const changed = await emit("git log -25", raw, raw.output, nested);
   expect(changed.structuredContent).toBe(raw);
-  expect(changed.structuredContent.output).toBe(raw.output);
-  expect(changed.content[0].text).toContain("[RTK:");
-  expect(changed.content[0].text.length).toBeLessThan(raw.output.length);
+  expect(changed.content).toEqual([{ type: "text", text: raw.output }]);
   expect(raw.truncated).toBe(true);
   expect(raw.full_output_path).toBe("/tmp/native-full-output");
-});
-
-it.each([false, true])("bypasses RTK without replacing raw data (nested=%s)", async nested => {
-  const { emit } = hookHarness();
-  const raw = rawLog();
-  const bypass = await emit("PI_RTK_BYPASS=1 git log -25", raw, raw.output, nested);
-  expect(bypass.structuredContent).toBe(raw);
-  expect(bypass.content[0].text).not.toContain("[RTK:");
 });
 
 it("preserves native nonzero exit values", async () => {
