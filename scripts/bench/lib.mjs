@@ -1,18 +1,21 @@
 /** Helpers shared by the scripts/bench harnesses: run headless Pi, summarize its event stream, run jobs in a pool. */
 import { spawn } from "node:child_process";
 
-export function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs }) {
+/** `cli`, a Pi CLI script run with this Node, pins the host; without it the global `pi` runs. */
+export function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs, cli, excludeTools = [] }) {
 	const args = [
 		"-p", "--mode", "json", "--no-session",
 		"--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--offline",
 		...extensions.flatMap((path) => ["-e", path]),
+		...(excludeTools.length ? ["--exclude-tools", excludeTools.join(",")] : []),
 		"--model", model, "--thinking", thinking,
 		"--", prompt,
 	];
+	const [command, commandArgs] = cli ? [process.execPath, [cli, ...args]] : ["pi", args];
 	return new Promise((resolvePromise) => {
 		const started = Date.now();
 		// stdin must be closed: headless Pi otherwise waits for piped input.
-		const child = spawn("pi", args, { cwd, env: { ...process.env, PI_OFFLINE: "1" }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+		const child = spawn(command, commandArgs, { cwd, env: { ...process.env, PI_OFFLINE: "1" }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
 		let stdout = "";
 		let stderr = "";
 		let timedOut = false;
@@ -30,7 +33,7 @@ export function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs }) {
 }
 
 export function summarizeEvents(stdout) {
-	const summary = { toolCalls: {}, toolErrors: 0, turns: 0, tokens: 0, cost: 0, models: new Set(), errors: [] };
+	const summary = { toolCalls: {}, toolErrors: 0, turns: 0, tokens: 0, inputTokens: 0, cost: 0, models: new Set(), errors: [] };
 	for (const line of stdout.split("\n")) {
 		if (!line.trim()) continue;
 		let event;
@@ -41,6 +44,7 @@ export function summarizeEvents(stdout) {
 		else if (event.type === "message_end" && event.message?.role === "assistant") {
 			const m = event.message;
 			summary.tokens += m.usage?.totalTokens ?? 0;
+			summary.inputTokens += (m.usage?.input ?? 0) + (m.usage?.cacheRead ?? 0) + (m.usage?.cacheWrite ?? 0);
 			summary.cost += m.usage?.cost?.total ?? 0;
 			if (m.provider && m.model) summary.models.add(`${m.provider}/${m.model}`);
 			if (m.stopReason === "error" || m.errorMessage) summary.errors.push(m.errorMessage ?? "error");

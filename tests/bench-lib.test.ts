@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { summarizeEvents } from "../scripts/bench/lib.mjs";
+import { runPi, summarizeEvents } from "../scripts/bench/lib.mjs";
 
 // A real `pi --mode json` stream (Pi 1.5.0, openai-codex/gpt-6-luna, Explicit Edit task unique-1000-plain),
 // with message_update events dropped and long strings and arrays trimmed.
@@ -16,6 +18,7 @@ describe("summarizeEvents", () => {
 			toolErrors: 0,
 			turns: 4,
 			tokens: 24704,
+			inputTokens: 24552,
 			cost: expect.closeTo(0.00127552, 10),
 			models: ["openai-codex/gpt-6-luna"],
 			errors: [],
@@ -38,9 +41,28 @@ describe("summarizeEvents", () => {
 			toolErrors: 1,
 			turns: 1,
 			tokens: 10,
+			inputTokens: 0,
 			cost: 0.5,
 			models: ["p/m"],
 			errors: ["rate limited", "error"],
 		});
+	});
+});
+
+describe("runPi", () => {
+	it("runs a given CLI script with this Node, excluding the given tools", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "bench-lib-"));
+		try {
+			const cli = join(dir, "cli.mjs");
+			writeFileSync(cli, "console.log(JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() }));\n");
+			const proc = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: ["/x.ts"], timeoutMs: 10_000, cli, excludeTools: ["ls", "find"] });
+			const { argv } = JSON.parse(proc.stdout);
+			expect(proc.code).toBe(0);
+			expect(argv.slice(argv.indexOf("-e"))).toEqual(["-e", "/x.ts", "--exclude-tools", "ls,find", "--model", "p/m", "--thinking", "off", "--", "go"]);
+			const bare = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: [], timeoutMs: 10_000, cli });
+			expect(JSON.parse(bare.stdout).argv).not.toContain("--exclude-tools");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 });
