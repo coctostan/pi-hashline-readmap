@@ -87,7 +87,7 @@ node scripts/bench/tool-cost.mjs --declarations --sessions <dir> --json   # both
 - **errors**: results marked `isError`; **rejected** is the subset Pi refused before the tool ran, invalid arguments or an unknown tool name (`Invalid arguments for tool`, `Validation failed for tool`, `Tool … not found`).
 - **redundant**: a search, a `grep`, `find`, `ls` or `ast_search` call or a bash command whose pipeline heads run `grep`, `rg`, `find`, `fd`, `ls` or `tree`, that repeats an earlier call's tool and arguments in the same file (keys in any order, nulls dropped) with no `edit` or `write` between.
 - **wrong-tool**: a bash call that `getBashAntiPatternHint` (`src/bash-anti-pattern-hints.ts`) would hint toward a tool active at that point, judged on each pipeline's first command, so `npm test | grep x` is no content search. The active set is the replay of the system messages' `toolsRemoved` then `toolsAdded`, as Pi replays them, a compaction's `systemMessage` replacing it whole; a call before any is unscored.
-- **calls before the first touch**: per task (a user message to the next) with an `edit`, the tool calls before the first one whose arguments or result name the first edited file: as the edit gives it, absolute, or relative to the session's cwd with or without `./`, as a whole path (`src/a.ts.bak` and `lib/src/a.ts` are other files). The edit itself counts as a touch. It also reports which tool made that first touch.
+- **calls before the first touch**: per task (a user message to the next) with an `edit`, the tool calls before the first one whose arguments or result name the first edited file: as the edit gives it, absolute, or relative to the session's cwd with or without `./`, as a whole path (`src/a.ts.bak` and `lib/src/a.ts` are other files). A `grep`, `find`, `ls` or `ast_search` result also names it relative to the call's `path` argument, as those tools print it (`grep` in `src` prints `src/a.ts` as `a.ts`). The edit itself counts as a touch. It also reports which tool made that first touch.
 
 A forked session copies its parent's history; the copies carry the parent's tool-call ids, so a call whose id an earlier file (by file name, oldest first) already holds counts once.
 
@@ -125,3 +125,25 @@ Wrong-tool picks by hint: 3130 toward `grep`, 1565 toward `read` (`cat`), 353 to
 Tasks with an edit: 3196. Tool calls before the first touch of the edited file: p50 2, p90 10, p99 46. First touch by `read` 1475, `write` 508, `grep` 373, `edit` 367, `codemode` 258, `bash` 177, `find` 2, others 36.
 
 On this corpus the three tools under ruling look quiet: `grep`, `find` and `ls` together had 174 errors (13 rejected) and 29 redundant repeats in 18,303 calls. `grep` returned 34.9 MB in all, its p99 result 27.9 KB, against 1.2 MB for `find` and 0.6 MB for `ls`.
+
+The first-touch count above missed a search tool's results printed relative to its `path` argument, found in slice 6 (A/B harness compares tool arms)'s live drive. On the corpus of 2026-11-05 (2532 files, 129,522 calls), the rule above against the old one leaves every other figure unchanged and moves calls before the first touch from p50 2, p90 10, p99 45 to p50 2, p90 10, p99 44, and first touches from `read` 1483, `grep` 374, `edit` 368, `find` 2, `ls` 0 to `read` 1348, `grep` 419, `edit` 340, `find` 41, `ls` 92.
+
+## A/B arms
+
+`node scripts/bench/tool-ab.mjs --models <list> --max-cost <usd>` runs each task in a fresh workspace through the selected host's own Pi CLI (`PI_COMPAT_HOST`, else the locked Pi, never the global `pi`), in four arms: `stock` (Pi's `read`, `bash`, `edit`, `write`), `extension` (this checkout's `index.ts`), `no-ls-find` (`--exclude-tools ls,find`) and `no-ls-find-grep` (`--exclude-tools ls,find,grep`). The tasks are the 10 locate-first tasks (`scripts/bench/locate-tasks/`), each on the pinned snapshot committed into a fresh git repo and scored by its checker in a child process with a 60 s timeout, and an Explicit Edit control of three tasks (`unique-1000-plain`, `multi-file-1-unicode`, `replace-block-10-unicode`), scored byte-exact without a `.git`. Each task and model runs its arms back to back, the arm order rotating, and every first repeat before any second. A run is launched only while the spent cost plus, for it and each run in flight, the most any run has cost stays within the cap; until one finishes, one runs alone. `summary.md` gives, per task set, model and arm, the mean per run of the pass rate, input tokens (input plus cache reads and writes), cost, tool calls and the confusion signals above, each with Δ, its spread between the repeats' means; `run.json` records the host, the extension's commit and the total spent.
+
+An arm is what it declares: text in another tool naming an excluded one (listed above) and bash's grep hint on pipe filters stay, since a ruling that excludes a tool would ship them so.
+
+Bounds:
+
+- The workspaces have no `node_modules`, so a model's `npm test` fails in every arm and adds an error; in the live drive below, 7 of 8 runs tried, and one `stock` run's `npx vitest` fetched vitest from the registry.
+- A timeout is a failed run whatever its cause, a provider stall included.
+- A run can cost more than any before it, so the total can pass the cap by that excess per run in flight.
+
+### Live drive, 2026-11-05
+
+`--models openai-codex/gpt-6-luna --tasks ansi-cursor-codes --repeat 2 --max-cost 0.5` on Pi 1.5.0: 8 runs, $0.0176 in all, 7 passed. Each trace's system message declared its arm's tools: `stock` `read,bash,edit,write`; `extension` adding `grep,ast_search,nu,ls,find`; `no-ls-find` without `ls,find`; `no-ls-find-grep` without `grep` too. The failure, `no-ls-find` repeat 2, is a provider stall: its last event, a tool-call delta 6 s in, was followed by nothing until the 300 s timeout. Its summary scored `no-ls-find` repeat 1 at 2 calls before the touch where its second `grep`, in `src`, had printed `ansi.ts`; the rule above, fixed after the drive, rescores it 1 and leaves every other figure of the 8 runs unchanged. Each `no-ls-find-grep` run counts one error from `read` on the workspace directory, whose message answers `Use ls to inspect directories` with `ls` excluded.
+
+The same command on the final harness, extension at `b4415881` with no uncommitted changes: 8 runs, $0.0185 in all, 8 passed. Every error the summary counts is in the traces: 8 `npm test` or `npx vitest` calls failing without `node_modules`, one in each run; 4 `read` calls in `extension` refused for pairing `charLimit` with a multi-line `limit`; and in `no-ls-find-grep` an `edit` missing `new_text` (rejected) and an `edit` on a stale anchor. The same command again without `--resume` refused the directory, and with `--resume` found 0 runs left.
+
+Both drives are one task at 2 repeats, run to prove the harness; they carry no ruling.

@@ -35,7 +35,7 @@
  *   --list               Print the selected task ids and exit
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, appendFileSync, lstatSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, appendFileSync, lstatSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -96,7 +96,7 @@ function parseArgs(argv) {
 
 // ─── Tasks ──────────────────────────────────────────────────────────────────
 
-function ensureBenchCheckout(dir) {
+export function ensureBenchCheckout(dir) {
 	if (!existsSync(join(dir, "src/suites/explicit-edit/fixtures.ts"))) {
 		console.error(`Cloning Explicit Edit benchmark into ${dir} ...`);
 		mkdirSync(dirname(dir), { recursive: true });
@@ -107,7 +107,7 @@ function ensureBenchCheckout(dir) {
 	return head;
 }
 
-async function loadTasks(benchDir) {
+export async function loadTasks(benchDir) {
 	const jiti = createJiti(import.meta.url, { moduleCache: false });
 	const mod = await jiti.import(join(benchDir, "src/suites/explicit-edit/fixtures.ts"));
 	return mod.explicitEditTasks();
@@ -172,7 +172,7 @@ function resolveArm(name) {
 	throw new Error(`Unknown arm: ${name} (use pi-default, working, or ref:<git-ref>)`);
 }
 
-function providerExtensions(model, explicit) {
+export function providerExtensions(model, explicit) {
 	if (explicit.length) return explicit;
 	const provider = model.split("/")[0];
 	if (provider === "ollama") return [resolve(REPO, "scripts/bench/ollama-provider.ts")];
@@ -191,7 +191,7 @@ function toBytes(value) {
 	throw new Error(`Unsupported fixture value type: ${typeof value}`);
 }
 
-function writeTree(root, files) {
+export function writeTree(root, files) {
 	for (const [path, value] of Object.entries(files)) {
 		const target = join(root, path);
 		mkdirSync(dirname(target), { recursive: true });
@@ -216,7 +216,7 @@ function readTree(root) {
 }
 
 /** Byte-exact comparison of the whole tree. Returns a list of differences (empty = pass). */
-function verifyTree(root, expected) {
+export function verifyTree(root, expected) {
 	const actual = readTree(root);
 	const diffs = [];
 	for (const [path, value] of Object.entries(expected)) {
@@ -380,7 +380,11 @@ async function main() {
 	console.log(markdown);
 }
 
-main().catch((error) => {
-	console.error(error instanceof Error ? error.stack ?? error.message : error);
-	process.exit(1);
-});
+// tool-ab.mjs imports the task and tree helpers, so main runs only when this file is the script.
+// Node resolves symlinks in the module URL, so compare the script's real path.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+	main().catch((error) => {
+		console.error(error instanceof Error ? error.stack ?? error.message : error);
+		process.exit(1);
+	});
+}
