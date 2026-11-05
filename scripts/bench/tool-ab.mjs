@@ -299,6 +299,19 @@ export function formatSummary({ rows, results, meta }) {
 
 // ─── Running ────────────────────────────────────────────────────────────────
 
+/** What an extension arm loads, and the harness that scores it; other paths, such as docs or an --out inside the repo, may change. */
+const TREATMENT_PATHS = ["index.ts", "src", "prompts", "scripts", "package.json", "package-lock.json"];
+
+/**
+ * A hash of a checkout's uncommitted changes under TREATMENT_PATHS, null when it has none.
+ * shortcut: covers tracked changes and untracked names, not untracked contents; hash those too if a resume must vouch for them.
+ */
+export function treeChanges(repo) {
+	const git = (...args) => execFileSync("git", ["-C", repo, ...args, "--", ...TREATMENT_PATHS], { encoding: "utf8" });
+	const changes = git("status", "--porcelain") + git("diff", "HEAD", "--binary");
+	return changes ? createHash("sha256").update(changes).digest("hex").slice(0, 16) : null;
+}
+
 function selectedHost() {
 	const { host, version } = selectCompatHost();
 	const bin = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).bin.pi;
@@ -393,10 +406,7 @@ async function main(argv) {
 	}
 	const host = selectedHost();
 	const arms = ARMS.filter((arm) => opts.arms.includes(arm.name));
-	const git = (...args) => execFileSync("git", ["-C", REPO, ...args], { encoding: "utf8" });
-	// shortcut: the hash covers tracked changes and untracked names, not untracked contents; hash those too if a resume must vouch for them.
-	const changes = git("status", "--porcelain") + git("diff", "HEAD", "--binary");
-	const extension = { entry: join(REPO, "index.ts"), commit: git("rev-parse", "HEAD").trim(), changes: changes ? createHash("sha256").update(changes).digest("hex").slice(0, 16) : null };
+	const extension = { entry: join(REPO, "index.ts"), commit: execFileSync("git", ["-C", REPO, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(), changes: treeChanges(REPO) };
 	// What a run repeats: a resume that changed any of these would compare different treatments as one arm.
 	const treatment = { host: { version: host.version, cli: host.cli }, extension, snapshot: SNAPSHOT, thinking: opts.thinking, timeout: opts.timeout };
 	mkdirSync(opts.out, { recursive: true });

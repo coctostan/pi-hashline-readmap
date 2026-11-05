@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TASKS } from "../scripts/bench/locate-tasks/tasks.mjs";
-import { ARMS, formatSummary, locateTask, planJobs, runJobs, scoreRun, summarizeRuns, type RunResult } from "../scripts/bench/tool-ab.mjs";
+import { ARMS, formatSummary, locateTask, planJobs, runJobs, scoreRun, summarizeRuns, treeChanges, type RunResult } from "../scripts/bench/tool-ab.mjs";
 
 const line = (event: unknown) => JSON.stringify(event);
 const call = (id: string, name: string, args: Record<string, unknown>) => ({ type: "toolCall", id, name, arguments: args });
@@ -64,6 +64,17 @@ describe("runJobs", () => {
 		expect(outcome).toEqual({ spent: expect.closeTo(0.8, 10), skipped: 8 });
 	});
 
+	it("projects the most any run has cost, not the latest", async () => {
+		const costs = [0.5, 0.1, 0.1, 0.1];
+		let launched = 0;
+		const outcome = await runJobs(costs, { concurrency: 1, maxCost: 1, spent: 0, maxRunCost: null }, async (cost) => {
+			launched++;
+			return { cost };
+		});
+		// after 0.5 and 0.1, one more 0.5-sized run would reach 1.1
+		expect(launched).toBe(2);
+		expect(outcome).toEqual({ spent: expect.closeTo(0.6, 10), skipped: 2 });
+	});
 	it("counts what resumed runs already spent", async () => {
 		const log = { inFlight: 0, peak: 0, launched: 0 };
 		const outcome = await runJobs([1, 2, 3], { concurrency: 3, maxCost: 1, spent: 0.7, maxRunCost: 0.4 }, fakeWorker(0.4, log));
@@ -218,6 +229,33 @@ describe("locateTask", () => {
 	}, 30_000);
 });
 
+describe("treeChanges", () => {
+	it("hashes uncommitted changes to what an arm loads, and nothing else", () => {
+		const repo = mkdtempSync(join(tmpdir(), "tool-ab-tree-"));
+		try {
+			const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...args], { cwd: repo, stdio: "ignore" });
+			mkdirSync(join(repo, "src"));
+			writeFileSync(join(repo, "index.ts"), "export {};\n");
+			writeFileSync(join(repo, "src/a.ts"), "export const a = 1;\n");
+			git("init", "--quiet");
+			git("add", "-A");
+			git("commit", "--quiet", "--no-verify", "-m", "init");
+			expect(treeChanges(repo)).toBeNull();
+			// an --out inside the repo, and a doc, are not the treatment
+			mkdirSync(join(repo, "bench-results"));
+			writeFileSync(join(repo, "bench-results/results.jsonl"), "{}\n");
+			writeFileSync(join(repo, "NOTES.md"), "notes\n");
+			expect(treeChanges(repo)).toBeNull();
+			writeFileSync(join(repo, "src/a.ts"), "export const a = 2;\n");
+			const edited = treeChanges(repo);
+			expect(edited).toMatch(/^[0-9a-f]{16}$/);
+			writeFileSync(join(repo, "src/b.ts"), "export const b = 1;\n");
+			expect(treeChanges(repo)).not.toBe(edited);
+		} finally {
+			rmSync(repo, { recursive: true, force: true });
+		}
+	});
+});
 describe("tool-ab.mjs through a stub host", () => {
 	const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 	const script = join(repo, "scripts/bench/tool-ab.mjs");

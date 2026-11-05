@@ -13,6 +13,8 @@ export interface AbTask {
   verify(dir: string, timeoutMs: number): Promise<string[]>;
 }
 export function locateTask(task: LocateTask): AbTask;
+/** A hash of a checkout's uncommitted changes to what an extension arm loads or scores with; null when none. */
+export function treeChanges(repo: string): string | null;
 
 export interface Job<T> { task: T; model: string; attempt: number; arm: Arm }
 export function planJobs<T>(plan: { tasks: T[]; arms: Arm[]; models: string[]; repeat: number }): Job<T>[];
