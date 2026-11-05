@@ -1,0 +1,79 @@
+{
+  "arms": [
+    "stock",
+    "extension",
+    "no-ls-find",
+    "no-ls-find-grep"
+  ],
+  "repeat": 2,
+  "concurrency": 3,
+  "timeout": 300,
+  "thinking": "off",
+  "providerExtensions": [],
+  "benchDir": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/tmp/explicit-edit-benchmark",
+  "models": [
+    "openai-codex/gpt-6-luna",
+    "anthropic-cc/claude-sonnet-5-5"
+  ],
+  "maxCost": 18,
+  "out": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/tmp/bench-results/tool-ab-pilot",
+  "host": {
+    "version": "1.5.0",
+    "cli": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+  },
+  "extension": {
+    "entry": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+    "commit": "7c139d36909c73032e00e29dff4f810ac9d2d84f",
+    "changes": null
+  },
+  "snapshot": "06f775188a9d88496fb1bef2d54ba1b77aaf85ef",
+  "benchCommit": "4e11e95ccec7fd156f36755093f592d80d487224",
+  "armDefinitions": [
+    {
+      "name": "stock",
+      "extension": false,
+      "exclude": []
+    },
+    {
+      "name": "extension",
+      "extension": true,
+      "exclude": []
+    },
+    {
+      "name": "no-ls-find",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find"
+      ]
+    },
+    {
+      "name": "no-ls-find-grep",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find",
+        "grep"
+      ]
+    }
+  ],
+  "taskIds": [
+    "ansi-cursor-codes",
+    "rename-format-not-found",
+    "markdown-extension",
+    "ls-default-limit",
+    "bash-search-hint-commands",
+    "integer-plus-sign",
+    "find-stat-concurrency",
+    "outline-script-license",
+    "markdown-map-cache-version",
+    "ast-search-loop-suggestion",
+    "unique-1000-plain",
+    "multi-file-1-unicode",
+    "replace-block-10-unicode"
+  ],
+  "startedAt": "2026-11-05T02:12:31.122Z",
+  "spent": 3.4812406800000018,
+  "skipped": 0,
+  "finishedAt": "2026-11-05T02:29:39.190Z"
+}

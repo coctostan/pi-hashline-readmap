@@ -139,6 +139,7 @@ Bounds:
 - The workspaces have no `node_modules`, so a model's `npm test` fails in every arm and adds an error; in the live drive below, 7 of 8 runs tried, and one `stock` run's `npx vitest` fetched vitest from the registry.
 - A timeout is a failed run whatever its cause, a provider stall included.
 - A run can cost more than any before it, so the total can pass the cap by that excess per run in flight.
+- Each workspace is isolated by its directory alone. The system prompt names the selected host's docs, and the locked host sits in this checkout's `node_modules`, so a model can find and edit the checkout itself; in the pilot one did (below).
 
 ### Live drive, 2026-11-05
 
@@ -147,3 +148,49 @@ Bounds:
 The same command on the final harness, extension at `b4415881` with no uncommitted changes: 8 runs, $0.0185 in all, 8 passed. Every error the summary counts is in the traces: 8 `npm test` or `npx vitest` calls failing without `node_modules`, one in each run; 4 `read` calls in `extension` refused for pairing `charLimit` with a multi-line `limit`; and in `no-ls-find-grep` an `edit` missing `new_text` (rejected) and an `edit` on a stale anchor. The same command again without `--resume` refused the directory, and with `--resume` found 0 runs left.
 
 Both drives are one task at 2 repeats, run to prove the harness; they carry no ruling.
+
+## Pilot, 2026-11-05
+
+The run behind [ruling 0008](../space/decisions/0008-ls-find-deferred-grep-kept.md), with its artifacts, the rule's tables and the blind review notes in [`docs/tool-ab-pilot/`](tool-ab-pilot/README.md):
+
+```sh
+node scripts/bench/tool-ab.mjs --models openai-codex/gpt-6-luna,anthropic-cc/claude-sonnet-5-5 \
+  --max-cost 18 --concurrency 3 --out tmp/bench-results/tool-ab-pilot
+```
+
+Pi 1.5.0, extension at `7c139d36` with no uncommitted changes, thinking off, 300 s timeout: 13 tasks × 2 models × 4 arms × 2 repeats, 208 runs in 17 minutes, $3.4812 by its `run.json`. Two probes before it, outside the run: `anthropic/claude-sonnet-5-5` failed its OAuth refresh (`invalid_grant`) at $0, and `anthropic-cc/claude-sonnet-5-5`, the provider used, ran 2 runs for $0.0775. No run timed out or failed for the provider, so none was rerun.
+
+Decided before the run: workspaces stay without `node_modules`, so tests fail in every arm, and errors are also split by tool so a failing `npm test` cannot hide a search tool's (`errors-by-tool.md`); a run failing for the provider would have been rerun once; failing runs were read for a checker refusing a valid answer, and none did (the stock `ls-default-limit#1` failure left `prompts/ls.md` at 500).
+
+### The leak
+
+On `ls-default-limit`, whose prompt names "the ls tool", gpt-6-luna took the task to mean the extension it was running and went looking for its source at the host path the system prompt names. In `extension` repeat 1 it edited this checkout's `src/ls.ts` and `prompts/ls.md` instead of its workspace, and failed its check; repeat 2 spent 12 calls in the checkout before `pwd` brought it back; `no-ls-find` repeat 2 tried the path and failed harmlessly. The edit was found after the run and reverted; from run 28 on, `extension` arms loaded `ls` with a default of 1000, which changed no result (the pilot's 4 later `ls` calls listed at most 19 entries).
+
+The ruling's tables leave `ls-default-limit` out of every arm and model, keeping the arms paired. With it, gpt-6-luna's `extension` locate runs average 72,509 input tokens against `no-ls-find`'s 64,717, a loss for `ls` and `find` beyond the spread; without it, 62,465 against 60,289, a tie. Both tables are kept.
+
+### Results
+
+Locate tasks without `ls-default-limit` (9 tasks, 18 runs per cell), mean per run; every run passed:
+
+| model | arm | input tokens (Δ) | cost (Δ) | calls before touch (Δ) | errors (Δ) |
+|---|---|---:|---:|---:|---:|
+| gpt-6-luna | stock | 84,418 (28,563) | $0.00296 (0.00074) | 0.67 (0.67) | 0.67 (0.22) |
+| gpt-6-luna | extension | 62,465 (6,395) | $0.00229 (0.00010) | 0.94 (0.11) | 0.89 (0.00) |
+| gpt-6-luna | no-ls-find | 60,289 (6,862) | $0.00250 (0.00041) | 1.28 (0.11) | 1.06 (0.33) |
+| gpt-6-luna | no-ls-find-grep | 95,591 (21,440) | $0.00319 (0.00052) | 1.89 (0.00) | 1.33 (0.00) |
+| claude-sonnet-5-5 | stock | 20,307 (1,671) | $0.02424 (0.00235) | 0.33 (0.11) | 0.33 (0.22) |
+| claude-sonnet-5-5 | extension | 43,287 (2,425) | $0.03722 (0.00607) | 0.39 (0.11) | 0.17 (0.11) |
+| claude-sonnet-5-5 | no-ls-find | 36,801 (3,023) | $0.03660 (0.00660) | 0.44 (0.02) | 0.06 (0.11) |
+| claude-sonnet-5-5 | no-ls-find-grep | 34,820 (6,782) | $0.02978 (0.00640) | 1.08 (0.50) | 0.11 (0.00) |
+
+The rule, per model, a gap counting only beyond both arms' spreads (`verdict.md`):
+
+- `ls` and `find` (`extension` against `no-ls-find`): on gpt-6-luna they win calls before the first touch (0.94 against 1.28) and tie the rest; on Sonnet they lose 6,486 input tokens a run (spread 3,023) and win nothing but wrong-tool picks. Not kept.
+- `grep` (`no-ls-find` against `no-ls-find-grep`): on gpt-6-luna it wins input tokens (35,302 fewer a run, spread 21,440), cost and calls before the touch (1.28 against 1.89); on Sonnet it wins calls before the touch (0.44 against 1.08, spread 0.50) and loses cost by $0.00682 against a spread of $0.00660, 3% past it. With `ls-default-limit` kept (`verdict-all-runs.md`) the Sonnet cost gap is a tie, and on the locate tasks `grep` then wins and loses nothing on either model.
+- The Explicit Edit control, where the prompt names every file, shows no loss beyond spread for either tool, wrong-tool picks aside. gpt-6-luna failed `multi-file-1-unicode` 4 times across `stock`, `extension` and `no-ls-find-grep`, which makes its pass rates noise.
+
+Wrong-tool picks are not judged between arms: a bash `grep` counts as one only while the `grep` tool is active, so the signal can only count against the arm that has the tool (Sonnet: 0.22 a run in `no-ls-find` against 0.06 without `grep`).
+
+The blind review of 5 traces per arm (`review-notes.md`): the `grep` tool's edge is an anchor that lets an edit skip the read (2 calls against 6 for bash search on the same task); its recurring confusion is printing paths relative to its `path` argument, which models then used from the workspace root (5 errors in 4 runs across the pilot); `ls` and `find` did no work that `grep` or a read had not; without `ls`, gpt-6-luna `read` a directory 12 times across the two arms lacking it and was told to use `ls`, a tool it did not have (`errors-by-tool.md`: its `read` errors rise from 3 in `extension` to 8 and 14).
+
+Bounds: two repeats give each spread from two means, so a gap a few percent past it, as `grep`'s Sonnet cost, is weak evidence; nearly every run passed, so pass rate separates nothing; the tasks are this repo's and small, the models two, thinking off; the stock arm's numbers are reported, not ruled on.
