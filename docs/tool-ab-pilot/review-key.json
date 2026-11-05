@@ -1,0 +1,162 @@
+[
+  {
+    "id": "T01",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "stock",
+    "path": "traces/openai-codex_gpt-6-luna/stock/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T02",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/no-ls-find/markdown-extension#1.jsonl"
+  },
+  {
+    "id": "T03",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "extension",
+    "path": "traces/openai-codex_gpt-6-luna/extension/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T04",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "no-ls-find-grep",
+    "path": "traces/openai-codex_gpt-6-luna/no-ls-find-grep/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T05",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "no-ls-find-grep",
+    "path": "traces/openai-codex_gpt-6-luna/no-ls-find-grep/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T06",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "stock",
+    "path": "traces/openai-codex_gpt-6-luna/stock/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T07",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "extension",
+    "path": "traces/openai-codex_gpt-6-luna/extension/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T08",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "traces/openai-codex_gpt-6-luna/no-ls-find/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T09",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "stock",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/stock/markdown-extension#1.jsonl"
+  },
+  {
+    "id": "T10",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "stock",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/stock/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T11",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/no-ls-find/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T12",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "no-ls-find-grep",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/no-ls-find-grep/markdown-extension#1.jsonl"
+  },
+  {
+    "id": "T13",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "traces/openai-codex_gpt-6-luna/no-ls-find/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T14",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "traces/openai-codex_gpt-6-luna/no-ls-find/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T15",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "stock",
+    "path": "traces/openai-codex_gpt-6-luna/stock/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T16",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "extension",
+    "path": "traces/openai-codex_gpt-6-luna/extension/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T17",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "no-ls-find-grep",
+    "path": "traces/openai-codex_gpt-6-luna/no-ls-find-grep/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T18",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "extension",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/extension/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T19",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "no-ls-find-grep",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/no-ls-find-grep/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T20",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "extension",
+    "path": "traces/anthropic-cc_claude-sonnet-5-5/extension/markdown-extension#1.jsonl"
+  }
+]
