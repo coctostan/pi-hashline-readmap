@@ -32,7 +32,7 @@ Patterns before unblinding:
 
 ## After unblinding
 
-The draw fell on Sonnet's `markdown-extension#1` and `bash-search-hint-commands#1`, and gpt-6-luna's `ls-default-limit#2`, `ansi-cursor-codes#2` and `ast-search-loop-suggestion#1`, so 3 of the 20 traces are the `ls-default-limit` task that `verdict.md` leaves out. 14 of the 20 guesses named the right arm, 5 named the two arms with `grep` without choosing (T02, T08, T11, T14, T18), and 1 named the wrong one of those two (T20); "blind" hid the label, not the tools.
+The draw fell on Sonnet's `markdown-extension#1` and `bash-search-hint-commands#1`, and gpt-6-luna's `ls-default-limit#2`, `ansi-cursor-codes#2` and `ast-search-loop-suggestion#1`, so 4 of the 20 traces (T01, T03, T05, T13) are the `ls-default-limit` task that `verdict.md` leaves out. 14 of the 20 guesses named the right arm, 5 named the two arms with `grep` without choosing (T02, T08, T11, T14, T18), and 1 named the wrong one of those two (T20); "blind" hid the label, not the tools.
 
 - stock (T01, T06, T09, T10, T15): unscoped or `head`-capped `rg`, reads without anchors, `oldText` edits. No confusion beyond macOS `sed -i` failing (T10) and tests that cannot run.
 - extension (T03, T07, T16, T18, T20): `grep` anchors fed edits without a read (T18, T20). `find` ran twice, once for a file already read (T07), once to recover from `grep`'s path-relative output (T16); `ls` never. T03 is the leak.

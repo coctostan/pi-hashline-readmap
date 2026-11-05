@@ -57,7 +57,7 @@
 | grep | edit | openai-codex/gpt-6-luna | pass | 1 | 0.667 | 0.333 | 0 | tool wins |
 | grep | edit | openai-codex/gpt-6-luna | inputTokens | 11771 | 30093 | -18322 | 2696 | tool wins |
 | grep | edit | openai-codex/gpt-6-luna | cost | 0.001 | 0.002 | -0.001 | 0 | tool wins |
-| grep | edit | openai-codex/gpt-6-luna | errors | 0.167 | 0.5 | -0.333 | 0.333 | tool wins |
+| grep | edit | openai-codex/gpt-6-luna | errors | 0.167 | 0.5 | -0.333 | 0.333 | tie |
 | grep | edit | openai-codex/gpt-6-luna | rejected | 0 | 0 | 0 | 0 | tie |
 | grep | edit | openai-codex/gpt-6-luna | redundant | 0 | 0 | 0 | 0 | tie |
 | grep | edit | openai-codex/gpt-6-luna | wrongTool | 0 | 0 | 0 | 0 | tie |

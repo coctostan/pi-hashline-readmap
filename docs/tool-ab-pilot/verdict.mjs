@@ -25,7 +25,8 @@ for (const [tool, withArm, withoutArm] of PAIRS) for (const set of ["locate", "e
 		const gap = x.mean - y.mean;
 		const bar = Math.max(x.spread ?? 0, y.spread ?? 0);
 		const better = metric === "pass" ? gap > 0 : gap < 0;
-		const verdict = Math.abs(gap) <= bar ? "tie" : better ? "tool wins" : "tool loses";
+		// The tolerance keeps a gap equal to the bar a tie despite float residue (1/3 against 1/3).
+		const verdict = Math.abs(gap) <= bar + 1e-9 ? "tie" : better ? "tool wins" : "tool loses";
 		if (JUDGED.includes(metric) && verdict !== "tie") tally[better ? "wins" : "losses"].push(metric);
 		console.log(`| ${tool} | ${set} | ${model} | ${metric}${JUDGED.includes(metric) ? "" : " (not judged)"} | ${fmt(x.mean)} | ${fmt(y.mean)} | ${fmt(gap)} | ${fmt(bar)} | ${verdict} |`);
 	}
