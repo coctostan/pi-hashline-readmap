@@ -43,7 +43,7 @@
  * DIR/traces/<model>/<arm>/<task>#<repeat>.jsonl and DIR/summary.md.
  */
 import { execFileSync, spawn } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -439,7 +439,8 @@ async function main(argv) {
 	console.log(markdown);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Node resolves symlinks in the module URL, so compare the script's real path.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	main(process.argv.slice(2)).catch((error) => {
 		console.error(error instanceof Error ? error.stack ?? error.message : error);
 		process.exit(1);

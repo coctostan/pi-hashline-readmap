@@ -35,7 +35,7 @@
  *   --list               Print the selected task ids and exit
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, appendFileSync, lstatSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, appendFileSync, lstatSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -381,7 +381,8 @@ async function main() {
 }
 
 // tool-ab.mjs imports the task and tree helpers, so main runs only when this file is the script.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Node resolves symlinks in the module URL, so compare the script's real path.
+if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
 	main().catch((error) => {
 		console.error(error instanceof Error ? error.stack ?? error.message : error);
 		process.exit(1);
