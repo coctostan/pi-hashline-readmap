@@ -33,8 +33,10 @@
  *   --concurrency N      Parallel Pi processes (default: 2)
  *   --timeout S          Seconds per run (default: 300)
  *   --thinking LEVEL     Pi thinking level (default: off)
- *   --out DIR            Results directory (default: tmp/bench-results/tool-ab-<timestamp>)
- *   --resume             Skip runs already in DIR/results.jsonl, counting their cost
+ *   --out DIR            Results directory (default: tmp/bench-results/tool-ab-<timestamp>); one
+ *                        that holds results needs --resume
+ *   --resume             Skip runs already in DIR/results.jsonl, counting their cost; refused when
+ *                        the host, the extension's tree, the snapshot, thinking or timeout changed
  *   --provider-extension PATH   Extra extension that provides the model (repeatable)
  *   --bench-dir DIR      Explicit Edit checkout (default: tmp/explicit-edit-benchmark, cloned if missing)
  *   --list               Print the selected task ids and exit
@@ -43,10 +45,12 @@
  * DIR/traces/<model>/<arm>/<task>#<repeat>.jsonl and DIR/summary.md.
  */
 import { execFileSync, spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import { selectCompatHost } from "../pi-compat-host.mjs";
 import { scoreSession } from "./confusion.mjs";
 import { ensureBenchCheckout, loadTasks, providerExtensions, verifyTree, writeTree } from "./explicit-edit.mjs";
@@ -389,10 +393,22 @@ async function main(argv) {
 	}
 	const host = selectedHost();
 	const arms = ARMS.filter((arm) => opts.arms.includes(arm.name));
-	const git = (...args) => execFileSync("git", ["-C", REPO, ...args], { encoding: "utf8" }).trim();
-	const extension = { entry: join(REPO, "index.ts"), commit: git("rev-parse", "HEAD"), dirty: git("status", "--porcelain") !== "" };
+	const git = (...args) => execFileSync("git", ["-C", REPO, ...args], { encoding: "utf8" });
+	// shortcut: the hash covers tracked changes and untracked names, not untracked contents; hash those too if a resume must vouch for them.
+	const changes = git("status", "--porcelain") + git("diff", "HEAD", "--binary");
+	const extension = { entry: join(REPO, "index.ts"), commit: git("rev-parse", "HEAD").trim(), changes: changes ? createHash("sha256").update(changes).digest("hex").slice(0, 16) : null };
+	// What a run repeats: a resume that changed any of these would compare different treatments as one arm.
+	const treatment = { host: { version: host.version, cli: host.cli }, extension, snapshot: SNAPSHOT, thinking: opts.thinking, timeout: opts.timeout };
 	mkdirSync(opts.out, { recursive: true });
 	const resultsPath = join(opts.out, "results.jsonl");
+	const runPath = join(opts.out, "run.json");
+	if (!opts.resume && existsSync(resultsPath)) throw new Error(`${opts.out} already holds results: pass --resume to continue that run, or choose another --out`);
+	const before = opts.resume && existsSync(runPath) ? JSON.parse(readFileSync(runPath, "utf8")) : null;
+	if (before) {
+		const changed = Object.keys(treatment).filter((field) => !isDeepStrictEqual(before[field], treatment[field]));
+		if (before.benchCommit && benchCommit && before.benchCommit !== benchCommit) changed.push("benchCommit");
+		if (changed.length) throw new Error(`--resume: ${changed.join(", ")} changed since ${runPath} was written, so new runs would not repeat the old ones`);
+	}
 	const previous = opts.resume && existsSync(resultsPath)
 		? readFileSync(resultsPath, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line))
 		: [];
@@ -403,15 +419,13 @@ async function main(argv) {
 		.filter((job) => !done.has(key({ model: job.model, arm: job.arm.name, task: job.task.id, attempt: job.attempt })));
 	const run = {
 		...opts,
-		host: { version: host.version, cli: host.cli },
-		extension,
-		snapshot: SNAPSHOT,
-		benchCommit,
+		...treatment,
+		benchCommit: benchCommit ?? before?.benchCommit ?? null,
 		armDefinitions: arms,
 		taskIds: tasks.map((task) => task.id),
-		startedAt: new Date().toISOString(),
+		startedAt: before?.startedAt ?? new Date().toISOString(),
 	};
-	const writeRun = (extra) => writeFileSync(join(opts.out, "run.json"), JSON.stringify({ ...run, ...extra }, null, 2));
+	const writeRun = (extra) => writeFileSync(runPath, JSON.stringify({ ...run, ...extra }, null, 2));
 	const spentBefore = previous.reduce((sum, r) => sum + r.cost, 0);
 	writeRun({ spent: spentBefore });
 	console.error(`${jobs.length} runs: ${tasks.length} tasks × ${opts.models.length} models × ${arms.length} arms × ${opts.repeat}, Pi ${host.version}, cap $${opts.maxCost} → ${opts.out}`);

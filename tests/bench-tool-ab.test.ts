@@ -1,7 +1,8 @@
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TASKS } from "../scripts/bench/locate-tasks/tasks.mjs";
 import { ARMS, formatSummary, locateTask, planJobs, runJobs, scoreRun, summarizeRuns, type RunResult } from "../scripts/bench/tool-ab.mjs";
@@ -215,4 +216,69 @@ describe("locateTask", () => {
 		writeFileSync(join(dir, "src/ansi.ts"), "while (true) {}\nexport const stripAnsi = (s: string) => s;\n");
 		expect(await ansi.verify(dir, 2000)).toEqual(["check timed out after 2s"]);
 	}, 30_000);
+});
+
+describe("tool-ab.mjs through a stub host", () => {
+	const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+	const script = join(repo, "scripts/bench/tool-ab.mjs");
+	let scratch: string;
+	let host: string;
+	let out: string;
+	const runCli = (...extra: string[]) => spawnSync(
+		process.execPath,
+		[script, "--models", "p/m", "--max-cost", "1", "--tasks", "ansi-cursor-codes", "--repeat", "1", "--out", out, ...extra],
+		{ env: { ...process.env, PI_COMPAT_HOST: host }, encoding: "utf8" },
+	);
+
+	beforeAll(() => {
+		scratch = mkdtempSync(join(tmpdir(), "tool-ab-cli-"));
+		host = join(scratch, "host");
+		out = join(scratch, "out");
+		mkdirSync(host);
+		// A host whose Pi CLI records the arguments it was launched with.
+		writeFileSync(join(host, "package.json"), JSON.stringify({ version: "0.0.0-stub", bin: { pi: "cli.mjs" } }));
+		writeFileSync(join(host, "cli.mjs"), "console.log(JSON.stringify({ type: \"stub\", argv: process.argv.slice(2) }));\n");
+	});
+
+	afterAll(() => {
+		if (scratch) rmSync(scratch, { recursive: true, force: true });
+	});
+
+	it("launches each arm through the selected host's CLI, with its extension and exclusions", () => {
+		const first = runCli();
+		expect(first.status, first.stderr).toBe(0);
+		const launch = (arm: string) => {
+			const trace = readFileSync(join(out, "traces/p_m", arm, "ansi-cursor-codes#1.jsonl"), "utf8");
+			const argv: string[] = JSON.parse(trace.split("\n")[0]).argv;
+			const excludeAt = argv.indexOf("--exclude-tools");
+			return { extensions: argv.filter((_arg, i) => argv[i - 1] === "-e"), exclude: excludeAt === -1 ? null : argv[excludeAt + 1] };
+		};
+		const index = join(repo, "index.ts");
+		expect(Object.fromEntries(ARMS.map((arm) => [arm.name, launch(arm.name)]))).toEqual({
+			stock: { extensions: [], exclude: null },
+			extension: { extensions: [index], exclude: null },
+			"no-ls-find": { extensions: [index], exclude: "ls,find" },
+			"no-ls-find-grep": { extensions: [index], exclude: "ls,find,grep" },
+		});
+		const run = JSON.parse(readFileSync(join(out, "run.json"), "utf8"));
+		expect(run).toMatchObject({ host: { version: "0.0.0-stub", cli: join(host, "cli.mjs") }, spent: 0, skipped: 0 });
+	}, 120_000);
+
+	it("refuses a directory that holds results without --resume", () => {
+		const again = runCli();
+		expect(again.status).not.toBe(0);
+		expect(again.stderr).toContain("pass --resume");
+	});
+
+	it("resumes only the same treatment", () => {
+		const resumed = runCli("--resume");
+		expect(resumed.status, resumed.stderr).toBe(0);
+		expect(resumed.stderr).toContain("0 runs");
+		const runPath = join(out, "run.json");
+		const run = JSON.parse(readFileSync(runPath, "utf8"));
+		writeFileSync(runPath, JSON.stringify({ ...run, extension: { ...run.extension, commit: "0".repeat(40) } }));
+		const changed = runCli("--resume");
+		expect(changed.status).not.toBe(0);
+		expect(changed.stderr).toContain("--resume: extension changed");
+	});
 });
