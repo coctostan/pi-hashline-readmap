@@ -78,6 +78,24 @@ describe("scoreSession", () => {
 		expect(scoreSession(dotted).tasks).toEqual([{ editId: "d3", callsBeforeTouch: 1, touchedBy: "bash" }]);
 	});
 
+	it("reads a search tool's result paths relative to its path argument", () => {
+		// grep with path src prints src/a.ts as a.ts (Pi 1.5.0, measured 2026-11-05); bash output stays cwd-relative
+		const scoped = [
+			{ type: "session", cwd: "/repo" },
+			{ type: "message", message: { role: "user", content: "Fix a." } },
+			{ type: "message", message: { role: "assistant", content: [
+				{ type: "toolCall", id: "s1", name: "bash", arguments: { command: "cd src && ls" } },
+				{ type: "toolCall", id: "s2", name: "grep", arguments: { pattern: "foo", path: "lib" } },
+				{ type: "toolCall", id: "s3", name: "grep", arguments: { pattern: "foo", path: "src" } },
+				{ type: "toolCall", id: "s4", name: "edit", arguments: { path: "src/a.ts", edits: [] } },
+			] } },
+			{ type: "message", message: { role: "toolResult", toolCallId: "s1", toolName: "bash", content: [{ type: "text", text: "a.ts" }] } },
+			{ type: "message", message: { role: "toolResult", toolCallId: "s2", toolName: "grep", content: [{ type: "text", text: "--- a.ts (1 matches) ---" }] } },
+			{ type: "message", message: { role: "toolResult", toolCallId: "s3", toolName: "grep", content: [{ type: "text", text: "--- a.ts (1 matches) ---\na.ts:>>3:abc|foo()" }] } },
+		].map((entry) => JSON.stringify(entry)).join("\n");
+		expect(scoreSession(scoped).tasks).toEqual([{ editId: "s4", callsBeforeTouch: 2, touchedBy: "grep" }]);
+	});
+
 	it("scores a --mode json event stream as it scores a session file", () => {
 		const scored = scoreSession(trace);
 		expect(scored.calls.map((call) => [call.tool, call.error, call.toolSetKnown])).toEqual([

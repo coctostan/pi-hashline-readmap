@@ -57,12 +57,19 @@ export function scoreSession(text) {
 	let searches = new Set();
 	let task = null;
 
-	/** A text names the file as the edit gives it, absolute, or relative to the cwd with or without `./`. */
-	const touches = (given) => {
+	/**
+	 * A text names the file as the edit gives it, absolute, or relative to the cwd with or without `./`; with `base`,
+	 * a search tool's `path` argument, also relative to it, as the tool prints its results (grep in src prints a.ts).
+	 */
+	const touches = (given, base = null) => {
 		const target = cwd ? resolve(cwd, given) : given;
-		const rel = cwd ? relative(cwd, target) : null;
-		const inside = rel && !rel.startsWith("..") && !isAbsolute(rel) ? [rel, `./${rel}`] : [];
-		const forms = [...new Set([given, target, ...inside])];
+		const within = (from) => {
+			const rel = relative(from, target);
+			return rel && !rel.startsWith("..") && !isAbsolute(rel) ? rel : null;
+		};
+		const rel = cwd ? within(cwd) : null;
+		const fromBase = cwd && base !== null ? within(resolve(cwd, base)) : null;
+		const forms = [...new Set([given, target, ...(rel ? [rel, `./${rel}`] : []), ...(fromBase ? [fromBase] : [])])];
 		// After the path: no name character, and no `.` running into another extension (src/a.ts.bak), though a full stop may end it.
 		const pattern = new RegExp(`(^|[^\\w./-])(${forms.map(escapeRegExp).join("|")})(?![\\w/-]|\\.\\w)`);
 		return (text) => pattern.test(text);
@@ -71,7 +78,8 @@ export function scoreSession(text) {
 		if (!task?.edit) return;
 		const touched = touches(task.edit.path);
 		const last = task.calls.indexOf(task.edit.entry);
-		const found = task.calls.findIndex((entry, i) => i <= last && (touched(entry.argsText) || touched(entry.resultText)));
+		const found = task.calls.findIndex((entry, i) => i <= last && (touched(entry.argsText)
+			|| (entry.searchBase === null ? touched : touches(task.edit.path, entry.searchBase))(entry.resultText)));
 		// The edit itself touches its file, even where JSON escaping hides the path from the pattern.
 		const index = found === -1 ? last : found;
 		tasks.push({ editId: task.edit.entry.record.id, callsBeforeTouch: index, touchedBy: task.calls[index].record.tool });
@@ -107,7 +115,8 @@ export function scoreSession(text) {
 				if (isSearch) searches.add(key);
 				if (MUTATING_TOOLS.has(block.name)) searches = new Set();
 				calls.push(record);
-				const entry = { record, argsText: JSON.stringify(args), resultText: "" };
+				const searchBase = SEARCH_TOOLS.has(block.name) && typeof args.path === "string" ? args.path : null;
+				const entry = { record, argsText: JSON.stringify(args), resultText: "", searchBase };
 				byId.set(block.id, entry);
 				if (task) {
 					task.calls.push(entry);
