@@ -342,8 +342,12 @@ export function benchHost({ host, version }, repo, { cacheDir = HOST_CACHE, inst
 		if (!existsSync(join(host, "package.json"))) {
 			// Install beside it, then rename, so an interrupted install is never taken for a whole one.
 			const staging = mkdtempSync(`${prefix}-`);
-			install(version, staging);
-			renameSync(staging, prefix);
+			try {
+				install(version, staging);
+				renameSync(staging, prefix);
+			} finally {
+				rmSync(staging, { recursive: true, force: true });
+			}
 		}
 	}
 	const manifest = JSON.parse(readFileSync(join(host, "package.json"), "utf8"));
