@@ -995,12 +995,12 @@ export function applyHashlineEdits(
 				if (insertedAtSyntheticEmptyAnchor) {
 					// Same-boundary insertions are being applied in reverse request order.
 					splice(0, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
-				} else if (fileLines.length === 1 && fileLines[0] === "") {
+				} else if (fileLines.length === 1 && fileLines[0] === "" && inserted.some((line) => line !== "")) {
 					// Consume the synthetic empty-line sentinel exactly once.
 					splice(0, 1, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 					insertedAtSyntheticEmptyAnchor = true;
 				} else {
-					// A set/range edit already consumed the sentinel; insert after its line.
+					// The sentinel is already consumed, or kept so blank lines don't vanish into it; insert after it.
 					splice(spec.after.line, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 				}
 				track(1);

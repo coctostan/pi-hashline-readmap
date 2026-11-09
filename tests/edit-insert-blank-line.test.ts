@@ -69,6 +69,14 @@ describe("insert_after with an empty new_text", () => {
     expect(file()).toBe("a\nb\n\n");
   });
 
+  it("inserts one blank line into an empty file", async () => {
+    const { call, file } = harness("");
+    await call("read", { path: "lines.txt" });
+    const result = await call("edit", { path: "lines.txt", edits: [{ insert_after: { anchor: anchor(1, ""), new_text: "" } }] });
+    expect(result.text).not.toContain("No changes made");
+    expect(file()).toBe("\n");
+  });
+
   it("still prefers a non-empty text alias", async () => {
     const { call, file } = harness("a\nb\n");
     await call("read", { path: "lines.txt" });
