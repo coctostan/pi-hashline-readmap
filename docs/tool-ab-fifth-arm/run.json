@@ -1,0 +1,86 @@
+{
+  "arms": [
+    "no-ls-find",
+    "no-ls-find-grep",
+    "bash-grep-anchors"
+  ],
+  "repeat": 2,
+  "concurrency": 3,
+  "timeout": 300,
+  "thinking": "off",
+  "providerExtensions": [],
+  "benchDir": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/tmp/explicit-edit-benchmark",
+  "models": [
+    "openai-codex/gpt-6-luna",
+    "anthropic-cc/claude-sonnet-5-5"
+  ],
+  "maxCost": 10,
+  "out": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/tmp/bench-results/tool-ab-fifth-arm",
+  "host": {
+    "version": "1.5.0",
+    "cli": "/Users/maxwellnewman/.cache/pi-hashline-readmap/bench-hosts/1.5.0/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+  },
+  "extension": {
+    "entry": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+    "commit": "3091b73bcfef9ad16bd3fd23ecb98284be38137d",
+    "changes": null
+  },
+  "snapshot": "06f775188a9d88496fb1bef2d54ba1b77aaf85ef",
+  "benchCommit": "4e11e95ccec7fd156f36755093f592d80d487224",
+  "armDefinitions": [
+    {
+      "name": "no-ls-find",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find"
+      ],
+      "env": {
+        "PI_HASHLINE_BASH_GREP_ANCHORS": "0"
+      }
+    },
+    {
+      "name": "no-ls-find-grep",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find",
+        "grep"
+      ],
+      "env": {
+        "PI_HASHLINE_BASH_GREP_ANCHORS": "0"
+      }
+    },
+    {
+      "name": "bash-grep-anchors",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find",
+        "grep"
+      ],
+      "env": {
+        "PI_HASHLINE_BASH_GREP_ANCHORS": "1"
+      }
+    }
+  ],
+  "taskIds": [
+    "ansi-cursor-codes",
+    "rename-format-not-found",
+    "markdown-extension",
+    "ls-default-limit",
+    "bash-search-hint-commands",
+    "integer-plus-sign",
+    "find-stat-concurrency",
+    "outline-script-license",
+    "markdown-map-cache-version",
+    "ast-search-loop-suggestion",
+    "unique-1000-plain",
+    "multi-file-1-unicode",
+    "replace-block-10-unicode"
+  ],
+  "startedAt": "2026-11-09T16:28:47.045Z",
+  "spent": 2.6147401400000008,
+  "skipped": 0,
+  "finishedAt": "2026-11-09T16:44:45.375Z"
+}

@@ -1,0 +1,6 @@
+---
+from: docs/tool-cost.md#fifth-arm-2026-11-09, slice 10 (A fifth arm rules on grep) of tools-vs-bash (Each search tool earns its place over bash)
+---
+# `grep` stays kept, anchored bash grep is dropped
+
+In the fifth arm (gpt-6-luna and Claude Sonnet 5.5, 156 runs, $2.61), anchored bash grep won nothing over plain bash grep on either model: every judged metric tied. gpt-6-luna saw 33 anchored results and edited by none of them; Sonnet made 5 of its 23 edits by an anchor only a bash grep had shown. Against it, the `grep` tool won gpt-6-luna's input tokens (44,490 fewer a locate run, spread 32,488), cost and errors, and Sonnet's calls before the first touch (0.32 against 1.07). Its one loss was Sonnet's cost, $0.0411 against $0.0329 a locate run, well past a spread of $0.0012. That is the loss ruling 0008 accepted at 3% past its spread; here it stands larger. Strictly, that loss leaves `grep` not kept, and the tie goes to the leaner arm. But the leaner arm's anchors measured no gain over bash without them, so turning them on by default would ship code for nothing measured, and deferring `grep` would cost gpt-6-luna the 44,490 input tokens a locate run measured here (35,302 against plain bash in the pilot). So `grep` stays kept, as ruling 0008 kept it, and the anchoring code, its switch and its guideline line are deleted.

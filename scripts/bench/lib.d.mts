@@ -3,6 +3,8 @@ export interface RunPiOptions {
   /** A Pi CLI script, run with this Node; the global `pi` when absent. */
   cli?: string;
   excludeTools?: string[];
+  /** Added to this process's environment. */
+  env?: Record<string, string>;
 }
 export interface RunPiResult { code: number | null; stdout: string; stderr: string; timedOut: boolean; durationMs: number }
 export interface EventSummary {
