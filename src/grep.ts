@@ -711,9 +711,18 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 					files: truncatedIR.files.map((file) => ({ ...file, path: toAbsolutePath(file.path) })),
 				}
 				: truncatedIR;
-let renderedGroups = outputIR.files.map((file) => ({
-	displayPath: file.path,
-	absolutePath: summary ? file.path : toAbsolutePath(file.path),
+// Name each file from the cwd, as read and edit resolve paths; a file outside it keeps its absolute path.
+const cwdDisplayPath = (absolutePath: string): string => {
+	const relative = path.relative(ctx.cwd, absolutePath);
+	return relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)
+		? absolutePath
+		: relative;
+};
+let renderedGroups = outputIR.files.map((file) => {
+	const absolutePath = summary ? file.path : toAbsolutePath(file.path);
+	return {
+	displayPath: cwdDisplayPath(absolutePath),
+	absolutePath,
 	matchCount: file.matchCount,
 	entries: file.lines.map((line) => {
 		if (line.kind === "separator") {
@@ -734,7 +743,8 @@ let renderedGroups = outputIR.files.map((file) => ({
 			},
 		};
 	}),
-}));
+	};
+});
 
 let ptcRecords = collectPtcRecordsFromIR(outputIR, recordByRenderedLine);
 let scopeWarnings: import("./grep-output.js").GrepScopeWarning[] = [];

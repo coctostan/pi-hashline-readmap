@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { resolve, dirname, basename } from "node:path";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -42,7 +42,7 @@ describe("grep ptcValue", () => {
 
   it("returns structured match and context records with complete fields while keeping rendered grep text unchanged", async () => {
     const filePath = resolve(fixturesDir, "small.ts");
-    const displayPath = basename(filePath);
+    const displayPath = relative(process.cwd(), filePath);
     const sourceLines = readFileSync(filePath, "utf-8").replace(/\r\n/g, "\n").split("\n");
     const result = await callGrepTool({ pattern: "createDemoDirectory", path: filePath, literal: true, context: 1 });
     const text = getTextContent(result);
@@ -86,10 +86,10 @@ describe("grep ptcValue", () => {
     const result = await callGrepTool({ pattern: "match", path: filePath, literal: true });
     const text = getTextContent(result);
     const ptc = result.details?.ptcValue;
-    expect(text).toContain(`--- ${basename(filePath)} (60 matches) ---`);
+    expect(text).toContain(`--- ${filePath} (60 matches) ---`);
     expect(ptc.totalMatches).toBe(60);
     expect(ptc.records).toHaveLength(10);
-    expect(text.split("\n").filter((line) => line.startsWith(`${basename(filePath)}:`))).toHaveLength(10);
+    expect(text.split("\n").filter((line) => line.startsWith(`${filePath}:`))).toHaveLength(10);
   });
   it("returns a minimal ptc payload for direct binary-file warnings", async () => {
     const filePath = makeBinaryFile();

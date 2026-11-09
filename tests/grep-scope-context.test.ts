@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
-import { resolve, dirname, basename } from "node:path";
+import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { ensureHashInit } from "../src/hashline.js";
@@ -99,7 +99,7 @@ describe("grep scopeContext parameter", () => {
       scopeContext: 0,
     });
     const text = getTextContent(result);
-    const displayPath = basename(filePath);
+    const displayPath = filePath;
 
     expect(text).toContain(`--- ${displayPath} :: function alpha (1-6, 2 matches, scoped to ±0 lines) ---`);
     expect(text).toMatch(/:>>3:[0-9a-f]+\|/);
@@ -157,7 +157,7 @@ describe("grep scopeContext parameter", () => {
       scopeContext: 2,
     });
     const text = getTextContent(result);
-    const displayPath = basename(filePath);
+    const displayPath = filePath;
 
     expect(text).toContain(`--- ${displayPath} :: function alpha (1-10, 1 matches, scoped to ±2 lines) ---`);
     expect(text).toMatch(/:  3:[0-9a-f]+\|/);

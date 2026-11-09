@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterEach, vi } from "vitest";
-import { resolve, dirname, basename } from "node:path";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -43,7 +43,7 @@ describe("buildGrepOutput", () => {
   it("renders grouped grep matches through one shared builder", async () => {
     const spy = vi.spyOn(grepOutputModule, "buildGrepOutput");
     const filePath = resolve(fixturesDir, "small.ts");
-    const displayPath = basename(filePath);
+    const displayPath = relative(process.cwd(), filePath);
     const sourceLines = readFileSync(filePath, "utf-8").replace(/\r\n/g, "\n").split("\n");
     const result = await callGrepTool({ pattern: "createDemoDirectory", path: filePath, literal: true, context: 1 });
 
