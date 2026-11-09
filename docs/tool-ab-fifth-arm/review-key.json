@@ -1,0 +1,122 @@
+[
+  {
+    "id": "T01",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/no-ls-find/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T02",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "bash-grep-anchors",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/anthropic-cc_claude-sonnet-5-5/bash-grep-anchors/markdown-extension#1.jsonl"
+  },
+  {
+    "id": "T03",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "no-ls-find-grep",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/anthropic-cc_claude-sonnet-5-5/no-ls-find-grep/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T04",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "no-ls-find-grep",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/no-ls-find-grep/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T05",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "bash-grep-anchors",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/bash-grep-anchors/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T06",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/no-ls-find/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T07",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "no-ls-find-grep",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/anthropic-cc_claude-sonnet-5-5/no-ls-find-grep/markdown-extension#1.jsonl"
+  },
+  {
+    "id": "T08",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ls-default-limit",
+    "attempt": "2",
+    "arm": "no-ls-find-grep",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/no-ls-find-grep/ls-default-limit#2.jsonl"
+  },
+  {
+    "id": "T09",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "no-ls-find-grep",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/no-ls-find-grep/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T10",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ansi-cursor-codes",
+    "attempt": "2",
+    "arm": "bash-grep-anchors",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/bash-grep-anchors/ansi-cursor-codes#2.jsonl"
+  },
+  {
+    "id": "T11",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/no-ls-find/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T12",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "ast-search-loop-suggestion",
+    "attempt": "1",
+    "arm": "bash-grep-anchors",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/openai-codex_gpt-6-luna/bash-grep-anchors/ast-search-loop-suggestion#1.jsonl"
+  },
+  {
+    "id": "T13",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/anthropic-cc_claude-sonnet-5-5/no-ls-find/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T14",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "bash-search-hint-commands",
+    "attempt": "1",
+    "arm": "bash-grep-anchors",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/anthropic-cc_claude-sonnet-5-5/bash-grep-anchors/bash-search-hint-commands#1.jsonl"
+  },
+  {
+    "id": "T15",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "markdown-extension",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-fifth-arm/traces/anthropic-cc_claude-sonnet-5-5/no-ls-find/markdown-extension#1.jsonl"
+  }
+]

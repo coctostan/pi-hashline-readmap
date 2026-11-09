@@ -130,7 +130,7 @@ The first-touch count above missed a search tool's results printed relative to i
 
 ## A/B arms
 
-`node scripts/bench/tool-ab.mjs --models <list> --max-cost <usd>` runs each task in a fresh workspace through the selected host's own Pi CLI (`PI_COMPAT_HOST`, else the locked Pi, never the global `pi`), in four arms. The system prompt names the host's docs, so a selected host inside this checkout, as the locked one in `node_modules` is, runs instead as its version installed once under `~/.cache/pi-hashline-readmap/bench-hosts/<version>` (the whole Pi graph pinned, as in AGENTS.md's Host compatibility), and a host still inside is refused. The arms: `stock` (Pi's `read`, `bash`, `edit`, `write`), `extension` (this checkout's `index.ts`), `no-ls-find` (`--exclude-tools ls,find`) and `no-ls-find-grep` (`--exclude-tools ls,find,grep`). The tasks are the 10 locate-first tasks (`scripts/bench/locate-tasks/`), each on the pinned snapshot committed into a fresh git repo and scored by its checker in a child process with a 60 s timeout, and an Explicit Edit control of three tasks (`unique-1000-plain`, `multi-file-1-unicode`, `replace-block-10-unicode`), scored byte-exact without a `.git`. Each task and model runs its arms back to back, the arm order rotating, and every first repeat before any second. A run is launched only while the spent cost plus, for it and each run in flight, the most any run has cost stays within the cap; until one finishes, one runs alone. `summary.md` gives, per task set, model and arm, the mean per run of the pass rate, input tokens (input plus cache reads and writes), cost, tool calls and the confusion signals above, each with Δ, its spread between the repeats' means; `run.json` records the host, the extension's commit and the total spent.
+`node scripts/bench/tool-ab.mjs --models <list> --max-cost <usd>` runs each task in a fresh workspace through the selected host's own Pi CLI (`PI_COMPAT_HOST`, else the locked Pi, never the global `pi`), in four arms. The system prompt names the host's docs, so a selected host inside this checkout, as the locked one in `node_modules` is, runs instead as its version installed once under `~/.cache/pi-hashline-readmap/bench-hosts/<version>` (the whole Pi graph pinned, as in AGENTS.md's Host compatibility), and a host still inside is refused. The arms: `stock` (Pi's `read`, `bash`, `edit`, `write`), `extension` (this checkout's `index.ts`), `no-ls-find` (`--exclude-tools ls,find`), `no-ls-find-grep` (`--exclude-tools ls,find,grep`) and `bash-grep-anchors` (`no-ls-find-grep` with `PI_HASHLINE_BASH_GREP_ANCHORS=1`, so bash `grep`/`rg` lines carry edit anchors). Every extension arm sets that switch, `0` outside `bash-grep-anchors`, so a user's `bash.grepAnchors` setting turns it on in no other arm. The tasks are the 10 locate-first tasks (`scripts/bench/locate-tasks/`), each on the pinned snapshot committed into a fresh git repo and scored by its checker in a child process with a 60 s timeout, and an Explicit Edit control of three tasks (`unique-1000-plain`, `multi-file-1-unicode`, `replace-block-10-unicode`), scored byte-exact without a `.git`. Each task and model runs its arms back to back, the arm order rotating, and every first repeat before any second. A run is launched only while the spent cost plus, for it and each run in flight, the most any run has cost stays within the cap; until one finishes, one runs alone. `summary.md` gives, per task set, model and arm, the mean per run of the pass rate, input tokens (input plus cache reads and writes), cost, tool calls and the confusion signals above, each with Δ, its spread between the repeats' means; `run.json` records the host, the extension's commit and the total spent.
 
 An arm is what it declares: text in another tool naming an excluded one (listed above) and bash's grep hint on pipe filters stay, since a ruling that excludes a tool would ship them so.
 
@@ -194,3 +194,40 @@ Wrong-tool picks are not judged between arms: a bash `grep` counts as one only w
 The blind review of 5 traces per arm (`review-notes.md`): the `grep` tool's edge is an anchor that lets an edit skip the read (2 calls against 6 for bash search on the same task); its recurring confusion is printing paths relative to its `path` argument, which models then used from the workspace root (5 errors in 4 runs across the pilot); `ls` and `find` did no work that `grep` or a read had not; without `ls`, gpt-6-luna `read` a directory 12 times across the two arms lacking it and was told to use `ls`, a tool it did not have (`errors-by-tool.md`: its `read` errors rise from 3 in `extension` to 8 and 14).
 
 Bounds: two repeats give each spread from two means, so a gap a few percent past it, as `grep`'s Sonnet cost, is weak evidence; every locate run but the two on `ls-default-limit` passed, so pass rate separates arms only on the edit control above; the tasks are this repo's and small, the models two, thinking off; the stock arm's numbers are reported, not ruled on.
+
+## Fifth arm, 2026-11-09
+
+The run behind [ruling 0009](../space/decisions/0009-grep-kept-bash-grep-anchors-dropped.md), which ruling 0008 triggered: can anchored bash grep stand in for the `grep` tool? Its artifacts, the rule's table and the blind review notes are in [`docs/tool-ab-fifth-arm/`](tool-ab-fifth-arm/README.md):
+
+```sh
+node scripts/bench/tool-ab.mjs --models openai-codex/gpt-6-luna,anthropic-cc/claude-sonnet-5-5 \
+  --arms no-ls-find,no-ls-find-grep,bash-grep-anchors --max-cost 10 --concurrency 3 \
+  --out tmp/bench-results/tool-ab-fifth-arm
+```
+
+Pi 1.5.0 from the bench-host cache, extension at `3091b73b` with no uncommitted changes, thinking off, 300 s timeout: 13 tasks × 2 models × 3 arms × 2 repeats, 156 runs in 16 minutes, $2.6147 by its `run.json`. An attempt before it stopped after 4 runs ($0.0538) when files were added to this checkout mid-run and the checkout guard failed the runs in flight as `checkout-changed`; its results were set aside and the run started again from a clean tree. No run escaped into the checkout. `ls-default-limit` stays in every table, the host now outside the checkout (the two runs naming this checkout's path printed it from the snapshot's own `docs/codemode-benchmarks.md`). The one timeout, gpt-6-luna `no-ls-find` `markdown-extension#1`, is the model emitting `000` tool-call deltas until the limit, not a provider stall, so it stands as a failure.
+
+### Results
+
+Locate tasks (10 tasks, 20 runs per cell), mean per run (Δ, the spread between repeats):
+
+| model | arm | pass | input tokens (Δ) | cost (Δ) | calls before touch (Δ) | errors (Δ) |
+|---|---|---:|---:|---:|---:|---:|
+| gpt-6-luna | no-ls-find | 19/20 | 59,199 (23,719) | $0.0025 (0.0002) | 0.9 (0.5) | 0.85 (0.10) |
+| gpt-6-luna | no-ls-find-grep | 19/20 | 121,367 (67,768) | $0.0039 (0.0016) | 1.6 (1.5) | 1.30 (0.80) |
+| gpt-6-luna | bash-grep-anchors | 19/20 | 103,688 (32,488) | $0.0035 (0.0005) | 0.8 (0.2) | 1.10 (0.20) |
+| claude-sonnet-5-5 | no-ls-find | 20/20 | 43,146 (1,762) | $0.0411 (0.0012) | 0.3 (0.0) | 0.15 (0.30) |
+| claude-sonnet-5-5 | no-ls-find-grep | 20/20 | 35,317 (5,392) | $0.0304 (0.0040) | 1.0 (0.0) | 0.30 (0.20) |
+| claude-sonnet-5-5 | bash-grep-anchors | 20/20 | 38,973 (5,046) | $0.0329 (0.0001) | 1.1 (0.1) | 0.30 (0.20) |
+
+The rule, per model, a gap counting only beyond both arms' spreads (`verdict.md`):
+
+- The `grep` tool against anchored bash grep (`no-ls-find` against `bash-grep-anchors`), the ruled pair: on gpt-6-luna `grep` wins input tokens (44,490 fewer a run, spread 32,488), cost and errors on the locate tasks, and errors on the edit control (0.17 against 0.67, spread 0.33), and loses nothing. On Sonnet it wins calls before the first touch (0.32 against 1.07, spread 0.14) and loses cost ($0.0411 against $0.0329, a gap of $0.0082 against a spread of $0.0012); the rest tie.
+- Anchored bash grep against plain bash grep (`bash-grep-anchors` against `no-ls-find-grep`): every judged metric ties on both models and both task sets.
+- The `grep` tool against plain bash grep, the pilot's pair rerun: on gpt-6-luna every metric ties this time, plain bash's input tokens spreading 67,768 between repeats (the pilot's 21,440); on Sonnet `grep` wins calls before the touch and loses input tokens (7,829 a run, spread 5,392) and cost ($0.0107, spread $0.0040), where in the pilot its tokens tied and its cost lost 3% past the spread.
+
+Whether the anchors were used (`anchor-use.md`, from the traces): 33 of gpt-6-luna's and 46 of Sonnet's bash grep results carried anchors. gpt-6-luna edited by none of them, reading every file first; Sonnet edited by an anchor only a bash grep had shown 5 times, in 23 edits.
+
+The blind review of 5 traces per arm (`review-notes.md`, the same 5 draws as the pilot's by its seed): an edit by a search anchor without a read happened once with the `grep` tool (2 calls in all) and once with anchored bash grep (3 calls); in 4 of the 5 anchored traces the anchors were on screen and the model read the file anyway. Unscoped bash `rg` over `.` returned 20 to 51 KB, with or without anchors. The `grep` tool's paths relative to its `path` argument misled twice, as in the pilot, once with the misleading "fresh anchors" answer for a missing file.
+
+Bounds: as the pilot's, two repeats give each spread from two means, the tasks are this repo's and small, the models two, thinking off; the arms ran at one commit in one session, but not beside the pilot's, so the pilot's numbers compare only loosely; why the `grep` tool costs Sonnet more at equal input tokens is not established (output or cache-write tokens are candidates, unmeasured); `anchor-use.md` matches anchors by `N:HASH` text, so an anchor a read also printed is not counted as from bash.
