@@ -321,18 +321,21 @@ describe("checkoutTree", () => {
 	it("changes with any file git tracks or would add, and with nothing ignored or excluded", () => {
 		const repo = gitRepo({ "src/a.ts": "a\n", ".gitignore": "tmp/\n" });
 		try {
-			const clean = checkoutTree(repo, [join(repo, "out")]);
-			expect(clean).toBe(execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo, encoding: "utf8" }).trim());
-			mkdirSync(join(repo, "tmp"));
-			writeFileSync(join(repo, "tmp/scratch.txt"), "ignored\n");
+			// an --out outside what git ignores, and one inside it, as the default tmp/bench-results is
 			mkdirSync(join(repo, "out"));
+			mkdirSync(join(repo, "tmp/bench-results"), { recursive: true });
+			const tree = () => checkoutTree(repo, [join(repo, "out"), join(repo, "tmp/bench-results")]);
+			const clean = tree();
+			expect(clean).toBe(execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo, encoding: "utf8" }).trim());
+			writeFileSync(join(repo, "tmp/scratch.txt"), "ignored\n");
+			writeFileSync(join(repo, "tmp/bench-results/results.jsonl"), "{}\n");
 			writeFileSync(join(repo, "out/results.jsonl"), "{}\n");
-			expect(checkoutTree(repo, [join(repo, "out")])).toBe(clean);
+			expect(tree()).toBe(clean);
 			writeFileSync(join(repo, "notes.md"), "one\n");
-			const untracked = checkoutTree(repo, [join(repo, "out")]);
+			const untracked = tree();
 			expect(untracked).not.toBe(clean);
 			writeFileSync(join(repo, "notes.md"), "two\n");
-			expect(checkoutTree(repo, [join(repo, "out")])).not.toBe(untracked);
+			expect(tree()).not.toBe(untracked);
 			expect(execFileSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" })).toBe("?? notes.md\n?? out/\n");
 		} finally {
 			rmSync(repo, { recursive: true, force: true });

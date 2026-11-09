@@ -359,7 +359,16 @@ export function checkoutTree(repo, exclude = []) {
 	const scratch = mkdtempSync(join(tmpdir(), "tool-ab-index-"));
 	try {
 		const git = (...args) => execFileSync("git", ["-C", repo, ...args], { env: { ...process.env, GIT_INDEX_FILE: join(scratch, "index") }, encoding: "utf8" });
-		const excluded = exclude.filter((path) => existsSync(path) && isInside(path, repo)).map((path) => `:(exclude)${relative(realpathSync(repo), realpathSync(path))}`);
+		const ignored = (path) => {
+			try {
+				git("check-ignore", "-q", path);
+				return true;
+			} catch {
+				return false;
+			}
+		};
+		// git refuses a pathspec naming an ignored path, which the default --out under tmp/ is.
+		const excluded = exclude.filter((path) => existsSync(path) && isInside(path, repo) && !ignored(path)).map((path) => `:(exclude)${relative(realpathSync(repo), realpathSync(path))}`);
 		git("add", "-A", "--", ".", ...excluded);
 		return git("write-tree").trim();
 	} finally {
