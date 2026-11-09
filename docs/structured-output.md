@@ -56,7 +56,7 @@ interface PtcError {
 
 ## Required nulls at the host boundary
 
-A required parameter supplied as JSON `null` is rejected before Pi's schema conversion can turn it into a valid-looking scalar such as the string `"null"`. Registered Hashline tools use a shared `prepareArguments` guard. Direct `execute()` callers that bypass Pi's pipeline retain the execute-time guard. Optional nulls behave like omission, and documented numeric strings remain accepted. The literal string `"null"` is not a null value and remains a valid path or content string.
+A required parameter supplied as JSON `null` is rejected before Pi's schema conversion can turn it into a valid-looking scalar such as the string `"null"`. Registered Hashline tools use a shared `prepareArguments` guard. Direct `execute()` callers that bypass Pi's pipeline retain the execute-time guard. Optional nulls behave like omission, and documented numeric strings remain accepted. An optional field, at any depth, whose value is exactly the string `"null"` is omitted too, before validation: under strict constrained sampling some providers, such as zai's GLM, send it where they mean nothing (#290). On a required field the literal string `"null"` is not a null value and remains a valid path or content string.
 
 The actionable error text is unchanged, for example `Invalid path: expected string, received null.`. Error metadata depends on the boundary:
 
@@ -66,7 +66,7 @@ The actionable error text is unchanged, for example `Invalid path: expected stri
 | Raw argument guard | Throws an `Error` with `code: "invalid-null"` and the same message |
 | Pi preparation pipeline | Host reports `isError: true` with the same message, but its generic preparation-error result drops custom error metadata |
 
-Do not assume Pi's preparation-error result contains `details.ptcValue`. Preserving structured preparation errors across this boundary requires upstream host support. Hashline does not change parameter schemas to allow required nulls, reinterpret string `"null"` as null, or patch TypeBox's conversion behavior.
+Do not assume Pi's preparation-error result contains `details.ptcValue`. Preserving structured preparation errors across this boundary requires upstream host support. Hashline does not change parameter schemas to allow required nulls, reinterpret a required field's string `"null"` as null, or patch TypeBox's conversion behavior.
 
 The guard applies to every tool registered by the extension entry point, including optional Nu and the debug tool when enabled. `ls` has no required parameters; its optional-null behavior is tested separately. Compatibility checks audit every registered top-level required parameter and a representative nested edit replacement. They also run valid read/write controls through the real `tool_call` and `tool_result` handlers using `ExtensionRunner`; the `context` handler's registration is audited but the regression does not additionally exercise `emitContext`/context-hygiene staleness, which is a separate observable behavior from null rejection and is out of scope here. This is not exhaustive coverage of every union branch, event lifecycle, cancellation path, or provider integration.
 

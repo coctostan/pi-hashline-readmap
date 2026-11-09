@@ -60,7 +60,8 @@ function visit(schema: TSchema, value: unknown, prefix = ""): NormalizeToolParam
     if (!hasOwn(value, key)) continue;
     const name = prefix ? `${prefix}.${key}` : key;
 
-    if (value[key] === null) {
+    // Strict-sampling providers such as zai's GLM send an optional field as the string "null" (#290).
+    if (value[key] === null || (value[key] === "null" && !required.has(key))) {
       if (required.has(key)) {
         firstRequiredNull ??= { name, schema: property };
       } else {

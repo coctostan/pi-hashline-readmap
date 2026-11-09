@@ -184,6 +184,48 @@ try {
   }
   assert.equal(readFileSync(join(cwd, "null"), "utf8"), "fresh\n");
 
+  // #290: zai/GLM fills strict-sampled optional fields with the string "null", which must act as omitted.
+  const view = "Sources/View.swift";
+  mkdirSync(join(cwd, "Sources"));
+  writeFileSync(join(cwd, view), "struct DaytimeSectionCard {\n  let shown = 1\n}\n\nstruct OtherCard {\n  let hidden = 2\n}\n");
+  const glmRead = await invoke("read", {
+    bundle: "null", charLimit: "null", charOffset: "null",
+    errorMode: "throw", limit: "null", map: true, offset: "null",
+    path: view, strictSymbol: false,
+    symbol: "DaytimeSectionCard",
+  });
+  assert.equal(glmRead.isError, false, "#290's call must succeed: " + JSON.stringify(glmRead.result.content));
+  const glmText = glmRead.result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+  assert.ok(glmText.includes("let shown = 1"), "#290's call must return the symbol: " + glmText);
+  assert.ok(!glmText.includes("let hidden = 2"), "#290's call must return only the symbol's lines: " + glmText);
+  assert.deepEqual(beforeArgs, { errorMode: "throw", map: true, path: view, strictSymbol: false, symbol: "DaytimeSectionCard" });
+  for (const field of ["symbol", "errorMode"]) {
+    const outcome = await invoke("read", { path: view, [field]: "null" });
+    assert.equal(outcome.isError, false, "read with " + field + ' "null" must succeed');
+    assert.deepEqual(beforeArgs, { path: view }, field + ' "null" must arrive omitted');
+  }
+  // Every registered tool, every optional top-level field "null": the call arrives as if they were omitted.
+  const requiredArgs = {
+    read: { path: view },
+    write: { path: "null-fill.txt", content: "x\n" },
+    edit: { path: "missing.txt" },
+    grep: { pattern: "DaytimeSectionCard" },
+    ast_search: { pattern: "DaytimeSectionCard" },
+    find: { pattern: "*.swift" },
+    ls: {},
+    bash: { command: "printf ok" },
+    nu: { command: "1" },
+  };
+  for (const [name, registered] of extension.tools) {
+    const omitted = requiredArgs[name];
+    assert.ok(omitted, name + " needs required arguments in this test");
+    const parameters = registered.definition.parameters;
+    assert.deepEqual([...(parameters.required ?? [])].sort(), Object.keys(omitted).sort(), name + " required fields");
+    beforeArgs = undefined;
+    await invoke(name, Object.fromEntries(Object.keys(parameters.properties).map((key) => [key, omitted[key] ?? "null"])));
+    assert.deepEqual(beforeArgs, omitted, name + ' must receive every optional "null" omitted');
+  }
+
   // Codemode contract: structuredContent survives the real tool_result pipeline, so scripts
   // receive { text, ...ptcValue } instead of rendered text.
   const registeredRead = extension.tools.get("read").definition;
