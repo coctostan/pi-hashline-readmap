@@ -447,8 +447,8 @@ function parseHashlineEditItem(edit: HashlineEditItem, prefixContext?: PrefixCon
 		};
 	}
 	if ("insert_after" in edit) {
-		// `text` is an accepted alias; Pi fills a missing required new_text with "", so prefer whichever is non-empty.
-		const dst = prepareNewText(edit.insert_after.new_text || edit.insert_after.text || "", edit.insert_after.literal, prefixContext);
+		// `text` is an accepted alias for an empty new_text; an empty insert is one blank line, as "\n" is.
+		const dst = prepareNewText(edit.insert_after.new_text || edit.insert_after.text || "\n", edit.insert_after.literal, prefixContext);
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
 			dstLines: dst.lines,
@@ -990,10 +990,6 @@ export function applyHashlineEdits(
 				boundaryWarnings.push(
 					`insert_after text began with a copy of anchor line ${spec.after.line}; that copy was dropped. new_text holds only the new lines.`,
 				);
-			}
-			if (!inserted.length) {
-				noopEdits.push({ editIndex: idx, loc: `${spec.after.line}:${spec.after.hash}`, currentContent: anchor });
-				continue;
 			}
 			if (content === "" && spec.after.line === 1 && anchor === "") {
 				if (insertedAtSyntheticEmptyAnchor) {
