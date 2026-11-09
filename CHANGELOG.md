@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - A `bash` anti-pattern hint names only active tools: with `grep` inactive (`--exclude-tools grep`), `rg foo` carries no `Prefer the grep tool` hint, and the same holds for `find`'s file-search hint and the `read` and `edit` hints.
+- `ls` and `find` are deferred ([ruling 0008](space/decisions/0008-ls-find-deferred-grep-kept.md)): they stay registered and callable from codemode scripts, and `tool_search` can load them, but a default session no longer declares them, saving about 2.3 KB of context. Name them to turn them on: `--tools +ls,+find` or `"defaultTools": ["+ls", "+find"]`. In this repo's A/B against bash they cost Claude Sonnet input tokens beyond the spread between repeats and won only gpt-6-luna's calls before the first touch. `grep` stays declared ([ruling 0009](space/decisions/0009-grep-kept-bash-grep-anchors-dropped.md)).
+- `bash`'s description, snippet and guidelines leave file listing to bash and no longer name `ls` or `find`; `nu`'s guideline drops them too; `read` on a directory points at `ls` only while it is active, else at bash `ls`.
+- `node scripts/bench/tool-cost.mjs` measures every registered tool and names those off by default.
 
 ## [0.20.0] - 2026-11-04
 

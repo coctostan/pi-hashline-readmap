@@ -92,7 +92,7 @@ describe("formatDeclarationReport", () => {
 });
 
 describe("tool-cost.mjs --declarations on the selected host", () => {
-	it("measures every tool this extension declares, and the parts add up to the total", () => {
+	it("measures every tool this extension registers, names those off by default, and the parts add up to the total", () => {
 		const stdout = execFileSync(process.execPath, ["scripts/bench/tool-cost.mjs", "--declarations", "--json"], {
 			encoding: "utf8", timeout: 90_000, maxBuffer: 10 * 1024 * 1024,
 		});
@@ -100,6 +100,7 @@ describe("tool-cost.mjs --declarations on the selected host", () => {
 		expect(report.version).toBe(selectCompatHost().version);
 		const names = report.tools.map((tool: { name: string }) => tool.name);
 		expect(names).toEqual(expect.arrayContaining(["read", "bash", "edit", "write", "grep", "ast_search", "ls", "find"]));
+		expect([...report.inactiveByDefault].sort()).toEqual(["find", "ls"]);
 		for (const tool of report.tools) {
 			expect(tool.declarationBytes, tool.name).toBeGreaterThan(0);
 			expect(tool.snippetBytes, tool.name).toBeGreaterThan(0);
@@ -107,8 +108,8 @@ describe("tool-cost.mjs --declarations on the selected host", () => {
 		const sum = report.tools.reduce((total: number, tool: { bytes: number }) => total + tool.bytes, report.shared.bytes);
 		expect(sum).toBe(report.total.bytes);
 		const bashGuideline = report.crossReferences.find((ref: { tool: string; text: string }) =>
-			ref.tool === "bash" && ref.text === "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.");
-		expect(bashGuideline?.names).toEqual(expect.arrayContaining(["grep", "find", "ls"]));
+			ref.tool === "bash" && ref.text === "Use read/grep/edit/write for repo file reads, searches and edits.");
+		expect(bashGuideline?.names).toEqual(["read", "edit", "write", "grep"]);
 	}, 120_000);
 });
 

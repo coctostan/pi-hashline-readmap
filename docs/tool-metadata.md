@@ -30,7 +30,11 @@ These are text-only metadata changes: no root `oneOf`/`anyOf`, provider-request 
 
 At the real `createAgentSession` boundary, compact descriptions are attached to registered tool definitions. Prompt snippets and guidelines appear in `session.systemPrompt`. The full `prompts/*.md` bodies are detailed references and do not reach the provider. Changing a prompt body alone therefore does not change provider-visible metadata. `tests/pi-prompt-metadata-integration.test.ts` captures all three surfaces.
 
-Bundled `nu` is deprecated but retained. Its compact registered description, snippet, and guideline now route general exploration toward read/grep/ast_search, find/ls, codemode composition, and Bash external commands. Nu parameter descriptions, schema shape, execution, and result contracts are unchanged; detailed specialist syntax remains in prompts/nu.md. See [Nu deprecation and migration](nu-deprecation.md) for the removal gate.
+Bundled `nu` is deprecated but retained. Its compact registered description, snippet, and guideline now route general exploration toward read/grep/ast_search, codemode composition, and Bash external commands and file listing. Nu parameter descriptions, schema shape, execution, and result contracts are unchanged; detailed specialist syntax remains in prompts/nu.md. See [Nu deprecation and migration](nu-deprecation.md) for the removal gate.
+
+## Which tools are declared
+
+`ls` and `find` register with Pi's `deferred` exposure ([ruling 0008](../space/decisions/0008-ls-find-deferred-grep-kept.md)): a default session does not declare them, so their metadata reaches a provider only once they are named in `--tools` (`--tools +ls,+find`) or the `defaultTools` setting, or loaded by `tool_search`. Codemode scripts can call them whether declared or not; `searchTools()` finds them, though the codemode description does not list them. `grep` stays declared ([ruling 0009](../space/decisions/0009-grep-kept-bash-grep-anchors-dropped.md)). Declared tools' text names neither: bash's description, snippet, `command` description and guidelines leave file listing to bash, `nu`'s guideline does too, and `read` on a directory names `ls` only while it is active. `tests/tool-ruling-registration.test.ts` checks the default set at the real `createAgentSession` boundary.
 
 ## Codemode contract clarity
 

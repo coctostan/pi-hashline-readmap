@@ -6,7 +6,8 @@
  *   node scripts/bench/tool-cost.mjs [--declarations] [--sessions <dir>] [--json]
  *
  * --declarations (the default) loads this checkout's index.ts alone into the selected host
- * (PI_COMPAT_HOST, else the locked Pi) through createAgentSession, sends one prompt to a stub
+ * (PI_COMPAT_HOST, else the locked Pi) through createAgentSession, activates every tool it
+ * registers (naming those a default session leaves undeclared), sends one prompt to a stub
  * provider and reads what it receives: the rendered system prompt and the tool declarations.
  * Each tool is charged its declaration ({name, description, parameters} as JSON), its
  * `- name: snippet` line and its guideline lines; the rest of the system prompt is shared.
@@ -106,11 +107,12 @@ export function findCrossReferences({ tools, prompts }) {
 	});
 }
 
-export function formatDeclarationReport({ host, version, tools, shared, total, crossReferences }) {
+export function formatDeclarationReport({ host, version, tools, shared, total, crossReferences, inactiveByDefault = [] }) {
 	const width = Math.max(20, ...tools.map((tool) => tool.name.length));
 	const row = (cells) => cells.map((cell, index) => (index === 0 ? String(cell).padEnd(width) : String(cell).padStart(11))).join(" ").trimEnd();
 	return [
-		`Pi ${version} (${host}), this extension alone, every declared tool active`,
+		`Pi ${version} (${host}), this extension alone, every registered tool active`,
+		`not declared by default: ${inactiveByDefault.join(", ") || "none"}`,
 		"bytes are UTF-8; tokens are characters / 4, an estimate",
 		"",
 		row(["tool", "declaration", "snippet", "guidelines", "bytes", "~tokens"]),
@@ -152,6 +154,14 @@ export async function captureDeclarations() {
 		});
 		await resourceLoader.reload();
 		({ session } = await createAgentSession({ cwd, agentDir, resourceLoader, sessionManager: SessionManager.inMemory(cwd) }));
+		// Measure every registered tool, naming those a default session leaves undeclared.
+		const defaultActive = new Set(session.getActiveToolNames());
+		// Pi's own built-ins the extension does not replace, such as powershell, are not measured.
+		const registered = session.getAllTools()
+			.filter((tool) => tool.exposure !== "hidden" && (defaultActive.has(tool.name) || tool.sourceInfo?.source !== "builtin"))
+			.map((tool) => tool.name);
+		session.setActiveToolsByName(registered);
+		const inactiveByDefault = registered.filter((name) => !defaultActive.has(name));
 		await session.setModel(session.modelRuntime.getModel(api, "capture"));
 		await session.prompt("Reply ok.");
 		if (!context) throw new Error("the stub provider received no request");
@@ -164,7 +174,7 @@ export async function captureDeclarations() {
 				guidelines: (definition?.promptGuidelines ?? []).map(trimmed).filter(Boolean),
 			}];
 		}));
-		return { host, version, systemPrompt: piAi.getCurrentSystemPrompt(context.messages), tools, prompts };
+		return { host, version, systemPrompt: piAi.getCurrentSystemPrompt(context.messages), tools, prompts, inactiveByDefault };
 	} finally {
 		session?.dispose();
 		faux.unregister();
@@ -221,7 +231,7 @@ async function main(args) {
 	let report = {};
 	if (declarations) {
 		const capture = await captureDeclarations();
-		report = { host: capture.host, version: capture.version, ...accountDeclarations(capture), crossReferences: findCrossReferences(capture) };
+		report = { host: capture.host, version: capture.version, inactiveByDefault: capture.inactiveByDefault, ...accountDeclarations(capture), crossReferences: findCrossReferences(capture) };
 	}
 	if (sessionsDir) report.sessions = scanSessions(sessionsDir);
 	if (rest.includes("--json")) console.log(JSON.stringify(report, null, 2));

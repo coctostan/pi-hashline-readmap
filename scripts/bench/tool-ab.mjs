@@ -7,14 +7,13 @@
  * installed under ~/.cache/pi-hashline-readmap/bench-hosts, and a run after which the checkout's tree
  * differs fails and stops the harness:
  *
- *   stock               stock Pi: read, bash, edit, write
- *   extension           this checkout's index.ts, every tool it registers
- *   no-ls-find          the extension with --exclude-tools ls,find
- *   no-ls-find-grep     the extension with --exclude-tools ls,find,grep
- *   bash-grep-anchors   no-ls-find-grep with anchored bash grep on (PI_HASHLINE_BASH_GREP_ANCHORS=1)
+ *   stock             stock Pi: read, bash, edit, write
+ *   extension         this checkout's index.ts, its default tools (since ruling 0008 without ls and
+ *                     find, which the pilot ran active)
+ *   no-ls-find        the extension with --exclude-tools ls,find
+ *   no-ls-find-grep   the extension with --exclude-tools ls,find,grep
  *
  * An arm is what it declares: text in another tool naming an excluded one, and bash's hints, stay.
- * Every extension arm sets the anchors switch, so a user's `bash.grepAnchors` setting cannot turn it on.
  *
  * Tasks: the locate-first tasks (scripts/bench/locate-tasks), each on the pinned snapshot
  * committed into a fresh git repo and scored by its checker in a child process, and an Explicit
@@ -31,7 +30,7 @@
  * Options:
  *   --models LIST        Comma-separated Pi models (required)
  *   --max-cost USD       Spending cap for the whole run, resumed runs included (required)
- *   --arms LIST          Comma-separated arms (default: all five)
+ *   --arms LIST          Comma-separated arms (default: all four)
  *   --tasks IDS          Comma-separated task ids from either set (default: every locate task and
  *                        the Explicit Edit control tasks)
  *   --repeat N           Runs of every (task, model, arm) (default: 2)
@@ -66,13 +65,11 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const CHECK_SCRIPT = join(REPO, "scripts/bench/locate-tasks/check.mjs");
 const CHECK_TIMEOUT_MS = 60_000;
 
-const ANCHORS_OFF = { PI_HASHLINE_BASH_GREP_ANCHORS: "0" };
 export const ARMS = [
 	{ name: "stock", extension: false, exclude: [] },
-	{ name: "extension", extension: true, exclude: [], env: ANCHORS_OFF },
-	{ name: "no-ls-find", extension: true, exclude: ["ls", "find"], env: ANCHORS_OFF },
-	{ name: "no-ls-find-grep", extension: true, exclude: ["ls", "find", "grep"], env: ANCHORS_OFF },
-	{ name: "bash-grep-anchors", extension: true, exclude: ["ls", "find", "grep"], env: { PI_HASHLINE_BASH_GREP_ANCHORS: "1" } },
+	{ name: "extension", extension: true, exclude: [] },
+	{ name: "no-ls-find", extension: true, exclude: ["ls", "find"] },
+	{ name: "no-ls-find-grep", extension: true, exclude: ["ls", "find", "grep"] },
 ];
 
 /** The Explicit Edit control: three families at three scales, where the prompt names every file. */
@@ -412,7 +409,6 @@ async function runOne({ task, arm, model, attempt }, opts, host) {
 			thinking: opts.thinking,
 			extensions: [...providerExtensions(model, opts.providerExtensions), ...(arm.extension ? [join(REPO, "index.ts")] : [])],
 			excludeTools: arm.exclude,
-			env: arm.env,
 			cli: host.cli,
 			timeoutMs: opts.timeout * 1000,
 		});

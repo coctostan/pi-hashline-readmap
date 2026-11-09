@@ -93,7 +93,7 @@ describe("stock pi prompt metadata", () => {
     assert.ok(tool);
     assert.match(tool.description, /Deprecated/);
     expect(tool.promptGuidelines).toEqual([
-      "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",
+      "Deprecated nu: prefer read/grep/ast_search and codemode; use bash for CLIs and file listing.",
     ]);
     assertPromptMetadata(tool as ToolDefinition, "prompts/nu.md", "nu");
   });

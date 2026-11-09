@@ -9,7 +9,7 @@ export interface HashlineJsonSettings {
   gdscript?: { enabled?: boolean };
   edit?: { diffDisplay?: "collapsed" | "expanded" };
   display?: { previewLines?: number };
-  bash?: { shellPath?: string; grepAnchors?: boolean };
+  bash?: { shellPath?: string };
 }
 export interface HashlineSettingsWarning { source: string; message: string; path?: string }
 export interface HashlineSettingsResult { settings: HashlineJsonSettings; warnings: HashlineSettingsWarning[] }
@@ -207,8 +207,6 @@ function validateSettings(raw: unknown, source: string, rawText: string): Hashli
       if (typeof raw.bash.shellPath === "string" && raw.bash.shellPath.trim().length > 0) bash.shellPath = raw.bash.shellPath;
       else warnings.push(invalid(source, "bash.shellPath"));
     }
-    const grepAnchors = readBoolean(raw.bash, "grepAnchors", "bash.grepAnchors", source, warnings);
-    if (grepAnchors !== undefined) bash.grepAnchors = grepAnchors;
     if (Object.keys(bash).length > 0) settings.bash = bash;
   }
   if (isRecord(raw.display)) {
@@ -255,12 +253,6 @@ export function isGdscriptMappingEnabled(env: NodeJS.ProcessEnv = process.env): 
     return env.PI_HASHLINE_GDSCRIPT === "1";
   }
   return resolveHashlineJsonSettings().settings.gdscript?.enabled === true;
-}
-
-/** Anchored bash grep: off by default; exact `PI_HASHLINE_BASH_GREP_ANCHORS` value `1` enables it and takes precedence over JSON. */
-export function isBashGrepAnchorsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (env.PI_HASHLINE_BASH_GREP_ANCHORS !== undefined) return env.PI_HASHLINE_BASH_GREP_ANCHORS === "1";
-  return resolveHashlineJsonSettings().settings.bash?.grepAnchors === true;
 }
 
 export function resolveEditDiffDisplay(env: NodeJS.ProcessEnv = process.env): "collapsed" | "expanded" {

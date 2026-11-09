@@ -13,6 +13,6 @@ it("preserves the optional native output schema without copying input metadata",
     expect(registered).toBe(tool);
     expect(tool.outputSchema).toBe((native as any).outputSchema);
     expect(createBuiltIn).toHaveBeenCalledWith("/tmp/work", { shellPath: undefined });
-    expect(tool.parameters.properties.command.description).toBe("Test/build/git/pkg/external command; not repo file read/search/list/edit.");
+    expect(tool.parameters.properties.command.description).toBe("Test/build/git/pkg/external/listing command; not repo file read/search/edit.");
   }
 });

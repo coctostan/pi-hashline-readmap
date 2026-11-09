@@ -3,7 +3,6 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
-import { ensureHashInit } from "./hashline.js";
 import {
   buildRequiredNullParameterError,
   normalizeToolParameters,
@@ -11,20 +10,20 @@ import {
 
 type BuiltInFactory = (cwd: string, options?: { shellPath?: string }) => any;
 
-const BASH_DESCRIPTION = "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint. Nonzero exits remain native values on structured-output hosts.";
-const BASH_PROMPT_SNIPPET = "Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.";
+// `ls` and `find` are deferred (ruling 0008), so bash lists files and its text names neither tool.
+const BASH_DESCRIPTION = "Run tests, builds, git, package managers, external CLIs, and file listings; do not use for repo file reading/searching/editing (use read, grep, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint. Nonzero exits remain native values on structured-output hosts.";
+const BASH_PROMPT_SNIPPET = "Bash for tests/builds/git/pkg/external CLIs and listing files. Don't use cat/head/tail, grep/rg, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/edit/write.";
 const BASH_PROMPT_GUIDELINES = [
-  "Use bash for tests, builds, git, package managers, and external CLIs.",
-  "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
-  "Use read/grep/find/ls/edit/write for repo file operations.",
+  "Use bash for tests, builds, git, package managers, external CLIs, and listing files.",
+  "Do not use bash cat/head/tail/grep/rg/sed/awk for repo files.",
+  "Use read/grep/edit/write for repo file reads, searches and edits.",
 ];
-const GREP_ANCHORS_GUIDELINE = "grep -n/rg -n output lines that match the file carry LINE:HASH anchors usable with edit.";
 const BASH_PARAMETERS = Type.Object({
-  command: Type.String({ description: "Test/build/git/pkg/external command; not repo file read/search/list/edit." }),
+  command: Type.String({ description: "Test/build/git/pkg/external/listing command; not repo file read/search/edit." }),
   timeout: Type.Optional(Type.Number({ description: "Timeout seconds" })),
 });
 
-export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">, options: { cwd?: string; shellPath?: string; grepAnchors?: boolean; createBuiltInBashTool?: BuiltInFactory } = {}): any {
+export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">, options: { cwd?: string; shellPath?: string; createBuiltInBashTool?: BuiltInFactory } = {}): any {
   const cache = new Map<string, any>();
   const createBuiltInBashTool = options.createBuiltInBashTool ?? ((cwd: string, opts?: { shellPath?: string }) => createBashTool(cwd, { shellPath: opts?.shellPath }));
   const getBuiltIn = (cwd: string) => {
@@ -40,7 +39,7 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
     label: "bash",
     description: BASH_DESCRIPTION,
     promptSnippet: BASH_PROMPT_SNIPPET,
-    promptGuidelines: options.grepAnchors ? [...BASH_PROMPT_GUIDELINES, GREP_ANCHORS_GUIDELINE] : BASH_PROMPT_GUIDELINES,
+    promptGuidelines: BASH_PROMPT_GUIDELINES,
     parameters: BASH_PARAMETERS,
     constrainedSampling: { type: "json_schema", strict: "prefer" } as const,
     get outputSchema() {
@@ -51,8 +50,6 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
       if (normalized.requiredNull) {
         return buildRequiredNullParameterError("bash", normalized.requiredNull);
       }
-      // The tool_result handler hashes grep lines synchronously.
-      if (options.grepAnchors) await ensureHashInit();
       const cwd = ctx?.cwd ?? options.cwd ?? process.cwd();
       return getBuiltIn(cwd).execute(
         toolCallId,

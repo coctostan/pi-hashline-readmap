@@ -46,7 +46,7 @@ const COMPACT_GUIDELINES: Record<string, string[]> = {
     "Use ast_search for AST patterns.",
   ],
   "nu.md": [
-    "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",
+    "Deprecated nu: prefer read/grep/ast_search and codemode; use bash for CLIs and file listing.",
   ],
 };
 

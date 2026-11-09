@@ -283,7 +283,7 @@ const NU_SNIPPET =
   "Deprecated bundled Nushell tool; prefer file tools plus codemode for general exploration.";
 
 export const NU_GUIDELINES = [
-  "Deprecated nu: prefer read/grep/ast_search, find/ls, and codemode; use bash for CLIs.",
+  "Deprecated nu: prefer read/grep/ast_search and codemode; use bash for CLIs and file listing.",
 ];
 
 const NU_PROMPT_METADATA = defineToolPromptMetadata({
