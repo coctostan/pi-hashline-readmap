@@ -12,12 +12,14 @@ const call = (id: string, name: string, args: Record<string, unknown>) => ({ typ
 const result = (id: string, text: string, isError = false) => line({ type: "message_end", message: { role: "toolResult", toolCallId: id, content: [{ type: "text", text }], isError } });
 
 describe("ARMS", () => {
-	it("are stock Pi, the extension, and the extension without ls and find, then without grep too", () => {
+	it("are stock Pi, the extension, and the extension without ls and find, then without grep too, then with bash grep anchored in its place", () => {
+		const off = { PI_HASHLINE_BASH_GREP_ANCHORS: "0" };
 		expect(ARMS).toEqual([
 			{ name: "stock", extension: false, exclude: [] },
-			{ name: "extension", extension: true, exclude: [] },
-			{ name: "no-ls-find", extension: true, exclude: ["ls", "find"] },
-			{ name: "no-ls-find-grep", extension: true, exclude: ["ls", "find", "grep"] },
+			{ name: "extension", extension: true, exclude: [], env: off },
+			{ name: "no-ls-find", extension: true, exclude: ["ls", "find"], env: off },
+			{ name: "no-ls-find-grep", extension: true, exclude: ["ls", "find", "grep"], env: off },
+			{ name: "bash-grep-anchors", extension: true, exclude: ["ls", "find", "grep"], env: { PI_HASHLINE_BASH_GREP_ANCHORS: "1" } },
 		]);
 	});
 });
@@ -28,7 +30,7 @@ describe("planJobs", () => {
 	const key = (job: (typeof jobs)[number]) => `${job.attempt}|${job.task.id}|${job.model}`;
 
 	it("plans every arm for every task, model and repeat once", () => {
-		expect(jobs).toHaveLength(3 * 4 * 2 * 2);
+		expect(jobs).toHaveLength(3 * ARMS.length * 2 * 2);
 		expect(new Set(jobs.map((job) => `${key(job)}|${job.arm.name}`)).size).toBe(jobs.length);
 	});
 
@@ -387,10 +389,10 @@ describe("tool-ab.mjs through a stub host", () => {
 	let scratch: string;
 	let host: string;
 	let out: string;
-	const runCli = (...extra: string[]) => spawnSync(
+	const runCli = (env: Record<string, string> = {}, ...extra: string[]) => spawnSync(
 		process.execPath,
 		[script, "--models", "p/m", "--max-cost", "1", "--tasks", "ansi-cursor-codes", "--repeat", "1", "--out", out, ...extra],
-		{ env: { ...process.env, PI_COMPAT_HOST: host }, encoding: "utf8" },
+		{ env: { ...process.env, PI_COMPAT_HOST: host, ...env }, encoding: "utf8" },
 	);
 
 	beforeAll(() => {
@@ -398,30 +400,33 @@ describe("tool-ab.mjs through a stub host", () => {
 		host = join(scratch, "host");
 		out = join(scratch, "out");
 		mkdirSync(host);
-		// A host whose Pi CLI records the arguments it was launched with.
+		// A host whose Pi CLI records the arguments it was launched with and the anchors switch it sees.
 		writeFileSync(join(host, "package.json"), JSON.stringify({ version: "0.0.0-stub", bin: { pi: "cli.mjs" } }));
-		writeFileSync(join(host, "cli.mjs"), "console.log(JSON.stringify({ type: \"stub\", argv: process.argv.slice(2) }));\n");
+		writeFileSync(join(host, "cli.mjs"), "console.log(JSON.stringify({ type: \"stub\", argv: process.argv.slice(2), anchors: process.env.PI_HASHLINE_BASH_GREP_ANCHORS ?? null }));\n");
 	});
 
 	afterAll(() => {
 		if (scratch) rmSync(scratch, { recursive: true, force: true });
 	});
 
-	it("launches each arm through the selected host's CLI, with its extension and exclusions", () => {
-		const first = runCli();
+	it("launches each arm through the selected host's CLI, with its extension, exclusions and anchors switch", () => {
+		// The switch on in the harness's own environment must not reach an arm that sets it off.
+		const first = runCli({ PI_HASHLINE_BASH_GREP_ANCHORS: "1" });
 		expect(first.status, first.stderr).toBe(0);
 		const launch = (arm: string) => {
 			const trace = readFileSync(join(out, "traces/p_m", arm, "ansi-cursor-codes#1.jsonl"), "utf8");
-			const argv: string[] = JSON.parse(trace.split("\n")[0]).argv;
+			const { argv, anchors }: { argv: string[]; anchors: string | null } = JSON.parse(trace.split("\n")[0]);
 			const excludeAt = argv.indexOf("--exclude-tools");
-			return { extensions: argv.filter((_arg, i) => argv[i - 1] === "-e"), exclude: excludeAt === -1 ? null : argv[excludeAt + 1] };
+			return { extensions: argv.filter((_arg, i) => argv[i - 1] === "-e"), exclude: excludeAt === -1 ? null : argv[excludeAt + 1], anchors };
 		};
 		const index = join(repo, "index.ts");
 		expect(Object.fromEntries(ARMS.map((arm) => [arm.name, launch(arm.name)]))).toEqual({
-			stock: { extensions: [], exclude: null },
-			extension: { extensions: [index], exclude: null },
-			"no-ls-find": { extensions: [index], exclude: "ls,find" },
-			"no-ls-find-grep": { extensions: [index], exclude: "ls,find,grep" },
+			// stock loads no extension, so the switch it inherits does nothing.
+			stock: { extensions: [], exclude: null, anchors: "1" },
+			extension: { extensions: [index], exclude: null, anchors: "0" },
+			"no-ls-find": { extensions: [index], exclude: "ls,find", anchors: "0" },
+			"no-ls-find-grep": { extensions: [index], exclude: "ls,find,grep", anchors: "0" },
+			"bash-grep-anchors": { extensions: [index], exclude: "ls,find,grep", anchors: "1" },
 		});
 		const run = JSON.parse(readFileSync(join(out, "run.json"), "utf8"));
 		expect(run).toMatchObject({ host: { version: "0.0.0-stub", cli: join(host, "cli.mjs") }, spent: 0, skipped: 0 });
@@ -434,13 +439,13 @@ describe("tool-ab.mjs through a stub host", () => {
 	});
 
 	it("resumes only the same treatment", () => {
-		const resumed = runCli("--resume");
+		const resumed = runCli({}, "--resume");
 		expect(resumed.status, resumed.stderr).toBe(0);
 		expect(resumed.stderr).toContain("0 runs");
 		const runPath = join(out, "run.json");
 		const run = JSON.parse(readFileSync(runPath, "utf8"));
 		writeFileSync(runPath, JSON.stringify({ ...run, extension: { ...run.extension, commit: "0".repeat(40) } }));
-		const changed = runCli("--resume");
+		const changed = runCli({}, "--resume");
 		expect(changed.status).not.toBe(0);
 		expect(changed.stderr).toContain("--resume: extension changed");
 	});

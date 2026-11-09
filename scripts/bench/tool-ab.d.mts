@@ -1,7 +1,8 @@
 import type { EventSummary } from "./lib.mjs";
 import type { LocateTask } from "./locate-tasks/tasks.mjs";
 
-export interface Arm { name: string; extension: boolean; exclude: string[] }
+/** `env` is added to the environment Pi runs in. */
+export interface Arm { name: string; extension: boolean; exclude: string[]; env?: Record<string, string> }
 export const ARMS: Arm[];
 
 export interface AbTask {
