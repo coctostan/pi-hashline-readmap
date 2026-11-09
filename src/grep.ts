@@ -714,9 +714,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 // Name each file from the cwd, as read and edit resolve paths; a file outside it keeps its absolute path.
 const cwdDisplayPath = (absolutePath: string): string => {
 	const relative = path.relative(ctx.cwd, absolutePath);
-	return relative === "" || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)
-		? absolutePath
-		: relative;
+	return relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative) ? absolutePath : relative;
 };
 let renderedGroups = outputIR.files.map((file) => {
 	const absolutePath = summary ? file.path : toAbsolutePath(file.path);
