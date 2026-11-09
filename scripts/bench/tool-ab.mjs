@@ -2,7 +2,10 @@
 /**
  * A/B of tool arms for the tools-vs-bash arc: does an agent do better with this extension's
  * `find`, `ls` and `grep`, or with bash? Each run is one task in a fresh workspace, through the
- * selected host's own Pi CLI (PI_COMPAT_HOST, else the locked Pi), headless (`pi -p --mode json`):
+ * selected host's own Pi CLI (PI_COMPAT_HOST, else the locked Pi), headless (`pi -p --mode json`).
+ * The system prompt names the host's docs, so a host inside this checkout is replaced by its version
+ * installed under ~/.cache/pi-hashline-readmap/bench-hosts, and a run after which the checkout's tree
+ * differs fails and stops the harness:
  *
  *   stock             stock Pi: read, bash, edit, write
  *   extension         this checkout's index.ts, every tool it registers
@@ -46,9 +49,9 @@
  */
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { selectCompatHost } from "../pi-compat-host.mjs";
@@ -312,10 +315,86 @@ export function treeChanges(repo) {
 	return changes ? createHash("sha256").update(changes).digest("hex").slice(0, 16) : null;
 }
 
-function selectedHost() {
-	const { host, version } = selectCompatHost();
-	const bin = JSON.parse(readFileSync(join(host, "package.json"), "utf8")).bin.pi;
-	return { host, version, cli: join(host, bin) };
+/** Where a host's version is installed when the selected one sits inside the checkout. */
+const HOST_CACHE = join(homedir(), ".cache/pi-hashline-readmap/bench-hosts");
+/** The whole Pi graph, pinned to one version, by AGENTS.md's "Host compatibility". */
+const PI_PACKAGES = ["pi-coding-agent", "pi-agent-core", "pi-ai", "pi-tui", "pi-mcp", "pi-codemode", "pi-schema", "pi-telemetry"];
+
+const isInside = (path, dir) => {
+	const rel = relative(realpathSync(dir), realpathSync(path));
+	return !isAbsolute(rel) && rel !== ".." && !rel.startsWith(`..${sep}`);
+};
+
+function installHost(version, prefix) {
+	execFileSync("npm", ["install", "--prefix", prefix, "--no-save", "--package-lock=false", "--no-audit", "--no-fund", ...PI_PACKAGES.map((name) => `@earendil-works/${name}@${version}`)], { stdio: ["ignore", "ignore", "inherit"] });
+}
+
+/**
+ * The selected host, run from outside `repo`: the system prompt names the host's docs, which would
+ * lead a model into the checkout. A host inside it is replaced by its version installed under `cacheDir`.
+ */
+export function benchHost({ host, version }, repo, { cacheDir = HOST_CACHE, install = installHost } = {}) {
+	if (isInside(host, repo)) {
+		mkdirSync(cacheDir, { recursive: true });
+		if (isInside(cacheDir, repo)) throw new Error(`The host ${host} and its install directory ${cacheDir} are both inside the checkout ${repo}, which a run would reach through the system prompt`);
+		const prefix = join(cacheDir, version);
+		host = join(prefix, "node_modules/@earendil-works/pi-coding-agent");
+		if (!existsSync(join(host, "package.json"))) {
+			// Install beside it, then rename, so an interrupted install is never taken for a whole one.
+			const staging = mkdtempSync(`${prefix}-`);
+			try {
+				install(version, staging);
+				renameSync(staging, prefix);
+			} finally {
+				rmSync(staging, { recursive: true, force: true });
+			}
+		}
+	}
+	if (isInside(host, repo)) throw new Error(`The host ${host} is inside the checkout ${repo}, which a run would reach through the system prompt`);
+	const manifest = JSON.parse(readFileSync(join(host, "package.json"), "utf8"));
+	if (manifest.version !== version) throw new Error(`${host} holds Pi ${manifest.version}, not the selected ${version}`);
+	return { host, version, cli: join(host, manifest.bin.pi) };
+}
+
+/**
+ * The tree of everything in `repo` that git tracks or would add, outside `exclude`: what a run must leave as it found it.
+ * shortcut: ignored paths (node_modules, tmp, dist) go unseen; hash them too if a run is found writing there.
+ */
+export function checkoutTree(repo, exclude = []) {
+	const scratch = mkdtempSync(join(tmpdir(), "tool-ab-index-"));
+	try {
+		const git = (...args) => execFileSync("git", ["-C", repo, ...args], { env: { ...process.env, GIT_INDEX_FILE: join(scratch, "index") }, encoding: "utf8" });
+		const ignored = (path) => {
+			try {
+				git("check-ignore", "-q", path);
+				return true;
+			} catch {
+				return false;
+			}
+		};
+		// git refuses a pathspec naming an ignored path, which the default --out under tmp/ is.
+		const excluded = exclude.filter((path) => existsSync(path) && isInside(path, repo) && !ignored(path)).map((path) => `:(exclude)${relative(realpathSync(repo), realpathSync(path))}`);
+		git("add", "-A", "--", ".", ...excluded);
+		return git("write-tree").trim();
+	} finally {
+		rmSync(scratch, { recursive: true, force: true });
+	}
+}
+
+/**
+ * `run` for each job, its result passed to `record`. A run after which the checkout's tree differs from
+ * before the first is recorded failed, and the worker throws, so `runJobs` launches nothing more.
+ */
+export function guardedWorker(run, record, { repo, exclude }) {
+	const before = checkoutTree(repo, exclude);
+	return async (job) => {
+		const result = await run(job);
+		const escaped = checkoutTree(repo, exclude) !== before;
+		const final = escaped ? { ...result, pass: false, failure: "checkout-changed" } : result;
+		record(final);
+		if (escaped) throw new Error(`The checkout ${repo} changed during a run, so no more runs were launched: revert the change, then --resume`);
+		return final;
+	};
 }
 
 async function runOne({ task, arm, model, attempt }, opts, host) {
@@ -404,7 +483,7 @@ async function main(argv) {
 		for (const task of tasks) console.log(`${task.set}\t${task.id}`);
 		return;
 	}
-	const host = selectedHost();
+	const host = benchHost(selectCompatHost(), REPO);
 	const arms = ARMS.filter((arm) => opts.arms.includes(arm.name));
 	const extension = { entry: join(REPO, "index.ts"), commit: execFileSync("git", ["-C", REPO, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(), changes: treeChanges(REPO) };
 	// What a run repeats: a resume that changed any of these would compare different treatments as one arm.
@@ -445,14 +524,12 @@ async function main(argv) {
 		maxCost: opts.maxCost,
 		spent: spentBefore,
 		maxRunCost: previous.length ? Math.max(...previous.map((r) => r.cost)) : null,
-	}, async (job) => {
-		const result = await runOne(job, opts, host);
+	}, guardedWorker((job) => runOne(job, opts, host), (result) => {
 		results.push(result);
 		appendFileSync(resultsPath, JSON.stringify(result) + "\n");
 		const tools = Object.entries(result.toolCalls).map(([k, v]) => `${k}×${v}`).join(" ");
 		console.error(`[${++finished}/${jobs.length}] ${result.pass ? "PASS" : "FAIL"} ${result.model} ${result.arm.padEnd(15)} ${`${result.task}#${result.attempt}`.padEnd(40)} $${result.cost.toFixed(4)} ${(result.durationMs / 1000).toFixed(0).padStart(4)}s ${tools}${result.pass ? "" : `  ${result.failure}${result.diffs[0] ? ` — ${result.diffs[0]}` : ""}`}`);
-		return result;
-	});
+	}, { repo: REPO, exclude: [opts.out] }));
 	writeRun({ spent: outcome.spent, skipped: outcome.skipped, finishedAt: new Date().toISOString() });
 	const markdown = formatSummary({
 		rows: summarizeRuns(results),
