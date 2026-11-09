@@ -18,7 +18,7 @@ A measured answer, from our own A/B runs against stock Pi, to whether `find`, `l
 - [ ] 0.21.0 is released: the version is bumped, and a `[0.21.0]` CHANGELOG entry names the ruled tool changes and the active-tool hints — verified by the `pi-compatibility` workflow on the release commit, `tests/package-version.test.ts` and `tests/package-changelog.test.ts` (main 2026-11-03: 0.20.0)
 
 ## Now
-slice 9 (Bash grep lines carry anchors) active on `tools-vs-bash/09-bash-grep-anchors` (`824dbd4b`, pushed), built and green, stopped before review: in three live drives with the switch on and `grep` excluded, gpt-6-luna refused to run `grep -rn` even when the prompt required it, citing bash's snippet and guidelines ("Don't use … grep/rg …"), so no drive reached an anchored edit. Next action: the owner decides whether, with the switch on, bash's snippet and guidelines stop forbidding `grep`/`rg` (a shape change that also bears on slice 10 (A fifth arm rules on grep)), through `shape`.
+slice 9 (Bash grep lines carry anchors) active on `tools-vs-bash/09-bash-grep-anchors`, built and green; the live proof passed in the fifth arm's own setting (`--exclude-tools ls,find,grep`, switch on: `rg -n` anchored, `set_line` on its anchor, no read). Next action: review on both axes, then land.
 
 ## Seams
 - `getBashAntiPatternHint` in `src/bash-anti-pattern-hints.ts`, reached through `presentBashOutput` in `src/bash-output.ts`, both from uncompacted-bash (Bash output reaches the model as Pi gives it) → `tests/bash-anti-pattern-hints.test.ts`, `tests/bash-output.test.ts`
