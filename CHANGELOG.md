@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-09
+
+Models on providers such as zai's GLM can use `read` again: where they mean "nothing", they send the string `"null"`, and every tool now takes it as an omitted field.
+
+### Fixed
+
+- An optional field sent as the exact string `"null"` acts as omitted, as a real `null` already did, in every tool and at every depth, before the arguments are validated. Since 0.18.0's `strict: "prefer"` sampling, GLM filled every optional field and sent `"null"` for the ones it meant to leave out, so `read` failed validation (`bundle: expected one of ["local"]`) or looked up a symbol named `null` (#290, reported by @AlexKucera). A required field keeps `"null"` as data, so a file named `null` can still be read, and other spellings such as `"NULL"` are kept.
 ## [0.21.0] - 2026-11-09
 
 A default session no longer declares `ls` and `find`, which this repo's A/B against stock Pi found not worth their context, and keeps `grep`. `bash` hints point only at tools the session has active.
