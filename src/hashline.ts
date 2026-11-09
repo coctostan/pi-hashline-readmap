@@ -447,8 +447,8 @@ function parseHashlineEditItem(edit: HashlineEditItem, prefixContext?: PrefixCon
 		};
 	}
 	if ("insert_after" in edit) {
-		// `text` is an accepted alias; Pi fills a missing required new_text with "", so prefer whichever is non-empty.
-		const dst = prepareNewText(edit.insert_after.new_text || edit.insert_after.text || "", edit.insert_after.literal, prefixContext);
+		// `text` is an accepted alias for an empty new_text; an empty insert is one blank line, as "\n" is.
+		const dst = prepareNewText(edit.insert_after.new_text || edit.insert_after.text || "\n", edit.insert_after.literal, prefixContext);
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
 			dstLines: dst.lines,
@@ -991,20 +991,16 @@ export function applyHashlineEdits(
 					`insert_after text began with a copy of anchor line ${spec.after.line}; that copy was dropped. new_text holds only the new lines.`,
 				);
 			}
-			if (!inserted.length) {
-				noopEdits.push({ editIndex: idx, loc: `${spec.after.line}:${spec.after.hash}`, currentContent: anchor });
-				continue;
-			}
 			if (content === "" && spec.after.line === 1 && anchor === "") {
 				if (insertedAtSyntheticEmptyAnchor) {
 					// Same-boundary insertions are being applied in reverse request order.
 					splice(0, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
-				} else if (fileLines.length === 1 && fileLines[0] === "") {
+				} else if (fileLines.length === 1 && fileLines[0] === "" && inserted.some((line) => line !== "")) {
 					// Consume the synthetic empty-line sentinel exactly once.
 					splice(0, 1, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 					insertedAtSyntheticEmptyAnchor = true;
 				} else {
-					// A set/range edit already consumed the sentinel; insert after its line.
+					// The sentinel is already consumed, or kept so blank lines don't vanish into it; insert after it.
 					splice(spec.after.line, 0, inserted, copy ? { fromPath: copy.fromPath, startLine: copy.start.line } : undefined);
 				}
 				track(1);
