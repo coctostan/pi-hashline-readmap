@@ -7,7 +7,7 @@
  * tools; replaying their `toolsAdded`/`toolsRemoved` gives the tool set each call was made under.
  */
 import { isAbsolute, relative, resolve } from "node:path";
-import { getBashAntiPatternHint } from "../../src/bash-anti-pattern-hints.ts";
+import { getBashAntiPatternHint, pipelineHeads } from "../../src/bash-anti-pattern-hints.ts";
 
 const encoder = new TextEncoder();
 // Pi refuses these calls before the tool runs (pi-ai utils/validation.js, the agent loop's tool lookup).
@@ -24,11 +24,6 @@ const argumentKey = (value) => JSON.stringify(value, (_key, inner) => inner && t
 	? Object.fromEntries(Object.keys(inner).sort().filter((key) => inner[key] != null).map((key) => [key, inner[key]]))
 	: inner);
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-/**
- * Each pipeline's first command, joined: `npm test | grep x` filters output and searches no files, so it scores as `npm test`.
- * shortcut: splits on `|`, `;`, `&&` and `||` even inside quotes, so `echo "a; grep x"` yields a false head; use a bash parser if a miss turns up.
- */
-const pipelineHeads = (command) => command.split(/&&|\|\||;|\n/).map((part) => part.split("|")[0].trim()).filter(Boolean).join("; ");
 
 // shortcut: reads a session file in file order, not along its /tree branches, so a tool-set change on an abandoned branch
 // carries over; 2 of 2524 corpus files branch and no score changed (2026-11-04), replay along parentId if branching grows.
@@ -99,8 +94,8 @@ export function scoreSession(text) {
 			for (const block of Array.isArray(message.content) ? message.content : []) {
 				if (block.type !== "toolCall" || byId.has(block.id)) continue;
 				const args = block.arguments ?? {};
-				const heads = block.name === "bash" && typeof args.command === "string" ? pipelineHeads(args.command) : null;
-				const isSearch = SEARCH_TOOLS.has(block.name) || (heads !== null && BASH_SEARCH.test(heads));
+				const command = block.name === "bash" && typeof args.command === "string" ? args.command : null;
+				const isSearch = SEARCH_TOOLS.has(block.name) || (command !== null && BASH_SEARCH.test(pipelineHeads(command)));
 				const key = `${block.name} ${argumentKey(args)}`;
 				const record = {
 					id: block.id,
@@ -109,7 +104,7 @@ export function scoreSession(text) {
 					error: false,
 					rejected: false,
 					redundant: isSearch && searches.has(key),
-					wrongTool: heads !== null && activeTools ? getBashAntiPatternHint(heads, [...activeTools]) : null,
+					wrongTool: command !== null && activeTools ? getBashAntiPatternHint(command, [...activeTools]) : null,
 					toolSetKnown: activeTools !== null,
 				};
 				if (isSearch) searches.add(key);
