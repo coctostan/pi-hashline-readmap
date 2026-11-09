@@ -60,9 +60,9 @@ export function anchorBashGrepOutput(command: string, text: string, cwd: string)
   };
   const anchor = (path: string, prefix: string, lineText: string, content: string): string | undefined => {
     const fromCwd = relative(cwd, path);
-    if (!fromCwd || isAbsolute(fromCwd) || fromCwd.split(sep)[0] === "..") return undefined;
+    if (isAbsolute(fromCwd) || fromCwd.split(sep)[0] === "..") return undefined;
     const line = Number(lineText);
-    const onDisk = line > 0 ? lines(path)?.[line - 1] : undefined;
+    const onDisk = lines(path)?.[line - 1];
     if (onDisk === undefined || onDisk.replace(/\r$/, "") !== content.replace(/\r$/, "")) return undefined;
     const hash = computeLineHash(line, onDisk);
     files.set(path, [...(files.get(path) ?? []), { line, hash }]);

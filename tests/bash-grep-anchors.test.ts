@@ -27,7 +27,7 @@ describe("anchorBashGrepOutput", () => {
   });
 
   it("leaves a changed line, a context line and a missing file alone", () => {
-    const text = "src/a.ts-1-alpha()\nsrc/a.ts:2:beta() old\nsrc/a.ts:9:beta()\nsrc/gone.ts:1:beta()\n--";
+    const text = "src/a.ts-1-alpha()\nsrc/a.ts:2:beta() old\nsrc/a.ts:9:beta()\nsrc/a.ts:0:alpha()\nsrc/gone.ts:1:beta()\nsrc:1:beta()\n--";
     const out = anchorBashGrepOutput("grep -rn -C1 beta src", text, cwd);
     expect(out.text).toBe(text);
     expect(out.files.size).toBe(0);
