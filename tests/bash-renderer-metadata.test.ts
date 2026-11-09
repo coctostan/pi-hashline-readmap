@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerBashRendererTool } from "../src/bash-renderer.js";
+import { computeLineHash } from "../src/hashline.js";
 import init from "../index.js";
 import { gitLog } from "./helpers/git-log-fixture.js";
 
@@ -50,6 +51,26 @@ describe("bash renderer provider-visible metadata", () => {
 
     await tool.execute("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
     expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
+  });
+
+  it("adds one guideline naming grep anchors when the switch is on", () => {
+    const captured = capturePi();
+    const tool = registerBashRendererTool(captured.pi as any, { cwd: "/tmp/project", grepAnchors: true });
+    expect(tool.promptGuidelines).toEqual([
+      "Use bash for tests, builds, git, package managers, and external CLIs.",
+      "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
+      "Use read/grep/find/ls/edit/write for repo file operations.",
+      "grep -n/rg -n output lines that match the file carry LINE:HASH anchors usable with edit.",
+    ]);
+  });
+
+  it("readies hashing before an enabled bash runs, for the synchronous result handler", async () => {
+    // Each test file runs in a fresh context, and nothing above hashes.
+    expect(() => computeLineHash(1, "x")).toThrow("Hash not initialized");
+    const execute = vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] }));
+    const tool = registerBashRendererTool(capturePi().pi as any, { cwd: "/tmp/project", grepAnchors: true, createBuiltInBashTool: () => ({ execute }) });
+    await tool.execute("call-1", { command: "rg -n x" }, undefined, undefined, { cwd: "/tmp/project" });
+    expect(computeLineHash(1, "x")).toMatch(/^[0-9a-f]{3}$/);
   });
 });
 

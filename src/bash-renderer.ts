@@ -3,6 +3,7 @@ import { Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 import { buildCollapsedPreview, clampLineToWidth, clampLinesToWidth, isRendererExpanded, renderToolLabel, summaryLine } from "./tui-render-utils.js";
 import { resolvePreviewLines } from "./hashline-settings.js";
+import { ensureHashInit } from "./hashline.js";
 import {
   buildRequiredNullParameterError,
   normalizeToolParameters,
@@ -17,12 +18,13 @@ const BASH_PROMPT_GUIDELINES = [
   "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
   "Use read/grep/find/ls/edit/write for repo file operations.",
 ];
+const GREP_ANCHORS_GUIDELINE = "grep -n/rg -n output lines that match the file carry LINE:HASH anchors usable with edit.";
 const BASH_PARAMETERS = Type.Object({
   command: Type.String({ description: "Test/build/git/pkg/external command; not repo file read/search/list/edit." }),
   timeout: Type.Optional(Type.Number({ description: "Timeout seconds" })),
 });
 
-export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">, options: { cwd?: string; shellPath?: string; createBuiltInBashTool?: BuiltInFactory } = {}): any {
+export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">, options: { cwd?: string; shellPath?: string; grepAnchors?: boolean; createBuiltInBashTool?: BuiltInFactory } = {}): any {
   const cache = new Map<string, any>();
   const createBuiltInBashTool = options.createBuiltInBashTool ?? ((cwd: string, opts?: { shellPath?: string }) => createBashTool(cwd, { shellPath: opts?.shellPath }));
   const getBuiltIn = (cwd: string) => {
@@ -38,7 +40,7 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
     label: "bash",
     description: BASH_DESCRIPTION,
     promptSnippet: BASH_PROMPT_SNIPPET,
-    promptGuidelines: BASH_PROMPT_GUIDELINES,
+    promptGuidelines: options.grepAnchors ? [...BASH_PROMPT_GUIDELINES, GREP_ANCHORS_GUIDELINE] : BASH_PROMPT_GUIDELINES,
     parameters: BASH_PARAMETERS,
     constrainedSampling: { type: "json_schema", strict: "prefer" } as const,
     get outputSchema() {
@@ -49,6 +51,8 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
       if (normalized.requiredNull) {
         return buildRequiredNullParameterError("bash", normalized.requiredNull);
       }
+      // The tool_result handler hashes grep lines synchronously.
+      if (options.grepAnchors) await ensureHashInit();
       const cwd = ctx?.cwd ?? options.cwd ?? process.cwd();
       return getBuiltIn(cwd).execute(
         toolCallId,
