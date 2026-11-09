@@ -352,7 +352,7 @@ async function loadEditSource(input: {
 			hint = `Use ls(${JSON.stringify(displayPath)}) to inspect directories.`;
 		} else if (code === "ENOENT") {
 			errCode = "file-not-found";
-			message = `File not found: ${displayPath}`;
+			message = `File not found: ${displayPath} (resolved to ${absolutePath})`;
 		} else if (code === "EACCES" || code === "EPERM") {
 			errCode = "permission-denied";
 			message = `Permission denied: ${displayPath}`;
@@ -1226,11 +1226,11 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 					const validated = validateEdits({ parsed, rawInput: input, absolutePath, signal });
 					if (isEditErrorResult(validated)) return validated;
 					const { edits, anchorEdits: requestedAnchorEdits, replaceEdits, replaceSymbolEdits, legacyNormalizationWarning } = validated;
-					const notRead = requireReadForAnchors(options, absolutePath, rawPath, requestedAnchorEdits.length + replaceSymbolEdits.length > 0);
-					if (notRead) return notRead;
-
+					// Load first, so a missing file is reported as missing rather than as unread.
 					const loaded = await loadEditSource({ absolutePath, displayPath: path, signal });
 					if (isEditErrorResult(loaded)) return loaded;
+					const notRead = requireReadForAnchors(options, absolutePath, rawPath, requestedAnchorEdits.length + replaceSymbolEdits.length > 0);
+					if (notRead) return notRead;
 					const { bom, originalEnding, originalNormalized, originalContent } = loaded;
 					const shifted = remapShiftedAnchors({ served: options.served, path: absolutePath, currentLines: originalNormalized.split("\n"), edits: requestedAnchorEdits });
 					if (!shifted.ok) return recordErrorFeedback(options, absolutePath, buildEditError(absolutePath, "hash-mismatch", shifted.message, undefined, { updatedAnchors: shifted.rows }));
