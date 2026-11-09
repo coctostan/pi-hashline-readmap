@@ -18,7 +18,7 @@ A measured answer, from our own A/B runs against stock Pi, to whether `find`, `l
 - [ ] 0.21.0 is released: the version is bumped, and a `[0.21.0]` CHANGELOG entry names the ruled tool changes and the active-tool hints — verified by the `pi-compatibility` workflow on the release commit, `tests/package-version.test.ts` and `tests/package-changelog.test.ts` (main 2026-11-03: 0.20.0)
 
 ## Now
-slice 10 (A fifth arm rules on grep) is active, planned in its entry. Next action: build the `bash-grep-anchors` arm on branch `tools-vs-bash/10-fifth-arm`.
+slice 10 (A fifth arm rules on grep) is active on branch `tools-vs-bash/10-fifth-arm` (`97061960`): the arm built, the run done (156 runs, $2.6147), ruling 0009 proposed (`grep` kept, anchored bash grep dropped; the strict-rule alternative defers `grep` and turns anchors on). Awaiting: the owner's approval of 0009 in chat. Next action: on approval, review the branch and land it; on the alternative, rewrite 0009 first.
 
 ## Seams
 - `getBashAntiPatternHint` in `src/bash-anti-pattern-hints.ts`, reached through `presentBashOutput` in `src/bash-output.ts`, both from uncompacted-bash (Bash output reaches the model as Pi gives it) → `tests/bash-anti-pattern-hints.test.ts`, `tests/bash-output.test.ts`
