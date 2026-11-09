@@ -185,29 +185,33 @@ try {
   assert.equal(readFileSync(join(cwd, "null"), "utf8"), "fresh\n");
 
   // #290: zai/GLM fills strict-sampled optional fields with the string "null", which must act as omitted.
-  writeFileSync(join(cwd, "view.ts"), "export function DaytimeSectionCard() {\n  return 1;\n}\n");
+  const view = "Sources/View.swift";
+  mkdirSync(join(cwd, "Sources"));
+  writeFileSync(join(cwd, view), "struct DaytimeSectionCard {\n  let shown = 1\n}\n\nstruct OtherCard {\n  let hidden = 2\n}\n");
   const glmRead = await invoke("read", {
     bundle: "null", charLimit: "null", charOffset: "null",
     errorMode: "throw", limit: "null", map: true, offset: "null",
-    path: "view.ts", strictSymbol: false,
+    path: view, strictSymbol: false,
     symbol: "DaytimeSectionCard",
   });
   assert.equal(glmRead.isError, false, "#290's call must succeed: " + JSON.stringify(glmRead.result.content));
-  assert.ok(glmRead.result.content.some((item) => item.type === "text" && item.text.includes("export function DaytimeSectionCard() {")));
-  assert.deepEqual(beforeArgs, { errorMode: "throw", map: true, path: "view.ts", strictSymbol: false, symbol: "DaytimeSectionCard" });
+  const glmText = glmRead.result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+  assert.ok(glmText.includes("let shown = 1"), "#290's call must return the symbol: " + glmText);
+  assert.ok(!glmText.includes("let hidden = 2"), "#290's call must return only the symbol's lines: " + glmText);
+  assert.deepEqual(beforeArgs, { errorMode: "throw", map: true, path: view, strictSymbol: false, symbol: "DaytimeSectionCard" });
   for (const field of ["symbol", "errorMode"]) {
-    const outcome = await invoke("read", { path: "view.ts", [field]: "null" });
+    const outcome = await invoke("read", { path: view, [field]: "null" });
     assert.equal(outcome.isError, false, "read with " + field + ' "null" must succeed');
-    assert.deepEqual(beforeArgs, { path: "view.ts" }, field + ' "null" must arrive omitted');
+    assert.deepEqual(beforeArgs, { path: view }, field + ' "null" must arrive omitted');
   }
   // Every registered tool, every optional top-level field "null": the call arrives as if they were omitted.
   const requiredArgs = {
-    read: { path: "view.ts" },
+    read: { path: view },
     write: { path: "null-fill.txt", content: "x\n" },
     edit: { path: "missing.txt" },
     grep: { pattern: "DaytimeSectionCard" },
     ast_search: { pattern: "DaytimeSectionCard" },
-    find: { pattern: "*.ts" },
+    find: { pattern: "*.swift" },
     ls: {},
     bash: { command: "printf ok" },
     nu: { command: "1" },
