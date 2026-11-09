@@ -81,4 +81,25 @@ describe("normalizeToolParameters root object semantics", () => {
       trigger: "a schema-required parameter is present with value null after optional-null normalization",
     });
   });
+
+  it("removes an optional string \"null\" at any depth and keeps a required one as data", () => {
+    const schema = Type.Object({
+      path: Type.String(),
+      symbol: Type.Optional(Type.String()),
+      bundle: Type.Optional(Type.Union([Type.Literal("local")])),
+      edits: Type.Array(Type.Object({ anchor: Type.String(), text: Type.Optional(Type.String()) })),
+    });
+
+    const result = normalizeToolParameters(schema, {
+      path: "null",
+      symbol: "null",
+      bundle: "null",
+      edits: [{ anchor: "null", text: "null" }, { anchor: "1:abc", text: "NULL" }],
+    });
+
+    expect(result).toEqual({
+      value: { path: "null", edits: [{ anchor: "null" }, { anchor: "1:abc", text: "NULL" }] },
+      requiredNull: undefined,
+    });
+  });
 });
