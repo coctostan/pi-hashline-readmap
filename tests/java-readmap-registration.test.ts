@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { basename, dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { clearMapCache } from "../src/map-cache.js";
 import { registerGrepTool } from "../src/grep.js";
@@ -96,7 +96,7 @@ describe("Java readmap registration and workflow integration", () => {
     expect(text(bundleRead)).toContain("private String helperName()");
 
     const grep = await grepTool({ pattern: "bootstrap.servers", path: fixture, literal: true, scope: "symbol" });
-    expect(text(grep)).toContain(`--- ${basename(fixture)} :: method consumerFactory in KafkaConsumerConfiguration (13-16, 1 matches) ---`);
+    expect(text(grep)).toContain(`--- ${relative(process.cwd(), fixture)} :: method consumerFactory in KafkaConsumerConfiguration (13-16, 1 matches) ---`);
     const consumerScope = grep.details?.ptcValue.scopes.groups.find(
       (group: any) => group.symbol.name === "consumerFactory",
     );

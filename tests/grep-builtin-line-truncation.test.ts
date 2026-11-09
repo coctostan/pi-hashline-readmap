@@ -47,14 +47,15 @@ async function runBoth() {
   return {
     builtinText: getText(builtinResult),
     wrappedText: getText(wrappedResult),
+    filePath,
   };
 }
 
 describe("grep builtin line truncation", () => {
   it("keeps builtin line truncation markers in wrapped match lines", async () => {
-    const { builtinText, wrappedText } = await runBoth();
+    const { builtinText, wrappedText, filePath } = await runBoth();
     const builtinFirstLine = builtinText.split("\n")[0] ?? "";
-    const wrappedMatchLine = wrappedText.split("\n").find((line) => line.startsWith("big.txt:>>1:")) ?? "";
+    const wrappedMatchLine = wrappedText.split("\n").find((line) => line.startsWith(`${filePath}:>>1:`)) ?? "";
 
     expect(builtinFirstLine.endsWith("... [truncated]")).toBe(true);
     expect(wrappedMatchLine.endsWith("... [truncated]")).toBe(true);

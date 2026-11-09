@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
-import { resolve, dirname, basename } from "node:path";
+import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { computeLineHash, ensureHashInit, escapeControlCharsForDisplay } from "../src/hashline.js";
@@ -64,7 +64,7 @@ describe("grep scope=symbol integration", () => {
     const result = await callGrepTool({ pattern: "scoped", path: filePath, literal: true, scope: "symbol" });
     const text = getTextContent(result);
     const ptc = result.details?.ptcValue;
-    const displayPath = basename(filePath);
+    const displayPath = filePath;
 
     expect(text).toBe([
       "[3 matches in 1 files]",
@@ -109,7 +109,7 @@ describe("grep scope=symbol integration", () => {
     const ptc = result.details?.ptcValue;
 
     expect(text).toContain(`[Warning: no enclosing symbol for ${filePath}:1 — showing normal grep lines for this match]`);
-    expect(text).toContain("--- no-symbol.ts (1 matches) ---");
+    expect(text).toContain(`--- ${filePath} (1 matches) ---`);
     expect(text).not.toContain(":: function");
     expect(ptc.scopes.warnings).toEqual([{ code: "no-enclosing-symbol", message: `[Warning: no enclosing symbol for ${filePath}:1 — showing normal grep lines for this match]`, path: filePath, line: 1 }]);
   });
@@ -121,7 +121,7 @@ describe("grep scope=symbol integration", () => {
     const ptc = result.details?.ptcValue;
 
     expect(text).toContain(`[Warning: symbol scoping unavailable for ${filePath} — showing normal grep lines for this file]`);
-    expect(text).toContain("--- plain.txt (1 matches) ---");
+    expect(text).toContain("--- tests/fixtures/plain.txt (1 matches) ---");
     expect(ptc.records.length).toBeGreaterThan(0);
     expect(ptc.scopes.warnings).toEqual([{ code: "unmappable-file", message: `[Warning: symbol scoping unavailable for ${filePath} — showing normal grep lines for this file]`, path: filePath }]);
   });

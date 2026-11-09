@@ -4,7 +4,7 @@ import {
 	formatGrepOutput,
 	type GrepIR,
 } from "../src/grep";
-import { resolve, dirname } from "path";
+import { resolve, dirname, relative } from "path";
 import { fileURLToPath } from "url";
 import { registerGrepTool } from "../src/grep.js";
 
@@ -96,7 +96,7 @@ describe("grep summary schema and integration", () => {
 		});
 		const text = getTextContent(result);
 		expect(text).toMatch(/^\[\d+ matches in \d+ files\]/);
-		expect(text).toContain(`${filePath}: `);
+		expect(text).toContain(`${relative(process.cwd(), filePath)}: `);
 		expect(text).not.toMatch(/\d+:[0-9a-f]{3}\|/);
 	});
 });

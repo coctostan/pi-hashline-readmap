@@ -140,7 +140,7 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
   if (input.summary) {
     const fileLines = [...input.groups]
       .sort((a, b) => b.matchCount - a.matchCount)
-      .map((group) => `${group.absolutePath}: ${group.matchCount} matches`);
+      .map((group) => `${group.displayPath}: ${group.matchCount} matches`);
     text = [header, ...fileLines].join("\n");
   } else {
     const blocks: string[] = [header];

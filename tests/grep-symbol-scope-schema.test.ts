@@ -66,7 +66,7 @@ describe("grep scope schema passthrough", () => {
       context: 1,
     });
 
-    expect(getTextContent(normal)).toContain("--- small.ts (1 matches) ---");
+    expect(getTextContent(normal)).toContain("--- tests/fixtures/small.ts (1 matches) ---");
     expect(normal.details?.ptcValue?.records).toHaveLength(3);
     expect((normal.details?.ptcValue as any).scopes).toBeUndefined();
   });

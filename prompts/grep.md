@@ -9,6 +9,8 @@ Search file contents. Non-summary results return `LINE:HASH` anchors usable dire
 - `summary: true`: return per-file match counts only — no line content or anchors. Use first for broad searches, then narrow with `path`/`glob`.
 - `scope: "symbol"`: group matches by enclosing symbol. By default returns the full symbol block. `scopeContext: N` windows to ±N lines around each match, clipped to the symbol; `0` returns only match lines. Ignored when `summary: true`.
 
+Each file is named by its path from the cwd, whatever `path` you pass, so a printed path works as `read`/`edit`'s `path` as given; a file outside the cwd keeps its absolute path. Script-facing records always carry absolute paths.
+
 ## Parameters
 
 - `pattern` — regex by default; use `literal: true` for exact strings or regex metacharacters.
