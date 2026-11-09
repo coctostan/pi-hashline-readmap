@@ -46,6 +46,26 @@ describe("anchorBashGrepOutput", () => {
     expect(anchorBashGrepOutput("grep -rn beta src", "2:beta()", cwd).text).toBe("2:beta()");
   });
 
+  it("tells the searched file from the pattern and option values", () => {
+    const anchored = `2:${h("beta()")}|beta()`;
+    // The pattern names an existing file, and so does an option's value: neither is searched.
+    expect(anchorBashGrepOutput("grep -n src/b.ts src/a.ts", "2:beta()", cwd).text).toBe(anchored);
+    expect(anchorBashGrepOutput("grep -n -C 1 -e src/b.ts src/a.ts", "2:beta()", cwd).text).toBe(anchored);
+    expect(anchorBashGrepOutput("rg -n -g src/b.ts beta src/a.ts", "2:beta()", cwd).text).toBe(anchored);
+    expect(anchorBashGrepOutput("rg -n --glob src/b.ts --regexp beta src/a.ts", "2:beta()", cwd).text).toBe(anchored);
+    expect(anchorBashGrepOutput("grep -n -- -beta src/a.ts", "2:beta()", cwd).text).toBe(anchored);
+    // Patterns from a file and input from stdin: no file operand at all.
+    expect(anchorBashGrepOutput("grep -n -f src/a.ts < src/b.ts", "2:beta()", cwd).text).toBe("2:beta()");
+  });
+
+  it("leaves relative paths bare after a cd it cannot follow", () => {
+    const out = anchorBashGrepOutput('cd "$DIR" && rg -n beta', "src/a.ts:2:beta()", cwd);
+    expect(out.text).toBe("src/a.ts:2:beta()");
+    const absolute = `${join(cwd, "src/a.ts")}:2:beta()`;
+    expect(anchorBashGrepOutput('cd "$DIR" && rg -n beta', absolute, cwd).text).toBe(`${join(cwd, "src/a.ts")}:2:${h("beta()")}|beta()`);
+    expect(anchorBashGrepOutput('cd "$DIR" && grep -n beta src/a.ts', "2:beta()", cwd).text).toBe("2:beta()");
+  });
+
   it("resolves paths from the directory the grep runs in", () => {
     const out = anchorBashGrepOutput("cd src && rg -n beta", "a.ts:2:beta()", cwd);
     expect(out.text).toBe(`a.ts:2:${h("beta()")}|beta()`);

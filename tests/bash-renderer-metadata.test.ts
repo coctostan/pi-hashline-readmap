@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerBashRendererTool } from "../src/bash-renderer.js";
+import { computeLineHash } from "../src/hashline.js";
 import init from "../index.js";
 import { gitLog } from "./helpers/git-log-fixture.js";
 
@@ -61,6 +62,15 @@ describe("bash renderer provider-visible metadata", () => {
       "Use read/grep/find/ls/edit/write for repo file operations.",
       "grep -n/rg -n output lines that match the file carry LINE:HASH anchors usable with edit.",
     ]);
+  });
+
+  it("readies hashing before an enabled bash runs, for the synchronous result handler", async () => {
+    // Each test file runs in a fresh context, and nothing above hashes.
+    expect(() => computeLineHash(1, "x")).toThrow("Hash not initialized");
+    const execute = vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] }));
+    const tool = registerBashRendererTool(capturePi().pi as any, { cwd: "/tmp/project", grepAnchors: true, createBuiltInBashTool: () => ({ execute }) });
+    await tool.execute("call-1", { command: "rg -n x" }, undefined, undefined, { cwd: "/tmp/project" });
+    expect(computeLineHash(1, "x")).toMatch(/^[0-9a-f]{3}$/);
   });
 });
 
