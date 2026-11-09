@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TASKS } from "../scripts/bench/locate-tasks/tasks.mjs";
-import { ARMS, formatSummary, locateTask, planJobs, runJobs, scoreRun, summarizeRuns, treeChanges, type RunResult } from "../scripts/bench/tool-ab.mjs";
+import { ARMS, benchHost, checkoutTree, formatSummary, guardedWorker, locateTask, planJobs, runJobs, scoreRun, summarizeRuns, treeChanges, type RunResult } from "../scripts/bench/tool-ab.mjs";
 
 const line = (event: unknown) => JSON.stringify(event);
 const call = (id: string, name: string, args: Record<string, unknown>) => ({ type: "toolCall", id, name, arguments: args });
@@ -251,6 +251,113 @@ describe("treeChanges", () => {
 			expect(edited).toMatch(/^[0-9a-f]{16}$/);
 			writeFileSync(join(repo, "src/b.ts"), "export const b = 1;\n");
 			expect(treeChanges(repo)).not.toBe(edited);
+		} finally {
+			rmSync(repo, { recursive: true, force: true });
+		}
+	});
+});
+
+const gitRepo = (files: Record<string, string>) => {
+	const repo = mkdtempSync(join(tmpdir(), "tool-ab-checkout-"));
+	for (const [path, text] of Object.entries(files)) {
+		mkdirSync(dirname(join(repo, path)), { recursive: true });
+		writeFileSync(join(repo, path), text);
+	}
+	const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...args], { cwd: repo, stdio: "ignore" });
+	git("init", "--quiet");
+	git("add", "-A");
+	git("commit", "--quiet", "--no-verify", "-m", "init");
+	return repo;
+};
+
+describe("benchHost", () => {
+	const stubHost = (dir: string, version: string) => {
+		mkdirSync(dir, { recursive: true });
+		writeFileSync(join(dir, "package.json"), JSON.stringify({ version, bin: { pi: "dist/cli.js" } }));
+	};
+	let scratch: string;
+	let repo: string;
+	let inside: string;
+
+	beforeAll(() => {
+		scratch = mkdtempSync(join(tmpdir(), "tool-ab-host-"));
+		repo = join(scratch, "repo");
+		inside = join(repo, "node_modules/@earendil-works/pi-coding-agent");
+		stubHost(inside, "1.2.3");
+	});
+
+	afterAll(() => {
+		if (scratch) rmSync(scratch, { recursive: true, force: true });
+	});
+
+	it("runs a host outside the checkout as it is", () => {
+		const outside = join(scratch, "override");
+		stubHost(outside, "9.9.9");
+		const install = () => { throw new Error("installed"); };
+		expect(benchHost({ host: outside, version: "9.9.9" }, repo, { cacheDir: join(scratch, "cache"), install })).toEqual({ host: outside, version: "9.9.9", cli: join(outside, "dist/cli.js") });
+	});
+
+	it("installs the version of a host inside the checkout outside it, once", () => {
+		const cacheDir = join(scratch, "cache");
+		const installs: string[] = [];
+		const install = (version: string, prefix: string) => {
+			installs.push(version);
+			stubHost(join(prefix, "node_modules/@earendil-works/pi-coding-agent"), version);
+		};
+		const host = join(cacheDir, "1.2.3/node_modules/@earendil-works/pi-coding-agent");
+		const expected = { host, version: "1.2.3", cli: join(host, "dist/cli.js") };
+		expect(benchHost({ host: inside, version: "1.2.3" }, repo, { cacheDir, install })).toEqual(expected);
+		expect(benchHost({ host: inside, version: "1.2.3" }, repo, { cacheDir, install })).toEqual(expected);
+		expect(installs).toEqual(["1.2.3"]);
+	});
+
+	it("refuses a host inside the checkout when its install would be inside too", () => {
+		const install = () => { throw new Error("installed"); };
+		expect(() => benchHost({ host: inside, version: "1.2.3" }, repo, { cacheDir: join(repo, "tmp/hosts"), install })).toThrow(/inside the checkout/);
+	});
+});
+
+describe("checkoutTree", () => {
+	it("changes with any file git tracks or would add, and with nothing ignored or excluded", () => {
+		const repo = gitRepo({ "src/a.ts": "a\n", ".gitignore": "tmp/\n" });
+		try {
+			const clean = checkoutTree(repo, [join(repo, "out")]);
+			expect(clean).toBe(execFileSync("git", ["rev-parse", "HEAD^{tree}"], { cwd: repo, encoding: "utf8" }).trim());
+			mkdirSync(join(repo, "tmp"));
+			writeFileSync(join(repo, "tmp/scratch.txt"), "ignored\n");
+			mkdirSync(join(repo, "out"));
+			writeFileSync(join(repo, "out/results.jsonl"), "{}\n");
+			expect(checkoutTree(repo, [join(repo, "out")])).toBe(clean);
+			writeFileSync(join(repo, "notes.md"), "one\n");
+			const untracked = checkoutTree(repo, [join(repo, "out")]);
+			expect(untracked).not.toBe(clean);
+			writeFileSync(join(repo, "notes.md"), "two\n");
+			expect(checkoutTree(repo, [join(repo, "out")])).not.toBe(untracked);
+			expect(execFileSync("git", ["status", "--porcelain"], { cwd: repo, encoding: "utf8" })).toBe("?? notes.md\n?? out/\n");
+		} finally {
+			rmSync(repo, { recursive: true, force: true });
+		}
+	});
+});
+
+describe("guardedWorker", () => {
+	it("fails a run after which the checkout changed, records it, and launches nothing more", async () => {
+		const repo = gitRepo({ "src/a.ts": "a\n" });
+		try {
+			const launched: number[] = [];
+			const recorded: Array<{ job: number; pass: boolean; failure: string | null }> = [];
+			const run = async (job: number) => {
+				launched.push(job);
+				if (job === 1) writeFileSync(join(repo, "src/a.ts"), "escaped\n");
+				return { job, cost: 0.01, pass: true, failure: null };
+			};
+			const worker = guardedWorker(run, (result) => recorded.push(result), { repo, exclude: [] });
+			await expect(runJobs([0, 1, 2, 3], { concurrency: 1, maxCost: 1, spent: 0, maxRunCost: null }, worker)).rejects.toThrow(/checkout .* changed/);
+			expect(launched).toEqual([0, 1]);
+			expect(recorded).toEqual([
+				{ job: 0, cost: 0.01, pass: true, failure: null },
+				{ job: 1, cost: 0.01, pass: false, failure: "checkout-changed" },
+			]);
 		} finally {
 			rmSync(repo, { recursive: true, force: true });
 		}

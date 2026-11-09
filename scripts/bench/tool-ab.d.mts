@@ -15,6 +15,20 @@ export interface AbTask {
 export function locateTask(task: LocateTask): AbTask;
 /** A hash of a checkout's uncommitted changes to what an extension arm loads or scores with; null when none. */
 export function treeChanges(repo: string): string | null;
+/** The selected host, run from outside `repo`: one inside is replaced by its version installed under `cacheDir`. */
+export function benchHost(
+  selected: { host: string; version: string },
+  repo: string,
+  options?: { cacheDir?: string; install?: (version: string, prefix: string) => void },
+): { host: string; version: string; cli: string };
+/** The tree of everything in `repo` that git tracks or would add, outside `exclude`. */
+export function checkoutTree(repo: string, exclude?: string[]): string;
+/** A worker recording each result, failing and throwing on a run after which the checkout's tree changed. */
+export function guardedWorker<J, R extends { cost: number; pass: boolean; failure: string | null }>(
+  run: (job: J) => Promise<R>,
+  record: (result: R) => void,
+  checkout: { repo: string; exclude: string[] },
+): (job: J) => Promise<R>;
 
 export interface Job<T> { task: T; model: string; attempt: number; arm: Arm }
 export function planJobs<T>(plan: { tasks: T[]; arms: Arm[]; models: string[]; repeat: number }): Job<T>[];
