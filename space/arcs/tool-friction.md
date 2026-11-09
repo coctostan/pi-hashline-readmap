@@ -1,0 +1,54 @@
+---
+status: active
+---
+# Models stop tripping on the tools
+
+Since 0.18.0, models on some providers, such as zai's GLM, can't use `read` at all: where they mean "nothing", they send the word "null", and the tools reject it or search for a symbol named "null" (GitHub issue #290). This arc makes the tools take that word as nothing and ships the fix on its own first. Then it fixes four smaller snags that keep costing models calls: there is no way to add a blank line, grep's file names don't work from the project root, editing a missing file gives the wrong error, and shell hints fire when they shouldn't.
+
+## Destination
+An optional field sent as the string `"null"` acts as omitted in every tool, shipped as 0.22.0. Then `insert_after ""` inserts a blank line, `grep` names files from the cwd, `edit` reports a missing file as missing, and bash hints judge only a pipeline's first command and name bash's own `timeout` parameter, shipped as 0.23.0.
+
+## Done when
+- [ ] The literal string `"null"` on an optional field is omitted, in every tool: through the locked host's real loader and `runToolCall`, #290's captured `read` call (`bundle`, `charLimit` and `charOffset` all `"null"`, `symbol` set) returns the symbol's lines without error; `read` with `symbol: "null"` or `errorMode: "null"` receives the call without them at `beforeToolCall`; each registered tool called with every optional top-level field `"null"` receives the omitted call's arguments; `"null"` on a required field stays data (the existing `path: "null"` case) — verified by `tests/pi-host-null-pipeline.test.ts` (main 2026-11-09: `Validation failed for tool "read": bundle: expected one of ["local"]`; `symbol: "null"` warns `symbol 'null' not found`; `errorMode: "null"` fails `expected "throw"`)
+- [ ] 0.22.0 is released: the version is 0.22.0, and its `[0.22.0]` CHANGELOG entry has a Fixed bullet naming #290 and no bullet from slices 3–7 — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit (main 2026-11-09: 0.21.0)
+- [ ] `insert_after` with `new_text: ""` inserts one empty line after its anchor, and `set_line` with a trailing `\n` still sets that line alone — verified by a new `tests/edit-insert-blank-line.test.ts` (main 2026-11-09: `No changes made to lines.txt: the file already has this content`, file unchanged)
+- [ ] `grep` names each file by its path from the cwd, whatever its `path` argument: `path: "pkg"` names `pkg/sub/view.ts` in grouped and `summary: true` output, a file outside the cwd keeps its absolute path, and `prompts/grep.md` says so — verified by a new `tests/grep-cwd-paths.test.ts` (main 2026-11-09: grouped header `--- sub/view.ts (1 matches) ---`; summary prints absolute paths)
+- [ ] An anchored `edit` on a path that doesn't exist fails with `file-not-found`, naming the path as given and the absolute path it resolved to, not "get fresh anchors" — verified by a new `tests/edit-missing-file.test.ts` (main 2026-11-09: `You must get fresh anchors for <abs> before editing it.`, code `file-not-read`)
+- [ ] Bash hints judge only each pipeline's first command: `echo hi | grep hi` and `npm test | grep x` draw no hint, while `grep -rn x src | head` and `cd src && rg x` still draw the grep hint; output containing `timeout: command not found` draws a hint naming the bash tool's `timeout` parameter; `scripts/bench/confusion.mjs` scores wrong-tool picks through the same function — verified by `tests/bash-anti-pattern-hints.test.ts`, `tests/bash-output.test.ts` and `tests/bench-confusion.test.ts` (main 2026-11-09: `echo hi | grep hi` ends `[Hint: Prefer the grep tool for content search.]`; the `timeout` output draws no hint)
+- [ ] 0.23.0 is released: the version is 0.23.0, and its `[0.23.0]` CHANGELOG entry names the blank-line insert, cwd grep paths, the missing-file error and both hint changes — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit
+
+## Now
+Next: slice 1 (Literal null means omitted), not started.
+
+## Seams
+- `normalizeToolParameters` in `src/normalize-tool-params.ts`, run before validation by `withRawArgumentGuard`'s `prepareArguments` (`src/raw-argument-guard.ts`) and again in each `execute` → `tests/normalize-tool-params-root.test.ts`, `tests/normalize-tool-params-recursive.test.ts`, `tests/null-params-*.test.ts`, `tests/pi-host-null-pipeline.test.ts`
+- `insert_after` preparation and apply in `src/hashline.ts` (`new_text || text`, line 451; the no-op at line 994), reached through the `edit` tool → `tests/edit-insert-blank-line.test.ts` (new)
+- `grep`'s display paths in `src/grep.ts` (`displayPath` from rg's output, lines 104 and 119; summary at line 925) → `tests/grep-cwd-paths.test.ts` (new), the existing `tests/grep-*.test.ts` pins, `prompts/grep.md`
+- `edit`'s file-not-read check in `src/edit.ts` (line 950) and the codes in `src/ptc-error-codes.ts` → `tests/edit-missing-file.test.ts` (new)
+- `getBashAntiPatternHint` in `src/bash-anti-pattern-hints.ts`, reached through `presentBashOutput` (`src/bash-output.ts`, which also has the output) and imported by `scripts/bench/confusion.mjs` → `tests/bash-anti-pattern-hints.test.ts`, `tests/bash-output.test.ts`, `tests/bench-confusion.test.ts`
+- `package.json`, `package-lock.json` and `CHANGELOG.md` → `tests/package-version.test.ts`, `tests/package-content.test.ts`, `tests/package-changelog.test.ts`, the `pi-compatibility` workflow
+- Real artifact: in a scratch directory, `pi --no-extensions --no-session -e <repo>/index.ts --model openai-codex/gpt-6-luna --mode json -p "<prompt>"`, observing the `tool_execution_end` events
+
+## Slices
+1. **Literal null means omitted** — delivers `normalizeToolParameters` dropping an optional field whose value is exactly the string `"null"`, as it drops real `null`, at every depth and for every tool, before validation; required fields keep it; `docs/structured-output.md` and the null wording in `prompts/read.md` and `prompts/grep.md` say so · proof: the done-when 1 cases in `tests/pi-host-null-pipeline.test.ts` red→green, with #290's captured call verbatim; a `tests/normalize-tool-params-root.test.ts` case; a live drive in which `read` on a 3-line file still returns `1:1df|export function alpha() {` · blocked-by — · status next
+2. **Release 0.22.0** — delivers the version bump and a dated `[0.22.0]` CHANGELOG entry whose Fixed bullet names #290 (a PR body that says `Refs #290`, not `Fixes`, so the issue stays open until you publish) · proof: `tests/package-version.test.ts`, `tests/package-changelog.test.ts`; the `pi-compatibility` workflow on the merge commit · blocked-by 1 · status next
+3. **Grep names files from the cwd** — delivers grouped and summary output naming each file by its cwd-relative path, or its absolute path outside the cwd, with `prompts/grep.md`, README examples and the pinned `tests/grep-*.test.ts` cases updated; anchors and `structuredContent` paths unchanged · proof: `tests/grep-cwd-paths.test.ts` red→green; a live drive running `grep` with a `path` · blocked-by 2 · status next
+4. **Edit reports a missing file** — delivers an existence check ahead of the file-not-read check: a missing path fails with the existing `file-not-found` code, naming the given and resolved paths · proof: `tests/edit-missing-file.test.ts` red→green · blocked-by 2 · status next
+5. **Empty insert adds a blank line** — delivers `insert_after` with `new_text: ""` (and no non-empty `text`) inserting one empty line instead of reporting a no-op; `set_line`'s trailing-`\n` handling unchanged; the stale comment at `src/hashline.ts:450` corrected (Pi 1.5.0 rejects a missing `new_text`, measured 2026-11-09) · proof: `tests/edit-insert-blank-line.test.ts` red→green; a live drive · blocked-by 2 · status next
+6. **Hints judge pipeline heads** — delivers `getBashAntiPatternHint` matching only each pipeline's first command, moving `pipelineHeads` from `scripts/bench/confusion.mjs` into `src/bash-anti-pattern-hints.ts`, with `confusion.mjs` passing the whole command · proof: red cases first in `tests/bash-anti-pattern-hints.test.ts`; `tests/bench-confusion.test.ts` green before and after · blocked-by 2 · status next
+7. **Timeout hint names bash's parameter** — delivers a hint, appended by `presentBashOutput` whatever tools are active, when the output contains `timeout: command not found`, naming the bash tool's `timeout` parameter · proof: red cases first in `tests/bash-output.test.ts`; a live drive on macOS, which has no `timeout` · blocked-by 2 · status next
+8. **Release 0.23.0** — delivers the version bump and a dated `[0.23.0]` CHANGELOG entry for slices 3–7 · proof: `tests/package-version.test.ts`, `tests/package-changelog.test.ts`; the `pi-compatibility` workflow on the merge commit · blocked-by 3, 4, 5, 6, 7 · status next
+
+## Not yet specified
+- Whether `ast_search`, `find` and `ls` print paths the cwd can't resolve, as `grep` did; act if a miss turns up in use.
+- Whether non-strict tools also receive the string `"null"` from GLM-style providers: slice 1 covers them anyway, unmeasured.
+
+## Out of scope
+- Publishing 0.22.0 and 0.23.0 to npm, and replying on or closing #290: the owner's.
+- Dropping `strict: "prefer"` or widening enum schemas, #290's other suggested fixes.
+- The rest of NOW.md's Next: bash `sudo`/`env` prefixes, freshness gaps, schema and CI cleanup, the `read`/`edit` bench, the tarball trim, the jidoka notes.
+- Raising a host-side `"null"` normalization with Pi.
+
+## Decisions
+- Owner, 2026-11-09 (chat): #290 first, through the pre-validation guard, keeping `strict: "prefer"`; only optional fields drop `"null"`; the proof is model-free through the real host pipeline (no zai key); two releases, #290 alone in 0.22.0; `insert_after ""` inserts and `set_line` stays as it is; grep paths from the cwd; a missing file named as missing; every hint judges pipeline heads; a `timeout` hint whatever tools are active.
+- Context, measured 2026-11-09: Pi 1.5.0 runs `prepareArguments` before `validateToolArguments` (`pi-agent-core/dist/agent-loop.js:497`), so the guard reaches the enum fields; npm's latest is 0.19.0, so 0.22.0 also brings the reporter every unpublished release since then (0.19.1 through 0.21.0, 0.20.0's compaction removal included).
