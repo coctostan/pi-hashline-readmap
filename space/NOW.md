@@ -1,5 +1,5 @@
 # Now
-- [tool-friction](arcs/tool-friction.md) (Models stop tripping on the tools): `"null"` strings act as omitted (#290, 0.22.0), then blank-line inserts, cwd grep paths, missing-file errors and truer bash hints (0.23.0)
+- [tool-friction](arcs/tool-friction.md) (Models stop tripping on the tools): building slice 1 (Literal null means omitted) on `tool-friction/01-literal-null-omitted`; then 0.22.0 ships it (#290), then blank-line inserts, cwd grep paths, missing-file errors and truer bash hints (0.23.0)
 
 ## Next
 - Measure `read` and `edit` as tools-vs-bash (Each search tool earns its place over bash) measured the search tools: in its pilot stock Pi cost Sonnet $0.024 a locate run against the extension's $0.037 at the same pass rate (`docs/tool-cost.md`, Pilot), and that arc ruled `read`/`edit` out of scope; `scripts/bench/tool-ab.mjs`, `tool-cost.mjs` and the locate tasks are ready to reuse. Before a rerun, drop or redefine `tool-ab.mjs`'s `extension` arm, which since ruling 0008 declares what `no-ls-find` does (`--tools +ls,+find` restores the pilot's), and point `tests/bench-tool-ab.test.ts`'s stub-host run at a scratch repo: its checkout guard stopped it in full-suite runs twice (slice 9 (Bash grep lines carry anchors) `ENOTEMPTY` in 2 of 4, slice 10 (A fifth arm rules on grep) 1 of 5), green alone
