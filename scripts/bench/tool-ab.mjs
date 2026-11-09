@@ -350,6 +350,7 @@ export function benchHost({ host, version }, repo, { cacheDir = HOST_CACHE, inst
 			}
 		}
 	}
+	if (isInside(host, repo)) throw new Error(`The host ${host} is inside the checkout ${repo}, which a run would reach through the system prompt`);
 	const manifest = JSON.parse(readFileSync(join(host, "package.json"), "utf8"));
 	if (manifest.version !== version) throw new Error(`${host} holds Pi ${manifest.version}, not the selected ${version}`);
 	return { host, version, cli: join(host, manifest.bin.pi) };

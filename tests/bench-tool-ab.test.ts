@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -309,6 +309,14 @@ describe("benchHost", () => {
 		expect(benchHost({ host: inside, version: "1.2.3" }, repo, { cacheDir, install })).toEqual(expected);
 		expect(benchHost({ host: inside, version: "1.2.3" }, repo, { cacheDir, install })).toEqual(expected);
 		expect(installs).toEqual(["1.2.3"]);
+	});
+
+	it("refuses an installed host that resolves into the checkout", () => {
+		const cacheDir = join(scratch, "linked-cache");
+		mkdirSync(cacheDir);
+		symlinkSync(repo, join(cacheDir, "1.2.3"));
+		const install = () => { throw new Error("installed"); };
+		expect(() => benchHost({ host: inside, version: "1.2.3" }, repo, { cacheDir, install })).toThrow(/inside the checkout/);
 	});
 
 	it("leaves nothing behind from an install that fails", () => {
