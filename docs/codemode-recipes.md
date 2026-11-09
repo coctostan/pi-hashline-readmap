@@ -22,6 +22,8 @@ This example extends inherited defaults. Do not replace an existing custom allow
 
 Codemode normally runs alongside direct tools. Setting `codemode.mode` to `"only"` is opt-in and hides direct tool declarations without bypassing permissions. Await `searchTools()` and `describeTool()` to discover callable tools and their declarations. Tools omitted by the default inline declaration budget remain discoverable.
 
+`ls` and `find` are deferred ([ruling 0008](../space/decisions/0008-ls-find-deferred-grep-kept.md)): the model is not given them by default and the codemode description does not list them, but scripts can always call `tools.ls` and `tools.find`, as the recipes below do, and `searchTools()` finds them.
+
 ## Composition rules
 
 Use `Promise.allSettled` for independent reads/searches when partial success matters. Await dependent same-file mutations serially and obtain fresh anchors after a mutation. Do not batch dependent edits concurrently.

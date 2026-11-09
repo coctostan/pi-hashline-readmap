@@ -50,19 +50,17 @@ describe("summarizeEvents", () => {
 });
 
 describe("runPi", () => {
-	it("runs a given CLI script with this Node, excluding the given tools, in the given environment", async () => {
+	it("runs a given CLI script with this Node, excluding the given tools", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "bench-lib-"));
 		try {
 			const cli = join(dir, "cli.mjs");
-			writeFileSync(cli, "console.log(JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd(), flag: process.env.BENCH_LIB_FLAG ?? null, offline: process.env.PI_OFFLINE }));\n");
-			const proc = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: ["/x.ts"], timeoutMs: 10_000, cli, excludeTools: ["ls", "find"], env: { BENCH_LIB_FLAG: "1" } });
-			const { argv, flag, offline } = JSON.parse(proc.stdout);
+			writeFileSync(cli, "console.log(JSON.stringify({ argv: process.argv.slice(2), cwd: process.cwd() }));\n");
+			const proc = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: ["/x.ts"], timeoutMs: 10_000, cli, excludeTools: ["ls", "find"] });
+			const { argv } = JSON.parse(proc.stdout);
 			expect(proc.code).toBe(0);
 			expect(argv.slice(argv.indexOf("-e"))).toEqual(["-e", "/x.ts", "--exclude-tools", "ls,find", "--model", "p/m", "--thinking", "off", "--", "go"]);
-			expect({ flag, offline }).toEqual({ flag: "1", offline: "1" });
 			const bare = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: [], timeoutMs: 10_000, cli });
 			expect(JSON.parse(bare.stdout).argv).not.toContain("--exclude-tools");
-			expect(JSON.parse(bare.stdout).flag).toBe(null);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}

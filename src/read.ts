@@ -436,7 +436,8 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			} catch (err: any) {
 				const code = err?.code;
 				if (code === "EISDIR") {
-					const message = `Path is a directory: ${rawPath}. Use ls to inspect directories.`;
+					const message = `Path is a directory: ${rawPath}. Use ${pi.getActiveTools?.().includes("ls") ? "ls" : "bash ls"} to inspect directories.`;
+					// `ls` is deferred (ruling 0008): the message names it only while the model can call it.
 					return finish({
 						content: [{ type: "text", text: message }],
 						isError: true,

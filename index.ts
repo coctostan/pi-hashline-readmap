@@ -10,12 +10,10 @@ import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
 import { withRawArgumentGuard } from "./src/raw-argument-guard.js";
 import { isNestedToolEvent, withCodemodeIntegration } from "./src/codemode-integration.js";
-import { isBashGrepAnchorsEnabled, resolveShellPath } from "./src/hashline-settings.js";
+import { resolveShellPath } from "./src/hashline-settings.js";
 import { ServedLines, recordServedFromResult } from "./src/served-lines.js";
 import { resolveToCwd } from "./src/path-utils.js";
 import { presentBashOutput } from "./src/bash-output.js";
-import { anchorBashGrepOutput } from "./src/bash-grep-anchors.js";
-import { stripAnsi } from "./src/ansi.js";
 import { applyContextHygieneStaleContext } from "./src/context-application.js";
 import { consumeContextHygieneNotice, resetContextHygieneNoticeLedger } from "./src/context-hygiene-notices.js";
 import { buildBashCommandState } from "./src/bash-command-state.js";
@@ -164,8 +162,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   registerWriteTool(pi, { onFileAnchored: noteRead });
   registerLsTool(pi);
   registerFindTool(pi);
-  const bashGrepAnchors = isBashGrepAnchorsEnabled();
-  registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath(), grepAnchors: bashGrepAnchors });
+  registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath() });
   registerContextHygieneDebugTool(pi);
   pi.on("tool_call", (event: any) => {
     // Calls issued by codemode scripts (parentToolCallId set) are programmatic loops, not the
@@ -256,10 +253,14 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       event.input && typeof event.input === "object" && typeof (event.input as { command?: unknown }).command === "string"
         ? (event.input as { command: string }).command
         : "";
-    // Prefer the live host context; legacy/manual handler calls may omit ctx.
-    const cwd = ctx?.cwd ?? process.cwd();
     const commandState = command
-      ? buildBashCommandState({ command, cwd, isError: event.isError === true, text: originalText })
+      ? buildBashCommandState({
+          command,
+          // Prefer the live host context; legacy/manual handler calls may omit ctx.
+          cwd: ctx?.cwd ?? process.cwd(),
+          isError: event.isError === true,
+          text: originalText,
+        })
       : undefined;
     const contextHygieneResources: ContextHygieneResource[] = command ? [buildCommandResource(command)] : [];
     for (const fileTarget of commandState?.fileTargets ?? []) {
@@ -275,13 +276,6 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     // Expire directly, not through stale candidates: a file known only from write or edit has no
     // read for a candidate to name, and a failed `cmd > file` has already truncated it.
     for (const target of commandState?.fileTargets ?? []) freshness.expirePath(target);
-    // Anchors only for the model: scripts keep the raw output. Verified against the disk after the
-    // command ran, so they are live even when the same command changed the file.
-    const grepAnchors = bashGrepAnchors && !nested && command ? anchorBashGrepOutput(command, stripAnsi(originalText), cwd) : undefined;
-    for (const [path, rows] of grepAnchors?.files ?? []) {
-      served.record(path, rows);
-      noteRead(path);
-    }
     const appliedEffects = summarizeBashAppliedEffects(recordedContextHygieneEvent.id);
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
       ? { ...contextHygiene, appliedEffects }
@@ -297,7 +291,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     return {
       content: [
         // Manual handler calls may pass a pi without getActiveTools; an unknown tool set gets no hint.
-        { type: "text" as const, text: applyWarning(presentBashOutput(command, grepAnchors?.text ?? originalText, pi.getActiveTools?.() ?? [])) },
+        { type: "text" as const, text: applyWarning(presentBashOutput(command, originalText, pi.getActiveTools?.() ?? [])) },
         ...nonTextContent,
       ],
       // Notices change presentation only; retain the native machine-readable result.

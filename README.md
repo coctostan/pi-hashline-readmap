@@ -6,7 +6,7 @@
 
 Upgrade Pi's local coding workflow with hash-anchored reads and edits, structural navigation, and safer file exploration.
 
-`pi-hashline-readmap` replaces Pi's `read`, `edit`, `grep`, `write`, `ls`, and `find`; adds enhanced `ast_search`; retains deprecated optional `nu`; and strips ANSI codes from `bash` output, adding hints toward the dedicated tools.
+`pi-hashline-readmap` replaces Pi's `read`, `edit`, `grep`, `write`, `ls`, and `find`; adds enhanced `ast_search`; retains deprecated optional `nu`; and strips ANSI codes from `bash` output, adding hints toward the dedicated tools. `ls` and `find` are deferred: registered and callable from codemode, but not declared to the model until you name them (`--tools +ls,+find`) or `tool_search` loads them, since measured against bash they did not earn their context ([tool cost](docs/tool-cost.md)).
 
 Bundled `nu` is deprecated but retained. It stays available for at least one published deprecation release; removal requires a separately announced breaking release after migration-example verification and the removal checklist pass. See [Nu deprecation and migration](docs/nu-deprecation.md).
 
@@ -73,7 +73,7 @@ If the file changed between `read` and `edit`, the edit reports a mismatch inste
 - Jump to symbols, request maps, and include direct same-file support.
 - Turn `grep` and `ast_search` results into edit-ready anchors.
 - Read supported images through Pi attachments.
-- Create with `write`; explore with `ls` and `find`, then compose structured results in codemode.
+- Create with `write`; list files with bash, or turn on `ls` and `find`, and compose structured results in codemode.
 - Read `bash` output as Pi returns it, ANSI codes stripped, never summarized.
 - Use one coordinated extension instead of stacking overlapping read, grep, edit, and file-exploration packages.
 
@@ -115,7 +115,7 @@ ls({ path: "src", glob: "*.ts" })
 find({ pattern: "*.test.ts", path: "tests", maxDepth: 2 })
 ```
 
-Normal grep output has anchors; summary mode has counts only. `ls` lists one directory; `find` recurses by basename and respects `.gitignore`. Deprecated `nu` still registers when Nushell is available; prefer [tested source, discovery, and CLI composition recipes](docs/codemode-recipes.md) for general exploration.
+Normal grep output has anchors; summary mode has counts only. `ls` lists one directory; `find` recurses by basename and respects `.gitignore`. Both are deferred: a default session declares neither, so name them with `--tools +ls,+find` or `defaultTools`, load them with `tool_search`, or call them from codemode scripts, where they are always callable. Deprecated `nu` still registers when Nushell is available; prefer [tested source, discovery, and CLI composition recipes](docs/codemode-recipes.md) for general exploration.
 
 `ast_search` patterns may start with `-` (`--$A`, `-$A`). A pattern ast-grep cannot parse returns `Pattern failed to parse: …` instead of "No matches found", and empty patterns are rejected up front.
 

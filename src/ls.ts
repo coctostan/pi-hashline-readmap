@@ -141,6 +141,8 @@ export function registerLsTool(pi: ExtensionAPI) {
   const tool: Parameters<ExtensionAPI["registerTool"]>[0] = {
     name: "ls",
     label: "ls",
+    // Ruling 0008: not declared by default; codemode can call it and tool_search can load it.
+    exposure: "deferred",
     description: LS_PROMPT_METADATA.description,
     promptSnippet: LS_PROMPT_METADATA.promptSnippet,
     promptGuidelines: LS_PROMPT_METADATA.promptGuidelines,

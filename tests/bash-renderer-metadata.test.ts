@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerBashRendererTool } from "../src/bash-renderer.js";
-import { computeLineHash } from "../src/hashline.js";
 import init from "../index.js";
 import { gitLog } from "./helpers/git-log-fixture.js";
 
@@ -40,43 +39,23 @@ describe("bash renderer provider-visible metadata", () => {
 
     expect(captured.tool).toBe(tool);
     expect(tool.description).toBe(EXPECTED_BASH_DESCRIPTION);
-    expect(tool.promptSnippet).toBe("Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.");
+    expect(tool.promptSnippet).toBe("Bash for tests/builds/git/pkg/external CLIs and listing files. Don't use cat/head/tail, grep/rg, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/edit/write.");
     expect(tool.promptGuidelines).toEqual([
-      "Use bash for tests, builds, git, package managers, and external CLIs.",
-      "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
-      "Use read/grep/find/ls/edit/write for repo file operations.",
+      "Use bash for tests, builds, git, package managers, external CLIs, and listing files.",
+      "Do not use bash cat/head/tail/grep/rg/sed/awk for repo files.",
+      "Use read/grep/edit/write for repo file reads, searches and edits.",
     ]);
-    expect(tool.parameters.properties.command.description).toBe("Test/build/git/pkg/external command; not repo file read/search/list/edit.");
+    expect(tool.parameters.properties.command.description).toBe("Test/build/git/pkg/external/listing command; not repo file read/search/edit.");
     expect(tool.parameters.properties.timeout.description).toBe("Timeout seconds");
 
     await tool.execute("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
     expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
   });
-
-  it("adds one guideline naming grep anchors when the switch is on", () => {
-    const captured = capturePi();
-    const tool = registerBashRendererTool(captured.pi as any, { cwd: "/tmp/project", grepAnchors: true });
-    expect(tool.promptGuidelines).toEqual([
-      "Use bash for tests, builds, git, package managers, and external CLIs.",
-      "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
-      "Use read/grep/find/ls/edit/write for repo file operations.",
-      "grep -n/rg -n output lines that match the file carry LINE:HASH anchors usable with edit.",
-    ]);
-  });
-
-  it("readies hashing before an enabled bash runs, for the synchronous result handler", async () => {
-    // Each test file runs in a fresh context, and nothing above hashes.
-    expect(() => computeLineHash(1, "x")).toThrow("Hash not initialized");
-    const execute = vi.fn(async () => ({ content: [{ type: "text", text: "ok" }] }));
-    const tool = registerBashRendererTool(capturePi().pi as any, { cwd: "/tmp/project", grepAnchors: true, createBuiltInBashTool: () => ({ execute }) });
-    await tool.execute("call-1", { command: "rg -n x" }, undefined, undefined, { cwd: "/tmp/project" });
-    expect(computeLineHash(1, "x")).toMatch(/^[0-9a-f]{3}$/);
-  });
 });
 
 afterEach(() => vi.unstubAllEnvs());
 
-const EXPECTED_BASH_DESCRIPTION = "Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint. Nonzero exits remain native values on structured-output hosts.";
+const EXPECTED_BASH_DESCRIPTION = "Run tests, builds, git, package managers, external CLIs, and file listings; do not use for repo file reading/searching/editing (use read, grep, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint. Nonzero exits remain native values on structured-output hosts.";
 
 function hookHarness() {
   const tools = new Map<string, any>();

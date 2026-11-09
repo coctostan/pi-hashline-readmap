@@ -62,13 +62,13 @@ describe("bash renderer wrapper", () => {
     const builtIn = { name: "bash", label: "bash", description: "real bash description", parameters: params, execute: async () => ({ content: [{ type: "text", text: "" }] }) };
     let registered: any;
     registerBashRendererTool({ registerTool(def: any) { registered = def; } } as any, { createBuiltInBashTool: () => builtIn, cwd: "/tmp/work" });
-    expect(registered.description).toBe("Run tests, builds, git, package managers, and external CLIs; do not use for repo file reading/searching/listing/editing (use read, grep, find, ls, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint. Nonzero exits remain native values on structured-output hosts.");
-    expect(registered.promptSnippet).toBe("Bash only for tests/builds/git/pkg/external CLIs. Don't use cat/head/tail, grep/rg, find/ls/tree, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/find/ls/edit/write.");
+    expect(registered.description).toBe("Run tests, builds, git, package managers, external CLIs, and file listings; do not use for repo file reading/searching/editing (use read, grep, edit, or write). Scripts receive native raw output, exit_code, and native truncation/full_output_path; the model reads Pi's output with ANSI codes stripped plus any hint. Nonzero exits remain native values on structured-output hosts.");
+    expect(registered.promptSnippet).toBe("Bash for tests/builds/git/pkg/external CLIs and listing files. Don't use cat/head/tail, grep/rg, sed/awk/perl/python rewrites, or > heredocs/tee for repo files; use read/grep/edit/write.");
     expect(registered.promptGuidelines).toEqual([
-      "Use bash for tests, builds, git, package managers, and external CLIs.",
-      "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
-      "Use read/grep/find/ls/edit/write for repo file operations.",
+      "Use bash for tests, builds, git, package managers, external CLIs, and listing files.",
+      "Do not use bash cat/head/tail/grep/rg/sed/awk for repo files.",
+      "Use read/grep/edit/write for repo file reads, searches and edits.",
     ]);
-    expect(registered.parameters.properties.command.description).toBe("Test/build/git/pkg/external command; not repo file read/search/list/edit.");
+    expect(registered.parameters.properties.command.description).toBe("Test/build/git/pkg/external/listing command; not repo file read/search/edit.");
   });
 });

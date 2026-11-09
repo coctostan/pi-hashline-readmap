@@ -351,6 +351,8 @@ export function registerFindTool(pi: ExtensionAPI) {
   const tool: Parameters<ExtensionAPI["registerTool"]>[0] = {
     name: "find",
     label: "find",
+    // Ruling 0008: not declared by default; codemode can call it and tool_search can load it.
+    exposure: "deferred",
     description: FIND_PROMPT_METADATA.description,
     promptSnippet: FIND_PROMPT_METADATA.promptSnippet,
     promptGuidelines: FIND_PROMPT_METADATA.promptGuidelines,

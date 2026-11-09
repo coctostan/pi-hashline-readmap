@@ -1,4 +1,4 @@
-Deprecated bundled Nushell tool, retained during deprecation. Prefer read/grep/ast_search for source inspection, find/ls for file discovery, codemode for structured composition, and bash for external CLIs.
+Deprecated bundled Nushell tool, retained during deprecation. Prefer read/grep/ast_search for source inspection, codemode for structured composition (its scripts can call the deferred find and ls), and bash for external CLIs and file listing.
 
 > **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
 

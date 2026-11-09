@@ -15,7 +15,7 @@ An Unreleased changelog entry or merged source change is not evidence of a publi
 | Need | Preferred path | Boundary |
 | --- | --- | --- |
 | Source inspection and anchored search | `read`, `grep`, `ast_search` | Keep fresh anchors, read warnings/continuation, grep completeness, and AST truncation. |
-| File discovery | `ls` for one directory; `find` for recursive basename matching and supported size/mtime filters/sorting | Entries expose names/paths and types, not arbitrary filesystem metadata. |
+| File discovery | `ls` for one directory; `find` for recursive basename matching and supported size/mtime filters/sorting. Both are deferred: codemode scripts call them directly; the model needs `--tools +ls,+find` or `tool_search`, else bash `ls`/`find` | Entries expose names/paths and types, not arbitrary filesystem metadata. |
 | Filter, join, or aggregate tool results | Codemode JavaScript over structured results | No direct filesystem/process access; tools supply outside-world capabilities. |
 | External CLIs | `bash`, with JSON processed in codemode when appropriate | Check exit code, native truncation, recovery path, output bounds, and JSON validity before summarizing. |
 
