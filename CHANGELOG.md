@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-11-09
+
+A default session no longer declares `ls` and `find`, which this repo's A/B against stock Pi found not worth their context, and keeps `grep`. `bash` hints point only at tools the session has active.
+
 ### Changed
 
 - A `bash` anti-pattern hint names only active tools: with `grep` inactive (`--exclude-tools grep`), `rg foo` carries no `Prefer the grep tool` hint, and the same holds for `find`'s file-search hint and the `read` and `edit` hints.
