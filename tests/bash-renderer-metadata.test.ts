@@ -51,6 +51,17 @@ describe("bash renderer provider-visible metadata", () => {
     await tool.execute("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
     expect(execute).toHaveBeenCalledWith("call-1", { command: "npm test", timeout: 30 }, undefined, undefined, { cwd: "/tmp/project" });
   });
+
+  it("adds one guideline naming grep anchors when the switch is on", () => {
+    const captured = capturePi();
+    const tool = registerBashRendererTool(captured.pi as any, { cwd: "/tmp/project", grepAnchors: true });
+    expect(tool.promptGuidelines).toEqual([
+      "Use bash for tests, builds, git, package managers, and external CLIs.",
+      "Do not use bash cat/head/tail/grep/rg/find/ls/tree/sed/awk for repo files.",
+      "Use read/grep/find/ls/edit/write for repo file operations.",
+      "grep -n/rg -n output lines that match the file carry LINE:HASH anchors usable with edit.",
+    ]);
+  });
 });
 
 afterEach(() => vi.unstubAllEnvs());

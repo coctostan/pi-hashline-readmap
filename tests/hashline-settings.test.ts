@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import {
   __resetHashlineSettingsPathsForTest,
   __setHashlineSettingsPathsForTest,
+  isBashGrepAnchorsEnabled,
   resolveHashlineJsonSettings,
 } from "../src/hashline-settings.js";
 
@@ -282,6 +283,25 @@ describe("resolveHashlineJsonSettings", () => {
     const result = resolveHashlineJsonSettings();
     expect(result.settings).toEqual({});
     expect(result.warnings.map((warning) => warning.path)).toEqual(["gdscript.enabled"]);
+  });
+
+  it("reads bash.grepAnchors, off by default, the environment taking precedence", async () => {
+    const root = tempRoot("hashline-settings-bash-grep-anchors");
+    cleanup.push(root);
+    const projectSettingsPath = join(root, "repo/.pi/hashline-readmap/settings.json");
+    __setHashlineSettingsPathsForTest({ globalSettingsPath: join(root, "home/settings.json"), projectSettingsPath });
+    expect(isBashGrepAnchorsEnabled({})).toBe(false);
+    expect(isBashGrepAnchorsEnabled({ PI_HASHLINE_BASH_GREP_ANCHORS: "1" })).toBe(true);
+
+    await mkdir(join(projectSettingsPath, ".."), { recursive: true });
+    await writeFile(projectSettingsPath, JSON.stringify({ bash: { grepAnchors: true } }));
+    expect(resolveHashlineJsonSettings()).toEqual({ settings: { bash: { grepAnchors: true } }, warnings: [] });
+    expect(isBashGrepAnchorsEnabled({})).toBe(true);
+    expect(isBashGrepAnchorsEnabled({ PI_HASHLINE_BASH_GREP_ANCHORS: "0" })).toBe(false);
+
+    await writeFile(projectSettingsPath, JSON.stringify({ bash: { grepAnchors: "yes" } }));
+    expect(resolveHashlineJsonSettings().warnings.map((warning) => warning.path)).toEqual(["bash.grepAnchors"]);
+    expect(isBashGrepAnchorsEnabled({})).toBe(false);
   });
 
   it("accepts edit.diffDisplay = \"expanded\" from JSON without warnings", async () => {
