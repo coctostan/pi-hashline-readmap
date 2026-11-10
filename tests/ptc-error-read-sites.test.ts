@@ -54,7 +54,7 @@ describe("read ptcValue.error — remaining error sites", () => {
     expect(withoutSymbol.content[0].text).toContain("Cannot use bundle without symbol");
 
     expect(PTC_ERROR_CODES["invalid-params-combo"].trigger).toBe(
-      "e.g. symbol + offset, bundle without symbol, invalid scoped or numeric parameter combinations",
+      "e.g. bundle without symbol, invalid scoped or numeric parameter combinations",
     );
     expect(PTC_ERROR_CODES["invalid-params-combo"].trigger).not.toContain("bundle + map");
     expect(PTC_ERROR_CODES["invalid-params-combo"].trigger).not.toContain("map + symbol");

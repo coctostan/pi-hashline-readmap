@@ -9,7 +9,7 @@ describe("read prompt reference role", () => {
     expect(text).toContain("Changing this prompt body alone does not change provider-visible metadata.");
     expect(text).toContain("This file is not loaded into `session.systemPrompt`.");
     expect(text).toContain("May combine with `limit`, `map: true`, and `bundle: \"local\"");
-    expect(text).toContain("cannot combine with `offset`");
+    expect(text).toContain("an `offset` beside it is ignored"); expect(text).not.toContain("cannot combine with `offset`");
     expect(text).toContain("cannot be used without `symbol`");
   });
 });

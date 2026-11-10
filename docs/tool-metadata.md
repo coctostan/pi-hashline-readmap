@@ -54,7 +54,7 @@ That is approximately 0.25% of all reads and approximately 1.3% of mode-using re
 
 Compact metadata landed on 2026-05-16. Before it, 16 of 2,259 mode-using reads were ambiguous (0.71%); after it, 27 of 1,037 were ambiguous (2.60%). This comparison is correlational, not causal. The changed model mix is a confound: several routes occur only later.
 
-Post-#248, `symbol+limit`, `symbol+map`, and `symbol+bundle+map` are valid. `symbol+offset` and bundle-without-symbol remain invalid.
+Post-#248, `symbol+limit`, `symbol+map`, and `symbol+bundle+map` are valid. An `offset` beside `symbol` is ignored with a `params-adjusted` notice (#290), and bundle-without-symbol remains invalid.
 
 ## Reproducing the scan
 
