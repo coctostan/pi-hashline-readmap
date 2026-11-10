@@ -78,6 +78,13 @@ describe.each([
     expect(paths).toEqual(["pkg/sub"]);
   });
 
+  it("names the cwd itself `.` when a parent root finds it", async () => {
+    setFd();
+    const { lines, paths } = await find({ pattern: "work", path: "..", type: "dir", maxDepth: 1 });
+    expect(lines).toEqual(["./"]);
+    expect(paths).toEqual(["."]);
+  });
+
   it("keeps regex, stat filters, sort and limit working under a path", async () => {
     setFd();
     const { result, paths } = await find({

@@ -624,7 +624,7 @@ export function registerFindTool(pi: ExtensionAPI) {
       const fromCwd = (entryPath: string): string => {
         const absolute = resolve(searchPath, entryPath);
         const rel = relative(cwd, absolute);
-        return normalizePath(isAbsolute(rel) || rel.split(sep)[0] === ".." ? absolute : rel);
+        return normalizePath(isAbsolute(rel) || rel.split(sep)[0] === ".." ? absolute : rel || ".");
       };
       const displayed = (truncated ? allEntries.slice(0, limit) : allEntries)
         .map((entry) => ({ ...entry, path: fromCwd(entry.path) }));
