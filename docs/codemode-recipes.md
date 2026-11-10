@@ -390,7 +390,7 @@ text(output);
 
 Seed migration/a.ts with a, migration/b.ts with bbb, and migration/c.ts with cccc. This lists at most two direct entries and finds at most two non-empty TypeScript files up to 1KB, within maxDepth 1, largest first. find matches basenames, respects .gitignore, and filters/sorts before its result limit; ls lists one directory including dotfiles. The optional discoveryPath store value changes the shared directory.
 
-The JavaScript filters file entries, joins find's root-relative paths with ls entry names for this same directory, and counts only the returned intersection. It does not stat files or expose a size/mtime value in returned entries. Subdirectory find paths cannot match a direct ls basename in this join. Exhaustive means complete returned inputs within the stated requests/filters, not every repository file. Preserve each input's truncation or rejection; an incomplete or failed input cannot support an exhaustive summary. Output has a 2000-token recovery cap and a 60-second script deadline.
+The JavaScript filters file entries, joins the basenames of find's cwd-relative paths with ls entry names for this same directory, and counts only the returned intersection. It does not stat files or expose a size/mtime value in returned entries. maxDepth 1 keeps find to the directory's direct entries, so a basename names the same file in both inputs. Exhaustive means complete returned inputs within the stated requests/filters, not every repository file. Preserve each input's truncation or rejection; an incomplete or failed input cannot support an exhaustive summary. Output has a 2000-token recovery cap and a 60-second script deadline.
 
 <!-- recipe:nu-discovery -->
 ~~~js
@@ -408,7 +408,7 @@ const inputs = settled.map((result, index) => result.status === "rejected"
     entries: result.value.entries });
 const listed = settled[0].status === "fulfilled" ? settled[0].value.entries : [];
 const found = settled[1].status === "fulfilled" ? settled[1].value.entries : [];
-const selected = new Set(found.filter(entry => entry.type === "file").map(entry => entry.path));
+const selected = new Set(found.filter(entry => entry.type === "file").map(entry => entry.path.split("/").pop()));
 const joined = listed.filter(entry => entry.type === "file" && selected.has(entry.name))
   .map(entry => ({ path: entry.name, type: entry.type }));
 text({ inputs, joined, counts: { joinedFiles: joined.length },

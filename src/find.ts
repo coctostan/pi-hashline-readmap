@@ -6,7 +6,7 @@ import { withLegacyRequiredOrder } from "./typebox-schema-order.js";
 import { defineToolPromptMetadata } from "./tool-prompt-metadata.js";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { execFileSync, execFile } from "node:child_process";
-import { resolve, relative, join } from "node:path";
+import { resolve, relative, join, isAbsolute, sep } from "node:path";
 import { resolveToCwd } from "./path-utils.js";
 import * as findStat from "./find-stat.js";
 import { parseRelativeOrIsoDate, parseSize } from "./find-parsers.js";
@@ -620,7 +620,17 @@ export function registerFindTool(pi: ExtensionAPI) {
 
       const totalCount = allEntries.length;
       const truncated = totalCount > limit;
-      const displayed = truncated ? allEntries.slice(0, limit) : allEntries;
+      // Entries are found root-relative; name them from the cwd so read/edit take them as-is.
+      const fromCwd = (entryPath: string): string => {
+        const absolute = resolve(searchPath, entryPath);
+        const rel = relative(cwd, absolute);
+        if (isAbsolute(rel) || rel.split(sep)[0] === "..") return normalizePath(absolute);
+        if (!rel) return ".";
+        // read/edit expand a leading @ or ~ through resolveToCwd; keep such a name literal behind ./
+        return normalizePath(resolveToCwd(rel, cwd) === absolute ? rel : `.${sep}${rel}`);
+      };
+      const displayed = (truncated ? allEntries.slice(0, limit) : allEntries)
+        .map((entry) => ({ ...entry, path: fromCwd(entry.path) }));
 
       const outputText = formatOutput(displayed, totalCount, truncated, pattern, showFdHint);
       const ptcValue: FindPtcValue = {

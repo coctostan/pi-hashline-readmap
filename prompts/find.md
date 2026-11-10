@@ -1,4 +1,4 @@
-Find files recursively by name. Uses glob patterns by default, respects nested `.gitignore`, includes hidden files, and returns paths relative to the resolved search root (`path`, default cwd).
+Find files recursively by name. Uses glob patterns by default, respects nested `.gitignore`, includes hidden files, and returns each path from the cwd, whatever `path` it searched (absolute for a root outside the cwd).
 
 > **Detailed reference document.** The provider-visible contract is [documented separately](../docs/tool-metadata.md) and consists of registered tool/parameter descriptions, snippets, and guidelines. This file is not loaded into `session.systemPrompt`. Changing this prompt body alone does not change provider-visible metadata.
 
@@ -15,25 +15,19 @@ Find files recursively by name. Uses glob patterns by default, respects nested `
 
 ## Output and usage
 
-One path relative to the resolved search root per line. Directories end with `/`. If results exceed `limit` or 50 KB, output says it was truncated.
+One path from the cwd per line: `find("*.ts", path: "src/readmap")` prints `src/readmap/mappers/go.ts`, not `mappers/go.ts`. An entry outside the cwd prints its absolute path, one starting with `@` or `~` prints behind `./` (read and edit would expand that prefix), and the cwd itself as `./`. Directories end with `/`. If results exceed `limit` or 50 KB, output says it was truncated.
 Filtering and sorting happen before `limit`, so queries like largest/newest files work as expected.
 
 Use `find` for recursive file-name discovery, `ls` for one directory, and `grep` for file contents. Remember: `pattern` matches basenames, not full paths. A pattern containing `/` (e.g. `src/*.ts`) will not match — scope the directory via `path:` instead (e.g. `find("*.ts", path: "src/readmap")`). When a slash-containing glob returns nothing, the result includes a hint to this effect.
 
 ### Composing discovery with read/edit
 
-Successful structured `entries[].path` values are relative to the resolved search root, not necessarily cwd. Keep the resolved root and join it with each entry before calling read or edit; these tools resolve relative inputs against cwd. Do not pass a bare entry from an external root directly to read/edit.
-
-A relative input such as `path: "src/readmap"` resolves against cwd; an omitted path uses cwd. For absolute or expanded input roots, use the resolved root rather than assuming the input string is already resolved. One way to obtain it in codemode is the successful ls result:
+Successful structured `entries[].path` values match the text lines: from the cwd, or absolute outside it. read and edit resolve relative inputs against the same cwd, so pass an entry to them as-is, with no join:
 
 ~~~js
-const directory = await tools.ls({path: "src/readmap", limit: 1});
-const found = await tools.find({path: directory.path, pattern: "*.ts", limit: 1});
+const found = await tools.find({path: "src/readmap", pattern: "*.ts", limit: 1});
 if (found.entries.length) {
-  const filePath = directory.path + "/" + found.entries[0].path;
-  const file = await tools.read({path: filePath});
+  const file = await tools.read({path: found.entries[0].path});
   text({path: file.path, lines: file.lines.length, truncated: found.truncated});
 }
 ~~~
-
-This does not change returned paths or truncation semantics and adds no result field.

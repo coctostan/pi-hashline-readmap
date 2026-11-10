@@ -40,7 +40,7 @@ Bundled `nu` is deprecated but retained. Its compact registered description, sni
 
 Numeric `number | string` hints belong on the union property, because codemode renders property descriptions as parameter comments. For read.offset/limit/charOffset/charLimit, grep.context/limit/scopeContext and ast_search.limit, retain the existing branch types and hints and also attach the same hint to the containing union. Do not infer integer/minimum/maximum/default schema keywords from prose: runtime coercion and validation are unchanged.
 
-Find returns `entries[].path` relative to the resolved search root (`path`, default cwd). Relative roots resolve against cwd; normal absolute/expanded path handling remains unchanged. Join entries to that resolved root before read/edit composition. An entry from an external root is not directly cwd-resolvable.
+Find returns each `entries[].path` from the cwd, whatever its `path` argument, and an absolute path for an entry outside the cwd; the text lines match. Relative roots resolve against cwd; normal absolute/expanded path handling remains unchanged. Pass entries to read/edit as-is: they resolve relative inputs against the same cwd.
 
 Ls returns entry basenames in `entries[].name` and the resolved absolute directory in successful `result.path`. Join those two returned values before read/edit composition; do not assume the original input string is the returned base.
 

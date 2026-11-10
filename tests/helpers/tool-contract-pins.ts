@@ -14,7 +14,7 @@ export const EXPECTED_TOOL_DESCRIPTIONS: Record<string, string> = {
       read: "Read files/images; LINE:HASH text anchors, image attachments.",
       edit: "Edit via fresh LINE:HASH; copy_lines/move_lines.",
       grep: "Grep text; non-summary LINE:HASH anchors.",
-      find: "Find files by glob, respecting .gitignore; entries are relative to resolved search root.",
+      find: "Find files by glob, respecting .gitignore; entry paths are from the cwd.",
       ls: "List one directory; entry names are basenames of the returned resolved path.",
       write: "Write files; return anchors.",
       ast_search: "ast-grep search; return anchors.",
