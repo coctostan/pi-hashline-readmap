@@ -215,7 +215,7 @@ try {
   const capturedText = capturedRead.result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
   assert.ok(capturedText.startsWith("[Read params adjusted: ignored offset 1 with symbol]"), "#290's verbatim call must lead with the ignored offset: " + capturedText);
   assert.ok(capturedText.includes("let shown = 1") && !capturedText.includes("let hidden = 2"), "#290's verbatim call must return only the symbol: " + capturedText);
-  for (const offset of [5, "2"]) {
+  for (const offset of [5, "2", 99]) {
     const outcome = await invoke("read", { path: view, symbol: "OtherCard", offset });
     const text = outcome.result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
     assert.equal(outcome.isError, false, "symbol with offset " + offset + " must succeed: " + text);
