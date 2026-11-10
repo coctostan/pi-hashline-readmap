@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-10
+
+Pi 1.5.2 is now the one tested host. Its grep, which ours wraps, finds files with a `glob` beside `path` and calls a search with exactly `limit` matches complete.
+
+### Changed
+
+- The extension is developed and tested against exactly one Pi host, Pi 1.5.2, which `package-lock.json` locks; Pi 1.5.0 is no longer tested. Peer ranges stay `"*"`. `grep` with `context` now prints the host's context lines as they come, adding only the `--` between separate groups, since Pi 1.5.1 takes context from ripgrep and prints each line once. On Pi 1.5.0 and older, a line where two context windows overlap prints twice, and a match inside another match's window also prints as context; update Pi to fix it (#310, #311).
+- `grep`'s `glob` is relative to `path`, as Pi 1.5.1's grep matches it: with `path: "repo"`, `glob: "sub/**/*.ts"` finds `repo/sub/deep/x.ts`, printed from the cwd as before, where on Pi 1.5.0 it found nothing. A cwd-relative glob beside `path` (`glob: "repo/sub/**/*.ts"`) matches nothing. The `grep` guidance says so (#310).
+- A `grep` with exactly `limit` matches reports a complete search with no match-limit notice, as Pi 1.5.1's grep reports it; more than `limit` matches still reports `completeness unknown` with the notice. The `grep` guidance says so (#310).
 ## [0.24.0] - 2026-11-10
 
 Four more snags that cost models a call are gone: `read` with a `symbol` takes a stray `offset`, `charLimit` shows the rest of every long line in a range, `find`'s paths work from the cwd, and `edit` drops an old alias that could swallow text.
