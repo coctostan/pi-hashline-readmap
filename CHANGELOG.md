@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-10
+
+Four more snags that cost models a call are gone: `read` with a `symbol` takes a stray `offset`, `charLimit` shows the rest of every long line in a range, `find`'s paths work from the cwd, and `edit` drops an old alias that could swallow text.
+
+### Changed
+
+- `charLimit` without `charOffset` caps each displayed line of a plain, `offset`, `limit` or `symbol` read, up to 10,000 characters, instead of failing with `charOffset/charLimit require a positive offset selecting exactly one line`; `charOffset` still selects a one-line window. A truncated line's marker adds `or a range read with charLimit:C`, and the `charLimit` description reads `Chars per line; default 500, max 10000`. `bundle` support lines keep the 500 default (#305).
+- `find` names each entry by its path from the cwd, whatever its `path` argument, in the text and in `entries[].path`: with `path: "pkg"` a match prints as `pkg/sub/view.ts`, not `sub/view.ts`, so it passes to `read` or `edit` as-is. An entry outside the cwd keeps its absolute path, and one starting with `@` or `~` prints behind `./` (#306).
+
+### Removed
+
+- `insert_after`'s undocumented `text` alias for `new_text`, from the `edit` schema and parser: `{ new_text: "", text: "x" }` now inserts one blank line, and a sent `text` is ignored like any unknown field (#307).
+
+### Fixed
+
+- `read` with a `symbol` and an `offset` ignores the `offset` and returns the symbol, its text led by `[Read params adjusted: ignored offset N with symbol]`, instead of failing with `Cannot combine symbol with offset`; `limit` still caps the symbol. GLM under strict sampling fills `offset` beside `symbol`, so #290's captured call now works as sent (#304).
 ## [0.23.0] - 2026-11-09
 
 Four snags that kept costing models a call are gone: `edit` can insert a blank line, `grep`'s file names work from the cwd, `edit` on a missing file says it is missing, and `bash` hints fire only when the command earns them.
