@@ -17,7 +17,7 @@ The extension is developed and tested against Pi 1.5.2 as its one host (ruling 0
 - [ ] 0.25.0 is released: the version is 0.25.0, and its `[0.25.0]` CHANGELOG entry names Pi 1.5.2 as the tested host and the `glob` and exact-limit changes — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit (main 2026-11-10: 0.24.0)
 
 ## Now
-All four slices done; slice 4 (Release 0.25.0) landed as `9240d57d` (#312). Next: confirm the `pi-compatibility` run on `9240d57d` (42922460319) is green, then `close` pi-1-5-2-host (Pi 1.5.2 is the one tested host); `npm publish` of 0.25.0 is the owner's.
+All four slices done; slice 4 (Release 0.25.0) landed as `9240d57d` (#312). `pi-compatibility` green on `9240d57d` (run 42922460319, npm 11 and 12). Next: `close` pi-1-5-2-host (Pi 1.5.2 is the one tested host); `npm publish` of 0.25.0 is the owner's.
 
 ## Seams
 - `package.json` devDependencies and `package-lock.json` → `npm ls`; `scripts/typecheck-pi-host.mjs`'s one-version audit → `tests/pi-host-declarations.test.ts`
