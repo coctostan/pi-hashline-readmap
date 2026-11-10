@@ -92,7 +92,7 @@ describe("edit null parameters", () => {
         {
           path: file,
           edits: [{
-            insert_after: { anchor, new_text: "beta", text: null },
+            insert_after: { anchor, new_text: "beta", literal: null },
           }],
         },
       );

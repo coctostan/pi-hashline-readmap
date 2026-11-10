@@ -179,7 +179,7 @@ it("preserves eight edit variants and nested required-null diagnostics", () => {
   const items = [
     { set_line: { anchor: "1:abc", new_text: "beta" } },
     { replace_lines: { start_anchor: "1:abc", end_anchor: "2:def", new_text: "beta" } },
-    { insert_after: { anchor: "1:abc", new_text: "beta", text: null } },
+    { insert_after: { anchor: "1:abc", new_text: "beta", literal: null } },
     { replace: { old_text: "alpha", new_text: "beta", all: null, fuzzy: null } },
     { replace_symbol: { symbol: "demo", new_body: "function demo() {}" } },
     { copy_lines: { start_anchor: "1:abc", end_anchor: "2:def", after_anchor: "3:abc", from_path: null } },
@@ -193,7 +193,7 @@ it("preserves eight edit variants and nested required-null diagnostics", () => {
     assert.doesNotThrow(() => validate(edit, raw));
     const prepared = edit.prepareArguments(raw);
     assert.equal("postEditVerify" in prepared, false);
-    if (index === 2) assert.equal("text" in prepared.edits[0].insert_after, false);
+    if (index === 2) assert.equal("literal" in prepared.edits[0].insert_after, false);
     if (index === 3) {
       assert.equal("all" in prepared.edits[0].replace, false);
       assert.equal("fuzzy" in prepared.edits[0].replace, false);

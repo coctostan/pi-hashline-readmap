@@ -51,7 +51,7 @@ describe("insert_after with an empty new_text", () => {
 
   it.each([
     ["new_text alone", { new_text: "" }],
-    ["an empty text alias too", { new_text: "", text: "" }],
+    ["an empty stray text too", { new_text: "", text: "" }],
     ["literal", { new_text: "", literal: true }],
   ])("inserts one empty line after its anchor (%s)", async (_name, fields) => {
     const { call, file } = harness("a\nb\nc\n");
@@ -77,11 +77,19 @@ describe("insert_after with an empty new_text", () => {
     expect(file()).toBe("\n");
   });
 
-  it("still prefers a non-empty text alias", async () => {
+  it("ignores a stray text field: new_text: \"\" is still one blank line", async () => {
     const { call, file } = harness("a\nb\n");
     await call("read", { path: "lines.txt" });
     await call("edit", { path: "lines.txt", edits: [{ insert_after: { anchor: anchor(1, "a"), new_text: "", text: "x" } }] });
-    expect(file()).toBe("a\nx\nb\n");
+    expect(file()).toBe("a\n\nb\n");
+  });
+
+  it("lists no text field in the insert_after schema", () => {
+    const tools = new Map<string, any>();
+    init({ registerTool: (d: any) => tools.set(d.name, d), on() {}, events: { emit() {}, on() {} } } as any);
+    const branches = tools.get("edit").parameters.properties.edits.items.anyOf;
+    const insert = branches.find((b: any) => b.properties.insert_after).properties.insert_after;
+    expect(Object.keys(insert.properties)).toEqual(["anchor", "new_text", "literal"]);
   });
 
   it("leaves set_line with a trailing newline setting that line alone", async () => {

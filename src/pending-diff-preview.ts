@@ -114,7 +114,7 @@ function isReplaceEdit(edit: unknown): edit is ReplaceEdit {
 type AnchorEdit =
 	| { set_line: { anchor: string; new_text: string } }
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string } }
-	| { insert_after: { anchor: string; new_text: string; text?: string } }
+	| { insert_after: { anchor: string; new_text: string } }
 	| { copy_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
 	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string } };
 

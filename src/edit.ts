@@ -94,7 +94,6 @@ const hashlineEditItemSchema = Type.Union([
 		insert_after: Type.Object({
 			anchor: Type.String({ description: "Fresh LINE:HASH anchor" }),
 			new_text: Type.String(),
-			text: Type.Optional(Type.String()),
 			literal: Type.Optional(Type.Boolean({ description: "Write new_text exactly; skip anchor-prefix cleanup" })),
 		}),
 	}, { additionalProperties: true })),

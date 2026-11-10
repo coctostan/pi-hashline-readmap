@@ -23,7 +23,7 @@ export const EXPECTED_TOOL_DESCRIPTIONS: Record<string, string> = {
 
 export const EXPECTED_SCHEMA_SHAPES: Record<string, string> = {
       read: "6061be7a64843271e910e1af6357a2bf93e673d6ac6301573bcad560df10d06f",
-      edit: "5c1b396d70bc313131e0809a0b19cf9c5d84f7dca197a85df0b6493e05e44e45",
+      edit: "47a5d73324d0bc9beb89b0b32f50edb8c92d99cb531a55b620b3ef0939e1a1e0",
       grep: "6d8ed3ec5dc1c9110e8e3a422ec5798bb4b6b6b5de77a36bcaa98278ebdae646",
       find: "a44a725f23f1229e138fe754031bdfd95e1fde001e18dd1945f1e5b9a0b79322",
       ls: "60a39a7e79ded29cd3756471c6e628e2766483fcb69b5c5a1acdd6299a47171e",
@@ -115,7 +115,7 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
 export const EXPECTED_SERIALIZATION_HASHES: Record<string, string> = {
     read: "0e34978faafb6c720d3894eb54eeeb60af2050aa5df2c351ddc1ed4a54e52784",
     grep: "f7b1d765f7ae24b0eab525f7a86e346e9edb4fbdd8d21366d1a6b70f04cd9ca4",
-    edit: "bfb7913aadaa00d01e829e3ca7326d102e37b6aa08cfdcde45c4e64966530ec8",
+    edit: "f05fab9a4c06efd5e1d6a55b4c062b35e201e8962c3f58d3cb3958b3ba63fd51",
     find: "69dd247dd4d30741f11ca665dea16858afda370a72a7684f534a85ed9321b086",
     ls: "9ecf497c631527ff13de80c6eae5983d8de868ceed01ea750c406dcf057be77e",
     ast_search: "e398e49af39fcbdf67a4706ff5b5873b29d4444980d129d59fd1aade1116d5f6",
