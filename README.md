@@ -123,7 +123,7 @@ Normal grep output has anchors; summary mode has counts only. `ls` lists one dir
 
 ## Bash output
 
-`bash` returns Pi's own output with ANSI codes stripped; nothing summarizes or trims it beyond Pi's own truncation, which keeps the last 2000 lines or 50 KB and names a `Full output:` file. A hint follows when a command reaches for a dedicated tool, such as `rg` for `grep`. Scripts receive Pi's native Bash value. See the [bash output contract](prompts/bash.md).
+`bash` returns Pi's own output with ANSI codes stripped; nothing summarizes or trims it beyond Pi's own truncation, which keeps the last 2000 lines or 50 KB and names a `Full output:` file. A hint follows when a command reaches for a dedicated tool, such as `rg` for `grep`, or when the shell lacks `timeout`, naming bash's own `timeout` parameter. Scripts receive Pi's native Bash value. See the [bash output contract](prompts/bash.md).
 
 ## Configuration
 
