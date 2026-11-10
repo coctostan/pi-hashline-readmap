@@ -60,7 +60,7 @@ function retypedBlocks(edits: HashlineEditItem[]): RetypedBlock[] {
 		let afterAnchor: string | undefined;
 		let ownRange: RetypedBlock["ownRange"];
 		if ("insert_after" in edit) {
-			text = edit.insert_after.new_text || edit.insert_after.text;
+			text = edit.insert_after.new_text;
 			afterAnchor = edit.insert_after.anchor;
 		} else if ("replace_lines" in edit) {
 			text = edit.replace_lines.new_text;

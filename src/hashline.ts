@@ -15,7 +15,7 @@ import type { PtcLine } from "./ptc-value.js";
 export type HashlineEditItem =
 	| { set_line: { anchor: string; new_text: string; literal?: boolean } }
 	| { replace_lines: { start_anchor: string; end_anchor: string; new_text: string; literal?: boolean } }
-	| { insert_after: { anchor: string; new_text: string; text?: string; literal?: boolean } }
+	| { insert_after: { anchor: string; new_text: string; literal?: boolean } }
 	| { copy_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
 	| { move_lines: { start_anchor: string; end_anchor: string; after_anchor: string; from_path?: string } }
 	| { replace: { old_text: string; new_text: string; all?: boolean } };
@@ -447,8 +447,8 @@ function parseHashlineEditItem(edit: HashlineEditItem, prefixContext?: PrefixCon
 		};
 	}
 	if ("insert_after" in edit) {
-		// `text` is an accepted alias for an empty new_text; an empty insert is one blank line, as "\n" is.
-		const dst = prepareNewText(edit.insert_after.new_text || edit.insert_after.text || "\n", edit.insert_after.literal, prefixContext);
+		// An empty insert is one blank line, as "\n" is.
+		const dst = prepareNewText(edit.insert_after.new_text || "\n", edit.insert_after.literal, prefixContext);
 		return {
 			spec: { kind: "insertAfter", after: parseLineRef(edit.insert_after.anchor) },
 			dstLines: dst.lines,
