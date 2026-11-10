@@ -50,9 +50,18 @@ describe("bash anti-pattern hints", () => {
   });
 
   it("falls through to the next hint whose tools are active", () => {
-    expect(presentBashOutput("cat a.ts | grep foo", "foo", without("read"))).toBe(
+    expect(presentBashOutput("cat a.ts && grep foo b.ts", "foo", without("read"))).toBe(
       "foo\n\n[Hint: Prefer the grep tool for content search.]",
     );
+  });
+
+  it("judges only each pipeline's first command", () => {
+    expect(presentBashOutput("echo hi | grep hi", "hi", ALL)).toBe("hi");
+    expect(presentBashOutput("npm test | grep x", "x", ALL)).toBe("x");
+    expect(presentBashOutput("git log | cat", "log", ALL)).toBe("log");
+    expect(presentBashOutput("grep -rn x src | head", "src/a.ts:1:x", ALL)).toContain("Prefer the grep tool");
+    expect(presentBashOutput("cd src && rg x", "a.ts:1:x", ALL)).toContain("Prefer the grep tool");
+    expect(presentBashOutput("npm test; cat log.txt | tail", "log", ALL)).toContain("Prefer the read tool");
   });
 
   it("reads the active tools from pi in the bash tool_result handler", () => {

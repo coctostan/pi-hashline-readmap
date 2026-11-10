@@ -13,7 +13,8 @@ may join it:
 
 - an anti-pattern hint, after a blank line, when the command reaches for an
   active dedicated tool (`[Hint: Prefer the grep tool for content search.]`
-  after `rg foo`, and no hint once `grep` is inactive);
+  after `rg foo`, and no hint once `grep` is inactive); only each pipeline's
+  first command counts, so `npm test | grep x` draws none;
 - the doom-loop and context-hygiene notices, before the output and a `---`
   line.
 

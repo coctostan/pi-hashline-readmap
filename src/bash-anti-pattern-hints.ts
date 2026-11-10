@@ -27,9 +27,17 @@ const HINTS: ReadonlyArray<{ tools: readonly string[]; matches: (command: string
   },
 ];
 
+/**
+ * Each pipeline's first command, joined: `npm test | grep x` filters output and searches no files, so it reads as `npm test`.
+ * shortcut: splits on `|`, `;`, `&&` and `||` even inside quotes, so `echo "a; grep x"` yields a false head; use a bash parser if a miss turns up.
+ */
+export const pipelineHeads = (command: string): string =>
+  command.split(/&&|\|\||;|\n/).map((part) => part.split("|")[0].trim()).filter(Boolean).join("; ");
+
 export function getBashAntiPatternHint(command: string, activeTools: readonly string[]): string | null {
+  const heads = pipelineHeads(command);
   const hint = HINTS.find(
-    ({ tools, matches }) => tools.every((tool) => activeTools.includes(tool)) && matches(command),
+    ({ tools, matches }) => tools.every((tool) => activeTools.includes(tool)) && matches(heads),
   );
   return hint?.text ?? null;
 }
