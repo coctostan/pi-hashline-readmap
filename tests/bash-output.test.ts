@@ -30,4 +30,15 @@ describe("presentBashOutput", () => {
     expect(presentBashOutput("rg foo", "", ALL)).toBe("[Hint: Prefer the grep tool for content search.]");
     expect(presentBashOutput("echo", "", ALL)).toBe("");
   });
+
+  it("names bash's timeout parameter when the shell has no timeout, whatever tools are active", () => {
+    const missing = "/bin/bash: line 1: timeout: command not found\n\nCommand exited with code 127";
+    const hint = "[Hint: This shell has no `timeout` command; set the bash tool's `timeout` parameter (seconds) instead.]";
+    expect(presentBashOutput("timeout 5 npm test", missing, ALL)).toBe(`${missing}\n\n${hint}`);
+    expect(presentBashOutput("timeout 5 npm test", missing, [])).toBe(`${missing}\n\n${hint}`);
+    expect(presentBashOutput("timeout 5 rg foo", missing, ALL)).toBe(
+      `${missing}\n\n[Hint: Prefer the grep tool for content search.]\n\n${hint}`,
+    );
+    expect(presentBashOutput("timeout 5 npm test", "ok\n", ALL)).toBe("ok\n");
+  });
 });

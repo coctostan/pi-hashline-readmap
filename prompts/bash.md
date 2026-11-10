@@ -8,13 +8,16 @@ rely on it.
 
 The model reads Pi's own bash output with ANSI escape codes stripped; nothing
 summarizes, reorders or trims it beyond Pi's own truncation, which keeps the
-last 2000 lines or 50 KB and names the full output's file. Two kinds of notice
+last 2000 lines or 50 KB and names the full output's file. Three kinds of notice
 may join it:
 
 - an anti-pattern hint, after a blank line, when the command reaches for an
   active dedicated tool (`[Hint: Prefer the grep tool for content search.]`
   after `rg foo`, and no hint once `grep` is inactive); only each pipeline's
   first command counts, so `npm test | grep x` draws none;
+- a hint naming the bash tool's own `timeout` parameter, after a blank line,
+  when the output says `timeout: command not found` (macOS ships no
+  `timeout`), whatever tools are active;
 - the doom-loop and context-hygiene notices, before the output and a `---`
   line.
 
