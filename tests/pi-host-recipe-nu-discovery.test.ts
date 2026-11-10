@@ -19,7 +19,7 @@ it("joins bounded file discovery without pretending it is exhaustive", () => {
   const value = jsonOf(report);
   assert.deepEqual(value.inputs.map((input: any) => input.id), ["ls", "find"]);
   assert.ok(value.inputs.every((input: any) => input.status === "fulfilled" && input.truncated));
-  assert.deepEqual(value.inputs[1].entries.map((entry: any) => entry.path), ["c.ts", "b.ts"]);
+  assert.deepEqual(value.inputs[1].entries.map((entry: any) => entry.path), ["migration/c.ts", "migration/b.ts"]);
   assert.deepEqual(value.joined, [{ path: "b.ts", type: "file" }]);
   assert.deepEqual(value.counts, { joinedFiles: 1 });
   assert.equal(value.exhaustive, false);

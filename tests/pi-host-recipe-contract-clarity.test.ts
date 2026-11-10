@@ -21,18 +21,18 @@ it.each(["read", "grep", "ast_search"])(
   }, 130_000,
 );
 
-it("documents find search-root resolution in registered guidance", () => {
+it("documents find cwd-relative entries in registered guidance", () => {
   const declaration = jsonOf(runProgram({
     steps: [{code: 'text({find: await describeTool("find")});'}],
   })).find;
   const guidance = declaration.split("codemode tool declaration:")[0];
-  assert.match(guidance.split(/\r?\n/)[0], /entries are relative to resolved search root/i,
-    "find description must identify the resolved search root");
-  assert.match(guidance, /resolved path \(default cwd\) before read\/edit/i);
-  assert.match(guidance, /relative roots use cwd/i);
+  assert.match(guidance.split(/\r?\n/)[0], /entry paths are from the cwd/i,
+    "find description must say entries are named from the cwd");
+  assert.match(guidance, /Pass find entries to read\/edit as-is/i);
+  assert.match(guidance, /absolute outside the cwd/i);
 }, 130_000);
 
-it("requires joining an external find root before reading returned entries", () => {
+it("reads an external find root's entry as-is by its absolute path", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-external-"));
   const basename = "pi-279-unique-fixture.txt";
   try {
@@ -41,26 +41,22 @@ it("requires joining an external find root before reading returned entries", () 
       const root = ${JSON.stringify(root)};
       const f = await tools.find({path: root, pattern: ${JSON.stringify(basename)}});
       const entry = f.entries[0].path;
-      const unjoined = await tools.read({path: entry, errorMode: "value"});
-      const joined = await tools.read({path: root + "/" + entry});
+      const asIs = await tools.read({path: entry});
       const listing = await tools.ls({path: root});
-      text({entry, truncated: f.truncated, unjoined, joinedRaw: joined.lines[0].raw,
+      text({entry, truncated: f.truncated, raw: asIs.lines[0].raw,
         lsPath: listing.path, lsName: listing.entries[0].name});
     ` }] });
     const result = jsonOf(report);
-    console.log("external-root reproduction:", JSON.stringify(result));
-    assert.equal(result.entry, basename);
+    assert.equal(result.entry, join(root, basename));
     assert.equal(result.truncated, false);
-    assert.equal(result.unjoined.ok, false);
-    assert.equal(result.unjoined.error.code, "file-not-found");
-    assert.equal(result.joinedRaw, "outside cwd");
+    assert.equal(result.raw, "outside cwd");
     assert.equal(result.lsName, basename);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 }, 130_000);
 
-it("codes missing external-root PNG reads while preserving joined images", () => {
+it("codes a missing PNG read while reading an external find entry's image as-is", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-external-png-"));
   const basename = "pi-279-unique-image.png";
   try {
@@ -68,21 +64,22 @@ it("codes missing external-root PNG reads while preserving joined images", () =>
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64"));
     const result = jsonOf(runProgram({ steps: [{ code: `
       const root = ${JSON.stringify(root)};
-      const found = await tools.find({path: root, pattern: ${JSON.stringify(basename)}});
+      const basename = ${JSON.stringify(basename)};
+      const found = await tools.find({path: root, pattern: basename});
       const entry = found.entries[0].path;
-      const unjoined = await tools.read({path: entry, errorMode: "value"});
+      const missing = await tools.read({path: basename, errorMode: "value"});
       let defaultError = null;
-      try { await tools.read({path: entry}); }
+      try { await tools.read({path: basename}); }
       catch (error) { defaultError = error.message; }
-      const joined = await tools.read({path: root + "/" + entry});
-      text({entry, unjoined, defaultError, imageType: joined.type,
-        mimeType: joined.mimeType, hasData: joined.data.length > 0});
+      const image = await tools.read({path: entry});
+      text({entry, missing, defaultError, imageType: image.type,
+        mimeType: image.mimeType, hasData: image.data.length > 0});
     ` }] }));
-    assert.equal(result.entry, basename);
-    assert.equal(result.unjoined.ok, false);
-    assert.equal(result.unjoined.tool, "read");
-    assert.equal(result.unjoined.error.code, "file-not-found");
-    assert.equal(result.unjoined.error.message, "File not found: " + basename);
+    assert.equal(result.entry, join(root, basename));
+    assert.equal(result.missing.ok, false);
+    assert.equal(result.missing.tool, "read");
+    assert.equal(result.missing.error.code, "file-not-found");
+    assert.equal(result.missing.error.message, "File not found: " + basename);
     assert.match(result.defaultError, /File not found:/);
     assert.equal(result.imageType, "image");
     assert.equal(result.mimeType, "image/png");
@@ -149,17 +146,17 @@ it("retains ast_search numeric-string execution equivalence", () => {
   for (const pair of result.pairs) assert.deepEqual(pair.strings, pair.numeric);
 }, 130_000);
 
-it("documents find output resolution without changing root-relative paths", () => {
+it("documents find output entry paths as cwd-relative", () => {
   const declaration = jsonOf(runProgram({
     steps: [{code: 'text({declaration: await describeTool("find")});'}],
   })).declaration;
   const output = declaration.slice(declaration.indexOf("): Promise<"));
   assert.match(output,
-    /\/\/[^\n]*relative to resolved search root \(path, default cwd\); join to that root before read\/edit\.\s*\n\s*path\s*:\s*string\s*;/i,
+    /\/\/[^\n]*From the cwd, absolute outside it; pass to read\/edit as-is\.\s*\n\s*path\s*:\s*string\s*;/i,
     "find output entry path must carry a resolution comment");
 }, 130_000);
 
-it("retains find root-relative joined-read composition", () => {
+it("reads find entries as-is from omitted, relative and absolute roots", () => {
   const root = mkdtempSync(join(tmpdir(), "pi-279-find-output-"));
   try {
     writeFileSync(join(root, "pi-279-absolute.txt"), "absolute root\n");
@@ -170,17 +167,16 @@ it("retains find root-relative joined-read composition", () => {
       },
       steps: [{code: `
       const EXTERNAL_ROOT = ${JSON.stringify(root)};
-      const cwd = (await tools.ls({})).path;
       const roots = [
-        {label: "omitted", root: cwd, args: {pattern: "pi-279-cwd.txt"}},
-        {label: "relative", root: cwd + "/nested", args: {path: "nested", pattern: "pi-279-relative.txt"}},
-        {label: "absolute", root: EXTERNAL_ROOT, args: {path: EXTERNAL_ROOT, pattern: "pi-279-absolute.txt"}},
+        {label: "omitted", args: {pattern: "pi-279-cwd.txt"}},
+        {label: "relative", args: {path: "nested", pattern: "pi-279-relative.txt"}},
+        {label: "absolute", args: {path: EXTERNAL_ROOT, pattern: "pi-279-absolute.txt"}},
       ];
       const results = [];
       for (const scenario of roots) {
         const f = await tools.find(scenario.args);
         const entry = f.entries[0].path;
-        const r = await tools.read({path: scenario.root + "/" + entry});
+        const r = await tools.read({path: entry});
         results.push({label: scenario.label, entry, truncated: f.truncated, raw: r.lines[0].raw});
       }
       text({results});
@@ -188,8 +184,8 @@ it("retains find root-relative joined-read composition", () => {
     }));
     assert.deepEqual(result.results, [
       {label: "omitted", entry: "pi-279-cwd.txt", truncated: false, raw: "omitted root"},
-      {label: "relative", entry: "pi-279-relative.txt", truncated: false, raw: "relative root"},
-      {label: "absolute", entry: "pi-279-absolute.txt", truncated: false, raw: "absolute root"},
+      {label: "relative", entry: "nested/pi-279-relative.txt", truncated: false, raw: "relative root"},
+      {label: "absolute", entry: join(root, "pi-279-absolute.txt"), truncated: false, raw: "absolute root"},
     ]);
   } finally {
     rmSync(root, {recursive: true, force: true});

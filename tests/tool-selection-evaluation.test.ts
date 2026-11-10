@@ -39,7 +39,7 @@ describe("checked-in tool-selection evaluation table", () => {
       if (row.id === "grep-counts") { expect(result.content[0].text).toContain("[2 matches in 2 files]"); expect(result.content[0].text).not.toMatch(/\d+:[0-9a-f]{3}\|/); }
       if (row.id === "grep-anchors") expect(result.content[0].text).toMatch(/:>>\d+:[0-9a-f]{3}\|/);
       if (row.id === "grep-symbol-context") { expect(result.content[0].text).toContain("scoped to ±0 lines"); expect(result.details.ptcValue.scopes.mode).toBe("symbol"); }
-      if (row.id === "find-date-size") expect(result.details.ptcValue.entries).toEqual([{ path: "recent.bin", type: "file" }]);
+      if (row.id === "find-date-size") expect(result.details.ptcValue.entries).toEqual([{ path: "find/recent.bin", type: "file" }]);
     }
   }, 20_000);
 });

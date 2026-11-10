@@ -6,7 +6,7 @@ const COMPACT_DESCRIPTIONS: Record<string, string> = {
   "read.md": "Read files/images; LINE:HASH text anchors, image attachments.",
   "edit.md": "Edit via fresh LINE:HASH; copy_lines/move_lines.",
   "grep.md": "Grep text; non-summary LINE:HASH anchors.",
-  "find.md": "Find files by glob, respecting .gitignore; entries are relative to resolved search root.",
+  "find.md": "Find files by glob, respecting .gitignore; entry paths are from the cwd.",
   "ls.md": "List one directory; entry names are basenames of the returned resolved path.",
   "write.md": "Write files; return anchors.",
   "sg.md": "ast-grep search; return anchors.",
@@ -32,7 +32,7 @@ const COMPACT_GUIDELINES: Record<string, string[]> = {
   ],
   "find.md": [
     "Find files recursively by glob.",
-    "Join find entries to resolved path (default cwd) before read/edit; relative roots use cwd.",
+    "Pass find entries to read/edit as-is: cwd-relative, absolute outside the cwd.",
   ],
   "ls.md": [
     "Ls one directory; optional glob.",

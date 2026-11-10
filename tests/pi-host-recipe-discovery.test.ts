@@ -43,7 +43,7 @@ it("keeps all nine tool sections and contract hints within the default budget", 
     "Chars per line; default 500, max 10000",
     "Non-negative int or obvious base-10 numeric string",
     "Non-negative int/base-10 string; requires scope: symbol",
-    "Relative to resolved search root (path, default cwd); join to that root before read/edit.",
+    "From the cwd, absolute outside it; pass to read/edit as-is.",
     "Entry basename; join to the returned path before read/edit.",
     "Resolved absolute directory; join with entries[].name before read/edit.",
   ]) assert.ok(catalog.includes(hint), "Required inline contract hint missing: " + hint);

@@ -133,7 +133,7 @@ const HASHLINE_SUCCESS_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = {
     text: TEXT,
     entries: Type.Array(Type.Object({
       path: Type.String({
-        description: "Relative to resolved search root (path, default cwd); join to that root before read/edit.",
+        description: "From the cwd, absolute outside it; pass to read/edit as-is.",
       }),
       type: Type.Union([Type.Literal("file"), Type.Literal("dir")]),
     })),
