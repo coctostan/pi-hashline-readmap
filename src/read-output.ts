@@ -73,6 +73,8 @@ export interface ReadOutputInput {
   map?: ReadMapMetadata;
   bundle?: ReadBundleMetadata | null;
   rehydrate?: ContextHygieneRehydrateDescriptor | null;
+  /** Per-line display cap (`charLimit` without `charOffset`); default 500. */
+  lineCap?: number;
 }
 
 export interface ReadSourceOutput {
@@ -83,10 +85,10 @@ export interface ReadSourceOutput {
 }
 
 export function buildReadSourceOutput(
-  input: Pick<ReadOutputInput, "startLine" | "totalLines" | "selectedLines">,
+  input: Pick<ReadOutputInput, "startLine" | "totalLines" | "selectedLines" | "lineCap">,
 ): ReadSourceOutput {
   const lines = buildPtcLines(input.startLine, input.selectedLines);
-  const renderedLines = renderPtcLines(lines);
+  const renderedLines = renderPtcLines(lines, input.lineCap);
   const budget = truncateHead(renderedLines, {
     maxLines: DEFAULT_MAX_LINES,
     maxBytes: DEFAULT_MAX_BYTES,
@@ -179,6 +181,7 @@ export function buildReadOutput(
   if (input.bundle?.applied) {
     const supportBlocks = input.bundle.localSupport.map((item) => {
       const supportLines = buildPtcLines(item.symbol.startLine, item.lines);
+      // Support sits outside the source budget, so it keeps the default cap rather than `lineCap`.
       return renderPtcLines(supportLines);
     });
     text = ["## Requested symbol", text, "", "## Local support", ...supportBlocks].join("\n");

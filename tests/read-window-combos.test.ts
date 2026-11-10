@@ -26,7 +26,6 @@ describe("read window params — invalid combinations", () => {
     ["symbol", { offset: 1, charOffset: 0, symbol: "a" }, /symbol/],
     ["bundle", { offset: 1, charOffset: 0, bundle: "local" }, /bundle|symbol/],
     ["strictSymbol", { offset: 1, charOffset: 0, strictSymbol: true }, /strictSymbol|symbol/],
-    ["charLimit alone without offset", { charLimit: 100 }, /offset/],
   ])("rejects %s with invalid-params-combo", async (_name, extra, pattern) => {
     const path = fixture("const a = 1;\nconst b = 2;\n");
     const result = await callRead({ path, ...extra });

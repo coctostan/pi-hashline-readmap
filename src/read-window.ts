@@ -71,7 +71,14 @@ export interface WindowRequest {
 }
 
 export type WindowParamsResult =
-  | { ok: true; window: WindowRequest | null; adjustments: string[] }
+  | {
+      ok: true;
+      /** One-line window: set only when charOffset is supplied. */
+      window: WindowRequest | null;
+      /** Per-line display cap over the range read: charLimit supplied without charOffset. */
+      lineCap: number | null;
+      adjustments: string[];
+    }
   | { ok: false; code: "invalid-char-offset" | "invalid-char-limit"; message: string };
 
 export function parseWindowParams(input: { charOffset?: unknown; charLimit?: unknown }): WindowParamsResult {
@@ -107,16 +114,17 @@ export function parseWindowParams(input: { charOffset?: unknown; charLimit?: unk
     charLimit = MAX_CHAR_LIMIT;
   }
 
-  if (offset.value === undefined && charLimit === undefined) {
-    return { ok: true, window: null, adjustments };
+  if (offset.value === undefined) {
+    return { ok: true, window: null, lineCap: charLimit ?? null, adjustments };
   }
   return {
     ok: true,
     window: {
-      charOffset: offset.value ?? 0,
+      charOffset: offset.value,
       charLimit: charLimit ?? DEFAULT_CHAR_LIMIT,
       charLimitSupplied: charLimit !== undefined,
     },
+    lineCap: null,
     adjustments,
   };
 }

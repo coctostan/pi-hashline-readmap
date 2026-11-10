@@ -37,8 +37,8 @@ describe("issue 217 — read long-line guard + edit on full content", () => {
 
     const row = text.split("\n").find((l) => /^\d+:[0-9a-f]{3}\|/.test(l)) ?? "";
     const displayed = row.replace(/^\d+:[0-9a-f]{3}\|/, "");
-    expect(displayed.length).toBeLessThan(600);
-    expect(displayed.endsWith(`... [truncated, ${longLine.length} chars total; read({offset:1, charOffset:500})]`)).toBe(true);
+    expect(displayed.length).toBeLessThan(650);
+    expect(displayed.endsWith(`... [truncated, ${longLine.length} chars total; read({offset:1, charOffset:500}) or a range read with charLimit:10000]`)).toBe(true);
   });
 
   it("editing the truncated line still applies against full content (hash unchanged)", async () => {

@@ -125,9 +125,9 @@ const READ_PARAMETERS = Type.Object({
 	),
 	charLimit: Type.Optional(
 		Type.Union([
-			Type.Number({ description: "Window chars; default 500, max 10000" }),
-			Type.String({ description: "Window chars; default 500, max 10000" }),
-		], { description: "Window chars; default 500, max 10000" }),
+			Type.Number({ description: "Chars per line; default 500, max 10000" }),
+			Type.String({ description: "Chars per line; default 500, max 10000" }),
+		], { description: "Chars per line; default 500, max 10000" }),
 	),
 	symbol: Type.Optional(Type.String({ description: "Non-empty; may combine with limit, map, or local bundle" })),
 	strictSymbol: Type.Optional(Type.Boolean({
@@ -303,6 +303,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 			}
 			paramAdjustments.push(...windowParams.adjustments);
 			const charWindow = windowParams.window;
+			const lineCap = windowParams.lineCap ?? undefined;
 			let symbolValue = rawParams.symbol;
 			const invalidSymbolType = rawParams.symbol !== undefined && typeof rawParams.symbol !== "string";
 			if (typeof rawParams.symbol === "string") {
@@ -373,14 +374,14 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 						},
 					},
 				});
-				if (p.symbol) return comboError("charOffset/charLimit cannot be combined with symbol; use offset to select the line.");
-				if (p.bundle) return comboError("charOffset/charLimit cannot be combined with bundle.");
-				if (p.map) return comboError("charOffset/charLimit cannot be combined with map.");
+				if (p.symbol) return comboError("charOffset cannot be combined with symbol; use offset to select the line, or charLimit alone to cap each line.");
+				if (p.bundle) return comboError("charOffset cannot be combined with bundle.");
+				if (p.map) return comboError("charOffset cannot be combined with map.");
 				if (p.offset === undefined) {
-					return comboError("charOffset/charLimit require a positive offset selecting exactly one line. Use read({ path, offset: LINE, charOffset: N }).");
+					return comboError("charOffset requires a positive offset selecting exactly one line. Use read({ path, offset: LINE, charOffset: N }).");
 				}
 				if (p.limit !== undefined && p.limit !== 1) {
-					return comboError(`charOffset/charLimit address exactly one line: omit limit or use limit: 1 (received ${p.limit}).`);
+					return comboError(`charOffset addresses exactly one line: omit limit or use limit: 1 (received ${p.limit}), or drop charOffset to cap each line of the range with charLimit.`);
 				}
 			}
 			if (p.symbol && p.offset !== undefined) {
@@ -748,6 +749,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				startLine,
 				totalLines: total,
 				selectedLines: selected,
+				lineCap,
 			});
 			const truncation = sourceOutput.truncation;
 
@@ -794,6 +796,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 					endLine: endIdx,
 					totalLines: total,
 					selectedLines: selected,
+					lineCap,
 					warnings: structuredWarnings,
 					// Deprecated compatibility projection; sourceOutput remains authoritative.
 					truncation,
@@ -826,6 +829,7 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 						symbol: p.symbol,
 						map: p.map,
 						bundle: p.bundle,
+						charLimit: lineCap,
 					}),
 				},
 				sourceOutput,

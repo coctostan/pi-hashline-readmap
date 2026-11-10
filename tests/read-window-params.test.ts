@@ -3,31 +3,31 @@ import { parseWindowParams } from "../src/read-window.js";
 
 describe("parseWindowParams", () => {
   it("is inactive when neither param is supplied", () => {
-    expect(parseWindowParams({})).toEqual({ ok: true, window: null, adjustments: [] });
+    expect(parseWindowParams({})).toEqual({ ok: true, window: null, lineCap: null, adjustments: [] });
   });
 
   it("treats an explicit charOffset of 0 as a real value, not an omitted placeholder", () => {
     expect(parseWindowParams({ charOffset: 0 })).toEqual({
-      ok: true, window: { charOffset: 0, charLimit: 500, charLimitSupplied: false }, adjustments: [],
+      ok: true, window: { charOffset: 0, charLimit: 500, charLimitSupplied: false }, lineCap: null, adjustments: [],
     });
     expect(parseWindowParams({ charOffset: "0" })).toMatchObject({ ok: true, window: { charOffset: 0 } });
   });
 
-  it("defaults charOffset to 0 when only charLimit is supplied", () => {
+  it("returns a per-line cap, not a window, when only charLimit is supplied", () => {
     expect(parseWindowParams({ charLimit: 100 })).toEqual({
-      ok: true, window: { charOffset: 0, charLimit: 100, charLimitSupplied: true }, adjustments: [],
+      ok: true, window: null, lineCap: 100, adjustments: [],
     });
   });
 
   it("accepts obvious base-10 strings", () => {
     expect(parseWindowParams({ charOffset: "250", charLimit: "1000" })).toEqual({
-      ok: true, window: { charOffset: 250, charLimit: 1000, charLimitSupplied: true }, adjustments: [],
+      ok: true, window: { charOffset: 250, charLimit: 1000, charLimitSupplied: true }, lineCap: null, adjustments: [],
     });
   });
 
   it("ignores empty strings with an adjustment note and stays inactive", () => {
     expect(parseWindowParams({ charOffset: "", charLimit: "" })).toEqual({
-      ok: true, window: null, adjustments: ["ignored empty charOffset", "ignored empty charLimit"],
+      ok: true, window: null, lineCap: null, adjustments: ["ignored empty charOffset", "ignored empty charLimit"],
     });
   });
 
@@ -35,7 +35,14 @@ describe("parseWindowParams", () => {
     expect(parseWindowParams({ charOffset: 0, charLimit: 50_000 })).toEqual({
       ok: true,
       window: { charOffset: 0, charLimit: 10_000, charLimitSupplied: true },
+      lineCap: null,
       adjustments: ["clamped charLimit 50000 to 10000"],
+    });
+  });
+
+  it("clamps a per-line cap above 10,000 too", () => {
+    expect(parseWindowParams({ charLimit: 50_000 })).toEqual({
+      ok: true, window: null, lineCap: 10_000, adjustments: ["clamped charLimit 50000 to 10000"],
     });
   });
 
