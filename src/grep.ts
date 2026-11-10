@@ -284,10 +284,10 @@ const LINE_NUM_RE = /(?:>>|  )(\d+):/;
 // Pi 1.5.2's grep prints no `--` between context groups; insert one wherever a file's line numbers skip.
 export function separateContextGroups(lines: GrepIRLine[]): GrepIRLine[] {
 	const result: GrepIRLine[] = [];
-	let previous: number | undefined;
+	let previous = Number.POSITIVE_INFINITY;
 	for (const line of lines) {
 		const lineNum = Number(line.raw.match(LINE_NUM_RE)?.[1]);
-		if (previous !== undefined && lineNum > previous + 1) result.push({ kind: "separator", raw: "--" });
+		if (lineNum > previous + 1) result.push({ kind: "separator", raw: "--" });
 		result.push(line);
 		previous = lineNum;
 	}
