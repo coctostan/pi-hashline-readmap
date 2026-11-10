@@ -18,6 +18,8 @@ beforeAll(() => {
   writeFileSync(join(cwd, "pkg", "index.ts"), "export * from './sub/view';\n");
   mkdirSync(join(cwd, "@scope"), { recursive: true });
   writeFileSync(join(cwd, "@scope", "at.md"), "scoped\n");
+  mkdirSync(join(cwd, "~"), { recursive: true });
+  writeFileSync(join(cwd, "~", "tilde.md"), "literal tilde\n");
   mkdirSync(outside, { recursive: true });
   writeFileSync(join(outside, "far.ts"), "export const far = 1;\n");
 });
@@ -80,12 +82,15 @@ describe.each([
     expect(paths).toEqual(["pkg/sub"]);
   });
 
-  it("spells a leading-@ entry ./@ so read/edit, which strip a leading @, keep it", async () => {
+  it.each([
+    ["@", "./@scope", "at.md", "./@scope/at.md"],
+    ["~", "./~", "tilde.md", "./~/tilde.md"],
+  ])("spells a leading-%s entry behind ./ so read/edit, which expand it, keep it literal", async (_prefix, root, pattern, expected) => {
     setFd();
-    for (const path of [undefined, "./@scope"]) {
-      const { lines, paths } = await find({ pattern: "at.md", ...(path ? { path } : {}) });
-      expect(lines).toEqual(["./@scope/at.md"]);
-      expect(paths).toEqual(["./@scope/at.md"]);
+    for (const path of [undefined, root]) {
+      const { lines, paths } = await find({ pattern, ...(path ? { path } : {}) });
+      expect(lines).toEqual([expected]);
+      expect(paths).toEqual([expected]);
     }
   });
 

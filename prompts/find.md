@@ -15,7 +15,7 @@ Find files recursively by name. Uses glob patterns by default, respects nested `
 
 ## Output and usage
 
-One path from the cwd per line: `find("*.ts", path: "src/readmap")` prints `src/readmap/mappers/go.ts`, not `mappers/go.ts`. An entry outside the cwd prints its absolute path, one starting with `@` prints as `./@…` (read and edit strip a leading `@`), and the cwd itself as `./`. Directories end with `/`. If results exceed `limit` or 50 KB, output says it was truncated.
+One path from the cwd per line: `find("*.ts", path: "src/readmap")` prints `src/readmap/mappers/go.ts`, not `mappers/go.ts`. An entry outside the cwd prints its absolute path, one starting with `@` or `~` prints behind `./` (read and edit would expand that prefix), and the cwd itself as `./`. Directories end with `/`. If results exceed `limit` or 50 KB, output says it was truncated.
 Filtering and sorting happen before `limit`, so queries like largest/newest files work as expected.
 
 Use `find` for recursive file-name discovery, `ls` for one directory, and `grep` for file contents. Remember: `pattern` matches basenames, not full paths. A pattern containing `/` (e.g. `src/*.ts`) will not match — scope the directory via `path:` instead (e.g. `find("*.ts", path: "src/readmap")`). When a slash-containing glob returns nothing, the result includes a hint to this effect.
