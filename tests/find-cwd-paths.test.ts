@@ -16,6 +16,8 @@ beforeAll(() => {
   mkdirSync(join(cwd, "pkg", "sub"), { recursive: true });
   writeFileSync(join(cwd, "pkg", "sub", "view.ts"), "export const view = 1;\n");
   writeFileSync(join(cwd, "pkg", "index.ts"), "export * from './sub/view';\n");
+  mkdirSync(join(cwd, "@scope"), { recursive: true });
+  writeFileSync(join(cwd, "@scope", "at.md"), "scoped\n");
   mkdirSync(outside, { recursive: true });
   writeFileSync(join(outside, "far.ts"), "export const far = 1;\n");
 });
@@ -76,6 +78,15 @@ describe.each([
     const { lines, paths } = await find({ pattern: "sub", path: "pkg", type: "dir" });
     expect(lines).toEqual(["pkg/sub/"]);
     expect(paths).toEqual(["pkg/sub"]);
+  });
+
+  it("spells a leading-@ entry ./@ so read/edit, which strip a leading @, keep it", async () => {
+    setFd();
+    for (const path of [undefined, "./@scope"]) {
+      const { lines, paths } = await find({ pattern: "at.md", ...(path ? { path } : {}) });
+      expect(lines).toEqual(["./@scope/at.md"]);
+      expect(paths).toEqual(["./@scope/at.md"]);
+    }
   });
 
   it("names the cwd itself `.` when a parent root finds it", async () => {

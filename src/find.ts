@@ -624,7 +624,9 @@ export function registerFindTool(pi: ExtensionAPI) {
       const fromCwd = (entryPath: string): string => {
         const absolute = resolve(searchPath, entryPath);
         const rel = relative(cwd, absolute);
-        return normalizePath(isAbsolute(rel) || rel.split(sep)[0] === ".." ? absolute : rel || ".");
+        if (isAbsolute(rel) || rel.split(sep)[0] === "..") return normalizePath(absolute);
+        // read/edit strip a leading @, so keep it behind ./
+        return rel.startsWith("@") ? `./${normalizePath(rel)}` : normalizePath(rel) || ".";
       };
       const displayed = (truncated ? allEntries.slice(0, limit) : allEntries)
         .map((entry) => ({ ...entry, path: fromCwd(entry.path) }));
