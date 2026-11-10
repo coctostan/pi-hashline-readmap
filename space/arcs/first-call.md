@@ -16,7 +16,7 @@ Models still lose calls to a few snags in these tools. GLM users' `read` calls, 
 - [ ] 0.24.0 is released: the version is 0.24.0, and its `[0.24.0]` CHANGELOG entry has a Fixed bullet naming #290 and entries for the line cap, `find`'s paths and the removed `text` — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit (main 2026-11-09: 0.23.0)
 
 ## Now
-slice 1 (Symbol wins over offset) is next: no branch yet; the next action is `slice` in a fresh session.
+Active: slice 1 (Symbol wins over offset), branch `first-call/01-symbol-wins-over-offset`; next action: build.
 
 ## Seams
 - `read`'s argument combos in its `execute` (`src/read.ts` lines 358–415), warnings rendered ahead of the text by `buildReadOutput` (`src/read-output.ts:196`) → `tests/pi-host-null-pipeline.test.ts`, `tests/read-window-combos.test.ts`, `tests/tool-parameter-metadata-read.test.ts`
@@ -27,7 +27,11 @@ slice 1 (Symbol wins over offset) is next: no branch yet; the next action is `sl
 - The real artifact: a live drive by AGENTS.md's Prove
 
 ## Slices
-1. **Symbol wins over offset** — delivers `read` with `symbol` and an `offset` ignoring the `offset` and returning the symbol, with a warning naming the ignored value (`limit` still caps the symbol); `prompts/read.md`'s "`offset` cannot combine with `symbol`" follows; other combo errors unchanged · proof: the #290 case in `tests/pi-host-null-pipeline.test.ts` sent verbatim, red→green; a live drive · blocked-by — · status next
+1. **Symbol wins over offset** — delivers `read` with `symbol` and an `offset` ignoring the `offset` and returning the symbol, with a warning naming the ignored value (`limit` still caps the symbol); `prompts/read.md`'s "`offset` cannot combine with `symbol`" follows; other combo errors unchanged · proof: the #290 case in `tests/pi-host-null-pipeline.test.ts` sent verbatim, red→green; a live drive · blocked-by — · status active
+   Goal: done-when 1 holds through the locked host's real loader and `runToolCall`.
+   Assumptions: the existing `paramAdjustments` notice (`withParamAdjustments`, `src/read.ts:70`) is the warning, as `ignored offset N with symbol`, leading the text and in `ptcValue.warnings` as `params-adjusted`; an invalid `offset` (negative, non-numeric) still fails as a bad value, since it fails before the combo check; `charOffset`/`charLimit` beside `symbol` still fails (slice 2 (Line cap spans the range) changes it); `symbol@line` selectors are unchanged.
+   Reach: the symbol+offset branch in `read`'s `execute` (`src/read.ts:386`) and the `offset` description (`src/read.ts:110`–112); `tests/pi-host-null-pipeline.test.ts` (#290's call verbatim); `tests/tool-parameter-metadata-read.test.ts` (lines 11–12, 23); `tests/helpers/tool-contract-pins.ts` (lines 3, 39–40, 51); `tests/pi-host-recipe-discovery.test.ts:40`; `tests/fixtures/tool-selection-evaluation.json`'s `read-symbol-offset`; `prompts/read.md` (lines 7, 15); `README.md:95`; `docs/tool-metadata.md:15`; `docs/structured-output.md:152`.
+   Proof: the #290 case red on main, green after; `npm test && npm run typecheck`; a live drive whose `read` sends `symbol` with an `offset` and returns the symbol led by the notice.
 2. **Line cap spans the range** — delivers `charLimit` without `charOffset` as a per-line cap over the range read, `symbol` reads included, through the rehydrate descriptor; the truncation marker names the range form; `prompts/read.md` says so · proof: `tests/read-line-cap.test.ts` red→green, the `tests/read-window-*.test.ts` pins that change named; a live drive reading a file of long lines · blocked-by 1 · status next
 3. **Find names files from the cwd** — delivers `find`'s text and `entries[].path` naming each entry from the cwd, or by its absolute path outside it; `prompts/find.md` and `docs/codemode-recipes.md` follow · proof: `tests/find-cwd-paths.test.ts` red→green, the recipe tests green; a live drive running `find` with a `path` · blocked-by — · status next
 4. **Insert takes no text alias** — delivers `insert_after` without `text`, in the schema and in `parseHashlineEditItem`, and the stale comment at `src/hashline.ts:450` · proof: a `tests/edit-insert-blank-line.test.ts` case red→green, a schema case · blocked-by — · status next
