@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-09
+
+Four snags that kept costing models a call are gone: `edit` can insert a blank line, `grep`'s file names work from the cwd, `edit` on a missing file says it is missing, and `bash` hints fire only when the command earns them.
+
+### Added
+
+- `bash` output containing `timeout: command not found`, as on macOS, which has no `timeout` command, ends with a hint to set the bash tool's `timeout` parameter (seconds) instead, whatever tools are active (#302).
+
+### Changed
+
+- `grep` names each file by its path from the cwd, whatever its `path` argument, in grouped headers, match lines and `summary: true` output: with `path: "pkg"` a match prints as `pkg/sub/view.ts`, not `sub/view.ts`, and summary lines no longer print absolute paths. A file outside the cwd keeps its absolute path. Anchors and each record's absolute `path` are unchanged; `ptcValue.scopes.groups[].displayPath` follows the printed name (#298).
+
+### Fixed
+
+- `insert_after` with `new_text: ""` (and no non-empty `text`) inserts one blank line after its anchor instead of reporting `No changes made`; an empty file becomes a single newline. `set_line` and `replace_lines` with `""` still delete their lines (#300).
+- An anchored `edit` on a path that doesn't exist fails with `file-not-found`, as `File not found: <path> (resolved to <absolute path>)`, instead of `file-not-read` asking for fresh anchors of a file there is nothing to read (#299).
+- `bash` anti-pattern hints judge only each pipeline's first command: `echo hi | grep hi` and `npm test | grep x` no longer draw the grep hint, while `grep -rn x src | head` and `cd src && rg x` still do. `scripts/bench/confusion.mjs` scores wrong-tool picks through the same function (#301).
+
 ## [0.22.0] - 2026-11-09
 
 Models on providers such as zai's GLM can use `read` again: where they mean "nothing", they send the string `"null"`, and every tool now takes it as an omitted field.
@@ -13,6 +31,7 @@ Models on providers such as zai's GLM can use `read` again: where they mean "not
 ### Fixed
 
 - An optional field sent as the exact string `"null"` acts as omitted, as a real `null` already did, in every tool and at every depth, before the arguments are validated. Since 0.18.0's `strict: "prefer"` sampling, GLM filled every optional field and sent `"null"` for the ones it meant to leave out, so `read` failed validation (`bundle: expected one of ["local"]`) or looked up a symbol named `null` (#290, reported by @AlexKucera). A required field keeps `"null"` as data, so a file named `null` can still be read, and other spellings such as `"NULL"` are kept.
+
 ## [0.21.0] - 2026-11-09
 
 A default session no longer declares `ls` and `find`, which this repo's A/B against stock Pi found not worth their context, and keeps `grep`. `bash` hints point only at tools the session has active.
