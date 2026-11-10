@@ -17,7 +17,7 @@ const cases: Array<{
   {
     name: "byte budget with 800-character rows capped for display",
     selectedLines: Array.from({ length: 200 }, (_, index) => makeLine(index + 1, 800)),
-    expectedOutputLines: 88,
+    expectedOutputLines: 83,
     expectedTruncatedBy: "bytes",
   },
   {

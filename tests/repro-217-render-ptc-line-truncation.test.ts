@@ -4,7 +4,7 @@ import { buildPtcLine, renderPtcLine, renderPtcLines } from "../src/ptc-value.js
 import { buildReadOutput } from "../src/read-output.js";
 
 const marker = (line: number, total: number) =>
-  `... [truncated, ${total} chars total; read({offset:${line}, charOffset:500})]`;
+  `... [truncated, ${total} chars total; read({offset:${line}, charOffset:500}) or a range read with charLimit:${Math.min(total, 10_000)}]`;
 
 describe("issue 217 — renderPtcLine caps long display lines", () => {
   beforeAll(async () => {
@@ -22,7 +22,7 @@ describe("issue 217 — renderPtcLine caps long display lines", () => {
     const rendered = renderPtcLine(line);
     expect(rendered.startsWith(`${line.anchor}|`)).toBe(true);
     const displayed = rendered.slice(`${line.anchor}|`.length);
-    expect(displayed.length).toBeLessThan(600);
+    expect(displayed.length).toBeLessThan(650);
     expect(displayed.endsWith(marker(1, longRaw.length))).toBe(true);
     expect(line.raw).toBe(longRaw);
   });

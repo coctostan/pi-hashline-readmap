@@ -27,7 +27,7 @@ describe("issue 217 — truncateDisplayLine (display-only long-line guard)", () 
 
   it("adds a continuation hint when a line number is supplied", () => {
     const out = truncateDisplayLine("x".repeat(600), 7);
-    expect(out).toBe("x".repeat(500) + "... [truncated, 600 chars total; read({offset:7, charOffset:500})]");
+    expect(out).toBe("x".repeat(500) + "... [truncated, 600 chars total; read({offset:7, charOffset:500}) or a range read with charLimit:600]");
   });
 
   it("keeps the legacy marker when no line number is supplied", () => {
@@ -37,7 +37,12 @@ describe("issue 217 — truncateDisplayLine (display-only long-line guard)", () 
   it("never cuts inside a surrogate pair and reports the shown length as charOffset", () => {
     const display = "x".repeat(499) + "😀" + "y".repeat(10); // length 511; the 500-char cut splits the pair
     expect(truncateDisplayLine(display, 3)).toBe(
-      "x".repeat(499) + "... [truncated, 511 chars total; read({offset:3, charOffset:499})]",
+      "x".repeat(499) + "... [truncated, 511 chars total; read({offset:3, charOffset:499}) or a range read with charLimit:511]",
     );
+  });
+
+  it("caps at a supplied limit and drops the range form once the cap is 10,000", () => {
+    expect(truncateDisplayLine("x".repeat(30), 2, 10)).toBe("x".repeat(10) + "... [truncated, 30 chars total; read({offset:2, charOffset:10}) or a range read with charLimit:30]");
+    expect(truncateDisplayLine("x".repeat(10_001), 2, 10_000)).toBe("x".repeat(10_000) + "... [truncated, 10001 chars total; read({offset:2, charOffset:10000})]");
   });
 });

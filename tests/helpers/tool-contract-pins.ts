@@ -3,7 +3,7 @@ export const NUMERIC_HINTS: Array<[string, string, string]> = [
     ["read", "offset", "Positive 1-indexed int or base-10 string; symbol wins"],
     ["read", "limit", "Positive int or obvious base-10 numeric string"],
     ["read", "charOffset", "0-based char offset into one line; needs offset"],
-    ["read", "charLimit", "Window chars; default 500, max 10000"],
+    ["read", "charLimit", "Chars per line; default 500, max 10000"],
     ["grep", "context", "Non-negative int or obvious base-10 numeric string"],
     ["grep", "limit", "Positive int or obvious base-10 numeric string"],
     ["grep", "scopeContext", "Non-negative int/base-10 string; requires scope: symbol"],
@@ -42,8 +42,8 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
         "$.properties.limit.anyOf[1]": "Positive int or obvious base-10 numeric string",
         "$.properties.charOffset.anyOf[0]": "0-based char offset into one line; needs offset",
         "$.properties.charOffset.anyOf[1]": "0-based char offset into one line; needs offset",
-        "$.properties.charLimit.anyOf[0]": "Window chars; default 500, max 10000",
-        "$.properties.charLimit.anyOf[1]": "Window chars; default 500, max 10000",
+        "$.properties.charLimit.anyOf[0]": "Chars per line; default 500, max 10000",
+        "$.properties.charLimit.anyOf[1]": "Chars per line; default 500, max 10000",
         "$.properties.symbol": "Non-empty; may combine with limit, map, or local bundle",
         "$.properties.strictSymbol": "Require symbol; exact/normalized-exact only; no fallback",
         "$.properties.map": "Append map; valid with symbol, limit, and local bundle",
@@ -51,7 +51,7 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
         "$.properties.offset": "Positive 1-indexed int or base-10 string; symbol wins",
         "$.properties.limit": "Positive int or obvious base-10 numeric string",
         "$.properties.charOffset": "0-based char offset into one line; needs offset",
-        "$.properties.charLimit": "Window chars; default 500, max 10000",
+        "$.properties.charLimit": "Chars per line; default 500, max 10000",
       },
       edit: {
         "$.properties.errorMode": "throw default; value returns coded tool failures only",
@@ -113,7 +113,7 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
 };
 
 export const EXPECTED_SERIALIZATION_HASHES: Record<string, string> = {
-    read: "fc035fd39f80ef36a0bec540ec0c71b281d63b3f85058a76addba9e22c611b59",
+    read: "0e34978faafb6c720d3894eb54eeeb60af2050aa5df2c351ddc1ed4a54e52784",
     grep: "f7b1d765f7ae24b0eab525f7a86e346e9edb4fbdd8d21366d1a6b70f04cd9ca4",
     edit: "bfb7913aadaa00d01e829e3ca7326d102e37b6aa08cfdcde45c4e64966530ec8",
     find: "69dd247dd4d30741f11ca665dea16858afda370a72a7684f534a85ed9321b086",

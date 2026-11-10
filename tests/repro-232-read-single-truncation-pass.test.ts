@@ -68,37 +68,37 @@ describe("issue 232 — exact single-pass regression", () => {
       ptcOutputLines: result.details?.ptcValue?.truncation?.outputLines ?? null,
       map: result.details?.ptcValue?.map,
     }).toEqual({
-      emittedRows: 89,
-      footerOutputLines: 89,
-      footerNextOffset: 90,
-      detailsOutputLines: 89,
-      ptcOutputLines: 89,
+      emittedRows: 83,
+      footerOutputLines: 83,
+      footerNextOffset: 84,
+      detailsOutputLines: 83,
+      ptcOutputLines: 83,
       map: { requested: false, appended: true },
     });
 
     expect(result.details.truncation).toMatchObject({
       truncated: true,
       truncatedBy: "bytes",
-      outputLines: 89,
+      outputLines: 83,
       totalLines: 200,
-      outputBytes: 51_156,
-      totalBytes: 115_183,
+      outputBytes: 50_611,
+      totalBytes: 122_183,
       maxLines: 2_000,
       maxBytes: 50 * 1024,
     });
     expect(result.details.ptcValue.truncation).toEqual({
-      outputLines: 89,
+      outputLines: 83,
       totalLines: 200,
-      outputBytes: 51_156,
-      totalBytes: 115_183,
+      outputBytes: 50_611,
+      totalBytes: 122_183,
     });
-    expect(text).toContain("... [truncated, 800 chars total; read({offset:1, charOffset:500})]");
+    expect(text).toContain("... [truncated, 800 chars total; read({offset:1, charOffset:500}) or a range read with charLimit:800]");
     expect(result.details.ptcValue.lines).toHaveLength(200);
     expect(result.details.ptcValue.lines[0].raw).toBe(sourceLines[0]);
     expect(result.details.ptcValue.lines[0].display).toBe(sourceLines[0]);
 
     const rendered = readTool.renderResult(result, {}, theme, {});
     const tuiText = rendered?.text ?? rendered?.render?.(80)?.join("\n") ?? "";
-    expect(tuiText).toContain("loaded 89 of 200 lines (truncated)");
+    expect(tuiText).toContain("loaded 83 of 200 lines (truncated)");
   });
 });

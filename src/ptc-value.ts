@@ -1,7 +1,7 @@
 import { computeLineHash, escapeControlCharsForDisplay } from "./hashline.js";
 import type { DiffData } from "./diff-data.js";
 import { truncateLine } from "@earendil-works/pi-coding-agent";
-import { safeCharEnd } from "./read-window.js";
+import { DEFAULT_CHAR_LIMIT, MAX_CHAR_LIMIT, safeCharEnd } from "./read-window.js";
 
 export interface PtcLine {
   line: number;
@@ -79,30 +79,29 @@ export function buildPtcLines(startLine: number, rawLines: string[]): PtcLine[] 
 }
 
 /**
- * Cap an already-rendered display string at grep's per-line threshold (500 chars),
+ * Cap an already-rendered display string at `cap` chars (default 500, grep's per-line threshold),
  * appending a marker that includes the original character count. Display-only:
  * callers must keep the untruncated content for hashing/editing, so anchors and
- * edits still operate on full content. Threshold matches grep's `truncateLine`
- * (500). See issue #217. When `lineNumber` is supplied the marker also tells the agent how to
- * fetch the remainder: `read({offset:L, charOffset:K})`.
+ * edits still operate on full content. See issue #217. When `lineNumber` is supplied the marker
+ * also tells the agent how to fetch the remainder: `read({offset:L, charOffset:K})`, or a range
+ * read with a larger `charLimit` while one up to 10,000 would show more.
  */
-export function truncateDisplayLine(display: string, lineNumber?: number): string {
-  const { text, wasTruncated } = truncateLine(display);
+export function truncateDisplayLine(display: string, lineNumber?: number, cap: number = DEFAULT_CHAR_LIMIT): string {
+  const { wasTruncated } = truncateLine(display, cap);
   if (!wasTruncated) return display;
-  // truncateLine returns `<first 500 chars>... [truncated]`; rebuild the marker with the original
-  // length and, when the caller knows the line number, how to fetch the remainder.
-  const clipped = text.slice(0, text.length - "... [truncated]".length);
-  const shown = safeCharEnd(display, clipped.length);
-  const hint = lineNumber === undefined ? "" : `; read({offset:${lineNumber}, charOffset:${shown}})`;
+  const shown = safeCharEnd(display, cap);
+  const rangeCap = Math.min(display.length, MAX_CHAR_LIMIT);
+  const rangeHint = rangeCap > cap ? ` or a range read with charLimit:${rangeCap}` : "";
+  const hint = lineNumber === undefined ? "" : `; read({offset:${lineNumber}, charOffset:${shown}})${rangeHint}`;
   return `${display.slice(0, shown)}... [truncated, ${display.length} chars total${hint}]`;
 }
 
-export function renderPtcLine(line: PtcLine): string {
-  return `${line.anchor}|${truncateDisplayLine(line.display, line.line)}`;
+export function renderPtcLine(line: PtcLine, cap?: number): string {
+  return `${line.anchor}|${truncateDisplayLine(line.display, line.line, cap)}`;
 }
 
-export function renderPtcLines(lines: PtcLine[]): string {
-  return lines.map(renderPtcLine).join("\n");
+export function renderPtcLines(lines: PtcLine[], cap?: number): string {
+  return lines.map((line) => renderPtcLine(line, cap)).join("\n");
 }
 
 export function buildPtcWarning(

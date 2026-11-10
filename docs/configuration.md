@@ -68,7 +68,7 @@ Budget fields must be strict positive base-10 integers except `display.previewLi
 
 A settings section for the Bash context guard, removed in 0.20.0, is ignored without a warning.
 
-Long-line recovery is a per-call `read` parameter, not a setting: `charOffset` (with `offset`) and `charLimit` (default 500, hard ceiling 10,000) select a bounded window of one line. There is no Hashline setting or environment override for it, the tool schema does not vary with settings, and `read.allowUnclipped` is not supported. Raising the 2000-line / 50 KiB read caps (`read.maxLines` / `read.maxBytes`) is not available.
+Long-line recovery is a per-call `read` parameter, not a setting: `charLimit` (default 500, hard ceiling 10,000) caps each displayed line of a range read, and with `charOffset` (and `offset`) selects a bounded window of one line. There is no Hashline setting or environment override for it, the tool schema does not vary with settings, and `read.allowUnclipped` is not supported. Raising the 2000-line / 50 KiB read caps (`read.maxLines` / `read.maxBytes`) is not available.
 
 Environment-only options include `XDG_CACHE_HOME`, `PI_NUSHELL_CONFIG`, and `PI_CONTEXT_HYGIENE_DEBUG=1`. `PI_NUSHELL_CONFIG` overrides the Nushell config path; otherwise Hashline prefers `~/.config/pi/nushell/config.nu` and then `--no-config-file`.
 

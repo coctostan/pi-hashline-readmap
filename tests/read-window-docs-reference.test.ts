@@ -10,7 +10,8 @@ describe("long-line window documentation — references", () => {
     expect(text).toContain("10,000");
     expect(text).toContain("cannot combine with `symbol`, `bundle`, or `map`");
     expect(text).toContain("`char-offset-past-end`");
-    expect(text).toContain("... [truncated, N chars total; read({offset:L, charOffset:K})]");
+    expect(text).toContain("... [truncated, N chars total; read({offset:L, charOffset:K}) or a range read with charLimit:C]");
+    expect(text).toContain("`charLimit` alone caps each displayed line of the range read");
   });
 
   it("documents the ptcValue window field", () => {

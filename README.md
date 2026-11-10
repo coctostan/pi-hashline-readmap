@@ -94,14 +94,15 @@ read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", limit: 2,
 
 A symbol can combine with `limit`, `map: true`, and `bundle: "local"`. An `offset` beside `symbol` is ignored with a `params-adjusted` notice, and bundle without `symbol` is invalid. Truncated full-file reads append a map when available. Dedicated mapper/runtime details are in [configuration and dependencies](docs/configuration.md).
 
-Minified or generated files can contain a single very long line that `read` clips at 500 characters. Recover any part of it with a character window — the anchor stays the full line's anchor, so it still works with `edit`:
+Minified or generated files can contain very long lines that `read` clips at 500 characters. Raise the cap across a range with `charLimit` alone, or window one line with `charOffset`; the anchor stays the full line's, so `edit` still works:
 
 ```text
+read({ path: "dist/app.min.js", charLimit: 2000 })
 read({ path: "dist/app.min.js", offset: 1, charOffset: 500 })
 read({ path: "data.json", offset: 1, charOffset: 0, charLimit: 5000 })
 ```
 
-`charLimit` defaults to 500 and is capped at 10,000; each result tells you the remaining characters and the next call to make.
+`charLimit` defaults to 500 and is capped at 10,000; each clipped line or window names the next call to make.
 
 ### Search and explore
 

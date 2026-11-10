@@ -51,17 +51,18 @@ describe("read window — success path", () => {
     expect(text).toContain("offset: 2, charOffset: 800, charLimit: 300 })");
   });
 
-  it("starts at 0 when only charLimit is supplied", async () => {
+  it("caps line 2 on instead of windowing when charLimit comes without charOffset", async () => {
     const tools = harness();
     const path = fixture(["first", longLine]);
     const result = await tools.read.execute("t", { path, offset: 2, charLimit: 100 }, undefined, () => {}, ctx);
-    expect(textOf(result)).toContain("[Showing chars 0-100 of 1200 on line 2 (1100 remaining).");
+    expect(textOf(result)).toContain(`|${"y".repeat(100)}... [truncated, 1200 chars total; read({offset:2, charOffset:100}) or a range read with charLimit:1200]`);
+    expect("window" in result.details.ptcValue).toBe(false);
   });
 
   it("clamps charLimit above 10,000 and says so", async () => {
     const tools = harness();
     const path = fixture(["z".repeat(12_000)]);
-    const result = await tools.read.execute("t", { path, offset: 1, charLimit: 50_000 }, undefined, () => {}, ctx);
+    const result = await tools.read.execute("t", { path, offset: 1, charOffset: 0, charLimit: 50_000 }, undefined, () => {}, ctx);
     const text = textOf(result);
     expect(text.startsWith("[Read params adjusted: clamped charLimit 50000 to 10000]")).toBe(true);
     expect(text).toContain("[Showing chars 0-10000 of 12000 on line 1 (2000 remaining).");
