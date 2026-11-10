@@ -40,9 +40,9 @@ text(settled.map(r => r.status === "fulfilled"
   : {status:r.status, message:r.reason.message, code:r.reason.code ?? null}));
 ~~~
 
-Expected: one observed match, unknown completeness and `limitReached` true even at the exact cap; `file-not-found` and `symbol-not-found` values; default missing-file and required-null calls reject without custom code properties; exact symbol resolves.
+Expected: one observed match, complete search and `limitReached` false at the exact cap; `file-not-found` and `symbol-not-found` values; default missing-file and required-null calls reject without custom code properties; exact symbol resolves.
 
-For the four-match original grep fixture, create a separate temporary text file with `tools.write({path, content:"needle\n".repeat(4)})`, grep it with `limit:3` and record all completeness fields. Do not interpret `totalMatches:3` as an exhaustive count.
+For the four-match original grep fixture, create a separate temporary text file with `tools.write({path, content:"needle\n".repeat(4)})`, grep it with `limit:3` and record all completeness fields: unknown completeness and `limitReached` true. Do not interpret `totalMatches:3` as an exhaustive count.
 
 Run this explicit grep→edit chain on the generated private fixture:
 
@@ -57,7 +57,7 @@ const e = await tools.edit({path, edits:[{set_line:{
 text({ok:e.ok, observed:g.totalMatches, completeness:g.completeness});
 ~~~
 
-Expected: `ok: true`, one observed match, unknown completeness and `limitReached: true`. The observed count is bounded by this request; it is not an exhaustive repository-wide total.
+Expected: `ok: true`, one observed match, complete search and `limitReached: false`. The observed count is bounded by this request; it is not an exhaustive repository-wide total.
 
 ## Image forwarding
 
