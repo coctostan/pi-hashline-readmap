@@ -204,6 +204,23 @@ try {
     assert.equal(outcome.isError, false, "read with " + field + ' "null" must succeed');
     assert.deepEqual(beforeArgs, { path: view }, field + ' "null" must arrive omitted');
   }
+  // #290's captured call verbatim: offset "1" and limit "260" beside symbol; the symbol wins over the offset.
+  const capturedRead = await invoke("read", {
+    bundle: "null", charLimit: "null", charOffset: "null",
+    errorMode: "throw", limit: "260", map: true, offset: "1",
+    path: view, strictSymbol: false,
+    symbol: "DaytimeSectionCard",
+  });
+  assert.equal(capturedRead.isError, false, "#290's verbatim call must succeed: " + JSON.stringify(capturedRead.result.content));
+  const capturedText = capturedRead.result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+  assert.ok(capturedText.startsWith("[Read params adjusted: ignored offset 1 with symbol]"), "#290's verbatim call must lead with the ignored offset: " + capturedText);
+  assert.ok(capturedText.includes("let shown = 1") && !capturedText.includes("let hidden = 2"), "#290's verbatim call must return only the symbol: " + capturedText);
+  for (const offset of [5, "2", 99]) {
+    const outcome = await invoke("read", { path: view, symbol: "OtherCard", offset });
+    const text = outcome.result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n");
+    assert.equal(outcome.isError, false, "symbol with offset " + offset + " must succeed: " + text);
+    assert.ok(text.startsWith("[Read params adjusted: ignored offset " + offset + " with symbol]") && text.includes("let hidden = 2"), "symbol must win over offset " + offset + ": " + text);
+  }
   // Every registered tool, every optional top-level field "null": the call arrives as if they were omitted.
   const requiredArgs = {
     read: { path: view },

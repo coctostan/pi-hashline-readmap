@@ -107,9 +107,9 @@ const READ_PARAMETERS = Type.Object({
 	path: Type.String({ description: "File path" }),
 	offset: Type.Optional(
 		Type.Union([
-			Type.Number({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
-			Type.String({ description: "Positive 1-indexed int or base-10 string; not with symbol" }),
-		], { description: "Positive 1-indexed int or base-10 string; not with symbol" }),
+			Type.Number({ description: "Positive 1-indexed int or base-10 string; symbol wins" }),
+			Type.String({ description: "Positive 1-indexed int or base-10 string; symbol wins" }),
+		], { description: "Positive 1-indexed int or base-10 string; symbol wins" }),
 	),
 	limit: Type.Optional(
 		Type.Union([
@@ -384,19 +384,9 @@ export function registerReadTool(pi: ExtensionAPI, options: ReadToolOptions = {}
 				}
 			}
 			if (p.symbol && p.offset !== undefined) {
-				const message = "Cannot combine symbol with offset. Either omit offset and use limit to cap the symbol, or use a trailing symbol@line selector.";
-				return finish({
-					content: [{ type: "text", text: message }],
-					isError: true,
-					details: {
-						ptcValue: {
-							tool: "read",
-							ok: false,
-							path: rawParams.path,
-							error: buildPtcError("invalid-params-combo", message),
-						},
-					},
-				});
+				// Strict-sampling providers fill offset beside symbol (#290); the symbol wins.
+				paramAdjustments.push(`ignored offset ${p.offset} with symbol`);
+				p.offset = undefined;
 			}
 			if (p.bundle && !p.symbol) {
 				const message = 'Cannot use bundle without symbol. Use read({ path, symbol, bundle: "local" }).';

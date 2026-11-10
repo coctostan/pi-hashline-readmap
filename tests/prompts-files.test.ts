@@ -38,7 +38,7 @@ describe("prompts directory (AC15)", () => {
     expect(readPrompt.includes("Empty-string `symbol` / `offset` / `limit` values")).toBe(true);
     expect(readPrompt.includes('numeric or base-10 string zero (`0` / `"0"`)')).toBe(true);
     expect(readPrompt.includes("structured `params-adjusted` warning")).toBe(true);
-    expect(readPrompt.includes("a non-empty `symbol` cannot combine with a positive `offset`")).toBe(true);
+    expect(readPrompt.includes("a positive `offset` beside a non-empty `symbol` is ignored")).toBe(true);
     expect(readPrompt.includes("`bundle` still requires a surviving `symbol`")).toBe(true);
   });
 

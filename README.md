@@ -92,7 +92,7 @@ read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", map: true
 read({ path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", limit: 2, bundle: "local", map: true })
 ```
 
-A symbol can combine with `limit`, `map: true`, and `bundle: "local"`. `symbol+offset` is invalid, and bundle without `symbol` is invalid. Truncated full-file reads append a map when available. Dedicated mapper/runtime details are in [configuration and dependencies](docs/configuration.md).
+A symbol can combine with `limit`, `map: true`, and `bundle: "local"`. An `offset` beside `symbol` is ignored with a `params-adjusted` notice, and bundle without `symbol` is invalid. Truncated full-file reads append a map when available. Dedicated mapper/runtime details are in [configuration and dependencies](docs/configuration.md).
 
 Minified or generated files can contain a single very long line that `read` clips at 500 characters. Recover any part of it with a character window — the anchor stays the full line's anchor, so it still works with `edit`:
 

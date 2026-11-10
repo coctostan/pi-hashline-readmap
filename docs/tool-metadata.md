@@ -12,7 +12,7 @@ JSON Schema structure is unchanged. Each runtime-enforced static rule is communi
 |---|---|---|
 | `read` | `offset` and `limit` are positive; offset is one-indexed; obvious base-10 strings are accepted. | `offset`, `limit` descriptions |
 | `read` | `charOffset` is a non-negative 0-based offset into one line and needs `offset`; `charLimit` is positive, defaults to 500 and is clamped to 10000. | `charOffset`, `charLimit` descriptions |
-| `read` | `symbol` is non-empty; symbol may combine with `limit`, `map`, and `bundle: "local"`, but not `offset`; bundle requires symbol. | `symbol`, `offset`, `map`, `bundle` descriptions |
+| `read` | `symbol` is non-empty; symbol may combine with `limit`, `map`, and `bundle: "local"`; an `offset` beside it is ignored with a notice; bundle requires symbol. | `symbol`, `offset`, `map`, `bundle` descriptions |
 | `edit` | Existing-file edits need fresh session anchors; `edits` is non-empty; every item has exactly one variant. | `path`, `edits` descriptions |
 | `edit` | Anchored variants use fresh `LINE:HASH`; `replace.old_text` is non-empty; `replace_symbol.new_body` is non-blank; unsafe duplicate/overlapping targets fail before mutation. Safe identical replacements are deduplicated, conflicting same-anchor single-line edits keep the last with a warning, and same-anchor insertions remain valid. | nested variant and item descriptions |
 | `grep` | `context`/`scopeContext` are non-negative, `limit` is positive, and obvious base-10 strings are accepted. | numeric descriptions |
@@ -54,7 +54,7 @@ That is approximately 0.25% of all reads and approximately 1.3% of mode-using re
 
 Compact metadata landed on 2026-05-16. Before it, 16 of 2,259 mode-using reads were ambiguous (0.71%); after it, 27 of 1,037 were ambiguous (2.60%). This comparison is correlational, not causal. The changed model mix is a confound: several routes occur only later.
 
-Post-#248, `symbol+limit`, `symbol+map`, and `symbol+bundle+map` are valid. `symbol+offset` and bundle-without-symbol remain invalid.
+Post-#248, `symbol+limit`, `symbol+map`, and `symbol+bundle+map` are valid. An `offset` beside `symbol` is ignored with a `params-adjusted` notice (#290), and bundle-without-symbol remains invalid.
 
 ## Reproducing the scan
 

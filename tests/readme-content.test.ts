@@ -27,7 +27,7 @@ describe("README new-user path", () => {
     for (const path of ["docs/context-hygiene.md", "docs/integrations.md", "docs/structured-output.md", "docs/configuration.md", "docs/tool-metadata.md"]) expect(readme).toContain(`](${path})`);
     expect(readme).toContain("Advanced behavior and integration contracts are documented in the references below.");
     expect(readme).toContain('symbol: "registerReadTool", limit: 80'); expect(readme).toContain('symbol: "createDemoDirectory", map: true'); expect(readme).toContain('bundle: "local", map: true');
-    expect(readme).toContain("`symbol+offset` is invalid"); expect(readme).toContain("bundle without `symbol` is invalid");
+    expect(readme).toContain("An `offset` beside `symbol` is ignored"); expect(readme).toContain("bundle without `symbol` is invalid");
     expect(readme).toContain("git clone https://github.com/coctostan/pi-hashline-readmap.git");
     expect(readme).toContain("docs/exploratory-functional-testing.md");
     expect(readme).toContain("  readmap/                # structural mapping and symbol lookup");

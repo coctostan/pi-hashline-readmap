@@ -21,7 +21,7 @@ const cases = [
   { name: "negative limit", params: { path: fixture, offset: "", limit: -1 }, adjustment: "ignored empty offset", code: "invalid-limit" },
   { name: "negative offset", params: { path: fixture, offset: -1, limit: "" }, adjustment: "ignored empty limit", code: "invalid-offset" },
   { name: "invalid symbol type", params: { path: fixture, symbol: 42, limit: "" }, adjustment: "ignored empty limit", code: "invalid-params-combo" },
-  { name: "symbol-offset conflict", params: { path: fixture, symbol: "createDemoDirectory", offset: 1, limit: 0 }, adjustment: "ignored limit 0", code: "invalid-params-combo" },
+  { name: "invalid offset beside symbol", params: { path: fixture, symbol: "createDemoDirectory", offset: -1, limit: 0 }, adjustment: "ignored limit 0", code: "invalid-offset" },
   { name: "bundle without surviving symbol", params: { path: fixture, symbol: "", bundle: "local" }, adjustment: "ignored empty symbol", code: "invalid-params-combo" },
 ] as const;
 

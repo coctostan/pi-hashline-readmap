@@ -15,7 +15,7 @@ describe("tool prompt reference role", () => {
   it("keeps post-248 and tool-specific constraints accurate", () => {
     const read = readFileSync("prompts/read.md", "utf8");
     expect(read).toContain("May combine with `limit`, `map: true`, and `bundle: \"local\"`");
-    expect(read).toContain("cannot combine with `offset`");
+    expect(read).toContain("an `offset` beside it is ignored"); expect(read).not.toContain("cannot combine with `offset`");
     expect(read).toContain("cannot be used without `symbol`");
     expect(readFileSync("prompts/edit.md", "utf8")).toContain("Each `edits[]` entry must contain exactly one variant key");
     expect(readFileSync("prompts/grep.md", "utf8")).toContain("requires `scope: \"symbol\"`");

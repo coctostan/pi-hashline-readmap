@@ -21,7 +21,7 @@ export const PTC_ERROR_CODES = {
   "offset-past-end": { description: "Requested offset exceeds file length", trigger: "offset > total lines" },
   "invalid-params-combo": {
     description: "Invalid, ambiguous, or incomplete parameter combination",
-    trigger: "e.g. symbol + offset, bundle without symbol, invalid scoped or numeric parameter combinations",
+    trigger: "e.g. bundle without symbol, invalid scoped or numeric parameter combinations",
   },
   "invalid-offset": { description: "offset is not a positive integer", trigger: "non-int or value < 1" },
   "invalid-limit": { description: "limit is not a positive integer", trigger: "non-int or value < 1" },
