@@ -1,6 +1,6 @@
 // Independently authored expected contracts. Never derive these from production schemas.
 export const NUMERIC_HINTS: Array<[string, string, string]> = [
-    ["read", "offset", "Positive 1-indexed int or base-10 string; not with symbol"],
+    ["read", "offset", "Positive 1-indexed int or base-10 string; symbol wins"],
     ["read", "limit", "Positive int or obvious base-10 numeric string"],
     ["read", "charOffset", "0-based char offset into one line; needs offset"],
     ["read", "charLimit", "Window chars; default 500, max 10000"],
@@ -36,8 +36,8 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
       read: {
         "$.properties.errorMode": "throw default; value returns coded tool failures only",
         "$.properties.path": "File path",
-        "$.properties.offset.anyOf[0]": "Positive 1-indexed int or base-10 string; not with symbol",
-        "$.properties.offset.anyOf[1]": "Positive 1-indexed int or base-10 string; not with symbol",
+        "$.properties.offset.anyOf[0]": "Positive 1-indexed int or base-10 string; symbol wins",
+        "$.properties.offset.anyOf[1]": "Positive 1-indexed int or base-10 string; symbol wins",
         "$.properties.limit.anyOf[0]": "Positive int or obvious base-10 numeric string",
         "$.properties.limit.anyOf[1]": "Positive int or obvious base-10 numeric string",
         "$.properties.charOffset.anyOf[0]": "0-based char offset into one line; needs offset",
@@ -48,7 +48,7 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
         "$.properties.strictSymbol": "Require symbol; exact/normalized-exact only; no fallback",
         "$.properties.map": "Append map; valid with symbol, limit, and local bundle",
         "$.properties.bundle": "local; requires symbol; valid with limit and map",
-        "$.properties.offset": "Positive 1-indexed int or base-10 string; not with symbol",
+        "$.properties.offset": "Positive 1-indexed int or base-10 string; symbol wins",
         "$.properties.limit": "Positive int or obvious base-10 numeric string",
         "$.properties.charOffset": "0-based char offset into one line; needs offset",
         "$.properties.charLimit": "Window chars; default 500, max 10000",
@@ -113,7 +113,7 @@ export const EXPECTED_PARAMETER_DESCRIPTIONS: Record<string, Record<string, stri
 };
 
 export const EXPECTED_SERIALIZATION_HASHES: Record<string, string> = {
-    read: "b4613cc41733fa66518045e5eb201de983f4144e638c7ced96faea26366aa2e0",
+    read: "fc035fd39f80ef36a0bec540ec0c71b281d63b3f85058a76addba9e22c611b59",
     grep: "f7b1d765f7ae24b0eab525f7a86e346e9edb4fbdd8d21366d1a6b70f04cd9ca4",
     edit: "bfb7913aadaa00d01e829e3ca7326d102e37b6aa08cfdcde45c4e64966530ec8",
     find: "69dd247dd4d30741f11ca665dea16858afda370a72a7684f534a85ed9321b086",

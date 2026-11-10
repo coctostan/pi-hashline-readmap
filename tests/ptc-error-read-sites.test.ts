@@ -23,7 +23,7 @@ describe("read ptcValue.error — remaining error sites", () => {
     expect(getPtc(r)?.error?.code).toBe("invalid-limit");
   });
 
-  it("retains actionable invalid-params-combo errors only for symbol plus offset and bundle without symbol", async () => {
+  it("ignores offset beside symbol and retains the invalid-params-combo error for bundle without symbol", async () => {
     const dir = mkdtempSync(resolve(tmpdir(), "pi-r-invalid-combos-"));
     const filePath = resolve(dir, "f.ts");
     writeFileSync(
@@ -42,10 +42,10 @@ describe("read ptcValue.error — remaining error sites", () => {
     for (const params of offsetVariants) {
       const result = await callReadTool(params);
       const message = result.content[0].text;
-      expect(result.isError).toBe(true);
-      expect(getPtc(result)?.error?.code).toBe("invalid-params-combo");
-      expect(message).toContain("omit offset and use limit");
-      expect(message).toContain("symbol@line");
+      expect(result.isError, JSON.stringify(params)).not.toBe(true);
+      expect(message.startsWith("[Read params adjusted: ignored offset 1 with symbol]\n\n")).toBe(true);
+      expect(message).toContain("function foo()");
+      expect(getPtc(result)?.warnings?.[0]?.code).toBe("params-adjusted");
     }
 
     const withoutSymbol = await callReadTool({ path: filePath, bundle: "local" });

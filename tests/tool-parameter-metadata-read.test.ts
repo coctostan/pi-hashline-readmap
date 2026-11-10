@@ -8,8 +8,8 @@ describe("provider-visible read constraints", () => {
   it("states numeric and composition rules while preserving runtime envelopes", async () => {
     const read = capture();
     expect(read.parameters.properties.offset.anyOf.map((x: any) => x.description)).toEqual([
-      "Positive 1-indexed int or base-10 string; not with symbol",
-      "Positive 1-indexed int or base-10 string; not with symbol",
+      "Positive 1-indexed int or base-10 string; symbol wins",
+      "Positive 1-indexed int or base-10 string; symbol wins",
     ]);
     expect(read.parameters.properties.limit.anyOf.map((x: any) => x.description)).toEqual([
       "Positive int or obvious base-10 numeric string",
@@ -20,7 +20,9 @@ describe("provider-visible read constraints", () => {
     expect(read.parameters.properties.bundle.description).toBe("local; requires symbol; valid with limit and map");
 
     const symbolOffset = await execute(read, { path: "tests/fixtures/small.ts", symbol: "createDemoDirectory", offset: 1 });
-    expect(symbolOffset).toMatchObject({ isError: true, content: [{ type: "text", text: "Cannot combine symbol with offset. Either omit offset and use limit to cap the symbol, or use a trailing symbol@line selector." }], details: { ptcValue: { tool: "read", ok: false, error: { code: "invalid-params-combo" } } } });
+    expect(symbolOffset.isError).not.toBe(true);
+    expect(symbolOffset.content[0].text).toMatch(/^\[Read params adjusted: ignored offset 1 with symbol\]\n\n.*createDemoDirectory/s);
+    expect(symbolOffset.details.ptcValue.warnings[0]).toMatchObject({ code: "params-adjusted", message: "[Read params adjusted: ignored offset 1 with symbol]" });
     const bundleOnly = await execute(read, { path: "tests/fixtures/small.ts", bundle: "local" });
     expect(bundleOnly).toMatchObject({ isError: true, content: [{ type: "text", text: "Cannot use bundle without symbol. Use read({ path, symbol, bundle: \"local\" })." }], details: { ptcValue: { tool: "read", ok: false, error: { code: "invalid-params-combo" } } } });
     for (const input of [

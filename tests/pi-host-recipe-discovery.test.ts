@@ -37,7 +37,7 @@ it("keeps all nine tool sections and contract hints within the default budget", 
     assert.ok(catalog.includes("### `" + name + "`"), name + " omitted from default budget");
   }
   for (const hint of [
-    "Positive 1-indexed int or base-10 string; not with symbol",
+    "Positive 1-indexed int or base-10 string; symbol wins",
     "Positive int or obvious base-10 numeric string",
     "0-based char offset into one line; needs offset",
     "Window chars; default 500, max 10000",
