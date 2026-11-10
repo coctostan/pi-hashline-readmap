@@ -89,9 +89,9 @@ describe("read — charLimit without charOffset caps each line of the range", ()
     expect(textOf(def)).toContain(marker(12_000, 1, 500, 10_000));
   });
 
-  it("caps a symbol read and its local support", async () => {
+  it("caps a symbol read; local support, outside the budget, keeps the default cap", async () => {
     const path = fixture([
-      `function helper() { return "${"h".repeat(60)}"; }`,
+      `function helper() { return "${"h".repeat(800)}"; }`,
       "",
       "export function beta() {",
       `  return helper() + "${"q".repeat(60)}";`,
@@ -103,7 +103,7 @@ describe("read — charLimit without charOffset caps each line of the range", ()
     expect(text).toContain("[Symbol: beta (function)");
     expect(text).toContain(`4:${computeLineHash(4, `  return helper() + "${"q".repeat(60)}";`)}|  return helper() + "qqqq... [truncated, 83 chars total; read({offset:4, charOffset:25}) or a range read with charLimit:83]`);
     expect(result.details.ptcValue.bundle?.applied).toBe(true);
-    expect(text).toContain(`|function helper() { retur... [truncated, 92 chars total; read({offset:1, charOffset:25}) or a range read with charLimit:92]`);
+    expect(text).toContain(`|function helper() { return "${"h".repeat(472)}... [truncated, 832 chars total; read({offset:1, charOffset:500}) or a range read with charLimit:832]`);
     expect(result.details.contextHygiene.rehydrate).toEqual({
       tool: "read",
       input: { path, symbol: "beta", bundle: "local", charLimit: 25 },

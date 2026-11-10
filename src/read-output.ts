@@ -181,7 +181,8 @@ export function buildReadOutput(
   if (input.bundle?.applied) {
     const supportBlocks = input.bundle.localSupport.map((item) => {
       const supportLines = buildPtcLines(item.symbol.startLine, item.lines);
-      return renderPtcLines(supportLines, input.lineCap);
+      // Support sits outside the source budget, so it keeps the default cap rather than `lineCap`.
+      return renderPtcLines(supportLines);
     });
     text = ["## Requested symbol", text, "", "## Local support", ...supportBlocks].join("\n");
   }
