@@ -281,30 +281,16 @@ export function truncateGrepIR(ir: GrepIR): GrepIR {
 
 const LINE_NUM_RE = /(?:>>|  )(\d+):/;
 
-export function deduplicateContext(lines: GrepIRLine[]): GrepIRLine[] {
-	if (lines.length === 0) return lines;
-
-	const byLineNum = new Map<number, GrepIRLine>();
-	for (const line of lines) {
-		const match = line.raw.match(LINE_NUM_RE);
-		if (!match) continue;
-		const lineNum = Number.parseInt(match[1], 10);
-		const existing = byLineNum.get(lineNum);
-		if (!existing || (line.kind === "match" && existing.kind === "context")) {
-			byLineNum.set(lineNum, line);
-		}
-	}
-
-	const sorted = [...byLineNum.entries()].sort(([a], [b]) => a - b);
+// Pi 1.5.2's grep prints no `--` between context groups; insert one wherever a file's line numbers skip.
+export function separateContextGroups(lines: GrepIRLine[]): GrepIRLine[] {
 	const result: GrepIRLine[] = [];
-
-	for (let i = 0; i < sorted.length; i++) {
-		if (i > 0 && sorted[i][0] > sorted[i - 1][0] + 1) {
-			result.push({ kind: "separator", raw: "--" });
-		}
-		result.push(sorted[i][1]);
+	let previous = Number.POSITIVE_INFINITY;
+	for (const line of lines) {
+		const lineNum = Number(line.raw.match(LINE_NUM_RE)?.[1]);
+		if (lineNum > previous + 1) result.push({ kind: "separator", raw: "--" });
+		result.push(line);
+		previous = lineNum;
 	}
-
 	return result;
 }
 
@@ -700,7 +686,7 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 
 			const grepIR = parseGrepIR(transformed);
 			for (const file of grepIR.files) {
-				file.lines = deduplicateContext(file.lines);
+				file.lines = separateContextGroups(file.lines);
 			}
 			const truncatedIR = truncateGrepIR(grepIR);
 			const summary = p.summary;
