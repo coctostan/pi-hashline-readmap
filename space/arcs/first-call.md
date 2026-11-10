@@ -16,7 +16,7 @@ Models still lose calls to a few snags in these tools. GLM users' `read` calls, 
 - [ ] 0.24.0 is released: the version is 0.24.0, and its `[0.24.0]` CHANGELOG entry has a Fixed bullet naming #290 and entries for the line cap, `find`'s paths and the removed `text` — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit (main 2026-11-09: 0.23.0)
 
 ## Now
-slice 3 (Find names files from the cwd) is active on `first-call/03-find-cwd-paths`; the next action is its build, then prove, review and land.
+slice 3 (Find names files from the cwd) is active on `first-call/03-find-cwd-paths` (pushed, `f0524333`, no PR), stopped at review by the triage rule: standards rounds 1–3 each raised a high valid finding (the cwd itself named `''`, a leading `@`, a leading `~`), each fixed with a red→green test; spec converged in round 1. The next action is the owner's: a fourth standards round, or landing as is.
 
 ## Seams
 - `read`'s argument combos in its `execute` (`src/read.ts` lines 358–415), warnings rendered ahead of the text by `buildReadOutput` (`src/read-output.ts:196`) → `tests/pi-host-null-pipeline.test.ts`, `tests/read-window-combos.test.ts`, `tests/tool-parameter-metadata-read.test.ts`
