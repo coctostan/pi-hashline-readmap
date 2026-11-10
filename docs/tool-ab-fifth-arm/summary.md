@@ -1,6 +1,6 @@
 # Tool arms A/B — openai-codex/gpt-6-luna, anthropic-cc/claude-sonnet-5-5
 
-Pi 1.5.0; arms no-ls-find, no-ls-find-grep, bash-grep-anchors; 2 repeat(s); spent $2.6147 of $10.
+Pi 1.5.0 on 2026-11-09; arms no-ls-find, no-ls-find-grep, bash-grep-anchors; 2 repeat(s); spent $2.6147 of $10.
 Each cell is the mean per run; Δ is the spread, the largest minus the smallest per-repeat mean. Errors include rejected calls; calls before touch counts runs that edited.
 
 | Set | Model | Arm | Pass | Rate | Input tokens | Cost | Tool calls | Errors | Rejected | Redundant | Wrong tool | Calls before touch |

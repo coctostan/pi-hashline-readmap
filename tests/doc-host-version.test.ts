@@ -15,7 +15,7 @@ const docFiles = [
 
 const MENTION = /\bPi (\d+\.\d+(?:\.\d+)?)/g;
 const MINIMUM_CLAIM = /^(\+|\s+(and newer|or later|or newer)\b)/;
-const CURRENT_CLAIM = /\b(locked|currently)\s+$/;
+const CURRENT_CLAIM = /\b(locked|currently)\s+$/i;
 const ISO_DATE = /\b\d{4}-\d{2}-\d{2}\b/;
 
 // A Pi version passes as the locked host, a minimum-version claim, or a dated measurement;
@@ -56,6 +56,7 @@ describe("host version in the docs", () => {
     expect(hostVersionViolations("the locked Pi 1.3.0", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
     expect(hostVersionViolations("on the locked Pi 1.3.0 (2026-11-01)", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
     expect(hostVersionViolations("currently Pi 1.3.0 (2026-11-01)", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
+    expect(hostVersionViolations("Locked Pi 1.3.0, same machine, 2026-11-01", "1.4.0")).toEqual(["1: Pi 1.3.0"]);
     expect(hostVersionViolations("x\nOn Pi 1.1, enable it", "1.4.0")).toEqual(["2: Pi 1.1"]);
     expect(hostVersionViolations("on Pi 1.4", "1.40.0")).toEqual(["1: Pi 1.4"]);
   });

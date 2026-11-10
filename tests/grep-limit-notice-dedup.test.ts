@@ -10,26 +10,28 @@ function captureGrepTool(): any {
 	return tool;
 }
 
+// Since Pi 1.5.1 the host flags its match limit only when more than `limit` matches exist; Pi 1.5.0 also flagged exactly `limit`.
 describe("grep positive match-limit notice", () => {
-  it("renders one canonical notice while preserving builtin limit metadata", async () => {
+  it.each([
+    [2, 1, "unknown"],
+    [1, 1, "complete"],
+  ] as const)("count=%i limit=%i: one canonical notice only past the limit, search %s", async (count, limit, search) => {
     const dir = mkdtempSync(join(tmpdir(), "pi-grep-limit-notice-"));
     try {
       const filePath = join(dir, "sample.txt");
-      for (const count of [1, 2]) {
-        writeFileSync(filePath, "needle\n".repeat(count), "utf8");
-        const result = await captureGrepTool().execute(
-          "grep-limit-notice", { pattern: "needle", path: filePath, literal: true, limit: 1 },
-          new AbortController().signal, () => {}, { cwd: process.cwd() },
-        );
-        const text = result.content.find((item: any) => item.type === "text")?.text ?? "";
-        if (!text.includes("completeness unknown")) throw new Error("Grep limit notice overstates completeness");
-        const bracketedNotices = text.split("\n").filter((line: string) => line.startsWith("[") && line.endsWith("]")).slice(1);
-        expect(bracketedNotices).toEqual([
-          "[Search stopped at 1 matches; completeness unknown — refine pattern or increase limit]",
-        ]);
-        expect(result.details.matchLimitReached).toBe(1);
-        expect(result.details.ptcValue.totalMatches).toBe(1);
-      }
+      writeFileSync(filePath, "needle\n".repeat(count), "utf8");
+      const result = await captureGrepTool().execute(
+        "grep-limit-notice", { pattern: "needle", path: filePath, literal: true, limit },
+        new AbortController().signal, () => {}, { cwd: process.cwd() },
+      );
+      const text = result.content.find((item: any) => item.type === "text")?.text ?? "";
+      const bracketedNotices = text.split("\n").filter((line: string) => line.startsWith("[") && line.endsWith("]")).slice(1);
+      expect(bracketedNotices).toEqual(count > limit
+        ? ["[Search stopped at 1 matches; completeness unknown — refine pattern or increase limit]"]
+        : []);
+      expect(result.details.matchLimitReached).toBe(count > limit ? limit : undefined);
+      expect(result.details.ptcValue.totalMatches).toBe(limit);
+      expect(result.details.ptcValue.completeness.search).toBe(search);
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

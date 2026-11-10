@@ -43,7 +43,7 @@ function harness() {
 }
 
 it.each([
-  [4, 3, "unknown", 0], [3, 3, "unknown", 0],
+  [4, 3, "unknown", 0], [3, 3, "complete", 0],
   [2, 3, "complete", 0], [0, 3, "complete", 0],
   [60, 100, "complete", 50],
 ] as const)("exposes grep completeness for count=%i limit=%i", async (count, limit, search, omitted) => {
@@ -54,7 +54,7 @@ it.each([
   expect(result.isError).not.toBe(true);
   if (!value.completeness) throw new Error("Grep completeness is missing");
   expect(value.completeness).toMatchObject({
-    search, limitReached: count >= limit, nativeTruncated: false,
+    search, limitReached: count > limit, nativeTruncated: false,
     omittedMatches: omitted, displayTruncated: false,
   });
   expect(value.totalMatches).toBe(Math.min(count, limit));

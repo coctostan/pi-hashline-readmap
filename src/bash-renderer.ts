@@ -93,7 +93,7 @@ export function registerBashRendererTool(pi: Pick<ExtensionAPI, "registerTool">,
   return tool;
 }
 
-/** Copy of Pi 1.5.0's `formatToolDuration` (core/tools/render-utils.js), which its package root does not export. */
+/** Copy of Pi 1.5.2's `formatToolDuration` (core/tools/render-utils.js), which its package root does not export. */
 function formatToolDuration(ms: number): string {
   const seconds = ms / 1000;
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
