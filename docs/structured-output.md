@@ -105,7 +105,7 @@ Required-null/schema preparation, permission blocking, aborts, and arbitrary thr
 | Field | Meaning |
 |---|---|
 | `search` | `"complete"` means the native result was interpreted without a known native bound or parse gap; `"unknown"` means completeness is not established. This describes the requested search, not ignored or binary repository contents. |
-| `limitReached` | Native search reached its match cap. Exact-limit and over-limit inputs are indistinguishable; this is not proof of another match. |
+| `limitReached` | Native search found more matches than its cap; exactly `limit` matches leaves it `false` and the search `"complete"`. |
 | `nativeTruncated` | The native byte/output budget cut the result; missing repository matches cannot be counted from that response. |
 | `omittedMatches` | Known observed match lines missing from structured records after record capping/scoping; `null` for uninterpreted/binary-warning results. Counts unique path/line match records, not context lines or undiscovered matches. |
 | `displayTruncated` | Final Hashline display budget or native non-summary line clipping shortened text. Raw script records can still be complete. This does not imply record omission. |

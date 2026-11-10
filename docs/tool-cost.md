@@ -30,7 +30,7 @@ Bounds:
 
 ### Recorded run, 2026-11-04
 
-Locked Pi 1.5.0, Node v26.13.0, macOS, nu 0.116.1 and ast-grep 0.51.0 installed, at `eee27fee` with the script from slice 3 (Declaration cost is measured).
+Pi 1.5.0, locked on 2026-11-04, Node v26.13.0, macOS, nu 0.116.1 and ast-grep 0.51.0 installed, at `eee27fee` with the script from slice 3 (Declaration cost is measured).
 
 | tool | declaration | snippet | guidelines | bytes | ~tokens |
 |---|---:|---:|---:|---:|---:|
@@ -77,7 +77,7 @@ The texts are static, so with `grep`, `find` or `ls` excluded, bash's descriptio
 
 ### After rulings 0008 and 0009, 2026-11-09
 
-Slice 11 (Tools register as ruled) defers `ls` and `find` (Pi's `deferred` exposure: undeclared until named in `--tools` or loaded by `tool_search`, callable from codemode scripts throughout), so the script now activates every tool the extension registers and names the ones off by default on its second line: `find, ls`. Bash's description, snippet, `command` description and guidelines stop naming them, and so does `nu`'s guideline; the cross-reference list above no longer shows `ls` or `find` outside their own rows. Locked Pi 1.5.0, same machine: every tool active, 15067 bytes, ~3766 tokens (bash 1073 bytes, unchanged in sum; `nu` 457); a default session leaves out `find` (1590) and `ls` (744), so it declares 12733 bytes, ~3182 tokens, 2327 bytes fewer than the 2026-11-04 run.
+Slice 11 (Tools register as ruled) defers `ls` and `find` (Pi's `deferred` exposure: undeclared until named in `--tools` or loaded by `tool_search`, callable from codemode scripts throughout), so the script now activates every tool the extension registers and names the ones off by default on its second line: `find, ls`. Bash's description, snippet, `command` description and guidelines stop naming them, and so does `nu`'s guideline; the cross-reference list above no longer shows `ls` or `find` outside their own rows. Pi 1.5.0, locked on 2026-11-09, same machine: every tool active, 15067 bytes, ~3766 tokens (bash 1073 bytes, unchanged in sum; `nu` 457); a default session leaves out `find` (1590) and `ls` (744), so it declares 12733 bytes, ~3182 tokens, 2327 bytes fewer than the 2026-11-04 run.
 
 ## Sessions
 
@@ -147,7 +147,7 @@ Bounds:
 
 ### Live drive, 2026-11-05
 
-`--models openai-codex/gpt-6-luna --tasks ansi-cursor-codes --repeat 2 --max-cost 0.5` on Pi 1.5.0: 8 runs, $0.0176 in all, 7 passed. Each trace's system message declared its arm's tools: `stock` `read,bash,edit,write`; `extension` adding `grep,ast_search,nu,ls,find`; `no-ls-find` without `ls,find`; `no-ls-find-grep` without `grep` too. The failure, `no-ls-find` repeat 2, is a provider stall: its last event, a tool-call delta 6 s in, was followed by nothing until the 300 s timeout. Its summary scored `no-ls-find` repeat 1 at 2 calls before the touch where its second `grep`, in `src`, had printed `ansi.ts`; the rule above, fixed after the drive, rescores it 1 and leaves every other figure of the 8 runs unchanged. Each `no-ls-find-grep` run counts one error from `read` on the workspace directory, whose message answers `Use ls to inspect directories` with `ls` excluded.
+`--models openai-codex/gpt-6-luna --tasks ansi-cursor-codes --repeat 2 --max-cost 0.5` on Pi 1.5.0, 2026-11-05: 8 runs, $0.0176 in all, 7 passed. Each trace's system message declared its arm's tools: `stock` `read,bash,edit,write`; `extension` adding `grep,ast_search,nu,ls,find`; `no-ls-find` without `ls,find`; `no-ls-find-grep` without `grep` too. The failure, `no-ls-find` repeat 2, is a provider stall: its last event, a tool-call delta 6 s in, was followed by nothing until the 300 s timeout. Its summary scored `no-ls-find` repeat 1 at 2 calls before the touch where its second `grep`, in `src`, had printed `ansi.ts`; the rule above, fixed after the drive, rescores it 1 and leaves every other figure of the 8 runs unchanged. Each `no-ls-find-grep` run counts one error from `read` on the workspace directory, whose message answers `Use ls to inspect directories` with `ls` excluded.
 
 The same command on the final harness, extension at `b4415881` with no uncommitted changes: 8 runs, $0.0185 in all, 8 passed. Every error the summary counts is in the traces: 8 `npm test` or `npx vitest` calls failing without `node_modules`, one in each run; 4 `read` calls in `extension` refused for pairing `charLimit` with a multi-line `limit`; and in `no-ls-find-grep` an `edit` missing `new_text` (rejected) and an `edit` on a stale anchor. The same command again without `--resume` refused the directory, and with `--resume` found 0 runs left.
 
@@ -162,7 +162,7 @@ node scripts/bench/tool-ab.mjs --models openai-codex/gpt-6-luna,anthropic-cc/cla
   --max-cost 18 --concurrency 3 --out tmp/bench-results/tool-ab-pilot
 ```
 
-Pi 1.5.0, extension at `7c139d36` with no uncommitted changes, thinking off, 300 s timeout: 13 tasks × 2 models × 4 arms × 2 repeats, 208 runs in 17 minutes, $3.4812 by its `run.json`. Two probes before it, outside the run: `anthropic/claude-sonnet-5-5` failed its OAuth refresh (`invalid_grant`) at $0, and `anthropic-cc/claude-sonnet-5-5`, the provider used, ran 2 runs for $0.0775. No run timed out or failed for the provider, so none was rerun.
+Pi 1.5.0 on 2026-11-05, extension at `7c139d36` with no uncommitted changes, thinking off, 300 s timeout: 13 tasks × 2 models × 4 arms × 2 repeats, 208 runs in 17 minutes, $3.4812 by its `run.json`. Two probes before it, outside the run: `anthropic/claude-sonnet-5-5` failed its OAuth refresh (`invalid_grant`) at $0, and `anthropic-cc/claude-sonnet-5-5`, the provider used, ran 2 runs for $0.0775. No run timed out or failed for the provider, so none was rerun.
 
 Decided before the run: workspaces stay without `node_modules`, so tests fail in every arm, and errors are also split by tool so a failing `npm test` cannot hide a search tool's (`errors-by-tool.md`); a run failing for the provider would have been rerun once; failing runs were read for a checker refusing a valid answer, and none did (the stock `ls-default-limit#1` failure left `prompts/ls.md` at 500).
 
@@ -209,7 +209,7 @@ node scripts/bench/tool-ab.mjs --models openai-codex/gpt-6-luna,anthropic-cc/cla
   --out tmp/bench-results/tool-ab-fifth-arm
 ```
 
-Pi 1.5.0 from the bench-host cache, extension at `3091b73b` with no uncommitted changes, thinking off, 300 s timeout: 13 tasks × 2 models × 3 arms × 2 repeats, 156 runs in 16 minutes, $2.6147 by its `run.json`. An attempt before it stopped after 4 runs ($0.0538) when files were added to this checkout mid-run and the checkout guard failed the runs in flight as `checkout-changed`; its results were set aside and the run started again from a clean tree. No run escaped into the checkout. `ls-default-limit` stays in every table, the host now outside the checkout (the two runs naming this checkout's path printed it from the snapshot's own `docs/codemode-benchmarks.md`). The one timeout, gpt-6-luna `no-ls-find` `markdown-extension#1`, is the model emitting `000` tool-call deltas until the limit, not a provider stall, so it stands as a failure.
+Pi 1.5.0 from the bench-host cache on 2026-11-09, extension at `3091b73b` with no uncommitted changes, thinking off, 300 s timeout: 13 tasks × 2 models × 3 arms × 2 repeats, 156 runs in 16 minutes, $2.6147 by its `run.json`. An attempt before it stopped after 4 runs ($0.0538) when files were added to this checkout mid-run and the checkout guard failed the runs in flight as `checkout-changed`; its results were set aside and the run started again from a clean tree. No run escaped into the checkout. `ls-default-limit` stays in every table, the host now outside the checkout (the two runs naming this checkout's path printed it from the snapshot's own `docs/codemode-benchmarks.md`). The one timeout, gpt-6-luna `no-ls-find` `markdown-extension#1`, is the model emitting `000` tool-call deltas until the limit, not a provider stall, so it stands as a failure.
 
 ### Results
 

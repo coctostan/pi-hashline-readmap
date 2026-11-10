@@ -89,7 +89,7 @@ npm run typecheck
 
 ### Host compatibility
 
-The extension is tested against one host: the Pi 1.5.0 that `package-lock.json` locks ([ruling 0005](space/decisions/0005-one-tested-host.md)). `npm test` and `npm run typecheck` run against it, and so does `.github/workflows/pi-compatibility.yml`, whose npm 11/12 matrix retains both packing-output contracts. CI provisions no second Pi.
+The extension is tested against one host: the Pi 1.5.2 that `package-lock.json` locks ([ruling 0005](space/decisions/0005-one-tested-host.md)). `npm test` and `npm run typecheck` run against it, and so does `.github/workflows/pi-compatibility.yml`, whose npm 11/12 matrix retains both packing-output contracts. CI provisions no second Pi.
 
 To try a newer Pi before the lock moves, point `PI_COMPAT_HOST` at its `pi-coding-agent` directory: the host tests then run against that install and expect its own version. Unset, it selects the locked host. Pin the complete Pi dependency graph, since its internal caret ranges otherwise permit mixed releases; no global Pi, provider, or credentials are needed:
 
@@ -121,7 +121,7 @@ Issue #266 adds source inspection, file-discovery composition, and external-CLI 
 
 `npm run typecheck:pi-host` compiles `index.ts`, all `src/` files, and a typed host-boundary fixture with Pi/typebox imports resolved from the selected installation. It audits loaded Pi declaration paths and that the selected Pi graph shares one version; `tests/pi-host-declarations.test.ts` runs it under `npm test`. The negative fixture is compiled only when explicitly passed by its regression test and must produce TS2322. `npm run typecheck` stays the project's own check. The selected-host check retains project compiler settings (including `skipLibCheck`), and does not claim exhaustive type safety for every existing loosely typed compatibility adapter or third-party declaration internals.
 
-Exhaustive nested-union auditing, every runner lifecycle branch, and provider/AgentSession integration remain outside these deterministic checks. No registered tool is deliberately excluded from the shared guard. Required-null preparation errors retain the host-boundary metadata limitation documented in [structured-output null contracts](docs/structured-output.md#required-nulls-at-the-host-boundary). See [codemode integration](docs/structured-output.md#codemode-integration) for script-facing contracts and [fresh-session verification](docs/codemode-verification.md) for the live completion gate. Running sessions do not hot-reload edits: automated checks cannot replace a freshly loaded live Pi 1.5.0 session.
+Exhaustive nested-union auditing, every runner lifecycle branch, and provider/AgentSession integration remain outside these deterministic checks. No registered tool is deliberately excluded from the shared guard. Required-null preparation errors retain the host-boundary metadata limitation documented in [structured-output null contracts](docs/structured-output.md#required-nulls-at-the-host-boundary). See [codemode integration](docs/structured-output.md#codemode-integration) for script-facing contracts and [fresh-session verification](docs/codemode-verification.md) for the live completion gate. Running sessions do not hot-reload edits: automated checks cannot replace a freshly loaded live Pi 1.5.2 session.
 
 ## Build contract
 
