@@ -12,7 +12,7 @@ function captureGrepTool(): any {
 }
 
 // Pins grep's context output across host moves: the host's grep printed context differently on Pi 1.5.0 and 1.5.2.
-// Unpinned: deduplicateContext's sort, since both hosts emit a file's new line numbers in ascending order.
+// On Pi 1.5.2 the host prints each line once, matches over context, in ascending order; only the `--` at a gap is ours.
 describe("grep context output", () => {
 	it("prints overlapping windows once, in order, with anchors and a separator at each gap", async () => {
 		const dir = mkdtempSync(join(tmpdir(), "pi-grep-context-output-"));

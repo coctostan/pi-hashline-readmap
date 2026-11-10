@@ -3,7 +3,7 @@ import {
   parseGrepIR,
   formatGrepOutput,
   truncateGrepIR,
-  deduplicateContext,
+  separateContextGroups,
   type GrepIR,
   type GrepIRLine,
 } from "../src/grep";
@@ -190,32 +190,6 @@ describe("grep context reduction", () => {
     expect(truncated.files[1].path).toBe("src/b.ts");
   });
 
-  it("merges overlapping context windows — each line appears once", () => {
-    const lines: GrepIRLine[] = [
-      { kind: "context", raw: "src/foo.ts:  3:a1|line 3" },
-      { kind: "context", raw: "src/foo.ts:  4:a2|line 4" },
-      { kind: "match", raw: "src/foo.ts:>>5:a3|line 5" },
-      { kind: "context", raw: "src/foo.ts:  6:a4|line 6" },
-      { kind: "context", raw: "src/foo.ts:  7:a5|line 7" },
-      { kind: "context", raw: "src/foo.ts:  5:a3|line 5" },
-      { kind: "context", raw: "src/foo.ts:  6:a4|line 6" },
-      { kind: "match", raw: "src/foo.ts:>>7:a5|line 7" },
-      { kind: "context", raw: "src/foo.ts:  8:a6|line 8" },
-      { kind: "context", raw: "src/foo.ts:  9:a7|line 9" },
-    ];
-
-    const deduped = deduplicateContext(lines);
-    const rawTexts = deduped.map((l) => l.raw);
-    expect(rawTexts.filter((r) => /(?:>>|  )3:/.test(r)).length).toBe(1);
-    expect(rawTexts.filter((r) => /(?:>>|  )5:/.test(r)).length).toBe(1);
-    expect(rawTexts.filter((r) => /(?:>>|  )7:/.test(r)).length).toBe(1);
-
-    const line5 = deduped.find((l) => /(?:>>|  )5:/.test(l.raw));
-    expect(line5?.kind).toBe("match");
-    const line7 = deduped.find((l) => /(?:>>|  )7:/.test(l.raw));
-    expect(line7?.kind).toBe("match");
-  });
-
   it("inserts -- separator between non-adjacent context groups", () => {
     const lines: GrepIRLine[] = [
       { kind: "context", raw: "src/foo.ts:  2:a1|line 2" },
@@ -226,9 +200,16 @@ describe("grep context reduction", () => {
       { kind: "context", raw: "src/foo.ts:  21:b3|line 21" },
     ];
 
-    const deduped = deduplicateContext(lines);
-    const separators = deduped.filter((l) => l.raw === "--");
-    expect(separators.length).toBe(1);
+    const separated = separateContextGroups(lines);
+    expect(separated.map((l) => l.raw)).toEqual([
+      "src/foo.ts:  2:a1|line 2",
+      "src/foo.ts:>>3:a2|line 3",
+      "src/foo.ts:  4:a3|line 4",
+      "--",
+      "src/foo.ts:  19:b1|line 19",
+      "src/foo.ts:>>20:b2|line 20",
+      "src/foo.ts:  21:b3|line 21",
+    ]);
   });
 
   it("does not insert -- between adjacent groups", () => {
@@ -236,26 +217,12 @@ describe("grep context reduction", () => {
       { kind: "context", raw: "src/foo.ts:  2:a1|line 2" },
       { kind: "match", raw: "src/foo.ts:>>3:a2|line 3" },
       { kind: "context", raw: "src/foo.ts:  4:a3|line 4" },
-      { kind: "context", raw: "src/foo.ts:  4:a3|line 4" },
       { kind: "match", raw: "src/foo.ts:>>5:a4|line 5" },
       { kind: "context", raw: "src/foo.ts:  6:a5|line 6" },
     ];
 
-    const deduped = deduplicateContext(lines);
-    const raws = deduped.map((l) => l.raw);
+    const separated = separateContextGroups(lines);
+    const raws = separated.map((l) => l.raw);
     expect(raws).not.toContain("--");
-  });
-
-  it("preserves line ordering by line number", () => {
-    const lines: GrepIRLine[] = [
-      { kind: "match", raw: "src/foo.ts:>>10:a1|line 10" },
-      { kind: "context", raw: "src/foo.ts:  11:a2|line 11" },
-      { kind: "context", raw: "src/foo.ts:  9:a0|line 9" },
-      { kind: "match", raw: "src/foo.ts:>>10:a1|line 10" },
-    ];
-
-    const deduped = deduplicateContext(lines);
-    const nonSep = deduped.filter((l) => l.raw !== "--");
-    expect(nonSep).toHaveLength(3);
   });
 });
