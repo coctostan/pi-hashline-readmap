@@ -11,7 +11,7 @@ export const NUMERIC_HINTS: Array<[string, string, string]> = [
 ];
 
 export const EXPECTED_TOOL_DESCRIPTIONS: Record<string, string> = {
-      read: "Read files/images; LINE:HASH text anchors, image attachments.",
+      read: "Read files/images; LINE:HASH text anchors, image attachments; lines[i].raw: line text, no anchor.",
       edit: "Edit via fresh LINE:HASH; copy_lines/move_lines.",
       grep: "Grep text; non-summary LINE:HASH anchors.",
       find: "Find files by glob, respecting .gitignore; entry paths are from the cwd.",

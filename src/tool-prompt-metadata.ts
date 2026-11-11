@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 
 const COMPACT_DESCRIPTIONS: Record<string, string> = {
-  "read.md": "Read files/images; LINE:HASH text anchors, image attachments.",
+  "read.md": "Read files/images; LINE:HASH text anchors, image attachments; lines[i].raw: line text, no anchor.",
   "edit.md": "Edit via fresh LINE:HASH; copy_lines/move_lines.",
   "grep.md": "Grep text; non-summary LINE:HASH anchors.",
   "find.md": "Find files by glob, respecting .gitignore; entry paths are from the cwd.",
