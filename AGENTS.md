@@ -30,7 +30,7 @@ git: { merge: agent, push: free, main-direct: process-only }
 - `ast_search` — ast-grep wrapper with hashlined output
 - `bash` — Pi's own output, ANSI codes stripped, plus anti-pattern hints
 
-The extension is loaded via an absolute path entry in `~/.pi/agent/settings.json`'s `extensions` array (pointing at this workspace's `index.ts`), so **new agent sessions** pick up local edits automatically. Running sessions do **not** hot-reload the module graph — restart any in-flight agent session to see changes take effect.
+The extension is loaded via an absolute path entry in `~/.pi/agent/settings.json`'s `extensions` array (pointing at this workspace's `index.ts`). A running pi keeps the code it loaded: a new, resumed or forked session reuses it, so local edits take effect only after `/reload` or a restart. Hashline warns at such a session start when its files changed on disk after pi loaded them.
 
 ## Version Control
 

@@ -168,4 +168,4 @@ When enabled, the extension registers `context_hygiene_report`, a read-only debu
 - Treat grouped/capped notice text as a display summary. Use structured report and `details.contextHygieneStale` / `details.contextHygieneRetired` metadata for per-result state.
 - Use rehydrate descriptors when refreshing stale file/search context.
 - Do not assume stale notices contain enough information to reconstruct the original result. The original result is still present in history — the notice only marks it as no longer current.
-- Restart the pi session if you change extension code; the in-memory tracker is reset when the extension is loaded.
+- Run `/reload` or restart pi if you change extension code, since a new session keeps the loaded code; the in-memory tracker is reset when the extension is loaded.
