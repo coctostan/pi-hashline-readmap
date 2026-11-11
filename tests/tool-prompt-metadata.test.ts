@@ -136,7 +136,7 @@ describe("compact provider-visible descriptions", () => {
       nu: registerNuTool(pi as any),
     };
 
-    expect(tools.read.description).toBe("Read files/images; LINE:HASH text anchors, image attachments.");
+    expect(tools.read.description).toBe("Read files/images; LINE:HASH text anchors, image attachments; lines[i].raw: line text, no anchor.");
     expect(tools.edit.description).toBe("Edit via fresh LINE:HASH; copy_lines/move_lines.");
     expect(tools.grep.description).toBe("Grep text; non-summary LINE:HASH anchors.");
     expect(tools.find.description).toBe(EXPECTED_TOOL_DESCRIPTIONS.find);

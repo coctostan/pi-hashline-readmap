@@ -44,6 +44,8 @@ Find returns each `entries[].path` from the cwd, whatever its `path` argument, a
 
 Ls returns entry basenames in `entries[].name` and the resolved absolute directory in successful `result.path`. Join those two returned values before read/edit composition; do not assume the original input string is the returned base.
 
+Read's `Codemode:` line lists `lines` but not its items' fields, since the host's field list does not open arrays. The compact description names `lines[i].raw` as a line's text with no anchor, so a script reads it instead of parsing anchored `text`; without it, gpt-6-luna regex-parsed `text` in 4 of 4 drives and none returned just the line's text (2026-11-11).
+
 This guidance is encoded in compact registered descriptions/guidelines, find.path's input description, and the relevant successful-output property descriptions. Those output comments reach real selected-host codemode declarations. The detailed [find](../prompts/find.md) and [ls](../prompts/ls.md) references include joined-read examples; changing detailed documents alone cannot fix live declarations. No field, path normalization, truncation, required-key, null, coercion or execution behavior changes.
 
 ## Measured diagnosis
