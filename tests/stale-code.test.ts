@@ -4,7 +4,8 @@ import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createStaleCodeCheck, staleCodeFiles } from "../src/stale-code.js";
 
-const LOADED_AT = Date.parse("2026-11-11T12:00:00Z");
+// In the past, so the directories the fixture creates are newer than the load: only files may count.
+const LOADED_AT = Date.now() - 3_600_000;
 const BEFORE = new Date(LOADED_AT - 60_000);
 
 let root: string;
