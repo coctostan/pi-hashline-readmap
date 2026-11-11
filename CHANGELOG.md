@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-11
+
+A running pi keeps the Hashline code it loaded, new sessions included, until `/reload` or a restart; Hashline now says so when that code is older than its files.
+
+### Added
+
+- At a `new`, `resume` or `fork` session start, when a file the running Hashline code came from changed on disk after pi loaded it, Hashline shows one warning naming the changed-file count, the newest file and `/reload`. A source checkout watches `index.ts`, `src/` and `prompts/`; a built package watches `dist/index.js` and `prompts/`. Startup and `/reload` draw none, and a session warns at most once. Only the user sees it, not the model (#316, #318).
+
+### Changed
+
+- The README, AGENTS.md, `docs/integrations.md` and `docs/context-hygiene.md` no longer say a new session picks up edits: they say a running pi keeps its loaded code until `/reload` or a restart (#319).
 ## [0.25.0] - 2026-11-10
 
 Pi 1.5.2 is now the one tested host. Its grep, which ours wraps, finds files with a `glob` beside `path` and calls a search with exactly `limit` matches complete.
