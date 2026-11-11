@@ -1,5 +1,5 @@
 # Now
-- [read-in-scripts](arcs/read-in-scripts.md) (Codemode scripts know what read returns): slice 2 (Scripts read line text first try) is next; slice 1 (Read's result union is flat) landed as `72e30587`
+- [read-in-scripts](arcs/read-in-scripts.md) (Codemode scripts know what read returns): slice 2 (Scripts read line text first try) active on `read-in-scripts/02-line-text-first-try`
 
 ## Next
 - Publish 0.25.0: pi-1-5-2-host (Pi 1.5.2 is the one tested host) closed with 0.25.0 on main and npm still at 0.24.0 (`npm view`, 2026-11-10); `npm publish` and a `v0.25.0` tag are the owner's
