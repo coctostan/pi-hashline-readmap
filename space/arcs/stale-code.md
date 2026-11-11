@@ -17,7 +17,7 @@ On the locked Pi 1.5.2 host, a `new`, `resume` or `fork` session start in a pi p
 - [ ] 0.26.0 carries it: `package.json` reads 0.26.0 with a dated `[0.26.0]` CHANGELOG entry whose Added names the warning — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts`
 
 ## Now
-All four slices done; slice 4 (Release 0.26.0) landed as `9391f94c` (#320), `pi-compatibility` green on the PR head (npm 11 and 12). Next: confirm the `pi-compatibility` run on `9391f94c`, then `close` stale-code (Pi says when its Hashline code is stale); `npm publish` of 0.26.0 is the owner's.
+All four slices done; slice 4 (Release 0.26.0) landed as `9391f94c` (#320), `pi-compatibility` green on the PR head (npm 11 and 12). `pi-compatibility` green on `9391f94c` (run 43121958925, npm 11 and 12). Next: `close` stale-code (Pi says when its Hashline code is stale); `npm publish` of 0.26.0 is the owner's.
 
 ## Seams
 - `src/stale-code.ts` (new): the load stamp, the watched-file set for the module's layout (`index.ts`, `src/**`, `prompts/**`; or `dist/index.js`, `prompts/**`) and the newest-mtime compare, called with an explicit root, entry and load time → `tests/stale-code.test.ts` over temp directories

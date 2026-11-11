@@ -1,5 +1,5 @@
 # Now
-- [stale-code](arcs/stale-code.md) (Pi says when its Hashline code is stale): slice 4 (Release 0.26.0) landed (`9391f94c`, #320); all slices done; next, confirm `pi-compatibility` on `9391f94c`, then `close`; `npm publish` of 0.26.0 is the owner's
+- [stale-code](arcs/stale-code.md) (Pi says when its Hashline code is stale): slice 4 (Release 0.26.0) landed (`9391f94c`, #320); all slices done; `pi-compatibility` green on it (run 43121958925); next, `close`; `npm publish` of 0.26.0 is the owner's
 
 ## Next
 - `correct` at read-in-scripts (Codemode scripts know what read returns)'s close (run `~/.jidoka/sessions/2026-11-11T03-42-25Z-read-in-scripts/classes.json`; 3 sessions, 220 s, 105,312 tokens; 17 classes, 14 seen once), owner 2026-11-11 (chat): `read` `charOffset` with a multi-line `limit` (3 sessions) → accept: stale loaded code, fixed by the restart, shaped as stale-code (Pi says when its Hashline code is stale). Closing reports repeating diagnoses (3 sessions) → drop: the kernel rules ask for evidence, deviations and skips, which is what the judge counted. Bare slice mentions (2 sessions, AGENTS.md:16; `02-58-51` 03:15, `03-16-13` 03:18) → enforce, folded into pi-1-5-2-host (Pi 1.5.2 is the one tested host)'s lint line below; both instances are chat replies, which that lint cannot see
