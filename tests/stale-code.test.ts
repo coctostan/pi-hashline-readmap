@@ -62,6 +62,21 @@ describe("staleCodeFiles (source layout)", () => {
   });
 });
 
+describe("staleCodeFiles (bundle layout)", () => {
+  const entry = () => join(root, "dist/index.js");
+
+  it("counts changed dist/index.js and prompts/** files", () => {
+    change("dist/index.js", 5);
+    change("prompts/read.md", 10);
+    expect(staleCodeFiles(root, entry(), LOADED_AT)).toEqual({ count: 2, newest: "prompts/read.md" });
+  });
+
+  it("ignores source files the bundle was built from", () => {
+    for (const path of ["index.ts", "src/read.ts", "tests/a.test.ts", "docs/a.md", "scripts/a.mjs"]) change(path, 5);
+    expect(staleCodeFiles(root, entry(), LOADED_AT)).toBeUndefined();
+  });
+});
+
 describe("createStaleCodeCheck", () => {
   const check = () => createStaleCodeCheck({ root, entry: join(root, "index.ts"), loadedAt: LOADED_AT });
 

@@ -7,6 +7,7 @@ export const LOADED_AT = Date.now();
 /** What the running code was loaded from, by entry path relative to the package root. */
 const WATCHED: Record<string, readonly string[]> = {
   "index.ts": ["index.ts", "src", "prompts"],
+  "dist/index.js": ["dist/index.js", "prompts"],
 };
 
 /** Session starts that load a new session into a process whose code may predate its files. */
