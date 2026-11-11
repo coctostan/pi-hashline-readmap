@@ -1,5 +1,5 @@
 # Now
-- [read-in-scripts](arcs/read-in-scripts.md) (Codemode scripts know what read returns): `read`'s codemode line lists its fields, pinned for every tool
+- [read-in-scripts](arcs/read-in-scripts.md) (Codemode scripts know what read returns): slice 1 (Read's result union is flat) active on `read-in-scripts/01-flat-read-union`
 
 ## Next
 - Publish 0.25.0: pi-1-5-2-host (Pi 1.5.2 is the one tested host) closed with 0.25.0 on main and npm still at 0.24.0 (`npm view`, 2026-11-10); `npm publish` and a `v0.25.0` tag are the owner's

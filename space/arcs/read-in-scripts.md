@@ -15,7 +15,7 @@ On the locked Pi 1.5.2 host, `read`'s `Codemode:` line in its tool description n
 - [ ] Docs no longer say `read`'s union needs `describeTool`: `docs/structured-output.md:125`'s "Compact output unions remain discoverable through `describeTool`" names the field-listing line instead — verified by `git grep -n "remain discoverable through" -- docs` (main 2026-11-11: one hit, line 125; no `tests/documentation-*.test.ts` pins the phrase)
 
 ## Now
-slice 1 (Read's result union is flat) is next: `slice` plans it and cuts its branch.
+slice 1 (Read's result union is flat) is active on `read-in-scripts/01-flat-read-union`.
 
 ## Seams
 - `HASHLINE_SUCCESS_OUTPUT_SCHEMAS` and the failure wrap at `src/codemode-integration.ts:157` → the host's `describeOutput` through `createCodemodeToolDefinition(...).prepareLoadout`, loaded from the selected host as `tests/helpers/selected-host-codemode.mjs` does → `tests/pi-host-codemode-descriptions.test.ts` (new)
@@ -24,7 +24,11 @@ slice 1 (Read's result union is flat) is next: `slice` plans it and cuts its bra
 - Real artifact: the installed `pi` (1.5.2) with `--no-extensions -e builtin:codemode -e <repo>/index.ts --tools +codemode`, observed in the `codemode` call's `tool_execution_start` script and `tool_execution_end` output
 
 ## Slices
-1. **Read's result union is flat** — delivers `read`'s output schema as one top-level union of its 4 success variants plus the failure value, so the host lists each variant's fields; `tests/pi-host-codemode-descriptions.test.ts` pinning every Hashline tool's `Codemode:` line on the selected host; `docs/structured-output.md:125` reworded · proof: the new test red on main for `read` alone, green after; `npm test && npm run typecheck` with no existing assertion edited · blocked-by — · status next
+1. **Read's result union is flat** — delivers `read`'s output schema as one top-level union of its 4 success variants plus the failure value, so the host lists each variant's fields; `tests/pi-host-codemode-descriptions.test.ts` pinning every Hashline tool's `Codemode:` line on the selected host; `docs/structured-output.md:125` reworded · proof: the new test red on main for `read` alone, green after; `npm test && npm run typecheck` with no existing assertion edited · blocked-by — · status active
+   - Goal: done-when 1, 2 and 4 green: `read`'s `Codemode:` line is the 5-variant field list, none of the 8 schema'd tools gets the `describeTool` pointer, existing value tests untouched, the docs line names the field list.
+   - Assumptions: the host's `describeUnionFields` reads only top-level `anyOf` variants, so `Type.Union([readUnion, FAILURE_VALUE])` nests and falls back to the pointer (inferred from `dist/extensions/codemode/tool.js:207`); spreading a success union's `anyOf` into the outer union leaves `Value.Check` results unchanged.
+   - Reach: `HASHLINE_TOOL_OUTPUT_SCHEMAS` in `src/codemode-integration.ts:156`; `tests/helpers/selected-host-codemode.mjs` program-branch `loadout` (adds `descriptions`); `tests/pi-host-codemode-descriptions.test.ts` (new); `docs/structured-output.md:125` (`git grep -n "remain discoverable through\|describeTool" -- docs prompts README.md src tests`: other hits `docs/codemode-recipes.md:23,202`, `docs/codemode-verification.md:7`, `docs/codemode-benchmarks.md:274`, `tests/pi-host-codemode-boundaries.test.ts:46` are about `describeTool` for declarations, not the union, and stay). Schema readers `tests/codemode-*.test.ts` and `tests/repro-262-codemode-gaps.test.ts` use `Value.Check` or grep's schema, untouched.
+   - Proof: new test red on main for `read` only; green after; `npm test && npm run typecheck`; real artifact: `pi --no-extensions -e builtin:codemode -e <repo>/index.ts --tools +codemode` drive whose `codemode` description, or a script's `describeTool`-free read, shows the line.
 2. **Scripts read line text first try** — delivers the done-when drive green on gpt-6-luna; if the model still misreads `lines` (the host lists `lines` but not its items' `line`, `anchor`, `raw`), `read`'s description names `lines[i].raw` as a line's text, and the drive runs again · proof: the drive's `codemode` output exactly `beta` with no `describeTool` call, run on main first (red: `2:589|beta`) · blocked-by 1 · status next
 
 ## Not yet specified
