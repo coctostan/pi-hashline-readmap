@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Pi 1.5.2 is the one tested host
 
@@ -9,15 +9,14 @@ Pi 1.5.2 is out, and it is what `pi update` installs, but the extension is still
 The extension is developed and tested against Pi 1.5.2 as its one host (ruling 0005), and our `grep`'s `glob`, completeness and context-line behavior on that host is pinned by tests and stated in `prompts/grep.md`. Ships as 0.25.0.
 
 ## Done when
-- [ ] The locked host is Pi 1.5.2, with the whole Pi graph, `pi-schema` included, at one version — verified by `npm ls @earendil-works/pi-coding-agent @earendil-works/pi-schema` and `npm run typecheck:pi-host`'s one-version audit (main 2026-11-10: 1.5.0)
-- [ ] `npm test && npm run typecheck` pass on that lock, `tests/doc-host-version.test.ts` among them, with README.md, AGENTS.md and `docs/` naming no other host as current — verified by the suite run (main 2026-11-10 with the lock moved to 1.5.2 in a scratch worktree: 3 files failed, `doc-host-version`, `grep-limit-notice-dedup`, `repro-262-codemode-gaps`)
-- [ ] `grep` with `path` and a `glob` naming subfolders (`path: "repo", glob: "sub/**/*.ts"`) matches the glob relative to `path` and names each file from the cwd (`repo/sub/deep/x.ts`), and `prompts/grep.md` says `glob` is relative to `path` — verified by a new `tests/grep-glob-path.test.ts` (main 2026-11-10: Pi 1.5.0's grep returns `No matches found`)
-- [ ] `grep` with exactly `limit` matches reports a complete search with no stop notice, and with more than `limit` still reports `completeness unknown` with the notice, and `prompts/grep.md` says so — verified by `tests/repro-262-codemode-gaps.test.ts` and `tests/grep-limit-notice-dedup.test.ts` (main 2026-11-10: exactly `limit` reads `unknown`)
-- [ ] `grep` with `context` prints each line of overlapping windows once, each with its anchor, and `deduplicateContext` is gone from `src/` unless a pinned case still needs it — verified by a new `tests/grep-context-output.test.ts` and `git grep -n deduplicateContext -- src` (main 2026-11-10: test absent; `src/grep.ts:284`)
-- [ ] 0.25.0 is released: the version is 0.25.0, and its `[0.25.0]` CHANGELOG entry names Pi 1.5.2 as the tested host and the `glob` and exact-limit changes — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit (main 2026-11-10: 0.24.0)
+- [x] The locked host is Pi 1.5.2, with the whole Pi graph, `pi-schema` included, at one version — verified by `npm ls @earendil-works/pi-coding-agent @earendil-works/pi-schema` and `npm run typecheck:pi-host`'s one-version audit (main 2026-11-10: 1.5.0) · close 2026-11-10: `npm ls` shows pi-coding-agent, pi-agent-core, pi-ai and pi-schema at 1.5.2 on main `b3a732b7`; `typecheck:pi-host` `"version":"1.5.2"`, 0 diagnostics
+- [x] `npm test && npm run typecheck` pass on that lock, `tests/doc-host-version.test.ts` among them, with README.md, AGENTS.md and `docs/` naming no other host as current — verified by the suite run (main 2026-11-10 with the lock moved to 1.5.2 in a scratch worktree: 3 files failed, `doc-host-version`, `grep-limit-notice-dedup`, `repro-262-codemode-gaps`) · close 2026-11-10: `npm test` 632 files, 2502 passed, 1 skipped on main `b3a732b7`, `doc-host-version` among them; typecheck clean
+- [x] `grep` with `path` and a `glob` naming subfolders (`path: "repo", glob: "sub/**/*.ts"`) matches the glob relative to `path` and names each file from the cwd (`repo/sub/deep/x.ts`), and `prompts/grep.md` says `glob` is relative to `path` — verified by a new `tests/grep-glob-path.test.ts` (main 2026-11-10: Pi 1.5.0's grep returns `No matches found`) · close 2026-11-10: green on main `b3a732b7`; `prompts/grep.md:18` says so
+- [x] `grep` with exactly `limit` matches reports a complete search with no stop notice, and with more than `limit` still reports `completeness unknown` with the notice, and `prompts/grep.md` says so — verified by `tests/repro-262-codemode-gaps.test.ts` and `tests/grep-limit-notice-dedup.test.ts` (main 2026-11-10: exactly `limit` reads `unknown`) · close 2026-11-10: both green on main `b3a732b7`; `prompts/grep.md:30` says so
+- [x] `grep` with `context` prints each line of overlapping windows once, each with its anchor, and `deduplicateContext` is gone from `src/` unless a pinned case still needs it — verified by a new `tests/grep-context-output.test.ts` and `git grep -n deduplicateContext -- src` (main 2026-11-10: test absent; `src/grep.ts:284`) · close 2026-11-10: green on main `b3a732b7`; `git grep -n deduplicateContext -- src` empty
+- [x] 0.25.0 is released: the version is 0.25.0, and its `[0.25.0]` CHANGELOG entry names Pi 1.5.2 as the tested host and the `glob` and exact-limit changes — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and the `pi-compatibility` workflow on the release commit (main 2026-11-10: 0.24.0) · close 2026-11-10: both package tests green on main `b3a732b7`; `CHANGELOG.md:9–17` names 1.5.2, `glob` and exact `limit`; `pi-compatibility` on `9240d57d`'s push, run 42922460319, success; spec review (gpt-6.1-sol, `aa4f1847b456`) no findings
 
 ## Now
-All four slices done; slice 4 (Release 0.25.0) landed as `9240d57d` (#312). `pi-compatibility` green on `9240d57d` (run 42922460319, npm 11 and 12). Next: `close` pi-1-5-2-host (Pi 1.5.2 is the one tested host); `npm publish` of 0.25.0 is the owner's.
 
 ## Seams
 - `package.json` devDependencies and `package-lock.json` → `npm ls`; `scripts/typecheck-pi-host.mjs`'s one-version audit → `tests/pi-host-declarations.test.ts`
