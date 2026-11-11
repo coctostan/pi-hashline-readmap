@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { buildBundle } from "../scripts/build.mjs";
 import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
 
 const { host } = selectCompatHost();
@@ -77,8 +78,8 @@ afterEach(() => {
   rmSync(scratch, { recursive: true, force: true });
 });
 
-async function start(): Promise<RpcPi> {
-  pi = new RpcPi(join(checkout, "index.ts"), join(scratch, "cwd"), join(scratch, "agent"));
+async function start(entry = "index.ts"): Promise<RpcPi> {
+  pi = new RpcPi(join(checkout, entry), join(scratch, "cwd"), join(scratch, "agent"));
   // A first answered command means startup, and its session_start, are done.
   expect((await pi.send({ type: "get_state" })).success).toBe(true);
   return pi;
@@ -106,6 +107,33 @@ describe("stale Hashline code on the selected host (source layout)", () => {
 
   it("stays silent at startup and at new_session when nothing changed", async () => {
     const pi = await start();
+    expect((await pi.send({ type: "new_session" })).success).toBe(true);
+    expect(pi.notices()).toEqual([]);
+  }, 60_000);
+});
+
+describe("stale Hashline code on the selected host (bundle layout)", () => {
+  beforeEach(async () => {
+    await buildBundle({ rootDir: checkout, outDir: join(checkout, "dist") });
+  });
+
+  it("warns once at new_session after dist/index.js or a prompts/ file changed", async () => {
+    const pi = await start("dist/index.js");
+    expect(pi.notices()).toEqual([]);
+    touch("prompts/read.md", 1);
+    touch("dist/index.js", 2);
+    expect((await pi.send({ type: "new_session" })).success).toBe(true);
+    const notices = pi.notices();
+    expect(notices).toHaveLength(1);
+    expect(notices[0].notifyType).toBe("warning");
+    expect(notices[0].message).toMatch(/\b2 files\b/);
+    expect(notices[0].message).toContain("dist/index.js");
+    expect(notices[0].message).toContain("/reload");
+  }, 60_000);
+
+  it("stays silent at new_session when only a src/ file changed", async () => {
+    const pi = await start("dist/index.js");
+    touch("src/read.ts", 1);
     expect((await pi.send({ type: "new_session" })).success).toBe(true);
     expect(pi.notices()).toEqual([]);
   }, 60_000);
