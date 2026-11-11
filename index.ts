@@ -1,4 +1,8 @@
+// First import: its load stamp must precede the modules it watches.
+import { createStaleCodeCheck, LOADED_AT } from "./src/stale-code.js";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { PACKAGE_ROOT } from "./src/package-root.js";
 import { registerReadTool } from "./src/read.js";
 import { registerEditTool } from "./src/edit.js";
 import { registerGrepTool } from "./src/grep.js";
@@ -175,6 +179,12 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       (event.input ?? {}) as Record<string, unknown>,
     );
     return undefined;
+  });
+
+  const staleCode = createStaleCodeCheck({ root: PACKAGE_ROOT, entry: fileURLToPath(import.meta.url), loadedAt: LOADED_AT });
+  pi.on("session_start", (event, ctx) => {
+    const warning = staleCode(event.reason, ctx.sessionManager.getSessionId());
+    if (warning) ctx.ui.notify(warning, "warning");
   });
 
   pi.on("context", (event: any): any => {
