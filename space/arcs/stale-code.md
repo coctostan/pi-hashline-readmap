@@ -17,7 +17,7 @@ On the locked Pi 1.5.2 host, a `new`, `resume` or `fork` session start in a pi p
 - [ ] 0.26.0 carries it: `package.json` reads 0.26.0 with a dated `[0.26.0]` CHANGELOG entry whose Added names the warning — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts`
 
 ## Now
-Slice 1 (Source checkout warns at session start) is built, reviewed (converged) and reconciled on branch `stale-code/01-source-checkout-warns`, PR #316, awaiting CI: the `pi-compatibility` jobs fail at "Install raw-rg integration prerequisite" (`Temporary failure resolving 'security.ubuntu.com'`, 2026-11-11 14:31 and 14:42 UTC, before any test; main's `dfbc7e28` and `2ec4c15a` fail the same way). Next: `gh run rerun --failed` on #316's runs, then `pr-checks 316` exiting 0 lets `slice` step 8 merge it.
+Slice 1 (Source checkout warns at session start) landed as `b371ab79` (#316), after #317 moved CI's ripgrep install off Ubuntu's apt mirrors, which stopped resolving on 2026-11-11. Next: plan slice 2 (Built bundle warns too) on a branch `stale-code/02-built-bundle-warns`.
 
 ## Seams
 - `src/stale-code.ts` (new): the load stamp, the watched-file set for the module's layout (`index.ts`, `src/**`, `prompts/**`; or `dist/index.js`, `prompts/**`) and the newest-mtime compare, called with an explicit root, entry and load time → `tests/stale-code.test.ts` over temp directories
@@ -28,13 +28,15 @@ Slice 1 (Source checkout warns at session start) is built, reviewed (converged) 
 
 ## Slices
 1. **Source checkout warns at session start** — delivers `src/stale-code.ts`, the `session_start` handler warning once per session for `new`, `resume` and `fork`, and the RPC host harness, for the source layout · proof: `tests/stale-code.test.ts` and `tests/pi-host-stale-code.test.ts`'s source cases red on main (no notice), green after; `npm test && npm run typecheck && npm run typecheck:pi-host` · blocked-by — · status done
-   `src/stale-code.ts` (load stamp, a watched-set table keyed by entry, the mtime compare, a per-session-id check) and `index.ts`'s `session_start` handler warn once at `new`/`resume`/`fork` in the source layout; the bundle layout stays silent for slice 2 (Built bundle warns too) · deviation: branch `stale-code/01-source-checkout-warns`, not Now's `feat/stale-code-warning` · both new tests red on main, green after; without the session-id dedupe the locked Pi 1.5.2 RPC host delivers 2 notices (measured); a live RPC drive on this checkout printed the warning naming `src/stale-code.ts` and `/reload`; `npm test` 635 files, 2514 tests passed (1 skipped), `typecheck` and `typecheck:pi-host` clean
+   `src/stale-code.ts` (load stamp, a watched-set table keyed by entry, the mtime compare, a per-session-id check) and `index.ts`'s `session_start` handler warn once at `new`/`resume`/`fork` in the source layout; the bundle layout stays silent for slice 2 (Built bundle warns too) · deviation: branch `stale-code/01-source-checkout-warns`, not Now's `feat/stale-code-warning` · both new tests red on main, green after; without the session-id dedupe the locked Pi 1.5.2 RPC host delivers 2 notices (measured); a live RPC drive on this checkout printed the warning naming `src/stale-code.ts` and `/reload`; `npm test` 635 files, 2514 tests passed (1 skipped), `typecheck` and `typecheck:pi-host` clean · `b371ab79`
 2. **Built bundle warns too** — delivers the `dist/index.js` layout's watched set and its host-test case, building into a temp copy as `tests/helpers/pi-host-dist-harness.ts` does · proof: the bundle case red before, green after · blocked-by 1 · status next
+   From slice 1: the bundle layout (`dist/index.js`) stays silent: `WATCHED` in `src/stale-code.ts` has only the `index.ts` entry; add `dist/index.js` with `dist/index.js` and `prompts`
 3. **Docs name /reload** — delivers `AGENTS.md:33`, `README.md:19`, `README.md:195`, `docs/integrations.md:35` and `docs/context-hygiene.md:171` saying a running pi keeps its loaded code until `/reload` or a restart, and that Hashline warns when it is stale; its reach is the first Done-when `git grep` plus `git grep -n -i "hot.reload\|restart" -- '*.md' ':!space' ':!CHANGELOG.md'`, each hit listed or excluded by name · proof: the Done-when commands red on main, green after · blocked-by 1 · status next
+   From slice 1: docs still say a new session picks up edits
 4. **Release 0.26.0** — delivers the version bump and a dated `[0.26.0]` CHANGELOG entry, Added for the warning, which also takes the 0.25.0 backfill to npm · proof: `tests/package-version.test.ts`, `tests/package-changelog.test.ts`; the `pi-compatibility` workflow on the merge commit · blocked-by 1, 2, 3 · status next
 
 ## Not yet specified
-- Whether the TUI, like RPC, delivers `session_start` twice per `new_session`; the per-session dedupe covers both, and slice 1 (Source checkout warns at session start) may observe it in a live TUI `/new`
+- From slice 1: whether the TUI, like RPC, delivers `session_start` twice per `/new`, unobserved by slice 1 (Source checkout warns at session start); the per-session-id dedupe covers both
 - Whether `pi install`/`pi update` reload a running process themselves, which decides whether npm users ever see the warning
 
 ## Out of scope
