@@ -241,7 +241,7 @@ try {
     const loadout = {
       mode: program.mode ?? "on", defaultInlineBudget: DEFAULT_CODEMODE_INLINE_BUDGET,
       hidden: [...hidden], modelTools: modelTools.map(tool => tool.name),
-      description: prepared.descriptions.codemode,
+      description: prepared.descriptions.codemode, descriptions: prepared.descriptions,
       declarationBytes: Buffer.byteLength(serializedDeclarations),
       estimatedDeclarationTokens: serializedDeclarations.length / 4,
     };

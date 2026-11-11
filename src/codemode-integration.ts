@@ -153,8 +153,12 @@ const FAILURE_VALUE = Type.Object({
   }),
 });
 
+// One flat union: codemode lists fields only for the top-level variants, so a nested union reads as "a value".
 export const HASHLINE_TOOL_OUTPUT_SCHEMAS: Readonly<Record<string, TSchema>> = Object.fromEntries(
-  Object.entries(HASHLINE_SUCCESS_OUTPUT_SCHEMAS).map(([name, schema]) => [name, Type.Union([schema, FAILURE_VALUE])]),
+  Object.entries(HASHLINE_SUCCESS_OUTPUT_SCHEMAS).map(([name, schema]) => [
+    name,
+    Type.Union([...(Type.IsUnion(schema) ? schema.anyOf : [schema]), FAILURE_VALUE]),
+  ]),
 );
 
 /** True when another tool (for example a codemode script) issued this call. */
