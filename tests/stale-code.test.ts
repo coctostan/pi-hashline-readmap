@@ -48,6 +48,13 @@ describe("staleCodeFiles (source layout)", () => {
     expect(staleCodeFiles(root, entry(), LOADED_AT)).toBeUndefined();
   });
 
+  it("counts a file modified after the load, not one modified at it", () => {
+    change("src/read.ts", 0);
+    expect(staleCodeFiles(root, entry(), LOADED_AT)).toBeUndefined();
+    change("src/read.ts", 0.001);
+    expect(staleCodeFiles(root, entry(), LOADED_AT)).toEqual({ count: 1, newest: "src/read.ts" });
+  });
+
   it("tolerates a missing watched directory", () => {
     rmSync(join(root, "prompts"), { recursive: true });
     change("src/read.ts", 5);
