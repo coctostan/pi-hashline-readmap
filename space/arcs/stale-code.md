@@ -17,7 +17,7 @@ On the locked Pi 1.5.2 host, a `new`, `resume` or `fork` session start in a pi p
 - [ ] 0.26.0 carries it: `package.json` reads 0.26.0 with a dated `[0.26.0]` CHANGELOG entry whose Added names the warning — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts`
 
 ## Now
-Slice 1 (Source checkout warns at session start) is active on branch `stale-code/01-source-checkout-warns`: build `src/stale-code.ts`, the `session_start` handler and the RPC host test, per its inline plan.
+Slice 1 (Source checkout warns at session start) is built, reviewed (converged) and reconciled on branch `stale-code/01-source-checkout-warns`, PR #316, awaiting CI: the `pi-compatibility` jobs fail at "Install raw-rg integration prerequisite" (`Temporary failure resolving 'security.ubuntu.com'`, 2026-11-11 14:31 and 14:42 UTC, before any test; main's `dfbc7e28` and `2ec4c15a` fail the same way). Next: `gh run rerun --failed` on #316's runs, then `pr-checks 316` exiting 0 lets `slice` step 8 merge it.
 
 ## Seams
 - `src/stale-code.ts` (new): the load stamp, the watched-file set for the module's layout (`index.ts`, `src/**`, `prompts/**`; or `dist/index.js`, `prompts/**`) and the newest-mtime compare, called with an explicit root, entry and load time → `tests/stale-code.test.ts` over temp directories
