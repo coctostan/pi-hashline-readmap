@@ -16,7 +16,7 @@ Bundled `nu` is deprecated but retained. It stays available for at least one pub
 pi install npm:pi-hashline-readmap
 ```
 
-Requires Pi extension support and Node.js 22.19 or newer. Start a new Pi session after installing; sessions do not hot-reload extensions.
+Requires Pi extension support and Node.js 22.19 or newer. After installing or updating, run `/reload` or restart Pi; a new session keeps the old code.
 
 ### Validated compatibility baseline
 
@@ -192,7 +192,7 @@ docs/                     # advanced user and integration references
 tests/                    # Vitest suite
 ```
 
-Restart Pi after source changes. See [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md).
+Run `/reload` or restart Pi after source changes. See [AGENTS.md](https://github.com/coctostan/pi-hashline-readmap/blob/main/AGENTS.md).
 
 ## Contributing
 

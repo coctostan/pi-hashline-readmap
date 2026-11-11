@@ -32,7 +32,7 @@ Earlier releases published an executor map on the `hashline:tool-executors` Even
 - Use tool `annotations` (`readOnlyHint`, `destructiveHint`, `openWorldHint`) from `pi.getAllTools()` to decide which calls need confirmation. `bash` and `nu` deliberately keep Pi's conservative defaults because they run arbitrary commands.
 - Use `structuredContent` (in codemode scripts) or `details.ptcValue` (in `tool_result` handlers and renderers) instead of parsing rendered output.
 - Be prepared for optional tools such as `nu` and `context_hygiene_report` to be absent.
-- Do not rely on hot reload. Restart the pi session after changing this extension's source.
+- Do not rely on hot reload. A running pi keeps this extension's code, new sessions included, until `/reload` or a restart; Hashline warns at a new, resumed or forked session's start when its files changed after loading.
 
 During deprecation, do not load another extension registering the same `nu` name alongside Hashline's bundled integration. Disabling a tool by name does not disable one registration source selectively. Use the [retention/conflict guidance](nu-deprecation.md#avoid-conflicting-registrations); no maintained replacement package is promised here. Prefer dedicated file tools and codemode for general structured exploration, and Bash for external CLIs. No setting or tool selection is automatically changed.
 
