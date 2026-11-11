@@ -1,5 +1,5 @@
 # Now
-- [stale-code](arcs/stale-code.md) (Pi says when its Hashline code is stale): slice 3 (Docs name /reload) active on `stale-code/03-docs-name-reload`; a session start warns once when loaded code is older than its files; docs name `/reload`; 0.26.0
+- [stale-code](arcs/stale-code.md) (Pi says when its Hashline code is stale): slice 3 (Docs name /reload) landed (`14016758`); next, slice 4 (Release 0.26.0); a session start warns once when loaded code is older than its files; docs name `/reload`; 0.26.0
 
 ## Next
 - `correct` at read-in-scripts (Codemode scripts know what read returns)'s close (run `~/.jidoka/sessions/2026-11-11T03-42-25Z-read-in-scripts/classes.json`; 3 sessions, 220 s, 105,312 tokens; 17 classes, 14 seen once), owner 2026-11-11 (chat): `read` `charOffset` with a multi-line `limit` (3 sessions) → accept: stale loaded code, fixed by the restart, shaped as stale-code (Pi says when its Hashline code is stale). Closing reports repeating diagnoses (3 sessions) → drop: the kernel rules ask for evidence, deviations and skips, which is what the judge counted. Bare slice mentions (2 sessions, AGENTS.md:16; `02-58-51` 03:15, `03-16-13` 03:18) → enforce, folded into pi-1-5-2-host (Pi 1.5.2 is the one tested host)'s lint line below; both instances are chat replies, which that lint cannot see
