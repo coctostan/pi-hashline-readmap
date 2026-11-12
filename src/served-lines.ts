@@ -218,7 +218,7 @@ export function anchorsToRows(anchors: Iterable<string>): Array<{ line: number; 
 	for (const anchor of anchors) {
 		try {
 			const parsed = parseLineRef(anchor);
-			if (parsed.line > 0) rows.push({ line: parsed.line, hash: parsed.hash });
+			rows.push({ line: parsed.line, hash: parsed.hash });
 		} catch {
 			// not an anchor
 		}

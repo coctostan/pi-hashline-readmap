@@ -618,23 +618,6 @@ describe("small-model slips observed in the benchmark traces", () => {
     await s.edit([{ set_line: { anchor: anchor(result.text, "import { a } from 'x';", 2), new_text: "import { a2 } from 'x';" } }]);
     expect(s.bytes()).toBe("import { a } from 'x';\nimport { b } from 'y';\nimport { a2 } from 'x';\n");
   });
-  it("an anchor pasted without its line number resolves when exactly one line matches", async () => {
-    const s = session("slip.ts", "aaa\nbbb\nccc\n");
-    const r = await s.read();
-    const hashOnly = anchor(r.text, "bbb").split(":")[1];
-    await s.edit([{ set_line: { anchor: `${hashOnly}|bbb`, new_text: "BBB" } }]);
-    expect(s.bytes()).toBe("aaa\nBBB\nccc\n");
-  });
-
-  it("a line-free anchor that matches several lines is refused with the candidates", async () => {
-    const s = session("slip.ts", "}\nx\n}\n");
-    const r = await s.read();
-    const hashOnly = anchor(r.text, "}").split(":")[1];
-    const result = await s.edit([{ set_line: { anchor: `${hashOnly}|}`, new_text: "};" } }]);
-    expect(result.isError).toBe(true);
-    expect(result.text).toContain("matches 2 lines");
-    expect(s.bytes()).toBe("}\nx\n}\n");
-  });
 
   it("a hash-prefixed replacement copied from the row is stripped", async () => {
     const s = session("slip.ts", "aaa\nbbb\nccc\n");

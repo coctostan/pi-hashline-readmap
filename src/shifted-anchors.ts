@@ -45,7 +45,6 @@ export function remapShiftedAnchors(input: {
 		} catch {
 			return anchor;
 		}
-		if (ref.line === 0) return anchor;
 		const target = served.shiftedAnchor(path, ref.line, ref.hash);
 		if (target === undefined) return anchor;
 		if (target === null || hashAt(ref.line) === ref.hash) {
@@ -92,8 +91,7 @@ function rangeAnchors(edit: HashlineEditItem): [string, string] | undefined {
 
 function anchorLine(anchor: string): number | undefined {
 	try {
-		const line = parseLineRef(anchor).line;
-		return line > 0 ? line : undefined;
+		return parseLineRef(anchor).line;
 	} catch {
 		return undefined;
 	}
