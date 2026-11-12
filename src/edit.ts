@@ -905,7 +905,7 @@ function detectNoop(input: {
 			for (const ref of refs) {
 				try {
 					const parsed = parseLineRef(ref);
-					if (parsed.line >= 1 && parsed.line <= lines.length) {
+					if (parsed.line <= lines.length) {
 						const lineContent = lines[parsed.line - 1];
 						const hash = computeLineHash(parsed.line, lineContent);
 						targetLines.push(`${parsed.line}:${hash}|${escapeControlCharsForDisplay(lineContent)}`);

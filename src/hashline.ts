@@ -170,15 +170,13 @@ export function hashLines(content: string): string {
 
 // ─── Parsing ────────────────────────────────────────────────────────────
 
-const LINE_REF_RE = new RegExp(`^(?:(\\d+):)?([0-9a-fA-F]{${HASH_LEN}})$`);
+const LINE_REF_RE = new RegExp(`^(\\d+):([0-9a-fA-F]{${HASH_LEN}})$`);
 
 /**
  * Parse an anchor. Accepts the canonical `LINE:HASH` and the slips models make when copying it:
- * a trailing `|content`, several pasted rows (the first is used), diff or grep markers (`>>>`,
- * `>>`, `+`, `-`), and a bare `HASH` or `HASH|content` without the line number. A missing line
- * number is reported as `line: 0`; the edit resolves it against the current file, by hash and
- * the pasted content, and refuses it unless exactly one line matches. Digits alone (`49`, `49:`)
- * are a line number missing its hash, reported as `hash: ""`; the edit refuses it with that line's row.
+ * a trailing `|content`, several pasted rows (the first is used), and diff or grep markers (`>>>`,
+ * `>>`, `+`, `-`). An anchor without its line number is refused. Digits alone (`49`, `49:`) are a
+ * line number missing its hash, reported as `hash: ""`; the edit refuses it with that line's row.
  */
 export function parseLineRef(ref: string): { line: number; hash: string; content?: string } {
 	const firstRow = ref.replace(/\r/g, "").split("\n").find((row) => row.trim().length > 0) ?? "";
@@ -186,11 +184,11 @@ export function parseLineRef(ref: string): { line: number; hash: string; content
 	const pipe = row.indexOf("|");
 	const content = pipe >= 0 ? row.slice(pipe + 1) : undefined;
 	const head = (pipe >= 0 ? row.slice(0, pipe) : row).replace(/ {2}.*$/, "").trim().replace(/\s*:\s*/, ":");
-	// Digits alone are a line number missing its hash, never a bare hash: about a quarter of hashes are all digits.
+	// Digits alone are a line number missing its hash: about a quarter of hashes are all digits.
 	const match = (content === undefined && head.match(/^(\d+):?$/)) || head.match(LINE_REF_RE);
 	if (!match) throw new Error(`Invalid line reference "${ref}". Expected "LINE:HASH" (e.g. "5:abc").`);
-	const line = match[1] === undefined ? 0 : Number.parseInt(match[1], 10);
-	if (match[1] !== undefined && line < 1) throw new Error(`Line ${line} does not exist: line numbers start at 1 (anchor "${ref}").`);
+	const line = Number.parseInt(match[1], 10);
+	if (line < 1) throw new Error(`Line ${line} does not exist: line numbers start at 1 (anchor "${ref}").`);
 	return { line, hash: match[2]?.toLowerCase() ?? "", content };
 }
 
@@ -599,9 +597,8 @@ interface AnchorResolver {
 }
 
 /**
- * Verifies `LINE:HASH` anchors against one file's lines: exact match, relocation of an unchanged
- * line within the window, or a line-free anchor that matches exactly one line. A changed line is
- * never matched to a similar one.
+ * Verifies `LINE:HASH` anchors against one file's lines: exact match, or relocation of an unchanged
+ * line within the window. A changed line is never matched to a similar one.
  */
 function createAnchorResolver(fileLines: string[], relocationWindow: number, signal?: AbortSignal): AnchorResolver {
 	const terminatorLine = fileLines.length > 1 && fileLines[fileLines.length - 1] === "" ? fileLines.length : 0;
@@ -633,38 +630,10 @@ function createAnchorResolver(fileLines: string[], relocationWindow: number, sig
 		return match;
 	}
 
-	/**
-	 * Resolve an anchor pasted without its line number (`HASH` or `HASH|content`). Exactly one
-	 * line must carry that hash (and the pasted content, when given); otherwise refuse.
-	 */
-	function resolveLineFreeRef(ref: ParsedRef): void {
-		const byHash = (hashToLines.get(ref.hash) ?? []).filter((line) => line !== terminatorLine);
-		const pasted = ref.content?.replace(/\r$/, "");
-		const candidates = pasted === undefined ? byHash : byHash.filter((line) => fileLines[line - 1].replace(/\r$/, "") === pasted);
-		const shown = ref.content === undefined ? ref.hash : `${ref.hash}|${ref.content}`;
-		if (candidates.length === 1) {
-			ref.line = candidates[0];
-			notes.add(`Anchor "${shown}" had no line number; resolved to ${ref.line}:${ref.hash}. Copy anchors as LINE:HASH.`);
-			return;
-		}
-		const rows = candidates
-			.slice(0, 5)
-			.map((line) => `  ${line}:${lineHashes[line - 1]}|${escapeControlCharsForDisplay(fileLines[line - 1])}`);
-		throw new Error(
-			candidates.length === 0
-				? `Anchor "${shown}" has no line number and no current line matches it. Anchors are LINE:HASH, for example "5:abc" from the row "5:abc|text". Re-read the file for current anchors.`
-				: `Anchor "${shown}" has no line number and matches ${candidates.length} lines. Use the full LINE:HASH anchor of the one you mean:\n${rows.join("\n")}`,
-		);
-	}
-
 	function validate(ref: ParsedRef): boolean {
-		if (ref.line === 0) {
-			resolveLineFreeRef(ref);
-			return true;
-		}
 		if (ref.hash === "") {
 			const lineCount = terminatorLine ? fileLines.length - 1 : fileLines.length;
-			if (ref.line > lineCount) throw new Error(`Anchor "${ref.line}" has no hash, and line ${ref.line} does not exist (file has ${lineCount} lines). Anchors are LINE:HASH, for example "5:abc" from the row "5:abc|text".`);
+			if (ref.line > lineCount) throw new Error(`Line ${ref.line} does not exist (file has ${lineCount} lines). Re-read the file for current anchors.`);
 			mismatches.push({ line: ref.line, expected: "", actual: lineHashes[ref.line - 1] });
 			return false;
 		}
@@ -688,8 +657,7 @@ function createAnchorResolver(fileLines: string[], relocationWindow: number, sig
 	}
 
 	function validateRange(start: ParsedRef, end: ParsedRef): void {
-		const numbered = start.line > 0 && end.line > 0;
-		if (numbered && start.line > end.line) {
+		if (start.line > end.line) {
 			throw new Error(`Range start line ${start.line} must be <= end line ${end.line}`);
 		}
 		const originalStart = start.line;
@@ -699,7 +667,7 @@ function createAnchorResolver(fileLines: string[], relocationWindow: number, sig
 		if (!startOk || !endOk) return;
 		if (start.line > end.line) throw new Error(`Range start line ${start.line} must be <= end line ${end.line}`);
 		// Relocation that changes the range size means lines were added or removed inside it.
-		if (numbered && end.line - start.line !== originalEnd - originalStart) {
+		if (end.line - start.line !== originalEnd - originalStart) {
 			start.line = originalStart;
 			end.line = originalEnd;
 			mismatches.push(
