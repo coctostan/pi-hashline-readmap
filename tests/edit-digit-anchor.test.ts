@@ -83,6 +83,7 @@ describe("a digit-only edit anchor", () => {
     const result = await s.edit("f.txt", [{ set_line: { anchor: digits, new_text: "BBB" } }]);
     expect(result.isError).toBe(true);
     expect(result.text).toContain(line2);
+    expect(result.text).toMatch(/"2" is a line number without a hash/);
     expect(s.bytes("f.txt")).toBe("aaa\nbbb\nccc\n");
   });
 
@@ -124,6 +125,34 @@ describe("a digit-only edit anchor", () => {
     expect(result.isError).toBe(true);
     expect(result.text).toMatch(/line 9 does not exist/i);
     expect(s.bytes("f.txt")).toBe("aaa\nbbb\nccc\n");
+  });
+
+  it("on the last line shows that row, and one past it (the final newline) does not exist", async () => {
+    const s = session({ "f.txt": "aaa\nbbb\nccc\n" });
+    const line3 = row((await s.read("f.txt")).text, 3);
+    const last = await s.edit("f.txt", [{ set_line: { anchor: "3", new_text: "X" } }]);
+    expect(last.isError).toBe(true);
+    expect(last.text).toContain(line3);
+    const past = await s.edit("f.txt", [{ set_line: { anchor: "4", new_text: "X" } }]);
+    expect(past.isError).toBe(true);
+    expect(past.text).toMatch(/line 4 does not exist/i);
+    expect(s.bytes("f.txt")).toBe("aaa\nbbb\nccc\n");
+  });
+
+  it("is not reported as a changed line, while a stale anchor beside it still is", async () => {
+    const s = session({ "f.txt": "aaa\nbbb\nccc\nddd\neee\nfff\ngggg\n" });
+    const shown = (await s.read("f.txt")).text;
+    const alone = await s.edit("f.txt", [{ set_line: { anchor: "2", new_text: "X" } }]);
+    expect(alone.text).not.toMatch(/changed since last read/);
+    s.mutate("f.txt", "aaa\nbbb\nccc\nddd\neee\nfff\nGGGG\n");
+    const mixed = await s.edit("f.txt", [
+      { set_line: { anchor: "2", new_text: "X" } },
+      { set_line: { anchor: anchorOf(row(shown, 7)), new_text: "Y" } },
+    ]);
+    expect(mixed.isError).toBe(true);
+    expect(mixed.text).toMatch(/1 line has changed since last read/);
+    expect(mixed.text).toContain(row(shown, 2));
+    expect(s.bytes("f.txt")).toBe("aaa\nbbb\nccc\nddd\neee\nfff\nGGGG\n");
   });
 
   it("shows a row the retry can use without a re-read, even after the line changed on disk", async () => {
