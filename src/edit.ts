@@ -235,18 +235,6 @@ function validateEdits(input: {
 				: undefined;
 	const hasLegacyInput = legacyOldText !== undefined || legacyNewText !== undefined;
 
-	if (typeof (parsed as { edits?: unknown }).edits === "string") {
-		try {
-			const reparsed = JSON.parse((parsed as { edits?: unknown }).edits as string);
-			if (Array.isArray(reparsed)) {
-				(parsed as { edits?: unknown }).edits = reparsed;
-				(rawInput as { edits?: unknown }).edits = reparsed;
-			}
-		} catch {
-			// Fall through so the existing validation path reports the error.
-		}
-	}
-
 	const hasEditsInput = Array.isArray(parsed.edits);
 	let edits: EditItem[] = Array.isArray(parsed.edits) ? parsed.edits : [];
 	let legacyNormalizationWarning: string | undefined;

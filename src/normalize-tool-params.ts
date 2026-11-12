@@ -31,10 +31,25 @@ function matchingUnionVariant(schema: TSchema, value: unknown): TSchema | undefi
   );
 }
 
+function parseJsonArray(value: string): unknown[] | undefined {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function visit(schema: TSchema, value: unknown, prefix = ""): NormalizeToolParametersResult {
   if (Type.IsUnion(schema)) {
     const variant = matchingUnionVariant(schema, value);
     return variant ? visit(variant, value, prefix) : { value };
+  }
+
+  // Models sometimes send an array argument JSON-encoded, such as edit's `edits`; anything but a JSON array stays a string.
+  if (Type.IsArray(schema) && typeof value === "string") {
+    const parsed = parseJsonArray(value);
+    return parsed ? visit(schema, parsed, prefix) : { value };
   }
 
   if (Type.IsArray(schema) && Array.isArray(value)) {
