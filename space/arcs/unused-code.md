@@ -1,0 +1,56 @@
+---
+status: active
+---
+# Code nothing uses is gone
+
+Several pieces of this extension's code and docs are never used: an anchor form no agent has sent in 18,390 edits, a grep formatter only tests call, fields nothing reads, a doc line said twice, and version numbers copied into tests that every release must edit by hand. This arc deletes them, so a reader has less to hold, and fixes a test that fails at random when another test leaves a temp file behind. The tools behave as before, except that an anchor missing its line number is refused.
+
+## Destination
+On the locked Pi 1.5.2 host, `edit` refuses a line-free anchor (`HASH`, `HASH|content`) at parse time, the cut names are gone from `src/` and `tests/`, no test names the package version, and `tests/nu-execute.test.ts` no longer fails on another test's temp files; nothing else changes; 0.28.0 ships it.
+
+## Done when
+- [ ] An `edit` anchor of a bare hash or `HASH|content` (`"abc"`, `"abc|text"`), in any anchor field (`anchor`, `start_anchor`, `end_anchor`, `after_anchor`), writes nothing and fails with `Invalid line reference "<anchor>". Expected "LINE:HASH" (e.g. "5:abc").`, even when exactly one line carries that hash; a digit-only anchor past the end of the file fails with `Line N does not exist (file has M lines). Re-read the file for current anchors.` — verified by `tests/edit-line-free-anchor.test.ts` (new) (main 2026-11-12: `parseLineRef("abc")` returns `{"line":0,"hash":"abc"}` and `"abc|text"` `{"line":0,"hash":"abc","content":"text"}`, both resolved when one line matches; `"9"` past the end reads `Anchor "9" has no hash, and line 9 does not exist …`)
+- [ ] The cut names are gone: `git grep -nE "resolveLineFreeRef|line-free|formatGrepOutput|feedsPipe|truncateLine" -- src tests` and `git grep -n inSubstitution -- tests` print nothing, so `parseShellCommands`' commands carry neither field; under `docs/`, `HASHLINE_TOOL_PTC_POLICY` appears only in `docs/integrations.md`, which `tests/documentation-content.test.ts` pins it in — verified by those greps and that test (main 2026-11-12: 29 hits, 2 hits, and the name in `docs/integrations.md` and `docs/structured-output.md`)
+- [ ] No test names the package's version: `git grep -nF "$(node -p "require('./package.json').version")" -- tests` prints nothing, and `tests/package-version.test.ts` fails when `package.json`, `package-lock.json` and the lock's root package disagree — verified by that grep and that test, with a mismatch made by hand (main 2026-11-12: 6 hits in `tests/package-version.test.ts` and `tests/package-content.test.ts`)
+- [ ] `tests/nu-execute.test.ts`'s "cleans up temp files" case passes with a stray `pi-nu-decoy.nu` in the system tmpdir, and fails when `executeNuScript` leaves its own file behind — verified by that test run with the decoy, and with `unlinkSync` mutated out of `src/nu.ts` (main 2026-11-12: fails with the decoy, `1 failed | 8 passed`)
+- [ ] Nothing else changes: `npm test && npm run typecheck && npm run typecheck:pi-host` pass with no existing assertion edited or removed beyond those a slice's plan names — verified by that command
+- [ ] 0.28.0 carries it: `package.json` reads 0.28.0 with a dated `[0.28.0]` CHANGELOG entry whose `Removed` names line-free anchors, and the `pi-compatibility` workflow passes on the release's merge commit, verified on the release, outside the code — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` and that workflow run
+
+## Now
+Slice 1 (Nu cleanup test watches its own file) is next; run `slice` in a fresh session.
+
+## Design
+- **Chosen:** delete each piece in the module that owns it. `parseLineRef` (`src/hashline.ts`) requires the `LINE:` part, so every parsed anchor has a line of 1 or more, and `createAnchorResolver` loses `resolveLineFreeRef`, its `line === 0` branch and `validateRange`'s `numbered` guard; the past-end message for a digit-only anchor becomes the one numbered anchors already get. `formatGrepOutput`'s tests move to `buildGrepOutput`, the formatter the tool uses. `truncateDisplayLine` (`src/ptc-value.ts`) compares `display.length > cap` itself, which is all the host's `truncateLine` computes (`pi-coding-agent` 1.5.2, `dist/core/tools/truncate.js:209`). `tests/package-version.test.ts` checks that the package, the lock and the lock root agree rather than naming a version.
+- **Other:** keep the parsed `line: 0` sentinel and refuse it in the resolver with a message of its own, and keep `formatGrepOutput` as a thin wrapper over `buildGrepOutput` so its tests stand unchanged.
+- **Simpler by reader load:** the chosen one. The other keeps a sentinel every reader of `ParsedRef` must remember, and a second way to format grep output that an agent copying the nearest example would keep gaining callers for.
+
+## Seams
+- `executeNuScript` (`src/nu.ts`) → `tests/nu-execute.test.ts`
+- `parseLineRef` and `applyHashlineEdits` (`src/hashline.ts`), through the `edit` tool → `tests/edit-line-free-anchor.test.ts` (new), beside `tests/edit-digit-anchor.test.ts` and `tests/edit-scenarios.test.ts`
+- `buildGrepOutput` (`src/grep.ts`) → `tests/grep-context-reduction.test.ts`, `tests/grep-summary.test.ts`, `tests/grep-truncation-indicator.test.ts`
+- `parseShellCommands` (`src/bash-command-state.ts`) → `tests/bash-command-state.test.ts`
+- `truncateDisplayLine` (`src/ptc-value.ts`) → `tests/repro-217-truncate-display-line.test.ts` and the `read` tests that reach it
+- Docs → `tests/documentation-content.test.ts`
+- Package and release → `tests/package-version.test.ts`, `tests/package-content.test.ts`, `tests/package-changelog.test.ts`, the `pi-compatibility` workflow
+- Real artifact: `pi --no-extensions --no-session -e <repo>/index.ts --mode json -p`, by `AGENTS.md` § Prove, bounded by the bash tool's `timeout` parameter, reading `tool_execution_end` events
+
+## Slices
+1. **Nu cleanup test watches its own file** — delivers `tests/nu-execute.test.ts`'s temp-file case asserting on the file its own call made, not on every `pi-nu-*.nu` in the shared tmpdir; its reach is `git grep -n -E "pi-nu-|tmpdir" -- src/nu.ts tests` · proof: the case red on main with a decoy `pi-nu-decoy.nu` in the tmpdir, green after; red with `unlinkSync` mutated out of `src/nu.ts` · blocked-by — · status next
+2. **Line-free anchors are refused** — delivers `parseLineRef` refusing `HASH` and `HASH|content` with `Invalid line reference`, `resolveLineFreeRef` and the `line === 0` paths gone, and a digit-only anchor past the end getting the numbered anchor's `Line N does not exist` message; its reach is `git grep -n -E "resolveLineFreeRef|line-free|no line number|without the line number|line: 0|HASH\|content|has no hash" -- src prompts docs tests README.md`, plus the behavior's tell, `git grep -n -E "\.line (===|>|<=?) 0|numbered" -- src/hashline.ts src/edit.ts`, each hit listed or excluded by name; `HASH|` prefix stripping in `new_text` stays · proof: `tests/edit-line-free-anchor.test.ts` (new) red on main, green after; a live drive by `AGENTS.md` § Prove asking for an `edit` at a bare-hash anchor of a 3-line scratch file, its `tool_execution_end` showing `Invalid line reference` and the file unchanged · blocked-by — · status next
+3. **Grep tests use the tool's formatter** — delivers `formatGrepOutput` gone, each case of its three test files that covers behavior no other test does moved onto `buildGrepOutput`, the duplicates dropped, and the exact-`limit` stop-notice case dropped since the registered tool prints none there; its reach is `git grep -n -E "formatGrepOutput|buildGrepOutput" -- src tests docs prompts` · proof: `git grep formatGrepOutput` empty; each moved case red under a mutation of the `buildGrepOutput` branch it pins · blocked-by — · status next
+4. **Shell parser output drops unread fields** — delivers `SimpleCommand` without `inSubstitution` or `feedsPipe`, `parseShellCommands` keeping its `inSubstitution` parameter, and the piped-group clause of the `shortcut:` at `src/bash-command-state.ts:138` gone; its reach is `git grep -n -E "feedsPipe|inSubstitution|SimpleCommand" -- src tests docs` · proof: the second done-when check's greps empty; `tests/bash-command-state.test.ts`'s cases green on the text order they pin · blocked-by — · status next
+5. **Line cap needs no host call** — delivers `truncateDisplayLine` comparing `display.length > cap` itself and the `truncateLine` import gone from `src/ptc-value.ts`; its reach is `git grep -n -E "truncateLine|truncateDisplayLine" -- src tests` · proof: `tests/repro-217-truncate-display-line.test.ts` and the `read` char-cap tests green; one red under an off-by-one mutation of the comparison · blocked-by — · status next
+6. **Policy removal is stated once** — delivers `docs/structured-output.md:125`'s `HASHLINE_TOOL_PTC_POLICY` sentence gone, and its pin in `tests/documentation-content.test.ts` moved to the `integrations` doc; its reach is `git grep -n HASHLINE_TOOL_PTC_POLICY -- docs tests README.md` · proof: the pin red when `docs/integrations.md` drops the name, green after · blocked-by — · status next
+7. **Version lives in package.json alone** — delivers `tests/package-version.test.ts` asserting that the package, the lock and the lock root agree, and `tests/package-content.test.ts` without its version line or a version in its `describe` name; its reach is `git grep -nF "0.27.0" -- tests` · proof: the third done-when check's grep empty; the test red with the lock's version changed by hand · blocked-by — · status next
+8. **Release 0.28.0** — delivers the version bump and a dated `[0.28.0]` CHANGELOG entry: `Removed` for line-free anchors, the folded past-end message and the cut internals as each slice words them; `npm publish` stays the owner's · proof: `tests/package-version.test.ts`, `tests/package-changelog.test.ts`; the `pi-compatibility` workflow on the merge commit · blocked-by 1, 2, 3, 4, 5, 6, 7 · status next
+
+## Not yet specified
+- Whether any codemode-nested `edit` sent a bare hash: those calls log under `codemode`, which the 2026-11-12 count left unclassified; act if a refusal turns up in use
+
+## Out of scope
+- `HASH|` prefix stripping in `new_text`, which stays
+- Leaving `docs/tool-ab-pilot/` and `docs/tool-ab-fifth-arm/` out of the tarball, the documentation phrase pins, the grep one-line-gap test and the `tool-ab` run date: they stay in `NOW.md` § Next
+- `npm publish`, the owner's
+
+## Decisions
+- No ruling; the owner's choices of 2026-11-12 (chat) sit in Design and Out of scope
