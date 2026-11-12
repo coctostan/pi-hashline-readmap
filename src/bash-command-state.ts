@@ -85,16 +85,13 @@ function pushUniqueTarget(targets: string[], target: string | undefined): void {
 
 /**
  * One simple command: its source text (first word to last, redirections included), its words with quotes
- * removed, the files its redirections write, the directory it runs in, whether it runs inside a `$(…)`,
- * backtick, `<(…)` or `>(…)` substitution, and whether a `|` or `|&` sends its stdout on.
+ * removed, the files its redirections write, and the directory it runs in.
  */
 export interface SimpleCommand {
   text: string;
   words: string[];
   writes: string[];
   cwd: string | undefined;
-  inSubstitution: boolean;
-  feedsPipe: boolean;
 }
 
 interface Heredoc {
@@ -137,8 +134,7 @@ function skipHeredocBodies(source: string, start: number, heredocs: readonly Her
  *
  * shortcut: a subset of bash, the one agents write; known misses: `case` patterns' `)` inside `$(…)`,
  * `$'…'` quoting, `[[ a > b ]]` read as a redirection, a `cd` taken as done even when it fails, sits
- * in a function body, or runs in a pipeline or behind `&`, `CDPATH` ignored, a group piped as a whole
- * (`(a; b) | c`, `{ …; } | c`, `done | c`) leaving its inner commands' `feedsPipe` false. Upgrade to a
+ * in a function body, or runs in a pipeline or behind `&`, `CDPATH` ignored. Upgrade to a
  * real bash parser if misses turn up.
  */
 export function parseShellCommands(
@@ -172,10 +168,10 @@ export function parseShellCommands(
     inWord = quoted = false;
     pending = undefined;
   };
-  const endCommand = (feedsPipe = false) => {
+  const endCommand = () => {
     endWord();
     if (command.words.length > 0 || command.writes.length > 0) {
-      commands.push({ ...command, text: source.slice(textStart, textEnd), cwd, inSubstitution, feedsPipe });
+      commands.push({ ...command, text: source.slice(textStart, textEnd), cwd });
       const words = commandWords(command.words);
       if (words[0] === "cd") {
         const operands = nonOptionOperands(words.slice(1));
@@ -192,8 +188,7 @@ export function parseShellCommands(
   const scanExpansion = (start: number): number => {
     if (source[start] === "`") {
       const end = closingQuote(source, start);
-      const inner = parseShellCommands(source.slice(start + 1, end), cwd).commands;
-      commands.push(...inner.map((part) => ({ ...part, inSubstitution: true })));
+      commands.push(...parseShellCommands(source.slice(start + 1, end), cwd).commands);
       return end;
     }
     if (source[start + 1] === "{") return inertSpan(start + 2, "{", "}");
@@ -276,8 +271,7 @@ export function parseShellCommands(
     } else if (char === ")" && inSubstitution && subshellDirs.length === 0) {
       break;
     } else if (char === ";" || char === "&" || char === "|" || char === "(" || char === ")") {
-      // The second `|` of `||`, or the `&` of `|&`, only ends an already empty command.
-      endCommand(char === "|" && next !== "|");
+      endCommand();
       if (char === "(") subshellDirs.push(cwd);
       if (char === ")" && subshellDirs.length > 0) cwd = subshellDirs.pop();
     } else if (char === "\n") {
