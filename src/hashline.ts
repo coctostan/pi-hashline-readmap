@@ -177,7 +177,8 @@ const LINE_REF_RE = new RegExp(`^(?:(\\d+):)?([0-9a-fA-F]{${HASH_LEN}})$`);
  * a trailing `|content`, several pasted rows (the first is used), diff or grep markers (`>>>`,
  * `>>`, `+`, `-`), and a bare `HASH` or `HASH|content` without the line number. A missing line
  * number is reported as `line: 0`; the edit resolves it against the current file, by hash and
- * the pasted content, and refuses it unless exactly one line matches.
+ * the pasted content, and refuses it unless exactly one line matches. Digits alone (`49`, `49:`)
+ * are a line number missing its hash, reported as `hash: ""`; the edit refuses it with that line's row.
  */
 export function parseLineRef(ref: string): { line: number; hash: string; content?: string } {
 	const firstRow = ref.replace(/\r/g, "").split("\n").find((row) => row.trim().length > 0) ?? "";
@@ -185,11 +186,12 @@ export function parseLineRef(ref: string): { line: number; hash: string; content
 	const pipe = row.indexOf("|");
 	const content = pipe >= 0 ? row.slice(pipe + 1) : undefined;
 	const head = (pipe >= 0 ? row.slice(0, pipe) : row).replace(/ {2}.*$/, "").trim().replace(/\s*:\s*/, ":");
-	const match = head.match(LINE_REF_RE);
+	// Digits alone are a line number missing its hash, never a bare hash: about a quarter of hashes are all digits.
+	const match = (content === undefined && head.match(/^(\d+):?$/)) || head.match(LINE_REF_RE);
 	if (!match) throw new Error(`Invalid line reference "${ref}". Expected "LINE:HASH" (e.g. "5:abc").`);
 	const line = match[1] === undefined ? 0 : Number.parseInt(match[1], 10);
-	if (match[1] !== undefined && line < 1) throw new Error(`Line number must be >= 1, got ${line} in "${ref}".`);
-	return { line, hash: match[2].toLowerCase(), content };
+	if (match[1] !== undefined && line < 1) throw new Error(`Line ${line} does not exist: line numbers start at 1 (anchor "${ref}").`);
+	return { line, hash: match[2]?.toLowerCase() ?? "", content };
 }
 
 // ─── Mismatch formatting ────────────────────────────────────────────────
@@ -258,11 +260,23 @@ function formatMismatchError(
 		}
 	}
 	const sorted = [...displayLines].sort((a, b) => a - b);
-	const out: string[] = [
-		"Edit rejected — nothing was written. The anchor hash did not match the current file content.",
-		`${mismatches.length} line${mismatches.length > 1 ? "s have" : " has"} changed since last read. Auto-relocation checks only within ±${relocationWindow} lines of each anchor. Use the updated LINE:HASH references shown below (>>> marks changed lines).`,
-		"",
-	];
+	const stale = mismatches.filter((m) => m.expected !== "");
+	const hashless = mismatches.filter((m) => m.expected === "").map((m) => `"${m.line}"`);
+	const out: string[] = ["Edit rejected — nothing was written."];
+	if (stale.length) {
+		out[0] += " The anchor hash did not match the current file content.";
+		out.push(
+			`${stale.length} line${stale.length > 1 ? "s have" : " has"} changed since last read. Auto-relocation checks only within ±${relocationWindow} lines of each anchor. Use the updated LINE:HASH references shown below (>>> marks changed lines).`,
+		);
+	}
+	if (hashless.length) {
+		out.push(
+			hashless.length > 1
+				? `Anchors ${hashless.join(", ")} are line numbers without a hash. Anchors are LINE:HASH; use the current ones shown below (>>> marks those lines).`
+				: `Anchor ${hashless[0]} is a line number without a hash. Anchors are LINE:HASH; use the current one shown below (>>> marks that line).`,
+		);
+	}
+	out.push("");
 	let prev = -1;
 	for (const num of sorted) {
 		if (prev !== -1 && num > prev + 1) out.push("    ...");
@@ -647,6 +661,12 @@ function createAnchorResolver(fileLines: string[], relocationWindow: number, sig
 		if (ref.line === 0) {
 			resolveLineFreeRef(ref);
 			return true;
+		}
+		if (ref.hash === "") {
+			const lineCount = terminatorLine ? fileLines.length - 1 : fileLines.length;
+			if (ref.line > lineCount) throw new Error(`Anchor "${ref.line}" has no hash, and line ${ref.line} does not exist (file has ${lineCount} lines). Anchors are LINE:HASH, for example "5:abc" from the row "5:abc|text".`);
+			mismatches.push({ line: ref.line, expected: "", actual: lineHashes[ref.line - 1] });
+			return false;
 		}
 		const expected = ref.hash.toLowerCase();
 		const originalLine = ref.line;
