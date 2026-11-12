@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-12
+
+Code nothing used is gone: an `edit` anchor without its line number, a grep formatter only tests called, two shell-parser fields nothing read and a host call one comparison replaces. The tools behave as before, except that an anchor missing its line number is refused. Tests no longer name the package version, and the Nu temp-file test no longer fails on another test's leftover file (#325, #331).
+
+### Changed
+
+- An `edit` anchor of digits alone past the end of the file fails with `Line N does not exist (file has M lines). Re-read the file for current anchors.`, the message a numbered anchor past the end already got (#326).
+
+### Removed
+
+- Breaking: `edit` anchors without their line number: a bare hash or `HASH|content` (`"abc"`, `"abc|text"`), in any anchor field, writes nothing and fails with `Invalid line reference "<anchor>". Expected "LINE:HASH" (e.g. "5:abc").`, where it once edited the one line carrying that hash. `HASH|` prefix stripping in `new_text` stays (#326).
+- `formatGrepOutput` (`src/grep.ts`), which only tests called; its cases moved to `buildGrepOutput`, the formatter the `grep` tool uses (#327).
+- The `inSubstitution` and `feedsPipe` fields of the bash command parser's `SimpleCommand`, which nothing read (#328).
+- `read`'s call to the host's `truncateLine`: `truncateDisplayLine` compares a line's length with the cap itself, as `truncateLine` did (#329).
+- `docs/structured-output.md`'s repeat of the `HASHLINE_TOOL_PTC_POLICY` removal, which `docs/integrations.md` states (#330).
 ## [0.27.0] - 2026-11-11
 
 Three near-miss calls now recover in one step: `edits` sent as a JSON string applies, an anchor of digits alone shows that line's anchor, and a regex ripgrep cannot parse points at `literal: true`. No safety refusal loosens.
