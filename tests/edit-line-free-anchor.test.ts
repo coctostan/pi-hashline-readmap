@@ -18,7 +18,7 @@ interface CallResult {
 }
 
 function session(content: string) {
-  const dir = mkdtempSync(join(tmpdir(), "edit-line-free-anchor-"));
+  const dir = mkdtempSync(join(tmpdir(), "edit-unnumbered-anchor-"));
   writeFileSync(join(dir, "f.txt"), content, "utf8");
   const tools = new Map<string, any>();
   const handlers: Record<string, Function> = {};
@@ -73,7 +73,7 @@ beforeAll(async () => {
   await ensureHashInit();
 });
 
-describe("a line-free edit anchor", () => {
+describe("an edit anchor missing its line number", () => {
   const fields: Array<[string, (free: string, a: Record<number, string>) => unknown]> = [
     ["set_line.anchor", (free) => ({ set_line: { anchor: free, new_text: "X" } })],
     ["replace_lines.start_anchor", (free, a) => ({ replace_lines: { start_anchor: free, end_anchor: a[3], new_text: "X" } })],
