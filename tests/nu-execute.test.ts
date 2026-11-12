@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync } from "node:fs";
+import { basename } from "node:path";
 
 // Check if nu is installed for integration tests
 const nuAvailable = (() => {
@@ -50,11 +50,15 @@ describeNu("executeNuScript (integration)", () => {
 
   it("cleans up temp files after execution", async () => {
     const { executeNuScript } = await import("../src/nu.js");
-    await executeNuScript({ command: "echo hello", cwd: process.cwd() });
-    const tmpFiles = readdirSync(tmpdir()).filter(
-      (f: string) => f.startsWith("pi-nu-") && f.endsWith(".nu"),
-    );
-    expect(tmpFiles.length).toBe(0);
+    // The script names its own temp file, so other tests' files in the shared tmpdir don't count.
+    const result = await executeNuScript({
+      command: "print $env.CURRENT_FILE\nprint ($env.CURRENT_FILE | path exists)",
+      cwd: process.cwd(),
+    });
+    const [ownFile, existedDuringRun] = result.output.trim().split("\n");
+    expect(basename(ownFile)).toMatch(/^pi-nu-[0-9a-f]+\.nu$/);
+    expect(existedDuringRun).toBe("true");
+    expect(existsSync(ownFile)).toBe(false);
   });
 
   it("strips ANSI codes from output", async () => {
