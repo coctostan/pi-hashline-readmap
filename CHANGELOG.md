@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-11
+
+Three near-miss calls now recover in one step: `edits` sent as a JSON string applies, an anchor of digits alone shows that line's anchor, and a regex ripgrep cannot parse points at `literal: true`. No safety refusal loosens.
+
+### Added
+
+- A `grep` whose pattern ripgrep cannot parse fails with ripgrep's error text whole, followed by a hint to pass `literal: true` to search for the characters as written. A pattern using look-around (`(?=`, `(?!`, `(?<=`, `(?<!`) is also told that ripgrep has none and that this tool cannot enable `--pcre2`. Any other grep error is unchanged (#323).
+
+### Changed
+
+- An array-typed parameter sent as a string holding a JSON array, such as `edit`'s `edits`, is read as that array before validation, where it failed with `edits.0: expected object, got string`; any other string, a JSON object's included, still fails validation as before. `edit`'s own `edits`-string parser (#208), which validation always ran ahead of, is gone (#322).
+
+### Fixed
+
+- An `edit` anchor of digits alone, with or without a trailing colon (`"49"`, `"37:"`), in any anchor field, is a line number missing its hash: it writes nothing and the error shows that line's current `LINE:HASH|text`, so the retry needs no re-read, or says the line does not exist. It failed as `Invalid line reference` with no row, and digits that matched a hash, such as `"467"`, edited whichever line carried that hash. An anchor at line 0 fails with `Line 0 does not exist: line numbers start at 1` (#321).
 ## [0.26.0] - 2026-11-11
 
 A running pi keeps the Hashline code it loaded, new sessions included, until `/reload` or a restart; Hashline now says so when that code is older than its files.
