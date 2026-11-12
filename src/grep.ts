@@ -215,33 +215,6 @@ export function parseGrepIR(lines: string[]): GrepIR {
 	return { totalMatches, files: [...fileMap.values()] };
 }
 
-export function formatGrepOutput(ir: GrepIR, options?: { summary?: boolean; limit?: number }): string {
-	const header = `[${ir.totalMatches} matches in ${ir.files.length} files]`;
-	if (ir.files.length === 0) return header;
-	let output: string;
-	if (options?.summary) {
-		const fileLines = [...ir.files]
-			.sort((a, b) => b.matchCount - a.matchCount)
-			.map((f) => `${f.path}: ${f.matchCount} matches`);
-		output = [header, ...fileLines].join("\n");
-	} else {
-		const blocks: string[] = [header];
-		for (const file of ir.files) {
-			blocks.push(`--- ${file.path} (${file.matchCount} matches) ---`);
-			for (const line of file.lines) {
-				blocks.push(line.raw);
-			}
-		}
-		output = blocks.join("\n");
-	}
-
-	if (options?.limit !== undefined && ir.totalMatches === options.limit) {
-		output += `\n\n[Search stopped at ${options.limit} matches; completeness unknown — refine pattern or increase limit]`;
-	}
-
-	return output;
-}
-
 const GREP_TRUNCATION_THRESHOLD = 50;
 const GREP_MAX_MATCHES_PER_FILE = 10;
 

@@ -2,80 +2,24 @@ import { describe, it, expect } from "vitest";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { registerGrepTool } from "../src/grep.js";
-import {
-	formatGrepOutput,
-	type GrepIR,
-	type GrepIRLine,
-} from "../src/grep";
+import { buildGrepOutput } from "../src/grep-output.js";
 
 describe("grep truncation indicator", () => {
-	it("appends truncation message when result count equals limit", () => {
-    const lines: GrepIRLine[] = Array.from({ length: 5 }, (_, i) => ({
-      kind: "match" as const, raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
-    }));
-    const ir: GrepIR = { totalMatches: 5, files: [{ path: "src/foo.ts", matchCount: 5, lines }] };
-    const output = formatGrepOutput(ir, { limit: 5 });
-    if (!output.includes("completeness unknown")) throw new Error("Legacy grep formatter overstates completeness");
-    expect(output).toContain("[Search stopped at 5 matches; completeness unknown — refine pattern or increase limit]");
-	});
-
-	it("does not append truncation message when results are under limit", () => {
-		const lines: GrepIRLine[] = Array.from({ length: 3 }, (_, i) => ({
-			kind: "match" as const,
-			raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
-		}));
-		const ir: GrepIR = {
-			totalMatches: 3,
-			files: [{ path: "src/foo.ts", matchCount: 3, lines }],
-		};
-		const output = formatGrepOutput(ir, { limit: 5 });
-		expect(output).not.toContain("[Search stopped");
-	});
-
-	it("does not append truncation message when no limit is specified and results < 100", () => {
-		const lines: GrepIRLine[] = Array.from({ length: 3 }, (_, i) => ({
-			kind: "match" as const,
-			raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
-		}));
-		const ir: GrepIR = {
-			totalMatches: 3,
-			files: [{ path: "src/foo.ts", matchCount: 3, lines }],
-		};
-		const output = formatGrepOutput(ir);
-		expect(output).not.toContain("[Search stopped");
-	});
-
-	it("appends truncation message at default limit of 100", () => {
-		const lines: GrepIRLine[] = Array.from({ length: 100 }, (_, i) => ({
-			kind: "match" as const,
-			raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
-		}));
-		const ir: GrepIR = {
-			totalMatches: 100,
-			files: [{ path: "src/foo.ts", matchCount: 100, lines }],
-		};
-		// No limit option passed — should use default of 100
-		const output = formatGrepOutput(ir, { limit: 100 });
-		expect(output).toContain("[Search stopped at 100 matches; completeness unknown — refine pattern or increase limit]");
-	});
-
 	it("appends truncation message in summary mode when results hit limit", () => {
-		const lines: GrepIRLine[] = Array.from({ length: 5 }, (_, i) => ({
-			kind: "match" as const,
-			raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
-		}));
-		const ir: GrepIR = {
+		const output = buildGrepOutput({
+			summary: true,
 			totalMatches: 5,
-			files: [{ path: "src/foo.ts", matchCount: 5, lines }],
-		};
-		const output = formatGrepOutput(ir, { summary: true, limit: 5 });
-		// Summary header and per-file count appear
-		expect(output).toContain("[5 matches in 1 files]");
-		expect(output).toContain("src/foo.ts: 5 matches");
-		// Truncation indicator also appears
-		expect(output).toContain("[Search stopped at 5 matches; completeness unknown — refine pattern or increase limit]");
-		// No hashline anchors in summary mode
-		expect(output).not.toMatch(/\d+:[0-9a-f]{3}\|/);
+			groups: [{ displayPath: "src/foo.ts", absolutePath: "/repo/src/foo.ts", matchCount: 5, entries: [] }],
+			limit: 5,
+			native: { limitReached: true, truncated: false, linesTruncated: false },
+			records: [],
+		});
+		expect(output.text).toBe([
+			"[5 matches in 1 files]",
+			"src/foo.ts: 5 matches",
+			"",
+			"[Search stopped at 5 matches; completeness unknown — refine pattern or increase limit]",
+		].join("\n"));
 	});
 });
 
