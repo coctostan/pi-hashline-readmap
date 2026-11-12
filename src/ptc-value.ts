@@ -1,6 +1,5 @@
 import { computeLineHash, escapeControlCharsForDisplay } from "./hashline.js";
 import type { DiffData } from "./diff-data.js";
-import { truncateLine } from "@earendil-works/pi-coding-agent";
 import { DEFAULT_CHAR_LIMIT, MAX_CHAR_LIMIT, safeCharEnd } from "./read-window.js";
 
 export interface PtcLine {
@@ -87,8 +86,7 @@ export function buildPtcLines(startLine: number, rawLines: string[]): PtcLine[] 
  * read with a larger `charLimit` while one up to 10,000 would show more.
  */
 export function truncateDisplayLine(display: string, lineNumber?: number, cap: number = DEFAULT_CHAR_LIMIT): string {
-  const { wasTruncated } = truncateLine(display, cap);
-  if (!wasTruncated) return display;
+  if (display.length <= cap) return display;
   const shown = safeCharEnd(display, cap);
   const rangeCap = Math.min(display.length, MAX_CHAR_LIMIT);
   const rangeHint = rangeCap > cap ? ` or a range read with charLimit:${rangeCap}` : "";
