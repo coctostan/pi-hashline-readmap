@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Pi says when its Hashline code is stale
 
@@ -9,15 +9,14 @@ A pi process keeps the Hashline code it loaded at startup: a new, resumed or for
 On the locked Pi 1.5.2 host, a `new`, `resume` or `fork` session start in a pi process whose loaded Hashline files changed on disk shows the user one warning naming `/reload`; the docs say the same; 0.26.0 ships it.
 
 ## Done when
-- [ ] Source layout: in a running pi loading a checkout's `index.ts`, after a file under its `src/` or `prompts/` changes, a `new_session` draws exactly one `warning` notice naming the changed-file count, the newest file and `/reload`; a `new_session` with nothing changed, and startup, draw none — verified by `tests/pi-host-stale-code.test.ts` (new), driving the selected host's `dist/cli.js --mode rpc` model-free on a temp copy of the checkout (main 2026-11-11: no `session_start` handler, so no notice; a throwaway RPC probe showed one `new_session` delivers `session_start` twice to the same handlers)
-- [ ] Bundle layout: in a running pi loading a built `dist/index.js`, a changed `dist/index.js` or `prompts/` file draws the warning at `new_session` and a changed `src/` file draws none — verified by `tests/pi-host-stale-code.test.ts`
-- [ ] Only the files the running code came from count, only `new`, `resume` and `fork` check, and a session warns at most once: a changed file under `tests/`, `docs/` or `scripts/` draws no warning, `startup` and `reload` draw none, `resume` and `fork` warn — verified by `tests/stale-code.test.ts` (new)
-- [x] No doc says a new session picks up edits, and each place that tells the user to restart also names `/reload`: `git grep -n -i -E "new (agent |pi )?sessions\*{0,2} pick up|start a new pi session|restart the pi session" -- AGENTS.md README.md docs` prints nothing and `git grep -l "/reload" -- AGENTS.md README.md docs/integrations.md docs/context-hygiene.md` lists all four — verified by those commands (main 2026-11-11: 4 hits, `AGENTS.md:33`, `README.md:19`, `docs/context-hygiene.md:171`, `docs/integrations.md:35`; the second lists none)
-- [ ] Nothing else changes: `npm test && npm run typecheck && npm run typecheck:pi-host` pass with no existing assertion edited — verified by that command
-- [ ] 0.26.0 carries it: `package.json` reads 0.26.0 with a dated `[0.26.0]` CHANGELOG entry whose Added names the warning — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts`
+- [x] Source layout: in a running pi loading a checkout's `index.ts`, after a file under its `src/` or `prompts/` changes, a `new_session` draws exactly one `warning` notice naming the changed-file count, the newest file and `/reload`; a `new_session` with nothing changed, and startup, draw none — verified by `tests/pi-host-stale-code.test.ts` (new), driving the selected host's `dist/cli.js --mode rpc` model-free on a temp copy of the checkout (main 2026-11-11: no `session_start` handler, so no notice; a throwaway RPC probe showed one `new_session` delivers `session_start` twice to the same handlers) · close 2026-11-11 on `da7a8fab`: both source-layout cases pass on the locked Pi 1.5.2
+- [x] Bundle layout: in a running pi loading a built `dist/index.js`, a changed `dist/index.js` or `prompts/` file draws the warning at `new_session` and a changed `src/` file draws none — verified by `tests/pi-host-stale-code.test.ts` · close 2026-11-11 on `da7a8fab`: both bundle-layout cases pass
+- [x] Only the files the running code came from count, only `new`, `resume` and `fork` check, and a session warns at most once: a changed file under `tests/`, `docs/` or `scripts/` draws no warning, `startup` and `reload` draw none, `resume` and `fork` warn — verified by `tests/stale-code.test.ts` (new) · close 2026-11-11 on `da7a8fab`: 11 of 11 pass
+- [x] No doc says a new session picks up edits, and each place that tells the user to restart also names `/reload`: `git grep -n -i -E "new (agent |pi )?sessions\*{0,2} pick up|start a new pi session|restart the pi session" -- AGENTS.md README.md docs` prints nothing and `git grep -l "/reload" -- AGENTS.md README.md docs/integrations.md docs/context-hygiene.md` lists all four — verified by those commands (main 2026-11-11: 4 hits, `AGENTS.md:33`, `README.md:19`, `docs/context-hygiene.md:171`, `docs/integrations.md:35`; the second lists none) · close 2026-11-11 on `da7a8fab`: the first prints nothing, the second lists all four
+- [x] Nothing else changes: `npm test && npm run typecheck && npm run typecheck:pi-host` pass with no existing assertion edited — verified by that command · close 2026-11-11 on `da7a8fab`: 635 files, 2518 passed, 1 skipped; both typechecks clean (0 diagnostics); the only existing assertions edited are the version pins slice 4 (Release 0.26.0) planned
+- [x] 0.26.0 carries it: `package.json` reads 0.26.0 with a dated `[0.26.0]` CHANGELOG entry whose Added names the warning — verified by `tests/package-version.test.ts`, `tests/package-changelog.test.ts` · close 2026-11-11 on `da7a8fab`: both pass; `[0.26.0] - 2026-11-11`, Added names the warning
 
 ## Now
-All four slices done; slice 4 (Release 0.26.0) landed as `9391f94c` (#320), `pi-compatibility` green on the PR head (npm 11 and 12). `pi-compatibility` green on `9391f94c` (run 43121958925, npm 11 and 12). Next: `close` stale-code (Pi says when its Hashline code is stale); `npm publish` of 0.26.0 is the owner's.
 
 ## Seams
 - `src/stale-code.ts` (new): the load stamp, the watched-file set for the module's layout (`index.ts`, `src/**`, `prompts/**`; or `dist/index.js`, `prompts/**`) and the newest-mtime compare, called with an explicit root, entry and load time → `tests/stale-code.test.ts` over temp directories
