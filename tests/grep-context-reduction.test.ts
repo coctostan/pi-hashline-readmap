@@ -1,75 +1,50 @@
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import {
   parseGrepIR,
-  formatGrepOutput,
   truncateGrepIR,
   separateContextGroups,
   type GrepIR,
   type GrepIRLine,
 } from "../src/grep";
+import { buildGrepOutput, type GrepOutputGroup } from "../src/grep-output.js";
+import { ensureHashInit } from "../src/hashline.js";
+import { buildPtcLine } from "../src/ptc-value.js";
+
+function matchGroup(displayPath: string, lineNumbers: number[]): GrepOutputGroup {
+  return {
+    displayPath,
+    absolutePath: `/repo/${displayPath}`,
+    matchCount: lineNumbers.length,
+    entries: lineNumbers.map((n) => ({ kind: "match" as const, line: buildPtcLine(n, `line ${n}`) })),
+  };
+}
 
 describe("grep context reduction", () => {
+  beforeAll(async () => {
+    await ensureHashInit();
+  });
+
   it("formats zero matches as [0 matches in 0 files]", () => {
-    const ir: GrepIR = { files: [], totalMatches: 0 };
-    const output = formatGrepOutput(ir);
-    expect(output).toBe("[0 matches in 0 files]");
+    const output = buildGrepOutput({ summary: false, totalMatches: 0, groups: [], records: [] });
+    expect(output.text).toBe("[0 matches in 0 files]");
   });
 
-  it("prepends summary header [N matches in M files]", () => {
-    const ir: GrepIR = {
+  it("prepends summary header [N matches in M files] over per-file sections", () => {
+    const output = buildGrepOutput({
+      summary: false,
       totalMatches: 3,
-      files: [
-        {
-          path: "src/foo.ts",
-          matchCount: 2,
-          lines: [
-            { kind: "match", raw: "src/foo.ts:>>1:ab|hello" },
-            { kind: "match", raw: "src/foo.ts:>>5:cd|world" },
-          ],
-        },
-        {
-          path: "src/bar.ts",
-          matchCount: 1,
-          lines: [{ kind: "match", raw: "src/bar.ts:>>3:ef|baz" }],
-        },
-      ],
-    };
-    const output = formatGrepOutput(ir);
-    const firstLine = output.split("\n")[0];
-    expect(firstLine).toBe("[3 matches in 2 files]");
-  });
-
-  it("uses 'matches' and 'files' even for count=1", () => {
-    const ir: GrepIR = {
-      totalMatches: 1,
-      files: [
-        {
-          path: "a.ts",
-          matchCount: 1,
-          lines: [{ kind: "match", raw: "a.ts:>>1:ab|x" }],
-        },
-      ],
-    };
-    const output = formatGrepOutput(ir);
-    expect(output.split("\n")[0]).toBe("[1 matches in 1 files]");
-  });
-
-  it("per-file sections use format: --- path (K matches) ---", () => {
-    const ir: GrepIR = {
-      totalMatches: 2,
-      files: [
-        {
-          path: "src/foo.ts",
-          matchCount: 2,
-          lines: [
-            { kind: "match", raw: "src/foo.ts:>>1:ab|hello" },
-            { kind: "match", raw: "src/foo.ts:>>5:cd|world" },
-          ],
-        },
-      ],
-    };
-    const output = formatGrepOutput(ir);
-    expect(output).toContain("--- src/foo.ts (2 matches) ---");
+      groups: [matchGroup("src/foo.ts", [1, 5]), matchGroup("src/bar.ts", [3])],
+      records: [],
+    });
+    const anchor = (n: number) => buildPtcLine(n, `line ${n}`).anchor;
+    expect(output.text).toBe([
+      "[3 matches in 2 files]",
+      "--- src/foo.ts (2 matches) ---",
+      `src/foo.ts:>>${anchor(1)}|line 1`,
+      `src/foo.ts:>>${anchor(5)}|line 5`,
+      "--- src/bar.ts (1 matches) ---",
+      `src/bar.ts:>>${anchor(3)}|line 3`,
+    ].join("\n"));
   });
 
   it("parseGrepIR correctly counts matches and groups by file", () => {
@@ -85,21 +60,6 @@ describe("grep context reduction", () => {
     expect(ir.files[0].matchCount).toBe(2);
     expect(ir.files[1].path).toBe("src/bar.ts");
     expect(ir.files[1].matchCount).toBe(1);
-  });
-
-  it("preserves LINE:HASH anchors in output", () => {
-    const ir: GrepIR = {
-      totalMatches: 1,
-      files: [
-        {
-          path: "src/foo.ts",
-          matchCount: 1,
-          lines: [{ kind: "match", raw: "src/foo.ts:>>7:a3|const x = 1;" }],
-        },
-      ],
-    };
-    const output = formatGrepOutput(ir);
-    expect(output).toContain(">>7:a3|const x = 1;");
   });
 
   it("handles context lines (non-match lines)", () => {
@@ -149,7 +109,7 @@ describe("grep context reduction", () => {
     expect(keptMatches[0].raw).toContain(":>>1:ab|");
   });
 
-  it("appends '... +K more matches' footer for truncated files", () => {
+  it("ends a truncated file with a '... +K more matches' separator", () => {
     const lines: GrepIRLine[] = Array.from({ length: 80 }, (_, i) => ({
       kind: "match",
       raw: `src/foo.ts:>>${i + 1}:ab|line ${i}`,
@@ -161,8 +121,7 @@ describe("grep context reduction", () => {
     };
 
     const truncated = truncateGrepIR(ir);
-    const output = formatGrepOutput(truncated);
-    expect(output).toMatch(/\.\.\. \+\d+ more matches/);
+    expect(truncated.files[0].lines.at(-1)).toEqual({ kind: "separator", raw: "... +70 more matches" });
   });
 
   it("preserves all file entries even when matches are truncated", () => {
