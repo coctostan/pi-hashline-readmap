@@ -1,5 +1,5 @@
 # Now
-- [near-miss](arcs/near-miss.md) (Near-miss calls recover in one step): stringified `edits` apply, digit-only anchors show their line, regex errors point at `literal: true`; 0.27.0
+- [near-miss](arcs/near-miss.md) (Near-miss calls recover in one step): slice 4 (Release 0.27.0) active on `near-miss/04-release-0-27-0`; stringified `edits` apply, digit-only anchors show their line, regex errors point at `literal: true`; 0.27.0
 
 ## Next
 - For the owner to report upstream to Pi, from near-miss (Near-miss calls recover in one step)'s shape: 52 `edit` calls in 14 days (Claude Opus 5.5) failed pi-ai's tool-argument JSON parse (`Expected double-quoted property name`, `Expected ',' or '}'`), even after `parseJsonWithRepair`; the arguments reach extensions as `{}`, so no extension can recover them
