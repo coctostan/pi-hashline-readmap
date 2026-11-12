@@ -301,6 +301,17 @@ function escapeForRegex(s: string): string {
 	return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+const LOOK_AROUND = /\(\?<?[=!]/;
+
+/** Appends a next step to ripgrep's regex parse error, keeping its text whole; any other error passes as is. */
+function withRegexHint(error: unknown, pattern: string): unknown {
+	if (!(error instanceof Error) || !error.message.includes("regex parse error")) return error;
+	const hint = LOOK_AROUND.test(pattern)
+		? "Hint: ripgrep has no look-around ((?=, (?!, (?<=, (?<!), and this tool cannot enable --pcre2. Match the surrounding text without it, or pass literal: true to search for these characters as written."
+		: "Hint: to search for these characters as written, pass literal: true.";
+	return new Error(`${error.message}\n\n${hint}`, { cause: error });
+}
+
 interface GrepToolOptions {
 	astSearchGuideline?: string;
 	onFileAnchored?: (absolutePath: string) => void;
@@ -436,7 +447,9 @@ export function registerGrepTool(pi: ExtensionAPI, options: GrepToolOptions = {}
 				signal,
 				onUpdate,
 				ctx,
-			);
+			).catch((error: unknown) => {
+				throw withRegexHint(error, p.pattern);
+			});
 
 			if ((result as { isError?: boolean }).isError === true) return result;
 			const incomplete = (value: typeof result): typeof result => {
