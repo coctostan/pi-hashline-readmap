@@ -13,7 +13,7 @@ Each file is named by its path from the cwd, whatever `path` you pass, so a prin
 
 ## Parameters
 
-- `pattern` — regex by default; use `literal: true` for exact strings or regex metacharacters.
+- `pattern` — regex by default (ripgrep syntax: no look-around or backreferences); use `literal: true` for exact strings or regex metacharacters. A pattern ripgrep cannot parse fails with ripgrep's error followed by a hint naming `literal: true`.
 - `path` — file or directory, default cwd.
 - `glob` — file filter relative to `path`, e.g. `'*.ts'` or `'**/*.test.ts'`; with `path: "repo"`, `glob: "sub/**/*.ts"` matches `repo/sub/deep/x.ts`.
 - `ignoreCase` — case-insensitive search.
