@@ -190,7 +190,7 @@ export function parseLineRef(ref: string): { line: number; hash: string; content
 	const match = (content === undefined && head.match(/^(\d+):?$/)) || head.match(LINE_REF_RE);
 	if (!match) throw new Error(`Invalid line reference "${ref}". Expected "LINE:HASH" (e.g. "5:abc").`);
 	const line = match[1] === undefined ? 0 : Number.parseInt(match[1], 10);
-	if (match[1] !== undefined && line < 1) throw new Error(`Line number must be >= 1, got ${line} in "${ref}".`);
+	if (match[1] !== undefined && line < 1) throw new Error(`Line ${line} does not exist: line numbers start at 1 (anchor "${ref}").`);
 	return { line, hash: match[2]?.toLowerCase() ?? "", content };
 }
 

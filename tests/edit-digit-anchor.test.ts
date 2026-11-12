@@ -118,6 +118,15 @@ describe("a digit-only edit anchor", () => {
     expect(s.bytes("f.txt")).toBe("aaa\nbbb\nccc\n");
   });
 
+  it.each(["0", "0:"])("%j says line 0 does not exist", async (zero) => {
+    const s = session({ "f.txt": "aaa\nbbb\nccc\n" });
+    await s.read("f.txt");
+    const result = await s.edit("f.txt", [{ set_line: { anchor: zero, new_text: "X" } }]);
+    expect(result.isError).toBe(true);
+    expect(result.text).toMatch(/line 0 does not exist/i);
+    expect(s.bytes("f.txt")).toBe("aaa\nbbb\nccc\n");
+  });
+
   it("past the end of the file says the line does not exist", async () => {
     const s = session({ "f.txt": "aaa\nbbb\nccc\n" });
     await s.read("f.txt");
