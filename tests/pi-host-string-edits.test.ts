@@ -1,9 +1,48 @@
 import { execFileSync } from "node:child_process";
-import { expect, it } from "vitest";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, expect, it } from "vitest";
 import { selectCompatHost } from "../scripts/pi-compat-host.mjs";
+import { computeLineHash, ensureHashInit } from "../src/hashline.js";
 
-it("applies an edit whose edits arrive as a JSON-array string through the real selected host pipeline", () => {
+const scratch = mkdtempSync(join(tmpdir(), "pi-string-edit-cases-"));
+afterAll(() => rmSync(scratch, { recursive: true, force: true }));
+
+// A file for each recorded string whose anchored lines hash to its anchors, so the string applies as sent.
+async function writeRecordedCases(): Promise<string> {
+  await ensureHashInit();
+  const recorded = JSON.parse(readFileSync(new URL("./fixtures/string-edits/recorded.json", import.meta.url), "utf8")) as Array<{
+    edits: string;
+    meant: string;
+  }>;
+  const cases = recorded.map(({ edits, meant }) => {
+    const anchors = new Map<number, string>();
+    for (const item of JSON.parse(meant) as Array<Record<string, Record<string, unknown>>>) {
+      for (const op of Object.values(item)) {
+        for (const ref of [op.anchor, op.start_anchor, op.end_anchor]) {
+          if (typeof ref !== "string") continue;
+          const [line, hash] = ref.split(":");
+          anchors.set(Number(line), hash);
+        }
+      }
+    }
+    const lines = Array.from({ length: Math.max(...anchors.keys()) + 2 }, (_, index) => `line ${index + 1}`);
+    for (const [line, hash] of anchors) {
+      let k = 0;
+      while (computeLineHash(line, `anchored ${line} #${k}`) !== hash) k++;
+      lines[line - 1] = `anchored ${line} #${k}`;
+    }
+    return { edits, meant, content: lines.join("\n") + "\n" };
+  });
+  const path = join(scratch, "cases.json");
+  writeFileSync(path, JSON.stringify(cases));
+  return path;
+}
+
+it("applies an edit whose edits arrive as a JSON-array string through the real selected host pipeline", async () => {
   const { host, version } = selectCompatHost();
+  const casesPath = await writeRecordedCases();
   const source = String.raw`
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
@@ -89,6 +128,33 @@ try {
   assert.match(textOf(objectString), /edits/);
   assert.equal(readFileSync(join(cwd, "victim.txt"), "utf8"), "GONE\nSTAY\n");
   assert.equal(editExecutions, 1, "a rejected string must not execute edit");
+
+  const cases = JSON.parse(readFileSync(process.env.PI_TEST_CASES, "utf8"));
+  for (const [index, { edits, meant, content }] of cases.entries()) {
+    const recorded = "recorded-" + index + ".txt";
+    const intendedPath = "meant-" + index + ".txt";
+    writeFileSync(join(cwd, recorded), content);
+    writeFileSync(join(cwd, intendedPath), content);
+    assert.equal((await invoke("read", { path: recorded })).isError, false);
+    assert.equal((await invoke("read", { path: intendedPath })).isError, false);
+    const sent = await invoke("edit", { path: recorded, edits });
+    assert.equal(sent.isError, false, "recorded string " + index + " must apply: " + textOf(sent));
+    const intended = await invoke("edit", { path: intendedPath, edits: JSON.parse(meant) });
+    assert.equal(intended.isError, false, "meant array " + index + " must apply: " + textOf(intended));
+    const written = readFileSync(join(cwd, recorded), "utf8");
+    assert.notEqual(written, content, "recorded string " + index + " must change the file");
+    assert.equal(written, readFileSync(join(cwd, intendedPath), "utf8"), "recorded string " + index + " must write what its array writes");
+  }
+  assert.equal(editExecutions, 1 + 2 * cases.length);
+
+  const missingBracket = await invoke("edit", {
+    path: "victim.txt",
+    edits: '[{"replace":{"old_text":"GONE","new_text":"LOST"}}',
+  });
+  assert.equal(missingBracket.isError, true, "a string missing its ] must still fail validation: " + textOf(missingBracket));
+  assert.match(textOf(missingBracket), /edits/);
+  assert.equal(readFileSync(join(cwd, "victim.txt"), "utf8"), "GONE\nSTAY\n");
+  assert.equal(editExecutions, 1 + 2 * cases.length, "a rejected string must not execute edit");
   console.log("host-version=" + version + "; string-edits=PASS");
 } finally {
   rmSync(root, { recursive: true, force: true });
@@ -96,7 +162,7 @@ try {
 `;
   const stdout = execFileSync(process.execPath, ["--input-type=module", "-e", source], {
     cwd: process.cwd(),
-    env: { ...process.env, PI_TEST_HOST: host },
+    env: { ...process.env, PI_TEST_HOST: host, PI_TEST_CASES: casesPath },
     encoding: "utf8",
     timeout: 120_000,
     maxBuffer: 10 * 1024 * 1024,
