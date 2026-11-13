@@ -90,6 +90,7 @@ describe("buildGrepOutput", () => {
     const out = buildGrepOutput({
       summary: false,
       totalMatches: 1,
+      native: { limitReached: false, truncated: false, linesTruncated: false },
       groups: [
         {
           displayPath: "foo.ts",
@@ -115,6 +116,7 @@ describe("buildGrepOutput", () => {
     const out = buildGrepOutput({
       summary: false,
       totalMatches: 1,
+      native: { limitReached: false, truncated: false, linesTruncated: false },
       groups: [
         {
           displayPath: "foo.ts",
@@ -140,6 +142,7 @@ describe("buildGrepOutput", () => {
     const out = buildGrepOutput({
       summary: false,
       totalMatches: 1,
+      native: { limitReached: false, truncated: false, linesTruncated: false },
       groups: [
         {
           displayPath: "foo.ts",

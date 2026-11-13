@@ -35,6 +35,7 @@ describe("grep contextHygiene metadata", () => {
     const output = buildGrepOutput({
       summary: false,
       totalMatches: 1,
+      native: { limitReached: false, truncated: false, linesTruncated: false },
       records: [{ path: filePath, kind: "match", ...matchLine }],
       groups: [
         {

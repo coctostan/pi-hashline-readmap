@@ -34,6 +34,7 @@ describe("buildGrepOutput symbol scope", () => {
     const built = buildGrepOutput({
       summary: false,
       totalMatches: 2,
+      native: { limitReached: false, truncated: false, linesTruncated: false },
       groups: [
         {
           displayPath,
