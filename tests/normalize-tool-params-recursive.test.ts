@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Type } from "typebox";
 import { normalizeToolParameters } from "../src/normalize-tool-params.js";
@@ -115,5 +116,71 @@ describe("normalizeToolParameters recursive semantics", () => {
       expect(normalizeToolParameters(editSchema, { path: "a.ts", edits }).value).toEqual({ path: "a.ts", edits });
     }
     expect(normalizeToolParameters(editSchema, { path: "[1]" }).value).toEqual({ path: "[1]" });
+  });
+
+  it("restores an item's closing brace missing before the next item", () => {
+    const edits = '[{"replace":{"old_text":"a","new_text":"b"},{"replace":{"old_text":"c","new_text":"d"}}]';
+
+    expect(normalizeToolParameters(editSchema, { path: "a.ts", edits }).value).toEqual({
+      path: "a.ts",
+      edits: [
+        { replace: { old_text: "a", new_text: "b" } },
+        { replace: { old_text: "c", new_text: "d" } },
+      ],
+    });
+  });
+
+  it("restores closing braces missing before the closing bracket", () => {
+    for (const edits of [
+      '[{"replace":{"old_text":"a","new_text":"b"}]',
+      '[{"replace":{"old_text":"a","new_text":"b"]',
+    ]) {
+      expect(normalizeToolParameters(editSchema, { path: "a.ts", edits }).value).toEqual({
+        path: "a.ts",
+        edits: [{ replace: { old_text: "a", new_text: "b" } }],
+      });
+    }
+  });
+
+  it("leaves text inside strings alone while restoring braces", () => {
+    const edits = '[{"replace":{"old_text":"},{","new_text":"]"},{"replace":{"old_text":"{","new_text":"x"}]';
+
+    expect(normalizeToolParameters(editSchema, { path: "a.ts", edits }).value).toEqual({
+      path: "a.ts",
+      edits: [
+        { replace: { old_text: "},{", new_text: "]" } },
+        { replace: { old_text: "{", new_text: "x" } },
+      ],
+    });
+  });
+
+  it("keeps a string with any fault but missing closing braces", () => {
+    for (const edits of [
+      '[{"replace":{"old_text":"a","new_text":"b}}]',
+      '[{"replace":{"old_text":"a\\q","new_text":"b"}]',
+      '[{"replace":{"old_text":"a","new_text":"b"}},]',
+      '[{"replace":{"old_text":"a","new_text":"b",}}]',
+      '[{"replace":{"old_text":"a","new_text":"b"}}',
+      '[{"replace":{"old_text":"a","new_text":"b"}}}]',
+      '{"replace":{"old_text":"a","new_text":"b"}',
+      '[{"replace":{"old_text":"a","new_text":"b"}',
+      '[{"replace":{"old_text":"a" "new_text":"b"}}]',
+      '[{"replace":{"old_text":"a","new_text":"b"} {"replace":{"old_text":"c","new_text":"d"}}]',
+      '[{"replace":{"old_text":"a","new_text":"b" {"replace":{"old_text":"c","new_text":"d"}}]',
+    ]) {
+      expect(normalizeToolParameters(editSchema, { path: "a.ts", edits }).value).toEqual({ path: "a.ts", edits });
+    }
+  });
+
+  it("reads each recorded string missing closing braces as the array it meant", () => {
+    const cases = JSON.parse(readFileSync(new URL("./fixtures/string-edits/recorded.json", import.meta.url), "utf8")) as Array<{
+      edits: string;
+      meant: string;
+    }>;
+    expect(cases).toHaveLength(10);
+    for (const { edits, meant } of cases) {
+      expect(() => JSON.parse(edits)).toThrow(SyntaxError);
+      expect(normalizeToolParameters(editSchema, { path: "a.ts", edits }).value).toEqual({ path: "a.ts", edits: JSON.parse(meant) });
+    }
   });
 });

@@ -31,12 +31,22 @@ function matchingUnionVariant(schema: TSchema, value: unknown): TSchema | undefi
   );
 }
 
+// Claude Opus 5.5 sometimes drops an item's closing `}`: JSON.parse then stops at the next item's `{`
+// wanting a property name, or at the closing `]`. Insert `}` only there; any other stop gives up.
 function parseJsonArray(value: string): unknown[] | undefined {
-  try {
-    const parsed: unknown = JSON.parse(value);
-    return Array.isArray(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
+  let text = value;
+  // Each `}` either moves the stop past it or closes one more enclosing object, so the loop ends.
+  for (;;) {
+    try {
+      const parsed: unknown = JSON.parse(text);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch (error) {
+      const position = Number(/at position (\d+)/.exec(String(error))?.[1]);
+      const before = text.slice(0, position).trimEnd();
+      if (text[position] === "]") text = text.slice(0, position) + "}" + text.slice(position);
+      else if (text[position] === "{" && before.endsWith(",")) text = before.slice(0, -1) + "}" + text.slice(before.length - 1);
+      else return undefined;
+    }
   }
 }
 
@@ -46,7 +56,7 @@ function visit(schema: TSchema, value: unknown, prefix = ""): NormalizeToolParam
     return variant ? visit(variant, value, prefix) : { value };
   }
 
-  // Models sometimes send an array argument JSON-encoded, such as edit's `edits`; anything but a JSON array stays a string.
+  // Models sometimes send an array argument JSON-encoded, such as edit's `edits`; anything but a JSON array, once missing closing braces are restored, stays a string.
   if (Type.IsArray(schema) && typeof value === "string") {
     const parsed = parseJsonArray(value);
     return parsed ? visit(schema, parsed, prefix) : { value };
