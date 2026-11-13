@@ -227,6 +227,25 @@ describe("locateTask", () => {
 		writeFileSync(join(dir, "src/ansi.ts"), "while (true) {}\nexport const stripAnsi = (s: string) => s;\n");
 		expect(await ansi.verify(dir, 2000)).toEqual(["check timed out after 2s"]);
 	}, 30_000);
+
+	it("leaves no git maintenance running in the background to write into the workspace", () => {
+		// git commit starts `git maintenance run --auto`, which detaches and may repack the snapshot while the workspace is being removed.
+		const scratch = mkdtempSync(join(tmpdir(), "tool-ab-trace-"));
+		const trace = join(scratch, "trace2.jsonl");
+		const saved = process.env.GIT_TRACE2_EVENT;
+		process.env.GIT_TRACE2_EVENT = trace;
+		try {
+			ansi.prepare(join(scratch, "workspace"));
+			const started: string[][] = readFileSync(trace, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line))
+				.filter((event) => event.event === "start").map((event) => event.argv);
+			expect(started.some((argv) => argv.includes("commit"))).toBe(true);
+			expect(started.filter((argv) => argv.includes("maintenance"))).toEqual([]);
+		} finally {
+			if (saved === undefined) delete process.env.GIT_TRACE2_EVENT;
+			else process.env.GIT_TRACE2_EVENT = saved;
+			rmSync(scratch, { recursive: true, force: true });
+		}
+	}, 60_000);
 });
 
 describe("treeChanges", () => {
