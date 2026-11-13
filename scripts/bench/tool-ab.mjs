@@ -106,7 +106,8 @@ export function locateTask(task) {
 		prompt: task.prompt,
 		prepare: (dir) => {
 			extractSnapshot(dir);
-			const git = (...args) => execFileSync("git", ["-c", "user.name=bench", "-c", "user.email=bench@localhost", "-c", "commit.gpgsign=false", ...args], { cwd: dir, stdio: "ignore" });
+			// No auto-maintenance: commit would detach a repack that writes into the workspace while runOne removes it (ENOTEMPTY).
+			const git = (...args) => execFileSync("git", ["-c", "user.name=bench", "-c", "user.email=bench@localhost", "-c", "commit.gpgsign=false", "-c", "maintenance.auto=false", ...args], { cwd: dir, stdio: "ignore" });
 			git("init", "--quiet");
 			git("add", "-A");
 			git("commit", "--quiet", "--no-verify", "-m", `snapshot ${SNAPSHOT}`);
