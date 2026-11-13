@@ -45,4 +45,27 @@ describe("grep context output", () => {
 			);
 		} finally { rmSync(dir, { recursive: true, force: true }); }
 	});
+
+	it("separates two windows that skip a single line", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "pi-grep-context-gap-"));
+		try {
+			// Windows 1-3 and 5-7 skip only line 4.
+			const lines = ["alpha", "needle one", "beta", "hidden", "gamma", "needle two", "delta"];
+			writeFileSync(join(dir, "gap.txt"), lines.join("\n") + "\n", "utf8");
+			const result = await captureGrepTool().execute(
+				"grep-context-gap", { pattern: "needle", path: dir, literal: true, context: 1 },
+				new AbortController().signal, () => {}, { cwd: dir },
+			);
+
+			const row = (line: number, marker: ">>" | "  ") => `gap.txt:${marker}${line}:${computeLineHash(line, lines[line - 1])}|${lines[line - 1]}`;
+			const text = result.content.find((item: any) => item.type === "text")?.text ?? "";
+			expect(text.split("\n")).toEqual([
+				"[2 matches in 1 files]",
+				"--- gap.txt (2 matches) ---",
+				row(1, "  "), row(2, ">>"), row(3, "  "),
+				"--",
+				row(5, "  "), row(6, ">>"), row(7, "  "),
+			]);
+		} finally { rmSync(dir, { recursive: true, force: true }); }
+	});
 });
