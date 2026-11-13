@@ -25,7 +25,7 @@ describe("grep context reduction", () => {
   });
 
   it("formats zero matches as [0 matches in 0 files]", () => {
-    const output = buildGrepOutput({ summary: false, totalMatches: 0, groups: [], records: [] });
+    const output = buildGrepOutput({ summary: false, totalMatches: 0, groups: [], records: [], native: { limitReached: false, truncated: false, linesTruncated: false } });
     expect(output.text).toBe("[0 matches in 0 files]");
   });
 
@@ -33,6 +33,7 @@ describe("grep context reduction", () => {
     const output = buildGrepOutput({
       summary: false,
       totalMatches: 3,
+      native: { limitReached: false, truncated: false, linesTruncated: false },
       groups: [matchGroup("src/foo.ts", [1, 5]), matchGroup("src/bar.ts", [3])],
       records: [],
     });

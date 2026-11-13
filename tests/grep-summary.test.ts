@@ -10,6 +10,7 @@ describe("grep summary mode", () => {
 		const output = buildGrepOutput({
 			summary: true,
 			totalMatches: 7,
+			native: { limitReached: false, truncated: false, linesTruncated: false },
 			groups: [group("src/bar.ts", 2), group("src/foo.ts", 5)],
 			records: [],
 		});

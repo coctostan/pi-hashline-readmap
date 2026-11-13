@@ -67,7 +67,7 @@ export interface BuildGrepOutputInput {
   totalMatches: number;
   groups: GrepOutputGroup[];
   limit?: number;
-  native?: { limitReached: boolean; truncated: boolean; linesTruncated: boolean };
+  native: { limitReached: boolean; truncated: boolean; linesTruncated: boolean };
   searchUnknown?: boolean;
   records: GrepOutputRecord[];
   scopeMode?: "symbol";
@@ -155,7 +155,7 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
   if ((input.passthroughLines?.length ?? 0) > 0) {
     text += `\n\n${input.passthroughLines!.join("\n")}`;
   }
-  if (input.native?.limitReached ?? (input.limit !== undefined && input.totalMatches >= input.limit)) {
+  if (input.native.limitReached) {
     text += `\n\n[Search stopped at ${input.limit ?? input.totalMatches} matches; completeness unknown — refine pattern or increase limit]`;
   }
   if (!input.summary && input.scopeMode === "symbol" && (input.scopeWarnings?.length ?? 0) > 0) {
@@ -169,9 +169,8 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
   if (truncated.truncated) {
     text = `${truncated.content}\n\n[Output truncated: showing ${truncated.outputLines} of ${truncated.totalLines} lines (${formatSize(truncated.outputBytes)} of ${formatSize(truncated.totalBytes)}). Refine pattern or increase limit.]`;
   }
-  const limitReached = input.native?.limitReached
-    ?? (input.limit !== undefined && input.totalMatches >= input.limit);
-  const nativeTruncated = input.native?.truncated ?? false;
+  const limitReached = input.native.limitReached;
+  const nativeTruncated = input.native.truncated;
   const returnedMatches = new Set(input.records.filter((record) => record.kind === "match")
     .map((record) => JSON.stringify([record.path, record.line]))).size;
   const completeness: GrepCompleteness = {
@@ -179,7 +178,7 @@ export function buildGrepOutput(input: BuildGrepOutputInput): GrepOutputResult {
     limitReached,
     nativeTruncated,
     omittedMatches: input.searchUnknown ? null : Math.max(0, input.totalMatches - returnedMatches),
-    displayTruncated: truncated.truncated || (!input.summary && (input.native?.linesTruncated ?? false)),
+    displayTruncated: truncated.truncated || (!input.summary && input.native.linesTruncated),
   };
   const ptcValue: GrepOutputResult["ptcValue"] = {
     tool: "grep",
