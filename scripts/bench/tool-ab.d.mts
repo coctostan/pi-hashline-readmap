@@ -69,5 +69,6 @@ export function summarizeRuns(results: RunResult[]): SummaryRow[];
 export function formatSummary(summary: {
   rows: SummaryRow[];
   results: RunResult[];
-  meta: { models: string[]; arms: string[]; repeat: number; hostVersion: string; spent: number; maxCost: number; skipped: number };
+  /** startedAt: run.json's ISO timestamp; the summary prints its UTC day. */
+  meta: { models: string[]; arms: string[]; repeat: number; hostVersion: string; spent: number; maxCost: number; skipped: number; startedAt: string };
 }): string;
