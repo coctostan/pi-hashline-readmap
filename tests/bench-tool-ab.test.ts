@@ -194,10 +194,23 @@ describe("summarizeRuns", () => {
 	});
 
 	it("prints each row with its spread", () => {
-		const text = formatSummary({ rows, results, meta: { models: ["m"], arms: ["stock", "extension"], repeat: 2, hostVersion: "1.5.0", spent: 0.08, maxCost: 1, skipped: 0 } });
+		const text = formatSummary({ rows, results, meta: { models: ["m"], arms: ["stock", "extension"], repeat: 2, hostVersion: "1.5.0", spent: 0.08, maxCost: 1, skipped: 0, startedAt: "2026-11-13T12:00:00.000Z" } });
 		expect(text).toContain("| locate | m | stock | 3/4 | 75.0% Δ50.0 | 2000 Δ0 | $0.0150 Δ0.0100 | 2.5 Δ1.0 | 0.50 Δ1.00 | 0.25 Δ0.50 | 0.25 Δ0.50 | 0.25 Δ0.50 | 2.0 Δ0.0 |");
 		expect(text).toContain("| locate | m | extension | 1/1 | 100.0% | 1000 | $0.0100 | 2.0 | 0.00 | 0.00 | 0.00 | 0.00 | 2.0 |");
 		expect(text).toContain("- locate m stock `t2#1`: check");
+	});
+
+	it("dates the summary line with the run's start day in UTC", () => {
+		// 02:12 UTC is the previous day in New York, so a local-date summary fails here on any machine.
+		const zone = process.env.TZ;
+		process.env.TZ = "America/New_York";
+		try {
+			const text = formatSummary({ rows: [], results: [], meta: { models: ["openai-codex/gpt-6-luna", "anthropic-cc/claude-sonnet-5-5"], arms: ["stock", "extension", "no-ls-find", "no-ls-find-grep"], repeat: 2, hostVersion: "1.5.0", spent: 3.4812406800000018, maxCost: 18, skipped: 0, startedAt: "2026-11-05T02:12:31.122Z" } });
+			expect(text.split("\n")[2]).toBe("Pi 1.5.0 on 2026-11-05; arms stock, extension, no-ls-find, no-ls-find-grep; 2 repeat(s); spent $3.4812 of $18.");
+		} finally {
+			if (zone === undefined) delete process.env.TZ;
+			else process.env.TZ = zone;
+		}
 	});
 });
 

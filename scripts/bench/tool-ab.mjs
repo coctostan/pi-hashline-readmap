@@ -289,7 +289,7 @@ export function formatSummary({ rows, results, meta }) {
 	return [
 		`# Tool arms A/B — ${meta.models.join(", ")}`,
 		"",
-		`Pi ${meta.hostVersion}; arms ${meta.arms.join(", ")}; ${meta.repeat} repeat(s); spent $${meta.spent.toFixed(4)} of $${meta.maxCost}${meta.skipped ? `; ${meta.skipped} runs skipped at the cap` : ""}.`,
+		`Pi ${meta.hostVersion} on ${meta.startedAt.slice(0, 10)}; arms ${meta.arms.join(", ")}; ${meta.repeat} repeat(s); spent $${meta.spent.toFixed(4)} of $${meta.maxCost}${meta.skipped ? `; ${meta.skipped} runs skipped at the cap` : ""}.`,
 		"Each cell is the mean per run; Δ is the spread, the largest minus the smallest per-repeat mean. Errors include rejected calls; calls before touch counts runs that edited.",
 		"",
 		`| Set | Model | Arm | Pass | ${COLUMNS.map(([, header]) => header).join(" | ")} |`,
@@ -536,7 +536,7 @@ async function main(argv) {
 	const markdown = formatSummary({
 		rows: summarizeRuns(results),
 		results,
-		meta: { models: opts.models, arms: arms.map((arm) => arm.name), repeat: opts.repeat, hostVersion: host.version, spent: outcome.spent, maxCost: opts.maxCost, skipped: outcome.skipped },
+		meta: { models: opts.models, arms: arms.map((arm) => arm.name), repeat: opts.repeat, hostVersion: host.version, spent: outcome.spent, maxCost: opts.maxCost, skipped: outcome.skipped, startedAt: run.startedAt },
 	});
 	writeFileSync(join(opts.out, "summary.md"), markdown);
 	console.log(markdown);
