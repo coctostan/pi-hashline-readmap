@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.28.1] - 2026-11-14
+
+An `edit` whose `edits` string lacks only an item's closing `}` now applies; Claude Opus 5.5 sent ten such strings, and validation refused each one. The tools otherwise behave as before. The A/B benchmark's workspace cleanup no longer fails under load, and a test pins grep's one-line context gap (#334, #336).
+
+### Fixed
+
+- An array-typed parameter sent as a string that parses as a JSON array once only closing `}` are inserted, such as `edit`'s `edits` with an item's `}` missing, is read as that array: a `}` is inserted wherever `JSON.parse` stops at an item's `{` wanting a property name, or at the closing `]`, until it parses. The text inside each edit is unchanged, and validation and the hash anchors still judge it. A string with any other fault, such as an unclosed string, a trailing comma, a missing `]` or an extra `}`, still fails validation as before (#333).
+
+### Changed
+
+- `buildGrepOutput`'s `native` input is required, and its fallbacks for an absent `native` are gone; the `grep` tool always passed it, so grep's output is unchanged (#335).
+- The A/B benchmark's `summary.md` line reads `Pi <version> on <YYYY-MM-DD>; arms …`, the UTC day of the run's `startedAt` (#337).
 ## [0.28.0] - 2026-11-12
 
 Code nothing used is gone: an `edit` anchor without its line number, a grep formatter only tests called, two shell-parser fields nothing read and a host call one comparison replaces. The tools behave as before, except that an anchor missing its line number is refused. Tests no longer name the package version, and the Nu temp-file test no longer fails on another test's leftover file (#325, #331).
