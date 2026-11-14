@@ -19,6 +19,7 @@ git: { merge: agent, push: free, main-direct: process-only }
 ## Prove
 - Checks: `npm test -- tests/<file>.test.ts`; `npm test && npm run typecheck`
 - Real artifact: no server; in a scratch directory run `pi --no-extensions --no-session -e <repo>/index.ts --model openai-codex/gpt-6-luna --mode json -p "<a prompt that makes the model call the tool>"`, a fresh process per drive since sessions don't hot-reload, bounded by the bash tool's `timeout` parameter since this Mac has no `timeout` command · drive through the prompt · observe the `tool_execution_end` events in the JSON stream (`read` on a 3-line file returns `1:1df|export function alpha() {`) and any files the tools changed · instances run side by side but share the map cache at `~/.cache/pi-hashline-readmap/maps`. Host-compatibility changes also run the host tests against an override install, by "Host compatibility".
+- Drive by surface: a codemode-nested tool adds `-e builtin:codemode --tools +codemode` to the drive above, since `--no-extensions` drops Pi's built-in codemode; a deferred `find` or `ls` adds `--tools +find,+ls`; a `scripts/bench/` change runs the bench once instead, `node scripts/bench/tool-ab.mjs --models openai-codex/gpt-6-luna --arms extension --tasks ansi-cursor-codes --repeat 1 --max-cost 0.05 --out <scratch dir>` (about $0.003), reading its `summary.md` and `results.jsonl`; a test-only change has no drive, its tests red under the mutation it pins.
 
 ## What This Project Is
 
