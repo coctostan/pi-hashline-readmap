@@ -201,8 +201,16 @@ describe("summarizeRuns", () => {
 	});
 
 	it("dates the summary line with the run's start day in UTC", () => {
-		const text = formatSummary({ rows: [], results: [], meta: { models: ["openai-codex/gpt-6-luna", "anthropic-cc/claude-sonnet-5-5"], arms: ["stock", "extension", "no-ls-find", "no-ls-find-grep"], repeat: 2, hostVersion: "1.5.0", spent: 3.4812406800000018, maxCost: 18, skipped: 0, startedAt: "2026-11-05T02:12:31.122Z" } });
-		expect(text.split("\n")[2]).toBe("Pi 1.5.0 on 2026-11-05; arms stock, extension, no-ls-find, no-ls-find-grep; 2 repeat(s); spent $3.4812 of $18.");
+		// 02:12 UTC is the previous day in New York, so a local-date summary fails here on any machine.
+		const zone = process.env.TZ;
+		process.env.TZ = "America/New_York";
+		try {
+			const text = formatSummary({ rows: [], results: [], meta: { models: ["openai-codex/gpt-6-luna", "anthropic-cc/claude-sonnet-5-5"], arms: ["stock", "extension", "no-ls-find", "no-ls-find-grep"], repeat: 2, hostVersion: "1.5.0", spent: 3.4812406800000018, maxCost: 18, skipped: 0, startedAt: "2026-11-05T02:12:31.122Z" } });
+			expect(text.split("\n")[2]).toBe("Pi 1.5.0 on 2026-11-05; arms stock, extension, no-ls-find, no-ls-find-grep; 2 repeat(s); spent $3.4812 of $18.");
+		} finally {
+			if (zone === undefined) delete process.env.TZ;
+			else process.env.TZ = zone;
+		}
 	});
 });
 
