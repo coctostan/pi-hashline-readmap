@@ -137,7 +137,9 @@ function generateWriteDiff(previousContent: string, nextContent: string): { diff
 }
 
 export interface WriteToolOptions {
-  onFileAnchored?: (absolutePath: string, mark?: { own: boolean }) => void;
+  onFileAnchored?: (absolutePath: string) => void;
+  /** The write showed no anchors (binary, over the anchor budget, or refused), so earlier ones are stale. */
+  onFileStale?: (absolutePath: string) => void;
 }
 
 type MappedFsError = {
@@ -437,9 +439,8 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
           };
         }
 
-        if (result.ptcValue.lines.length > 0) {
-          options.onFileAnchored?.(absolutePath, { own: true });
-        }
+        if (result.ptcValue.lines.length > 0) options.onFileAnchored?.(absolutePath);
+        else options.onFileStale?.(absolutePath);
 
         const bareCrWarning = result.ptcValue.warnings.find((w) => w.code === "bare-cr");
         if (bareCrWarning) {

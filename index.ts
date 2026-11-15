@@ -144,7 +144,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   const doomLoopState = createDoomLoopState();
   resetContextHygieneTracker();
   resetContextHygieneNoticeLedger();
-  const freshness = createReadFreshness(() => getContextHygieneTracker().generateReport().eventCount);
+  const freshness = createReadFreshness();
   const noteRead = freshness.note;
   const wasReadInSession = freshness.has;
 
@@ -163,7 +163,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   registerGrepTool(pi, { astSearchGuideline, onFileAnchored: noteRead });
   registerSgTool(pi, { onFileAnchored: noteRead });
   registerNuTool(pi);
-  registerWriteTool(pi, { onFileAnchored: noteRead });
+  registerWriteTool(pi, { onFileAnchored: noteRead, onFileStale: freshness.expirePath });
   registerLsTool(pi);
   registerFindTool(pi);
   registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath() });
@@ -191,7 +191,6 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (!Array.isArray(event.messages)) return undefined;
     const report = getContextHygieneTracker().generateReport();
     const messages = applyContextHygieneStaleContext(event.messages, report);
-    freshness.expireFromReport(report);
     if (messages === event.messages) return undefined;
     return { messages };
   });
@@ -205,6 +204,10 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
     if (!isBashToolResult(event)) {
       const contextHygiene = contextHygieneFromDetails(event.details);
       if (contextHygiene) recordContextHygiene(contextHygiene, event.toolCallId, !nested);
+      // A failure after a write (edit's post-edit verification): the file is not what it shows.
+      if (event.isError === true && contextHygiene?.classification === "mutation") {
+        for (const resource of contextHygiene.resources) if (resource.kind === "file") freshness.expirePath(resource.path);
+      }
       if (event.isError !== true) {
         const cwd = ctx?.cwd ?? process.cwd();
         recordServedFromResult(served, event.toolName, event.details, (path) => resolveToCwd(path, cwd));
@@ -283,8 +286,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
       commandState,
     });
     const recordedContextHygieneEvent = recordContextHygiene(contextHygiene, event.toolCallId, !nested);
-    // Expire directly, not through stale candidates: a file known only from write or edit has no
-    // read for a candidate to name, and a failed `cmd > file` has already truncated it.
+    // A failure expires too: a failed `cmd > file` has already truncated it.
     for (const target of commandState?.fileTargets ?? []) freshness.expirePath(target);
     const appliedEffects = summarizeBashAppliedEffects(recordedContextHygieneEvent.id);
     const contextHygieneForDetails: ContextHygieneMetadata = hasAppliedEffects(appliedEffects)
