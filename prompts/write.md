@@ -22,6 +22,8 @@ Writes are atomic: content is written to a temporary file in the same directory 
 
 Successful text writes return `LINE:HASH|content`; display hashlines escape control characters for safe rendering.
 
+Anchors from before an overwrite stay usable: `edit` remaps an old anchor whose line the write kept to the line it moved to, with a note, and refuses one whose line the write changed or removed with `hash-mismatch` and fresh rows.
+
 Large writes (more than 2000 lines, or more than 50 KB of anchor text) return a compact summary instead: `Wrote <path> (<N> lines, <B> bytes). Anchors omitted for writes over 2000 lines or 50 KB of anchors; use read with offset/limit to get anchors before editing.` The structured value then has `lines: []`, `truncated: true`, `totalLines`, `bytes`, and an `anchors-omitted` warning; `diff`/`diffData` are omitted. Because no anchors were returned, the file is not marked as read for `edit`: `read` it (with `offset`/`limit`) first. Smaller writes are unchanged.
 
 ## Diff data contract

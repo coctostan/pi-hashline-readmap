@@ -163,7 +163,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   registerGrepTool(pi, { astSearchGuideline, onFileAnchored: noteRead });
   registerSgTool(pi, { onFileAnchored: noteRead });
   registerNuTool(pi);
-  registerWriteTool(pi, { onFileAnchored: noteRead, onFileStale: freshness.expirePath });
+  registerWriteTool(pi, { served, onFileAnchored: noteRead, onFileStale: freshness.expirePath });
   registerLsTool(pi);
   registerFindTool(pi);
   registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath() });

@@ -237,8 +237,8 @@ function lineRows(value: unknown): Array<{ line: number; hash: string }> {
 }
 
 /**
- * Record the rows a successful read, grep, ast_search, or write result showed, from its
- * structured `details.ptcValue`.
+ * Record the rows a successful read, grep, or ast_search result showed, from its structured
+ * `details.ptcValue`. `edit` and `write` record their own writes as they make them.
  */
 export function recordServedFromResult(served: ServedLines, toolName: string, details: unknown, resolvePath: ResolvePath): void {
 	const ptc = details && typeof details === "object" ? (details as { ptcValue?: any }).ptcValue : undefined;
@@ -252,8 +252,6 @@ export function recordServedFromResult(served: ServedLines, toolName: string, de
 			: [];
 		if (rows.length || complete) served.record(resolvePath(ptc.path), rows, complete);
 		if (bundleAnchors.length) served.recordAnchors(resolvePath(ptc.path), bundleAnchors);
-	} else if (toolName === "write" && typeof ptc.path === "string") {
-		served.record(resolvePath(ptc.path), lineRows(ptc.lines), true);
 	} else if (toolName === "grep" && Array.isArray(ptc.records)) {
 		const byPath = new Map<string, string[]>();
 		for (const record of ptc.records) {
