@@ -331,7 +331,8 @@ export async function executeWrite(opts: {
   const normalizedNext = normalizeToLF(content);
   // As edit: anchors shown before this write follow their lines to where the write moved them.
   if (existedBeforeWrite) served?.remapAfterWrite(filePath, normalizedPrevious.split("\n"), normalizedNext.split("\n"));
-  else served?.record(filePath, ptcLines, true);
+  // The write shows every row; a row shown again names that row, as after a re-read.
+  served?.record(filePath, ptcLines, !existedBeforeWrite);
   const diffResult = generateWriteDiff(normalizedPrevious, normalizedNext);
   const diffData = buildDiffData({
     path: filePath,

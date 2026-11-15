@@ -100,21 +100,38 @@ describe("edit after the extension's own write moved lines", () => {
     expect(s.bytes()).toBe(header(30, "g") + header(30, "h") + "alpha\nBETA\ngamma\n");
   });
 
-  it("refuses an anchor whose old line number now holds identical content, and the retry lands", async () => {
+  it("an anchor the write showed again at its old line number names the write's row", async () => {
     const s = session("same.txt", "x\n}\nb\n");
     await s.read();
-    const written = "q\n}\n" + header(30, "h") + "x\n}\nb\n";
-    await s.write(written);
-    // Old line 2 ("}") moved to 34; line 2 now holds a new "}" the write added.
-    const res = await s.edit([{ set_line: { anchor: `2:${h("}")}`, new_text: "Z" } }]);
-    expect(res.isError).toBe(true);
-    expect(res.details.ptcValue.error.code).toBe("hash-mismatch");
-    expect(res.text).toContain(`predates an earlier edit that moved its line to 34, and line 2 now holds identical content, so it is ambiguous.`);
-    expect(s.bytes()).toBe(written);
+    // Old line 2 ("}") moves to 34; the write shows a new "}" at line 2 with the same anchor.
+    await s.write("q\n}\n" + header(30, "h") + "x\n}\nb\n");
 
-    const retry = await s.edit([{ set_line: { anchor: `34:${h("}")}`, new_text: "Z" } }]);
-    expect(retry.isError).toBe(false);
-    expect(s.bytes()).toBe("q\n}\n" + header(30, "h") + "x\nZ\nb\n");
+    const res = await s.edit([{ set_line: { anchor: `2:${h("}")}`, new_text: "Z" } }]);
+    expect(res.isError).toBe(false);
+    expect(res.text).not.toContain("remapped");
+    expect(s.bytes()).toBe("q\nZ\n" + header(30, "h") + "x\n}\nb\n");
+  });
+
+  it("an overwrite's own anchors follow a later write, with no read before it", async () => {
+    const s = session("unread.txt", "a\nb\nc\n");
+    await s.write("a\nb\nc\n");
+    await s.write(header(30, "h") + "a\nb\nc\n");
+
+    const res = await s.edit([{ set_line: { anchor: `2:${h("b")}`, new_text: "B" } }]);
+    expect(res.isError).toBe(false);
+    expect(res.text).toContain(`remapped to 32:${h("b")}.`);
+    expect(s.bytes()).toBe(header(30, "h") + "a\nB\nc\n");
+  });
+
+  it("a range edit over an overwritten file refuses an interior line another process changed", async () => {
+    const s = session("overwritten.txt", "a\nb\nc\n");
+    expect((await s.write("a\nb\nc\nd\n")).isError).toBe(false);
+    s.mutate("a\nB\nc\nd\n");
+
+    const res = await s.edit([{ replace_lines: { start_anchor: `1:${h("a")}`, end_anchor: `3:${h("c")}`, new_text: "x" } }]);
+    expect(res.isError).toBe(true);
+    expect(res.text).toContain(`>>> 2:${h("B")}|B`);
+    expect(s.bytes()).toBe("a\nB\nc\nd\n");
   });
 
   it("after a write too large for anchors, a text replace is not judged against rows read before it", async () => {
