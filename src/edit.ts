@@ -551,7 +551,7 @@ async function commitSourceRemovals(removals: SourceRemoval[], options: EditTool
 			return { ...written, content: [{ type: "text", text }] };
 		}
 		const shift = options.served?.remapAfterWrite(removal.absolutePath, removal.originalNormalized.split("\n"), removal.result.split("\n"));
-		// No freshness mark needed: this edit records its mutation on the target only, so the source stays fresh.
+		// No freshness mark needed: a successful own mutation never expires freshness, so the source stays fresh.
 		notes.push(`Moved lines ${removal.ranges.join(", ")} out of ${removal.displayPath}.`, ...describeOwnShift(shift).map((note) => `In ${removal.displayPath}: ${note}`));
 	}
 	return notes;
@@ -1110,6 +1110,8 @@ async function buildEditResult(input: {
 	syntaxWarning?: string;
 	/** Notes about lines a cross-file move_lines removed from its source file. */
 	moveNotes?: string[];
+	/** The other files a cross-file move_lines removed lines from. */
+	movedFromPaths?: string[];
 	/** Notes about anchors remapped through an earlier edit that moved their lines. */
 	anchorNotes?: string[];
 }): Promise<EditSuccessResult> {
@@ -1164,6 +1166,7 @@ async function buildEditResult(input: {
 		warnings,
 		noopEdits: input.anchorResult.noopEdits ?? [],
 		edits: input.edits,
+		movedFromPaths: input.movedFromPaths,
 		semanticSummary,
 	});
 	return {
@@ -1320,6 +1323,7 @@ export function registerEditTool(pi: ExtensionAPI, options: EditToolOptions = {}
 						replaceSymbolWarnings,
 						syntaxWarning,
 						moveNotes,
+						movedFromPaths: sourceRemovals.map((removal) => removal.absolutePath),
 						anchorNotes: [...shifted.notes, ...describeOwnShift(shift)],
 					});
 				});

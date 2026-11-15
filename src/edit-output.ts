@@ -13,6 +13,8 @@ export interface BuildEditOutputInput {
   noopEdits: unknown[];
   semanticSummary?: SemanticSummary;
   edits?: unknown[];
+  /** Other files a cross-file move_lines removed lines from; they changed too. */
+  movedFromPaths?: string[];
 }
 export interface EditOutputResult {
   text: string;
@@ -101,7 +103,7 @@ export function buildEditOutput(input: BuildEditOutputInput): EditOutputResult {
     contextHygiene: buildContextHygieneMetadata({
       tool: "edit",
       classification: "mutation",
-      resources: [buildFileResource(input.path)],
+      resources: [input.path, ...(input.movedFromPaths ?? [])].map(buildFileResource),
     }),
   };
 }
