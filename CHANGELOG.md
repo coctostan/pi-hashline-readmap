@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.28.2] - 2026-11-15
+
+Anchors stay exact after Hashline's own changes: an anchor read before an own `write` follows its line however far the write moved it, a cross-file `move_lines` marks its source's earlier read stale, and an own `write` run beside another call in a codemode `Promise.all` leaves its file fresh. Changes the extension didn't make still expire a file's freshness.
+
+### Fixed
+
+- An own `write` run in parallel with another tool call, such as in a codemode `Promise.all`, could leave its file expired at the next turn, so an `edit` with the write's anchors failed `file-not-read`; it noted the file fresh under a guessed event id that a sibling result could take. Freshness is now a set of paths: a successful own `edit` or `write` marks its file fresh at its own call, and a change the extension didn't make (a mutating `bash` command, a failed post-edit verification, a `write` that shows no anchors) expires it at its own result (#340).
+- After an own `write` over a file, an anchor from before the write failed `hash-mismatch` when its line moved more than 20 lines, and landed silently on the wrong line when its old number now held identical content. `edit` now remaps an old anchor whose line the write kept to the line it moved to, with a note, and refuses one whose line the write changed or removed with `hash-mismatch` and fresh rows; an anchor the write itself shows names the write's row (#341).
+- A cross-file `move_lines` left the source file's earlier read looking current: its context-hygiene event named only the target. It now names each source too, so the source's earlier read is marked stale at the next turn; the source stays fresh, and an anchored `edit` of it with that read's anchors still lands, remapped where its line moved (#342).
+
 ## [0.28.1] - 2026-11-14
 
 An `edit` whose `edits` string lacks only an item's closing `}` now applies; Claude Opus 5.5 sent ten such strings, and validation refused each one. The tools otherwise behave as before. The A/B benchmark's workspace cleanup no longer fails under load, and a test pins grep's one-line context gap (#334, #336).
