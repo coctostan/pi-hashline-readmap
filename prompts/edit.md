@@ -89,7 +89,7 @@ Anchor hashes include whitespace: a reindented line is a changed line. An unchan
 
 `edit` also refuses to overwrite any line it would replace or delete, including lines inside a `replace_lines` range or matched by `replace`, that changed on disk since you were last shown it. The refusal shows the current rows (`>>>` marks changed ones) with fresh anchors.
 
-When your own edit changes a file's line count, the result warns `Line numbers shifted by +K from old line N`. Anchors you hold for lines at or after `N` are stale. On the next edit, an old anchor whose line moved is remapped to its new line (with a note) when that is unambiguous. It is refused with `hash-mismatch` and fresh rows, and nothing is written, when its old line number now holds identical content or its line was replaced or removed. Re-issue with the rows shown; no re-read is needed. Anchors above the first changed line, and anchors after a same-line-count edit, stay valid.
+When your own edit changes a file's line count, the result warns `Line numbers shifted by +K from old line N`. Anchors you hold for lines at or after `N` are stale. On the next edit, an old anchor whose line moved is remapped to its new line (with a note) when that is unambiguous. It is refused with `hash-mismatch` and fresh rows, and nothing is written, when its old line number now holds identical content or its line was replaced or removed. Re-issue with the rows shown; no re-read is needed. Anchors above the first changed line, and anchors after a same-line-count edit, stay valid. The same remapping follows your own `write` over a file: an old anchor whose line the write kept is remapped however far it moved, and one whose line it changed or removed is refused.
 
 ## Validation and warnings
 

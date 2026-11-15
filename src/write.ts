@@ -7,6 +7,7 @@ import { resolveToCwd } from "./path-utils.js";
 import { resolveMutationTargetPath, writeFileAtomically } from "./fs-write.js";
 import { ensureHashInit, formatHashlineDisplay, splitDisplayLines } from "./hashline.js";
 import { buildPtcError, buildPtcLine, buildPtcWarning, type PtcLine, type PtcWarning } from "./ptc-value.js";
+import type { ServedLines } from "./served-lines.js";
 import { packageFileUrl } from "./package-root.js";
 import { looksLikeBinary } from "./binary-detect.js";
 import { getOrGenerateMap } from "./map-cache.js";
@@ -138,6 +139,7 @@ function generateWriteDiff(previousContent: string, nextContent: string): { diff
 
 export interface WriteToolOptions {
   onFileAnchored?: (absolutePath: string) => void;
+  served?: ServedLines;
   /** The write showed no anchors (binary, over the anchor budget, or refused), so earlier ones are stale. */
   onFileStale?: (absolutePath: string) => void;
 }
@@ -198,11 +200,13 @@ export async function executeWrite(opts: {
   path: string;
   content: string;
   map?: boolean;
+  /** What the model was shown; this write's moves and rows are recorded in it. */
+  served?: ServedLines;
   cwd?: string;
 }): Promise<WriteResult> {
   await ensureHashInit();
 
-  const { path: filePath, content, map: requestMap, cwd } = opts;
+  const { path: filePath, content, map: requestMap, cwd, served } = opts;
   const warnings: string[] = [];
   const ptcWarnings: PtcWarning[] = [];
   const contextHygiene = buildContextHygieneMetadata({
@@ -241,6 +245,7 @@ export async function executeWrite(opts: {
 
   // Binary detection
   if (looksLikeBinary(Buffer.from(content, "utf-8"))) {
+    served?.forget(filePath);
     warnings.push("File content appears to be binary.");
     ptcWarnings.push(buildPtcWarning("binary-content", "File content appears to be binary."));
     return {
@@ -278,6 +283,7 @@ export async function executeWrite(opts: {
   }
   const contentBytes = Buffer.byteLength(content, "utf8");
   if (compact) {
+    served?.forget(filePath);
     ptcLines.length = 0;
     text = formatCompactWriteSummary(displayPath, rawLines.length, contentBytes);
     const omittedMessage = `Anchors omitted: ${rawLines.length} lines exceed the write anchor budget (${MAX_LINES} lines / ${MAX_BYTES / 1024} KB); use read with offset/limit for anchors.`;
@@ -323,6 +329,10 @@ export async function executeWrite(opts: {
 
   const normalizedPrevious = normalizeToLF(previousContent);
   const normalizedNext = normalizeToLF(content);
+  // As edit: anchors shown before this write follow their lines to where the write moved them.
+  if (existedBeforeWrite) served?.remapAfterWrite(filePath, normalizedPrevious.split("\n"), normalizedNext.split("\n"));
+  // The write shows every row; a row shown again names that row, as after a re-read.
+  served?.record(filePath, ptcLines, !existedBeforeWrite);
   const diffResult = generateWriteDiff(normalizedPrevious, normalizedNext);
   const diffData = buildDiffData({
     path: filePath,
@@ -413,6 +423,7 @@ export function registerWriteTool(pi: ExtensionAPI, options: WriteToolOptions = 
             path: absolutePath,
             content: normalizedParams.content,
             map: normalizedParams.map,
+            served: options.served,
             cwd,
           });
         } catch (err: any) {
