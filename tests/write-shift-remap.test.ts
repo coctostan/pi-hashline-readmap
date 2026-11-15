@@ -12,10 +12,10 @@ beforeAll(async () => {
 const h = (text: string) => computeLineHash(1, text);
 const header = (count: number, tag: string) => Array.from({ length: count }, (_, i) => `${tag}${i + 1}`).join("\n") + "\n";
 
-function session(fileName: string, fixture: string) {
+function session(fileName: string, fixture: string | null) {
   const dir = mkdtempSync(join(tmpdir(), "write-shift-"));
   const file = join(dir, fileName);
-  writeFileSync(file, fixture, "utf8");
+  if (fixture !== null) writeFileSync(file, fixture, "utf8");
   const tools = new Map<string, any>();
   const handlers: Record<string, Function> = {};
   init({
@@ -45,6 +45,7 @@ function session(fileName: string, fixture: string) {
     write: (content: string) => call("write", { path: fileName, content }),
     edit: (edits: unknown[]) => call("edit", { path: fileName, edits }),
     bytes: () => readFileSync(file, "utf8"),
+    mutate: (content: string) => writeFileSync(file, content, "utf8"),
   };
 }
 
@@ -126,5 +127,16 @@ describe("edit after the extension's own write moved lines", () => {
     const res = await s.edit([{ replace: { old_text: "UNIQUE", new_text: "DONE" } }]);
     expect(res.isError).toBe(false);
     expect(s.bytes()).toBe("a\nDONE\n" + header(2000, "h"));
+  });
+
+  it("a range edit over a created file refuses an interior line another process changed", async () => {
+    const s = session("created.txt", null);
+    expect((await s.write("a\nb\nc\n")).isError).toBe(false);
+    s.mutate("a\nB\nc\n");
+
+    const res = await s.edit([{ replace_lines: { start_anchor: `1:${h("a")}`, end_anchor: `3:${h("c")}`, new_text: "x" } }]);
+    expect(res.isError).toBe(true);
+    expect(res.text).toContain(`>>> 2:${h("B")}|B`);
+    expect(s.bytes()).toBe("a\nB\nc\n");
   });
 });
