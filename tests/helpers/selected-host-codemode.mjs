@@ -63,6 +63,11 @@ try {
   assert.deepEqual(loaded.errors, []);
   assert.equal(loaded.extensions.length, 1);
   const extension = loaded.extensions[0];
+  // A fixture extension the runner holds ahead of this checkout, so its handlers run first.
+  const ahead = process.env.PI_CODEMODE_EXTENSION_BEFORE
+    ? await discoverAndLoadExtensions([resolve(process.env.PI_CODEMODE_EXTENSION_BEFORE)], cwd, agentDir)
+    : { extensions: [], errors: [] };
+  assert.deepEqual(ahead.errors, []);
   assert.equal(extension.resolvedPath, resolve("index.ts"), "selected host must load this checkout");
   const cancelMode = process.env.PI_CODEMODE_CANCEL === "1";
   const scriptAbort = new AbortController();
@@ -106,7 +111,7 @@ try {
   if (programSettings?.persist) {
     sessionManager.appendMessage({ role: "user", content: [{ type: "text", text: "Recipe persistence fixture" }], timestamp: 0 });
   }
-  const runner = new ExtensionRunner(loaded.extensions, loaded.runtime, cwd, sessionManager, {});
+  const runner = new ExtensionRunner([...ahead.extensions, ...loaded.extensions], loaded.runtime, cwd, sessionManager, {});
   const handlerErrors = [];
   runner.onError((error) => handlerErrors.push(error));
   runner.bindCore({
@@ -313,6 +318,11 @@ try {
         const path = ctx.sessionManager.getSessionFile();
         assert.ok(path, "Resume needs a persisted session");
         ctx.sessionManager = SessionManager.open(path);
+        continue;
+      }
+      // A new turn: Pi runs the `context` handlers before the next model request.
+      if (step.context) {
+        await runner.emitContext([]);
         continue;
       }
       assert.equal(typeof step.code, "string", "Recipe step needs code");

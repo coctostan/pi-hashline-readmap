@@ -51,13 +51,14 @@ describe("Windows-style readTurns stale expiry", () => {
         details: readResult.details,
       }, {});
 
+      // An edit that wrote but failed its post-edit verification: the change is not the model's view.
       await handlers.tool_result({
         type: "tool_result",
         toolName: "edit",
         toolCallId: "edit-call",
         input: { path: filePath },
-        content: [{ type: "text", text: "edit succeeded" }],
-        isError: false,
+        content: [{ type: "text", text: "Edit write completed but post-edit verification failed" }],
+        isError: true,
         details: {
           contextHygiene: buildContextHygieneMetadata({
             tool: "edit",

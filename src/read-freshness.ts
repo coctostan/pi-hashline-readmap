@@ -1,46 +1,28 @@
-import { normalizePathForContextHygiene, type ContextHygieneReport } from "./context-hygiene.js";
+import { normalizePathForContextHygiene } from "./context-hygiene.js";
 
 export interface ReadFreshness {
-  /** `own` marks this extension's own successful write: ServedLines remaps its shifts. */
-  note(absolutePath: string, mark?: { own: boolean }): void;
+  note(absolutePath: string): void;
   has(absolutePath: string): boolean;
-  expireFromReport(report: Pick<ContextHygieneReport, "staleCandidates">): void;
-  /** A change this extension did not make: the file has no live view left, own or not. */
+  /** A change whose result is not the model's view of the file: its live anchors are gone. */
   expirePath(absolutePath: string): void;
 }
 
-// Tracks which files carry live anchors the model may still edit with. Each entry maps a
-// normalized absolute path to the tracker event id of its most recent live-anchor result
-// (read / grep / ast_search / write / edit). When a later same-file mutation makes that
-// result stale, the entry expires and edit's read-before-edit guard forces a re-read.
-export function createReadFreshness(currentEventCount: () => number): ReadFreshness {
-  const readTurns = new Map<string, { id: number; own: boolean }>();
+// Tracks which files carry live anchors the model may still edit with: those a read / grep /
+// ast_search / write / edit result showed. Each change states its effect at its own call: an own
+// change marks the file (ServedLines remaps its shifts), and any other change expires it, so no
+// ordering between parallel results decides freshness.
+export function createReadFreshness(): ReadFreshness {
+  const fresh = new Set<string>();
   const key = (absolutePath: string) => normalizePathForContextHygiene(absolutePath);
   return {
-    note(absolutePath, mark) {
-      // note runs synchronously inside the tool, before tool_result records its event, so that
-      // event will get id eventCount + 1. Anchoring there keeps the entry strictly newer than
-      // every mutation id <= the current eventCount, which is what expireFromReport compares.
-      readTurns.set(key(absolutePath), { id: currentEventCount() + 1, own: mark?.own === true });
+    note(absolutePath) {
+      fresh.add(key(absolutePath));
     },
     has(absolutePath) {
-      return readTurns.has(key(absolutePath));
-    },
-    expireFromReport(report) {
-      if (readTurns.size === 0) return;
-      for (const candidate of report.staleCandidates) {
-        if (!candidate.resourceKey.startsWith("file:")) continue;
-        const absolutePath = key(candidate.resourceKey.slice("file:".length));
-        const recorded = readTurns.get(absolutePath);
-        if (recorded === undefined) continue;
-        // An own write anticipated its own mutation event: that mutation is the view itself.
-        if (recorded.id < candidate.mutationEventId || (recorded.id === candidate.mutationEventId && !recorded.own)) {
-          readTurns.delete(absolutePath);
-        }
-      }
+      return fresh.has(key(absolutePath));
     },
     expirePath(absolutePath) {
-      readTurns.delete(key(absolutePath));
+      fresh.delete(key(absolutePath));
     },
   };
 }

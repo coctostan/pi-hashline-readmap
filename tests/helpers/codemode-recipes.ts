@@ -18,6 +18,7 @@ export interface RecipeProgram {
     checkpoint?: string;
     branch?: string;
     resume?: boolean;
+    context?: boolean;
   }>;
 }
 export function runProgram(program: RecipeProgram, env: Record<string, string> = {}): any {
