@@ -31,7 +31,7 @@ Read-like outputs can also carry a rehydrate descriptor that tells the agent how
 | `grep` | `search-context` | matched files and search inputs |
 | `ast_search` | `search-context` | matched files and structural search inputs |
 | `bash` | `command-output` | command string and command kind, such as test, build, typecheck, lint, VCS, install, or other |
-| `edit` / `write` | `mutation` | changed file path |
+| `edit` / `write` | `mutation` | changed file path; a cross-file `move_lines` also names its source file |
 
 The tracker keeps a bounded in-memory event history. The current default maximum is `1000` events.
 
