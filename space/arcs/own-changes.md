@@ -1,5 +1,5 @@
 ---
-status: active
+status: done
 ---
 # Own changes keep anchors exact
 
@@ -9,14 +9,13 @@ When a model edits a file through Hashline, it points at lines with short anchor
 After the extension's own `write`, a cross-file `move_lines`, or an own write run in parallel inside a codemode script, anchors the model already holds stay exact and its context shows which earlier results are stale; changes the extension didn't make still expire freshness (ruling 0004). Ships as 0.28.2.
 
 ## Done when
-- [ ] After the extension's own `write` moves an unchanged line by more than 20 lines, an anchored edit using that line's anchor from a read made before the write lands on the line's new number, reported as remapped; an anchor on a line the write changed or removed is refused with fresh rows — verified by `tests/write-shift-remap.test.ts`
-- [ ] After a cross-file `move_lines`, the source file's earlier read is marked stale in context at the next `context` event, and an anchored edit of the source with that read's anchors still lands without a re-read — verified by `tests/edit-move-source-stale.test.ts`
-- [ ] A codemode script that runs the extension's own `write` beside another tool call in `Promise.all` leaves the written file fresh: on the next turn an anchored edit with the write's anchors lands without `file-not-read` — verified by `tests/pi-host-codemode-freshness.test.ts`, through the selected host's real loader, `runToolCall` and codemode executor
-- [ ] A change the extension didn't make still expires a file's freshness — verified by `tests/repro-144-stale-read-edit-guard.test.ts`, `tests/context-hygiene-edit-guard-bash-stale.test.ts` and `tests/read-freshness.test.ts`, inside `npm test && npm run typecheck`
-- [ ] 0.28.2's CHANGELOG names each change above, and the `pi-compatibility` workflow passes on its release commit — verified on the release, by `gh run list --workflow pi-compatibility.yml --commit <release sha>`
+- [x] After the extension's own `write` moves an unchanged line by more than 20 lines, an anchored edit using that line's anchor from a read made before the write lands on the line's new number, reported as remapped; an anchor on a line the write changed or removed is refused with fresh rows — verified by `tests/write-shift-remap.test.ts` · 2026-11-15: green at close (`73159466`)
+- [x] After a cross-file `move_lines`, the source file's earlier read is marked stale in context at the next `context` event, and an anchored edit of the source with that read's anchors still lands without a re-read — verified by `tests/edit-move-source-stale.test.ts` · 2026-11-15: green at close (`73159466`)
+- [x] A codemode script that runs the extension's own `write` beside another tool call in `Promise.all` leaves the written file fresh: on the next turn an anchored edit with the write's anchors lands without `file-not-read` — verified by `tests/pi-host-codemode-freshness.test.ts`, through the selected host's real loader, `runToolCall` and codemode executor · 2026-11-15: green at close on the locked Pi 1.5.2 (`73159466`)
+- [x] A change the extension didn't make still expires a file's freshness — verified by `tests/repro-144-stale-read-edit-guard.test.ts`, `tests/context-hygiene-edit-guard-bash-stale.test.ts` and `tests/read-freshness.test.ts`, inside `npm test && npm run typecheck` · 2026-11-15: the three green; `npm test` 643 files passed (2583 tests, 1 skipped), `npm run typecheck` clean (`73159466`)
+- [x] 0.28.2's CHANGELOG names each change above, and the `pi-compatibility` workflow passes on its release commit — verified on the release, by `gh run list --workflow pi-compatibility.yml --commit <release sha>` · 2026-11-15: `[0.28.2] - 2026-11-15` names #340, #341 and #342; run 43759320736 `success` on `0900db90`
 
 ## Now
-slice 4 (Release 0.28.2) is done (#343); `pi-compatibility` passed on its merge commit `0900db90` (run 43759320736). Next: `close`, in a fresh session.
 
 ## Design
 - **Chosen:** each own change states its effect at its own call. `write` gains `served` and calls `ServedLines.remapAfterWrite` on an overwrite as `edit` does, and its result no longer clears the moved-anchor map. A cross-file `move_lines` names both files in its context-hygiene event and marks its source fresh, as it does its target. If slice 1 reproduces the race, freshness becomes a set of paths: own changes mark, changes the extension didn't make expire through `expirePath` at their own result (bash already does; `edit` and `write` failing after they wrote join it), and `expireFromReport` with its anticipated event id goes.
@@ -49,3 +48,12 @@ slice 4 (Release 0.28.2) is done (#343); `pi-compatibility` passed on its merge 
 
 ## Decisions
 - [0004 Own edits keep a file's anchors fresh](../decisions/0004-own-edits-keep-freshness.md)
+
+## Follow-ups
+- enforce: build the bare slice and arc mention lint routed at pi-1-5-2-host (Pi 1.5.2 is the one tested host)'s close, still unbuilt at this, the fifth close to route it; its test also replays session `2026-11-15T16-10-54-090Z` 16:32 ("point Now at slice 3") · run `~/.jidoka/sessions/2026-11-15T21-46-58Z-own-changes/classes.json`, 4 of 5 sessions
+- change: jidoka's `skills/dev/slice/SKILL.md` rule to run a check as `cmd > <log> 2>&1; echo $?`, approved at unused-code (Code nothing uses is gone)'s close and not yet in jidoka, recurred in sessions `2026-11-14T21-38-28-446Z` 15:56 and `2026-11-15T16-10-54-090Z` 16:14 · same run
+- cut: delete `src/edit.ts:1306-1307`, `if (options.wasReadInSession?.(absolutePath)) options.onFileAnchored?.(absolutePath)`: anchor-freshness (Anchor freshness matches what the model sees)'s slice 2 (Own edits keep freshness) added it to re-note under a newer event id, a no-op since slice 1 (Parallel own writes stay fresh) made freshness a Set · probe 2026-11-15: removed, `npm test` 643 files passed
+- trigger: jidoka's `survey` stub fired again: this close's cut sits in a line anchor-freshness (Anchor freshness matches what the model sees) added (`ddc3ff17`, #243), as near-miss (Near-miss calls recover in one step)'s and unused-code (Code nothing uses is gone)'s closes found before · `skills/stubs/survey/SKILL.md:8`
+- leftover: accepted at slice 1 (Parallel own writes stay fresh): the race shows only beside another extension whose `tool_result` handler awaits I/O, so whether one the owner loads does is inferred, the fixture pinning it; the live drive ran Hashline alone; a bare-CR write expires twice (`onFileStale` and the error rule), idempotent · `21386dd1`
+- leftover: accepted at slice 2 (Own write remaps moved anchors): the remap note reads "predates an earlier edit that moved its line" after a `write` too; an old anchor equal to a row the write shows again names the write's row, not the moved line · `8b31a5c8`
+- leftover: accepted at slice 3 (Move source shows stale), a same-file `move_lines` has no source removal, so its event is unchanged; at slice 4 (Release 0.28.2), `npm publish` stays the owner's and `package-lock.json`'s `@ts-morph/common` 0.28.1 is not this package's version · `16606ca5`, `0900db90`
