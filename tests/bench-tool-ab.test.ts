@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,12 +12,17 @@ const call = (id: string, name: string, args: Record<string, unknown>) => ({ typ
 const result = (id: string, text: string, isError = false) => line({ type: "message_end", message: { role: "toolResult", toolCallId: id, content: [{ type: "text", text }], isError } });
 
 describe("ARMS", () => {
-	it("are stock Pi, the extension, and the extension without ls and find, then without grep too", () => {
+	it("are stock Pi, the extension with and without ls, find and grep, then Pi's read, edit and write in its place, or none", () => {
+		const lsFind = ["ls", "find"];
 		expect(ARMS).toEqual([
-			{ name: "stock", extension: false, exclude: [] },
-			{ name: "extension", extension: true, exclude: [] },
-			{ name: "no-ls-find", extension: true, exclude: ["ls", "find"] },
-			{ name: "no-ls-find-grep", extension: true, exclude: ["ls", "find", "grep"] },
+			{ name: "stock", extension: false, exclude: [], tools: [], env: {} },
+			{ name: "extension", extension: true, exclude: [], tools: ["+ls", "+find"], env: {} },
+			{ name: "no-ls-find", extension: true, exclude: lsFind, tools: [], env: {} },
+			{ name: "no-ls-find-grep", extension: true, exclude: [...lsFind, "grep"], tools: [], env: {} },
+			{ name: "pi-edit", extension: true, exclude: lsFind, tools: [], env: { PI_HASHLINE_BUILTIN: "edit,write" } },
+			{ name: "pi-read", extension: true, exclude: lsFind, tools: [], env: { PI_HASHLINE_BUILTIN: "read" } },
+			{ name: "pi-read-edit", extension: true, exclude: lsFind, tools: [], env: { PI_HASHLINE_BUILTIN: "read,edit,write" } },
+			{ name: "bash-read-edit", extension: true, exclude: [...lsFind, "read", "edit", "write"], tools: [], env: {} },
 		]);
 	});
 });
@@ -28,7 +33,7 @@ describe("planJobs", () => {
 	const key = (job: (typeof jobs)[number]) => `${job.attempt}|${job.task.id}|${job.model}`;
 
 	it("plans every arm for every task, model and repeat once", () => {
-		expect(jobs).toHaveLength(3 * 4 * 2 * 2);
+		expect(jobs).toHaveLength(3 * 8 * 2 * 2);
 		expect(new Set(jobs.map((job) => `${key(job)}|${job.arm.name}`)).size).toBe(jobs.length);
 	});
 
@@ -422,7 +427,8 @@ describe("tool-ab.mjs through a stub host", () => {
 	const runCli = (...extra: string[]) => spawnSync(
 		process.execPath,
 		[script, "--models", "p/m", "--max-cost", "1", "--tasks", "ansi-cursor-codes", "--repeat", "1", "--out", out, ...extra],
-		{ env: { ...process.env, PI_COMPAT_HOST: host }, encoding: "utf8" },
+		// A PI_HASHLINE_BUILTIN set where the harness runs must reach no arm that doesn't name its own.
+		{ env: { ...process.env, PI_COMPAT_HOST: host, PI_HASHLINE_BUILTIN: "read" }, encoding: "utf8" },
 	);
 
 	beforeAll(() => {
@@ -430,30 +436,35 @@ describe("tool-ab.mjs through a stub host", () => {
 		host = join(scratch, "host");
 		out = join(scratch, "out");
 		mkdirSync(host);
-		// A host whose Pi CLI records the arguments it was launched with.
+		// A host whose Pi CLI records the arguments and the PI_HASHLINE_BUILTIN it was launched with.
 		writeFileSync(join(host, "package.json"), JSON.stringify({ version: "0.0.0-stub", bin: { pi: "cli.mjs" } }));
-		writeFileSync(join(host, "cli.mjs"), "console.log(JSON.stringify({ type: \"stub\", argv: process.argv.slice(2) }));\n");
+		writeFileSync(join(host, "cli.mjs"), "console.log(JSON.stringify({ type: \"stub\", argv: process.argv.slice(2), builtin: process.env.PI_HASHLINE_BUILTIN ?? null }));\n");
 	});
 
 	afterAll(() => {
 		if (scratch) rmSync(scratch, { recursive: true, force: true });
 	});
 
-	it("launches each arm through the selected host's CLI, with its extension and exclusions", () => {
+	it("launches each arm through the selected host's CLI, with its extension, exclusions, added tools and built-ins", () => {
 		const first = runCli();
 		expect(first.status, first.stderr).toBe(0);
 		const launch = (arm: string) => {
 			const trace = readFileSync(join(out, "traces/p_m", arm, "ansi-cursor-codes#1.jsonl"), "utf8");
-			const argv: string[] = JSON.parse(trace.split("\n")[0]).argv;
-			const excludeAt = argv.indexOf("--exclude-tools");
-			return { extensions: argv.filter((_arg, i) => argv[i - 1] === "-e"), exclude: excludeAt === -1 ? null : argv[excludeAt + 1] };
+			const { argv, builtin }: { argv: string[]; builtin: string | null } = JSON.parse(trace.split("\n")[0]);
+			const after = (flag: string) => (argv.includes(flag) ? argv[argv.indexOf(flag) + 1] : null);
+			return { extensions: argv.filter((_arg, i) => argv[i - 1] === "-e"), exclude: after("--exclude-tools"), tools: after("--tools"), builtin };
 		};
 		const index = join(repo, "index.ts");
+		const hashline = (exclude: string | null, builtin = "", tools: string | null = null) => ({ extensions: [index], exclude, tools, builtin });
 		expect(Object.fromEntries(ARMS.map((arm) => [arm.name, launch(arm.name)]))).toEqual({
-			stock: { extensions: [], exclude: null },
-			extension: { extensions: [index], exclude: null },
-			"no-ls-find": { extensions: [index], exclude: "ls,find" },
-			"no-ls-find-grep": { extensions: [index], exclude: "ls,find,grep" },
+			stock: { extensions: [], exclude: null, tools: null, builtin: "" },
+			extension: hashline(null, "", "+ls,+find"),
+			"no-ls-find": hashline("ls,find"),
+			"no-ls-find-grep": hashline("ls,find,grep"),
+			"pi-edit": hashline("ls,find", "edit,write"),
+			"pi-read": hashline("ls,find", "read"),
+			"pi-read-edit": hashline("ls,find", "read,edit,write"),
+			"bash-read-edit": hashline("ls,find,read,edit,write"),
 		});
 		const run = JSON.parse(readFileSync(join(out, "run.json"), "utf8"));
 		expect(run).toMatchObject({ host: { version: "0.0.0-stub", cli: join(host, "cli.mjs") }, spent: 0, skipped: 0 });
@@ -476,4 +487,41 @@ describe("tool-ab.mjs through a stub host", () => {
 		expect(changed.status).not.toBe(0);
 		expect(changed.stderr).toContain("--resume: extension changed");
 	});
+});
+
+describe("tool-ab.mjs task names", () => {
+	const bench = resolve(dirname(fileURLToPath(import.meta.url)), "../scripts/bench");
+	const ids = ["unique-10-plain", "unique-100-unicode", "unique-1000-plain", "multi-file-1-unicode", "multi-file-2-plain", "replace-block-10-unicode"];
+	let checkout: string;
+
+	beforeAll(() => {
+		checkout = gitRepo({
+			"src/suites/explicit-edit/fixtures.ts": `export const explicitEditTasks = () => ${JSON.stringify(ids)}.map((id) => ({ id, prompt: id, input: {}, expected: {} }));\n`,
+		});
+	});
+
+	afterAll(() => {
+		if (checkout) rmSync(checkout, { recursive: true, force: true });
+	});
+
+	it("selects every locate task, then the Explicit Edit sample of one per family that explicit-edit.mjs picks", () => {
+		const list = (script: string, ...args: string[]) => {
+			const proc = spawnSync(process.execPath, [join(bench, script), "--list", "--bench-dir", checkout, ...args], { encoding: "utf8" });
+			expect(proc.status, proc.stderr).toBe(0);
+			return proc.stdout.trim().split("\n");
+		};
+		const sample = list("explicit-edit.mjs", "--sample", "1");
+		expect(sample).toHaveLength(3);
+		expect(new Set(sample.map((id) => id.replace(/-\d.*$/, "")))).toEqual(new Set(["unique", "multi-file", "replace-block"]));
+		expect(TASKS).toHaveLength(10);
+		expect(list("tool-ab.mjs", "--tasks", "locate,edit-sample")).toEqual([...TASKS.map((task) => `locate\t${task.id}`), ...sample.map((id) => `edit\t${id}`)]);
+	}, 60_000);
+
+	it("needs no Explicit Edit checkout for the locate tasks alone", () => {
+		const absent = join(checkout, "absent/bench");
+		const proc = spawnSync(process.execPath, [join(bench, "tool-ab.mjs"), "--list", "--bench-dir", absent, "--tasks", "locate"], { encoding: "utf8" });
+		expect(proc.status, proc.stderr).toBe(0);
+		expect(proc.stdout.trim().split("\n")).toEqual(TASKS.map((task) => `locate\t${task.id}`));
+		expect(existsSync(join(checkout, "absent"))).toBe(false);
+	}, 60_000);
 });

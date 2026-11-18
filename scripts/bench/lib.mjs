@@ -1,13 +1,14 @@
 /** Helpers shared by the scripts/bench harnesses: run headless Pi, summarize its event stream, run jobs in a pool. */
 import { spawn } from "node:child_process";
 
-/** `cli`, a Pi CLI script run with this Node, pins the host; without it the global `pi` runs. */
-export function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs, cli, excludeTools = [] }) {
+/** `cli`, a Pi CLI script run with this Node, pins the host; without it the global `pi` runs. `env` is set over this process's. */
+export function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs, cli, excludeTools = [], tools = [], env = {} }) {
 	const args = [
 		"-p", "--mode", "json", "--no-session",
 		"--no-extensions", "--no-skills", "--no-prompt-templates", "--no-context-files", "--no-themes", "--offline",
 		...extensions.flatMap((path) => ["-e", path]),
 		...(excludeTools.length ? ["--exclude-tools", excludeTools.join(",")] : []),
+		...(tools.length ? ["--tools", tools.join(",")] : []),
 		"--model", model, "--thinking", thinking,
 		"--", prompt,
 	];
@@ -15,7 +16,7 @@ export function runPi({ cwd, prompt, model, thinking, extensions, timeoutMs, cli
 	return new Promise((resolvePromise) => {
 		const started = Date.now();
 		// stdin must be closed: headless Pi otherwise waits for piped input.
-		const child = spawn(command, commandArgs, { cwd, env: { ...process.env, PI_OFFLINE: "1" }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
+		const child = spawn(command, commandArgs, { cwd, env: { ...process.env, ...env, PI_OFFLINE: "1" }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
 		let stdout = "";
 		let stderr = "";
 		let timedOut = false;

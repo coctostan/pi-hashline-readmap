@@ -117,7 +117,7 @@ function taskFamily(id) {
 	return id.replace(/-\d.*$/, "");
 }
 
-function selectTasks(all, opts) {
+export function selectTasks(all, opts) {
 	if (opts.tasks) {
 		const byId = new Map(all.map((task) => [task.id, task]));
 		return opts.tasks.map((id) => {
