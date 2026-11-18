@@ -1,17 +1,22 @@
 #!/usr/bin/env node
 /**
- * A/B of tool arms for the tools-vs-bash arc: does an agent do better with this extension's
- * `find`, `ls` and `grep`, or with bash? Each run is one task in a fresh workspace, through the
+ * A/B of tool arms: does an agent do better with this extension's `find`, `ls` and `grep`, or with
+ * bash (the tools-vs-bash arc), and with its `read`, `edit` and `write`, or with Pi's own or bash
+ * (the read-edit-ab arc)? Each run is one task in a fresh workspace, through the
  * selected host's own Pi CLI (PI_COMPAT_HOST, else the locked Pi), headless (`pi -p --mode json`).
  * The system prompt names the host's docs, so a host inside this checkout is replaced by its version
  * installed under ~/.cache/pi-hashline-readmap/bench-hosts, and a run after which the checkout's tree
  * differs fails and stops the harness:
  *
  *   stock             stock Pi: read, bash, edit, write
- *   extension         this checkout's index.ts, its default tools (since ruling 0008 without ls and
- *                     find, which the pilot ran active)
+ *   extension         this checkout's index.ts, its default tools plus ls and find (--tools +ls,+find),
+ *                     the set the pilot ran before ruling 0008 deferred them
  *   no-ls-find        the extension with --exclude-tools ls,find
  *   no-ls-find-grep   the extension with --exclude-tools ls,find,grep
+ *   pi-edit           no-ls-find with PI_HASHLINE_BUILTIN=edit,write: Pi's edit and write
+ *   pi-read           no-ls-find with PI_HASHLINE_BUILTIN=read: Pi's read
+ *   pi-read-edit      no-ls-find with PI_HASHLINE_BUILTIN=read,edit,write: Pi's three
+ *   bash-read-edit    the extension with --exclude-tools ls,find,read,edit,write: bash in their place
  *
  * An arm is what it declares: text in another tool naming an excluded one, and bash's hints, stay.
  *
@@ -30,9 +35,11 @@
  * Options:
  *   --models LIST        Comma-separated Pi models (required)
  *   --max-cost USD       Spending cap for the whole run, resumed runs included (required)
- *   --arms LIST          Comma-separated arms (default: all four)
- *   --tasks IDS          Comma-separated task ids from either set (default: every locate task and
- *                        the Explicit Edit control tasks)
+ *   --arms LIST          Comma-separated arms (default: all eight)
+ *   --tasks IDS          Comma-separated task ids from either set, or the names `locate` (every
+ *                        locate task) and `edit-sample` (one Explicit Edit task per family, as
+ *                        explicit-edit.mjs --sample 1 picks) (default: every locate task and the
+ *                        Explicit Edit control tasks)
  *   --repeat N           Runs of every (task, model, arm) (default: 2)
  *   --concurrency N      Parallel Pi processes (default: 2)
  *   --timeout S          Seconds per run (default: 300)
@@ -57,7 +64,7 @@ import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import { selectCompatHost } from "../pi-compat-host.mjs";
 import { scoreSession } from "./confusion.mjs";
-import { ensureBenchCheckout, loadTasks, providerExtensions, verifyTree, writeTree } from "./explicit-edit.mjs";
+import { ensureBenchCheckout, loadTasks, providerExtensions, selectTasks as sampleEditTasks, verifyTree, writeTree } from "./explicit-edit.mjs";
 import { runPi, summarizeEvents } from "./lib.mjs";
 import { extractSnapshot, SNAPSHOT, TASKS } from "./locate-tasks/tasks.mjs";
 
@@ -65,11 +72,17 @@ const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const CHECK_SCRIPT = join(REPO, "scripts/bench/locate-tasks/check.mjs");
 const CHECK_TIMEOUT_MS = 60_000;
 
+const LS_FIND = ["ls", "find"];
+/** `tools` adds to the defaults (`+ls` declares a deferred tool); `env`'s PI_HASHLINE_BUILTIN leaves those tools to Pi's built-ins. */
 export const ARMS = [
-	{ name: "stock", extension: false, exclude: [] },
-	{ name: "extension", extension: true, exclude: [] },
-	{ name: "no-ls-find", extension: true, exclude: ["ls", "find"] },
-	{ name: "no-ls-find-grep", extension: true, exclude: ["ls", "find", "grep"] },
+	{ name: "stock", extension: false, exclude: [], tools: [], env: {} },
+	{ name: "extension", extension: true, exclude: [], tools: ["+ls", "+find"], env: {} },
+	{ name: "no-ls-find", extension: true, exclude: LS_FIND, tools: [], env: {} },
+	{ name: "no-ls-find-grep", extension: true, exclude: [...LS_FIND, "grep"], tools: [], env: {} },
+	{ name: "pi-edit", extension: true, exclude: LS_FIND, tools: [], env: { PI_HASHLINE_BUILTIN: "edit,write" } },
+	{ name: "pi-read", extension: true, exclude: LS_FIND, tools: [], env: { PI_HASHLINE_BUILTIN: "read" } },
+	{ name: "pi-read-edit", extension: true, exclude: LS_FIND, tools: [], env: { PI_HASHLINE_BUILTIN: "read,edit,write" } },
+	{ name: "bash-read-edit", extension: true, exclude: [...LS_FIND, "read", "edit", "write"], tools: [], env: {} },
 ];
 
 /** The Explicit Edit control: three families at three scales, where the prompt names every file. */
@@ -130,11 +143,13 @@ function editTask(task) {
 async function selectTasks(opts) {
 	const locate = TASKS.map(locateTask);
 	const wanted = opts.tasks ?? [...locate.map((task) => task.id), ...DEFAULT_EDIT_TASKS];
-	const needsEdit = wanted.some((id) => !locate.some((task) => task.id === id));
+	const needsEdit = wanted.some((id) => id !== "locate" && !locate.some((task) => task.id === id));
 	const benchCommit = needsEdit ? ensureBenchCheckout(opts.benchDir) : null;
-	const edit = needsEdit ? (await loadTasks(opts.benchDir)).map(editTask) : [];
-	const byId = new Map([...locate, ...edit].map((task) => [task.id, task]));
-	const tasks = wanted.map((id) => {
+	const editTasks = needsEdit ? await loadTasks(opts.benchDir) : [];
+	const byId = new Map([...locate, ...editTasks.map(editTask)].map((task) => [task.id, task]));
+	// Names --tasks takes for a set: every locate task, or one Explicit Edit task per family as explicit-edit.mjs's --sample 1 picks.
+	const sets = new Map([["locate", locate], ["edit-sample", sampleEditTasks(editTasks, { sample: 1 })]].map(([name, tasks]) => [name, tasks.map((task) => task.id)]));
+	const tasks = wanted.flatMap((id) => sets.get(id) ?? [id]).map((id) => {
 		const task = byId.get(id);
 		if (!task) throw new Error(`Unknown task id: ${id}`);
 		return task;
@@ -410,6 +425,9 @@ async function runOne({ task, arm, model, attempt }, opts, host) {
 			thinking: opts.thinking,
 			extensions: [...providerExtensions(model, opts.providerExtensions), ...(arm.extension ? [join(REPO, "index.ts")] : [])],
 			excludeTools: arm.exclude,
+			tools: arm.tools,
+			// Empty unless the arm names it, so a PI_HASHLINE_BUILTIN where the harness runs changes no arm.
+			env: { PI_HASHLINE_BUILTIN: "", ...arm.env },
 			cli: host.cli,
 			timeoutMs: opts.timeout * 1000,
 		});

@@ -65,4 +65,21 @@ describe("runPi", () => {
 			rmSync(dir, { recursive: true, force: true });
 		}
 	});
+
+	it("adds the given tools to the defaults, and sets the given environment over this one", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "bench-lib-"));
+		try {
+			const cli = join(dir, "cli.mjs");
+			writeFileSync(cli, "console.log(JSON.stringify({ argv: process.argv.slice(2), builtin: process.env.PI_HASHLINE_BUILTIN ?? null, path: process.env.PATH ?? null }));\n");
+			const proc = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: [], timeoutMs: 10_000, cli, tools: ["+ls", "+find"], env: { PI_HASHLINE_BUILTIN: "edit,write" } });
+			const seen = JSON.parse(proc.stdout);
+			expect(seen.argv.slice(seen.argv.indexOf("--tools"), seen.argv.indexOf("--tools") + 2)).toEqual(["--tools", "+ls,+find"]);
+			expect(seen.builtin).toBe("edit,write");
+			expect(seen.path).toBe(process.env.PATH);
+			const bare = await runPi({ cwd: dir, prompt: "go", model: "p/m", thinking: "off", extensions: [], timeoutMs: 10_000, cli });
+			expect(JSON.parse(bare.stdout).argv).not.toContain("--tools");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
 });

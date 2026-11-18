@@ -1,7 +1,8 @@
 import type { EventSummary } from "./lib.mjs";
 import type { LocateTask } from "./locate-tasks/tasks.mjs";
 
-export interface Arm { name: string; extension: boolean; exclude: string[] }
+/** `tools`: `--tools` entries added to the defaults; `env`: set over the harness's, PI_HASHLINE_BUILTIN emptied unless named. */
+export interface Arm { name: string; extension: boolean; exclude: string[]; tools: string[]; env: Record<string, string> }
 export const ARMS: Arm[];
 
 export interface AbTask {
