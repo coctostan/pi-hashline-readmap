@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- The npm package no longer ships the benchmark run records under `docs/tool-ab-*/` (284 KB on disk); `docs/tool-cost.md` links them on GitHub instead.
+
 ## [0.28.2] - 2026-11-15
 
 Anchors stay exact after Hashline's own changes: an anchor read before an own `write` follows its line however far the write moved it, a cross-file `move_lines` marks its source's earlier read stale, and an own `write` run beside another call in a codemode `Promise.all` leaves its file fresh. Changes the extension didn't make still expire a file's freshness.
