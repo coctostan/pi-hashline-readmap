@@ -255,6 +255,16 @@ export function isGdscriptMappingEnabled(env: NodeJS.ProcessEnv = process.env): 
   return resolveHashlineJsonSettings().settings.gdscript?.enabled === true;
 }
 
+const BUILTIN_CAPABLE = ["read", "edit", "write"] as const;
+export type BuiltinCapableTool = (typeof BUILTIN_CAPABLE)[number];
+/** The tools `PI_HASHLINE_BUILTIN` (a comma list) leaves to Pi's built-ins; throws on any other name. */
+export function resolveBuiltinTools(env: NodeJS.ProcessEnv = process.env): BuiltinCapableTool[] {
+  const names = (env.PI_HASHLINE_BUILTIN ?? "").split(",").map((name) => name.trim()).filter(Boolean);
+  const unknown = names.find((name) => !(BUILTIN_CAPABLE as readonly string[]).includes(name));
+  if (unknown !== undefined) throw new Error(`PI_HASHLINE_BUILTIN names "${unknown}"; it accepts ${BUILTIN_CAPABLE.join(", ")}`);
+  return names as BuiltinCapableTool[];
+}
+
 export function resolveEditDiffDisplay(env: NodeJS.ProcessEnv = process.env): "collapsed" | "expanded" {
   const raw = env.PI_HASHLINE_EDIT_DIFF_DISPLAY;
   if (typeof raw === "string") {

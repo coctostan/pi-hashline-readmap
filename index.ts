@@ -14,7 +14,7 @@ import { registerFindTool } from "./src/find.js";
 import { registerBashRendererTool } from "./src/bash-renderer.js";
 import { withRawArgumentGuard } from "./src/raw-argument-guard.js";
 import { isNestedToolEvent, withCodemodeIntegration } from "./src/codemode-integration.js";
-import { resolveShellPath } from "./src/hashline-settings.js";
+import { resolveBuiltinTools, resolveShellPath } from "./src/hashline-settings.js";
 import { ServedLines, recordServedFromResult } from "./src/served-lines.js";
 import { resolveToCwd } from "./src/path-utils.js";
 import { presentBashOutput } from "./src/bash-output.js";
@@ -138,6 +138,8 @@ function hasAppliedEffects(effects: ContextHygieneAppliedEffects): boolean {
 }
 
 export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
+  // First, so an unknown name refuses the extension before any tool registers.
+  const builtin = resolveBuiltinTools();
   // Codemode integration wraps outermost so annotations/outputSchema are set before the raw
   // argument guard forwards the (same, mutated) definition to Pi.
   pi = withCodemodeIntegration(withRawArgumentGuard(pi));
@@ -150,11 +152,12 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
 
   // Programmatic callers (Pi codemode scripts) reach these tools through Pi's own
   // ctx.executeTool(); see src/codemode-integration.ts. No side-channel executor map is published.
-  registerReadTool(pi, { onSuccessfulRead: noteRead });
+  // A tool named in PI_HASHLINE_BUILTIN stays unregistered, so Pi's built-in of that name remains.
+  if (!builtin.includes("read")) registerReadTool(pi, { onSuccessfulRead: noteRead });
   // What each file looked like when the model last saw it; edit refuses to overwrite lines that
   // changed since (range interiors and text replacements, beyond what anchors verify).
   const served = new ServedLines();
-  registerEditTool(pi, { wasReadInSession, served, onFileAnchored: noteRead });
+  if (!builtin.includes("edit")) registerEditTool(pi, { wasReadInSession, served, onFileAnchored: noteRead });
   const sgAvailable = isSgAvailable();
   const astSearchGuideline = sgAvailable
     ? "Use grep summary for counts; use ast_search for structural code patterns."
@@ -163,7 +166,7 @@ export default function piHashlineReadmapExtension(pi: ExtensionAPI): void {
   registerGrepTool(pi, { astSearchGuideline, onFileAnchored: noteRead });
   registerSgTool(pi, { onFileAnchored: noteRead });
   registerNuTool(pi);
-  registerWriteTool(pi, { served, onFileAnchored: noteRead, onFileStale: freshness.expirePath });
+  if (!builtin.includes("write")) registerWriteTool(pi, { served, onFileAnchored: noteRead, onFileStale: freshness.expirePath });
   registerLsTool(pi);
   registerFindTool(pi);
   registerBashRendererTool(pi, { cwd: process.cwd(), shellPath: resolveShellPath() });

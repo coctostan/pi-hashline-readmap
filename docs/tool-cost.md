@@ -138,6 +138,8 @@ The first-touch count above missed a search tool's results printed relative to i
 
 An arm is what it declares: text in another tool naming an excluded one (listed above) and bash's grep hint on pipe filters stay, since a ruling that excludes a tool would ship them so.
 
+`PI_HASHLINE_BUILTIN`, a comma list of any of `read`, `edit` and `write`, makes the extension leave those tools unregistered, so Pi's built-in of each name stays and the rest of Hashline loads: `PI_HASHLINE_BUILTIN=edit,write` pairs Hashline's `read` with Pi's `edit` and `write`. Unset or empty, all three are Hashline's. Any other name refuses the whole extension at load, with an error naming the accepted ones. It exists for these arms; which tools register by default is unchanged.
+
 Bounds:
 
 - The workspaces have no `node_modules`, so a model's `npm test` fails in every arm and adds an error; in the live drive below, 7 of 8 runs tried, and one `stock` run's `npx vitest` fetched vitest from the registry.
