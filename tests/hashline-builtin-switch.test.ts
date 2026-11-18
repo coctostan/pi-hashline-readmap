@@ -30,7 +30,13 @@ async function session(builtin: string | undefined) {
 
 function owners(s: Awaited<ReturnType<typeof session>>["s"]) {
   const byName = Object.fromEntries(s.getAllTools().map((tool) => [tool.name, tool.sourceInfo]));
-  const owner = (name: string) => (byName[name] === undefined ? "missing" : byName[name].source === "builtin" ? "pi" : byName[name].path === "<inline:1>" ? "hashline" : `other ${byName[name].path}`);
+  const owner = (name: string) => {
+    const info = byName[name];
+    if (info === undefined) return "missing";
+    if (info.source === "builtin") return "pi";
+    if (info.path === "<inline:1>") return "hashline";
+    return `other ${info.path}`;
+  };
   return { read: owner("read"), edit: owner("edit"), write: owner("write"), grep: owner("grep") };
 }
 
