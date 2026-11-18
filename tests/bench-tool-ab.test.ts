@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -515,5 +515,13 @@ describe("tool-ab.mjs task names", () => {
 		expect(new Set(sample.map((id) => id.replace(/-\d.*$/, "")))).toEqual(new Set(["unique", "multi-file", "replace-block"]));
 		expect(TASKS).toHaveLength(10);
 		expect(list("tool-ab.mjs", "--tasks", "locate,edit-sample")).toEqual([...TASKS.map((task) => `locate\t${task.id}`), ...sample.map((id) => `edit\t${id}`)]);
+	}, 60_000);
+
+	it("needs no Explicit Edit checkout for the locate tasks alone", () => {
+		const absent = join(checkout, "absent/bench");
+		const proc = spawnSync(process.execPath, [join(bench, "tool-ab.mjs"), "--list", "--bench-dir", absent, "--tasks", "locate"], { encoding: "utf8" });
+		expect(proc.status, proc.stderr).toBe(0);
+		expect(proc.stdout.trim().split("\n")).toEqual(TASKS.map((task) => `locate\t${task.id}`));
+		expect(existsSync(join(checkout, "absent"))).toBe(false);
 	}, 60_000);
 });
