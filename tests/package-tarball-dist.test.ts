@@ -23,7 +23,7 @@ describe("npm pack tarball", () => {
       mkdirSync(stage);
       writeFileSync(join(stage, "package.json"), JSON.stringify(pkg));
       for (const entry of pkg.files as string[]) {
-        if (entry === "dist/") continue;
+        if (entry === "dist/" || entry.startsWith("!")) continue;
         mkdirSync(dirname(join(stage, entry)), { recursive: true });
         cpSync(entry, join(stage, entry), { recursive: true });
       }
@@ -62,4 +62,16 @@ describe("npm pack tarball", () => {
       rmSync(work, { recursive: true, force: true });
     }
   }, 180_000);
+
+  it("leaves the bench artifacts out and links them from the repository", () => {
+    const packOutput = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--ignore-scripts", "--json"], { encoding: "utf8" }));
+    const info = Array.isArray(packOutput) ? packOutput[0] : packOutput[pkg.name];
+    const paths: string[] = info.files.map((file: { path: string }) => file.path);
+    expect(paths.filter((path) => path.startsWith("docs/tool-ab-"))).toEqual([]);
+    expect(paths).toContain("docs/tool-cost.md");
+    const relativeLinks = paths
+      .filter((path) => /^docs\/[^/]+\.md$/.test(path))
+      .flatMap((path) => [...readFileSync(path, "utf8").matchAll(/\]\((?:\.\/)?tool-ab-[^)]*\)/g)].map((match) => `${path}: ${match[0]}`));
+    expect(relativeLinks).toEqual([]);
+  }, 30_000);
 });

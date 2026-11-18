@@ -30,6 +30,7 @@
     "src/",
     "prompts/",
     "docs/",
+    "!docs/tool-ab-*/",
     "scripts/scan-ambiguous-read-calls.mjs",
     "scripts/scan-ambiguous-read-calls.d.mts",
     "scripts/gdscript_outline.py",
