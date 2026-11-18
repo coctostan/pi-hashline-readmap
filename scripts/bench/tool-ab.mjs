@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
  * A/B of tool arms: does an agent do better with this extension's `find`, `ls` and `grep`, or with
- * bash (the tools-vs-bash arc), and with its `read`, `edit` and `write`, or with Pi's own or bash
- * (the read-edit-ab arc)? Each run is one task in a fresh workspace, through the
+ * bash (tools-vs-bash (Each search tool earns its place over bash)), and with its `read`, `edit`
+ * and `write`, or with Pi's own or bash (read-edit-ab (Read and edit are measured against the
+ * alternatives))? Each run is one task in a fresh workspace, through the
  * selected host's own Pi CLI (PI_COMPAT_HOST, else the locked Pi), headless (`pi -p --mode json`).
  * The system prompt names the host's docs, so a host inside this checkout is replaced by its version
  * installed under ~/.cache/pi-hashline-readmap/bench-hosts, and a run after which the checkout's tree
@@ -148,7 +149,7 @@ async function selectTasks(opts) {
 	const editTasks = needsEdit ? await loadTasks(opts.benchDir) : [];
 	const byId = new Map([...locate, ...editTasks.map(editTask)].map((task) => [task.id, task]));
 	// Names --tasks takes for a set: every locate task, or one Explicit Edit task per family as explicit-edit.mjs's --sample 1 picks.
-	const sets = new Map([["locate", locate], ["edit-sample", sampleEditTasks(editTasks, { sample: 1 })]].map(([name, tasks]) => [name, tasks.map((task) => task.id)]));
+	const sets = new Map([["locate", locate.map((task) => task.id)], ["edit-sample", sampleEditTasks(editTasks, { sample: 1 }).map((task) => task.id)]]);
 	const tasks = wanted.flatMap((id) => sets.get(id) ?? [id]).map((id) => {
 		const task = byId.get(id);
 		if (!task) throw new Error(`Unknown task id: ${id}`);
