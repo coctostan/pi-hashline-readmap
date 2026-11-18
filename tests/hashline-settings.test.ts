@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 import {
   __resetHashlineSettingsPathsForTest,
   __setHashlineSettingsPathsForTest,
+  resolveBuiltinTools,
   resolveHashlineJsonSettings,
 } from "../src/hashline-settings.js";
 
@@ -376,5 +377,22 @@ describe("resolveHashlineJsonSettings", () => {
     __setHashlineSettingsPathsForTest({ globalSettingsPath, projectSettingsPath });
 
     expect(resolveHashlineJsonSettings().settings.edit).toEqual({ diffDisplay: "expanded" });
+  });
+});
+
+describe("resolveBuiltinTools", () => {
+  it("names no built-in when PI_HASHLINE_BUILTIN is unset or empty", () => {
+    expect(resolveBuiltinTools({})).toEqual([]);
+    expect(resolveBuiltinTools({ PI_HASHLINE_BUILTIN: "" })).toEqual([]);
+  });
+
+  it("names each listed tool, trimmed, blank entries dropped", () => {
+    expect(resolveBuiltinTools({ PI_HASHLINE_BUILTIN: "edit,write" })).toEqual(["edit", "write"]);
+    expect(resolveBuiltinTools({ PI_HASHLINE_BUILTIN: " read , " })).toEqual(["read"]);
+  });
+
+  it("refuses a name other than read, edit or write, naming the accepted ones", () => {
+    expect(() => resolveBuiltinTools({ PI_HASHLINE_BUILTIN: "grep" })).toThrow(/"grep".*read, edit, write/);
+    expect(() => resolveBuiltinTools({ PI_HASHLINE_BUILTIN: "edit,Edit" })).toThrow(/"Edit".*read, edit, write/);
   });
 });
