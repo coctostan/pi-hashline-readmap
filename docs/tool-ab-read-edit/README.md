@@ -14,6 +14,7 @@ caffeinate -i node scripts/bench/tool-ab.mjs --models openai-codex/gpt-6-luna,an
 | `table.md` | per set, model and arm, the mean and spread of pass rate, input and output tokens, cost, wall time and calls before the first touch; then passes per task wherever a run failed (`node table.mjs <out>`) |
 | `gaps.md` | rulings 0008's and 0009's spread rule, reported, not ruled: `no-ls-find` against each other arm, each gap beyond both arms' spreads (`node gaps.mjs <out>`) |
 | `errors-by-tool.md` | calls, errors, rejected calls and wrong-tool picks per model, arm and tool (`node ../tool-ab-pilot/errors.mjs <out>`, run from this directory) |
+| `errors-table.md` | per set, model, arm and tool, the mean errors per run and the spread between the repeats' means, over the traces (`node errors-table.mjs <out>`) |
 | `review-notes.md`, `review-key.json` | the blind review: 5 (task, model, repeat) draws over both task sets by `sample.mjs` (seed 7), each in all 6 arms, read under shuffled ids; the notes before "After unblinding" were written before the key was opened |
 
 The scripts are the record of how the tables were made, not maintained tools; they import `scripts/bench/` by a relative path, so run them from this directory.
