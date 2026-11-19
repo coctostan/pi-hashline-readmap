@@ -15,6 +15,21 @@ const REJECTED = /^(Invalid arguments for tool "|Validation failed for tool "|To
 const SEARCH_TOOLS = new Set(["grep", "find", "ls", "ast_search"]);
 const BASH_SEARCH = /(^|[\s|&;()])(grep|rg|find|fd|ls|tree)(?=$|[\s|&;()])/;
 const MUTATING_TOOLS = new Set(["edit", "write"]);
+/** Why an `edit` was refused: Hashline's by its error code (src/ptc-error-codes.ts), the rest by their text. */
+const EDIT_FAILURE_CODES = {
+	"hash-mismatch": "anchor",
+	"text-not-found": "text",
+	"ambiguous-match": "text",
+	"invalid-edit-variant": "arguments",
+	"invalid-null": "arguments",
+};
+// A thrown error reaches the trace as its message alone, maybe behind a context-hygiene notice: Hashline's
+// (src/hashline.ts, src/raw-argument-guard.ts) and Pi 1.5.2's edit (dist/core/tools/edit.js, edit-diff.js).
+const EDIT_FAILURE_TEXTS = [
+	["anchor", /^(Invalid line reference "|Line \d+ does not exist)/m],
+	["text", /^(Could not find (the exact text|edits\[\d+\]) in |Found \d+ occurrences of )/m],
+	["arguments", /^(Edit tool input is invalid|(edits\[\d+\]\.)?oldText must not be empty|Invalid [\w.[\]]+: expected )/m],
+];
 
 const textOf = (content) => typeof content === "string"
 	? content
@@ -51,6 +66,9 @@ export function scoreSession(text) {
 	// shortcut: only edit and write end a search's redundancy; a mutating bash command does not, refine if it skews the count.
 	let searches = new Set();
 	let task = null;
+	// Per file, by its resolved path: the reads so far, and once edited, the reads before its first edit.
+	const reads = new Map();
+	const editedFiles = new Map();
 
 	/**
 	 * A text names the file as the edit gives it, absolute, or relative to the cwd with or without `./`; with `base`,
@@ -103,6 +121,7 @@ export function scoreSession(text) {
 					resultBytes: null,
 					error: false,
 					rejected: false,
+					editFailure: null,
 					redundant: isSearch && searches.has(key),
 					wrongTool: command !== null && activeTools ? getBashAntiPatternHint(command, [...activeTools]) : null,
 					toolSetKnown: activeTools !== null,
@@ -113,9 +132,14 @@ export function scoreSession(text) {
 				const searchBase = SEARCH_TOOLS.has(block.name) && typeof args.path === "string" ? args.path : null;
 				const entry = { record, argsText: JSON.stringify(args), resultText: "", searchBase };
 				byId.set(block.id, entry);
+				const path = args.path ?? args.file_path;
+				if (typeof path === "string" && (block.name === "read" || block.name === "edit")) {
+					const file = cwd ? resolve(cwd, path) : path;
+					if (block.name === "read") reads.set(file, (reads.get(file) ?? 0) + 1);
+					else if (!editedFiles.has(file)) editedFiles.set(file, reads.get(file) ?? 0);
+				}
 				if (task) {
 					task.calls.push(entry);
-					const path = args.path ?? args.file_path;
 					if (block.name === "edit" && !task.edit && typeof path === "string") task.edit = { entry, path };
 				}
 			}
@@ -126,10 +150,16 @@ export function scoreSession(text) {
 			entry.record.resultBytes = encoder.encode(entry.resultText).length;
 			entry.record.error = message.isError === true;
 			entry.record.rejected = entry.record.error && REJECTED.test(entry.resultText);
+			if (entry.record.error && entry.record.tool === "edit") {
+				const code = message.details?.ptcValue?.error?.code;
+				entry.record.editFailure = entry.record.rejected ? "arguments"
+					: code ? EDIT_FAILURE_CODES[code] ?? "other"
+					: EDIT_FAILURE_TEXTS.find(([, pattern]) => pattern.test(entry.resultText))?.[0] ?? "other";
+			}
 		}
 	}
 	closeTask();
-	return { cwd, calls, tasks };
+	return { cwd, calls, tasks, editedFiles: [...editedFiles].map(([path, readsBefore]) => ({ path, readsBefore })) };
 }
 
 /** Nearest-rank percentile of sorted numbers. */

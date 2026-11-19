@@ -6,13 +6,17 @@ export interface ScoredCall {
   error: boolean;
   /** Refused by Pi before the tool ran: invalid arguments or an unknown tool. */
   rejected: boolean;
+  /** Why an `edit` call was refused; null for another tool, a landed edit, or one with no result. */
+  editFailure: "anchor" | "text" | "arguments" | "other" | null;
   redundant: boolean;
   /** The bash hint naming an active tool that covers this command's pipeline heads, else null. */
   wrongTool: string | null;
   toolSetKnown: boolean;
 }
 export interface ScoredTask { editId: string; callsBeforeTouch: number; touchedBy: string }
-export interface ScoredSession { cwd: string | null; calls: ScoredCall[]; tasks: ScoredTask[] }
+/** A file an `edit` call names, resolved against the cwd, and the `read` calls of it before its first edit. */
+export interface EditedFile { path: string; readsBefore: number }
+export interface ScoredSession { cwd: string | null; calls: ScoredCall[]; tasks: ScoredTask[]; editedFiles: EditedFile[] }
 export interface Percentiles { p50: number; p90: number; p99: number }
 export interface ToolSummary {
   name: string;

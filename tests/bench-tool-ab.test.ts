@@ -143,26 +143,65 @@ describe("scoreRun", () => {
 			cost: expect.closeTo(0.03, 10),
 			models: ["p/m"],
 			errors: [],
-			confusion: { errors: 1, rejected: 1, redundant: 1, wrongTool: 1, callsBeforeTouch: 1 },
+			confusion: {
+				errors: 1, rejected: 1, redundant: 1, wrongTool: 1, callsBeforeTouch: 1,
+				// the read had no path, so no read of src/a.ts came before its edit
+				edits: 1, editFailures: { anchor: 0, text: 0, arguments: 0, other: 0 }, callsPerLandedEdit: 1, readsBeforeEdit: 0,
+			},
 		});
 	});
 
 	it("leaves calls before the first touch unknown when nothing was edited", () => {
 		expect(scoreRun(line({ type: "message_end", message: { role: "user", content: "hi" } })).confusion.callsBeforeTouch).toBeNull();
 	});
+
+	it("leaves calls per landed edit unknown when no edit landed, counting one with no result as not landed", () => {
+		const stream = [
+			line({ type: "message_end", message: { role: "assistant", content: [call("1", "edit", { path: "a.ts" }), call("2", "edit", { path: "a.ts" })] } }),
+			result("1", "Could not find the exact text in a.ts.", true),
+		].join("\n");
+		expect(scoreRun(stream).confusion).toMatchObject({ edits: 2, editFailures: { anchor: 0, text: 1, arguments: 0, other: 0 }, callsPerLandedEdit: null, readsBeforeEdit: 0 });
+	});
+
+	it("scores Hashline's edit and Pi's own alike on real traces: refusals by class, calls per landed edit, reads before", () => {
+		// tests/bench-confusion.test.ts: one read of a.ts, then six edits; Hashline's landed once, Pi's twice
+		const trace = (name: string) => readFileSync(new URL(`./fixtures/bench/${name}`, import.meta.url), "utf8");
+		expect(scoreRun(trace("edit-failures-hashline.jsonl")).confusion).toMatchObject({
+			edits: 6, editFailures: { anchor: 2, text: 2, arguments: 1, other: 0 }, callsPerLandedEdit: 6, readsBeforeEdit: 1,
+		});
+		expect(scoreRun(trace("edit-failures-pi.jsonl")).confusion).toMatchObject({
+			edits: 6, editFailures: { anchor: 0, text: 2, arguments: 2, other: 0 }, callsPerLandedEdit: 3, readsBeforeEdit: 1,
+		});
+	});
+
+	it("averages reads before an edit over the edited files", () => {
+		const stream = [
+			line({ type: "message_end", message: { role: "assistant", content: [call("1", "read", { path: "a.ts" }), call("2", "read", { path: "b.ts" }), call("3", "read", { path: "b.ts" }), call("4", "edit", { path: "a.ts" }), call("5", "edit", { path: "b.ts" })] } }),
+			...["1", "2", "3", "4", "5"].map((id) => result(id, "ok")),
+		].join("\n");
+		expect(scoreRun(stream).confusion).toMatchObject({ edits: 2, callsPerLandedEdit: 1, readsBeforeEdit: 1.5 });
+	});
+
+	it("leaves reads before an edit unknown when nothing was edited", () => {
+		const stream = [
+			line({ type: "message_end", message: { role: "assistant", content: [call("1", "read", { path: "a.ts" })] } }),
+			result("1", "1:1df|export function alpha() {"),
+		].join("\n");
+		expect(scoreRun(stream).confusion).toMatchObject({ edits: 0, callsPerLandedEdit: null, readsBeforeEdit: null });
+	});
 });
 
 const run = (overrides: Partial<RunResult>): RunResult => ({
 	set: "locate", task: "t1", arm: "stock", model: "m", attempt: 1, pass: true, failure: null, diffs: [], durationMs: 1000,
 	toolCalls: { read: 2 }, toolErrors: 0, turns: 1, tokens: 0, inputTokens: 1000, cost: 0.01, models: ["m"], errors: [],
-	confusion: { errors: 0, rejected: 0, redundant: 0, wrongTool: 0, callsBeforeTouch: 2 },
+	confusion: { errors: 0, rejected: 0, redundant: 0, wrongTool: 0, callsBeforeTouch: 2, edits: 1, editFailures: { anchor: 0, text: 0, arguments: 0, other: 0 }, callsPerLandedEdit: 1, readsBeforeEdit: 1 },
 	...overrides,
 });
 
 describe("summarizeRuns", () => {
 	const results = [
 		run({ task: "t1", attempt: 1 }),
-		run({ task: "t2", attempt: 1, pass: false, failure: "check", inputTokens: 3000, cost: 0.03, toolCalls: { read: 1, bash: 3 }, confusion: { errors: 2, rejected: 1, redundant: 1, wrongTool: 1, callsBeforeTouch: null } }),
+		run({ task: "t2", attempt: 1, pass: false, failure: "check", inputTokens: 3000, cost: 0.03, toolCalls: { read: 1, bash: 3 }, confusion: { ...run({}).confusion, errors: 2, rejected: 1, redundant: 1, wrongTool: 1, callsBeforeTouch: null } }),
 		run({ task: "t1", attempt: 2, inputTokens: 2000 }),
 		run({ task: "t2", attempt: 2, inputTokens: 2000 }),
 		run({ arm: "extension", attempt: 1 }),
@@ -203,6 +242,21 @@ describe("summarizeRuns", () => {
 		expect(text).toContain("| locate | m | stock | 3/4 | 75.0% Δ50.0 | 2000 Δ0 | $0.0150 Δ0.0100 | 2.5 Δ1.0 | 0.50 Δ1.00 | 0.25 Δ0.50 | 0.25 Δ0.50 | 0.25 Δ0.50 | 2.0 Δ0.0 |");
 		expect(text).toContain("| locate | m | extension | 1/1 | 100.0% | 1000 | $0.0100 | 2.0 | 0.00 | 0.00 | 0.00 | 0.00 | 2.0 |");
 		expect(text).toContain("- locate m stock `t2#1`: check");
+	});
+
+	it("prints the edit failures of each row in their own table, with their spread", () => {
+		const edits = (overrides: Partial<RunResult["confusion"]>) => ({ ...run({}).confusion, ...overrides });
+		const failures = [
+			run({ task: "e1", set: "edit", arm: "pi-edit", attempt: 1, confusion: edits({ edits: 4, editFailures: { anchor: 0, text: 2, arguments: 1, other: 0 }, callsPerLandedEdit: 4, readsBeforeEdit: 1 }) }),
+			run({ task: "e1", set: "edit", arm: "pi-edit", attempt: 2, confusion: edits({ edits: 2, editFailures: { anchor: 0, text: 0, arguments: 0, other: 1 }, callsPerLandedEdit: 2, readsBeforeEdit: 3 }) }),
+			// bash edited: no edit call, so neither calls per landed edit nor reads before one
+			run({ task: "e1", set: "edit", arm: "bash-read-edit", attempt: 1, confusion: edits({ edits: 0, callsPerLandedEdit: null, readsBeforeEdit: null }) }),
+		];
+		const text = formatSummary({ rows: summarizeRuns(failures), results: failures, meta: { models: ["m"], arms: ["pi-edit", "bash-read-edit"], repeat: 2, hostVersion: "1.5.2", spent: 0.03, maxCost: 1, skipped: 0, startedAt: "2026-11-18T12:00:00.000Z" } });
+		const table = text.slice(text.indexOf("## Edit failures"));
+		expect(table).toContain("| Set | Model | Arm | Edit calls | Anchor | Text | Arguments | Other | Calls per landed edit | Reads before edit |");
+		expect(table).toContain("| edit | m | pi-edit | 3.0 Δ2.0 | 0.00 Δ0.00 | 1.00 Δ2.00 | 0.50 Δ1.00 | 0.50 Δ1.00 | 3.0 Δ2.0 | 2.0 Δ2.0 |");
+		expect(table).toContain("| edit | m | bash-read-edit | 0.0 | 0.00 | 0.00 | 0.00 | 0.00 | - | - |");
 	});
 
 	it("dates the summary line with the run's start day in UTC", () => {
