@@ -214,10 +214,14 @@ export function runJobs(jobs, { concurrency, maxCost, spent, maxRunCost }, worke
 
 // ─── Scoring ────────────────────────────────────────────────────────────────
 
+const EDIT_FAILURES = ["anchor", "text", "arguments", "other"];
+
 /** The event summary plus the confusion signals of a `pi --mode json` stream. */
 export function scoreRun(stdout) {
-	const { calls, tasks } = scoreSession(stdout);
+	const { calls, tasks, editedFiles } = scoreSession(stdout);
 	const count = (flag) => calls.filter((call) => call[flag]).length;
+	const edits = calls.filter((call) => call.tool === "edit");
+	const landed = edits.filter((call) => call.resultBytes !== null && !call.error).length;
 	return {
 		...summarizeEvents(stdout),
 		confusion: {
@@ -226,6 +230,10 @@ export function scoreRun(stdout) {
 			redundant: count("redundant"),
 			wrongTool: count("wrongTool"),
 			callsBeforeTouch: tasks[0]?.callsBeforeTouch ?? null,
+			edits: edits.length,
+			editFailures: Object.fromEntries(EDIT_FAILURES.map((kind) => [kind, edits.filter((call) => call.editFailure === kind).length])),
+			callsPerLandedEdit: landed ? edits.length / landed : null,
+			readsBeforeEdit: editedFiles.length ? editedFiles.reduce((sum, file) => sum + file.readsBefore, 0) / editedFiles.length : null,
 		},
 	};
 }
@@ -242,6 +250,10 @@ const METRICS = {
 	redundant: (run) => run.confusion.redundant,
 	wrongTool: (run) => run.confusion.wrongTool,
 	callsBeforeTouch: (run) => run.confusion.callsBeforeTouch,
+	edits: (run) => run.confusion.edits,
+	...Object.fromEntries(EDIT_FAILURES.map((kind) => [kind, (run) => run.confusion.editFailures[kind]])),
+	callsPerLandedEdit: (run) => run.confusion.callsPerLandedEdit,
+	readsBeforeEdit: (run) => run.confusion.readsBeforeEdit,
 };
 const mean = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null);
 
@@ -296,11 +308,22 @@ const COLUMNS = [
 	["wrongTool", "Wrong tool", 2, 1, "", ""],
 	["callsBeforeTouch", "Calls before touch", 1, 1, "", ""],
 ];
+const EDIT_COLUMNS = [
+	["edits", "Edit calls", 1, 1, "", ""],
+	["anchor", "Anchor", 2, 1, "", ""],
+	["text", "Text", 2, 1, "", ""],
+	["arguments", "Arguments", 2, 1, "", ""],
+	["other", "Other", 2, 1, "", ""],
+	["callsPerLandedEdit", "Calls per landed edit", 1, 1, "", ""],
+	["readsBeforeEdit", "Reads before edit", 1, 1, "", ""],
+];
 
 export function formatSummary({ rows, results, meta }) {
 	const cell = ({ mean: value, spread }, digits, scale, prefix, suffix) => (value === null
 		? "-"
 		: `${prefix}${(value * scale).toFixed(digits)}${suffix}${spread === null ? "" : ` Δ${(spread * scale).toFixed(digits)}`}`);
+	const cells = (row, columns) => columns.map(([metric, , ...format]) => cell(row.metrics[metric], ...format)).join(" | ");
+	const headers = (columns) => columns.map(([, header]) => header).join(" | ");
 	const failed = results.filter((run) => !run.pass);
 	return [
 		`# Tool arms A/B — ${meta.models.join(", ")}`,
@@ -308,9 +331,17 @@ export function formatSummary({ rows, results, meta }) {
 		`Pi ${meta.hostVersion} on ${meta.startedAt.slice(0, 10)}; arms ${meta.arms.join(", ")}; ${meta.repeat} repeat(s); spent $${meta.spent.toFixed(4)} of $${meta.maxCost}${meta.skipped ? `; ${meta.skipped} runs skipped at the cap` : ""}.`,
 		"Each cell is the mean per run; Δ is the spread, the largest minus the smallest per-repeat mean. Errors include rejected calls; calls before touch counts runs that edited.",
 		"",
-		`| Set | Model | Arm | Pass | ${COLUMNS.map(([, header]) => header).join(" | ")} |`,
+		`| Set | Model | Arm | Pass | ${headers(COLUMNS)} |`,
 		`|---|---|---|---|${COLUMNS.map(() => "---").join("|")}|`,
-		...rows.map((row) => `| ${row.set} | ${row.model} | ${row.arm} | ${row.passed}/${row.runs} | ${COLUMNS.map(([metric, , ...format]) => cell(row.metrics[metric], ...format)).join(" | ")} |`),
+		...rows.map((row) => `| ${row.set} | ${row.model} | ${row.arm} | ${row.passed}/${row.runs} | ${cells(row, COLUMNS)} |`),
+		"",
+		"## Edit failures",
+		"",
+		"Calls of the `edit` tool, Pi's or Hashline's, and those refused by why: a stale or unknown anchor, old text not found or not unique, rejected arguments, or any other error. Calls per landed edit counts runs with one that landed; reads before edit, the `read` calls of a file before its first edit, averaged over the run's edited files, runs with an `edit` call.",
+		"",
+		`| Set | Model | Arm | ${headers(EDIT_COLUMNS)} |`,
+		`|---|---|---|${EDIT_COLUMNS.map(() => "---").join("|")}|`,
+		...rows.map((row) => `| ${row.set} | ${row.model} | ${row.arm} | ${cells(row, EDIT_COLUMNS)} |`),
 		"",
 		`## Failed runs (${failed.length})`,
 		"",

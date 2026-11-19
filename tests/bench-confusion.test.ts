@@ -10,6 +10,12 @@ const fork = corpusFile("--repo--", "2026-11-04T11-00-00-000Z_fork.jsonl");
 const legacy = corpusFile("--legacy--", "2026-11-04T12-00-00-000Z_legacy.jsonl");
 // A real `pi --mode json` stream (Pi 1.5.0, openai-codex/gpt-6-luna), trimmed; see tests/bench-lib.test.ts.
 const trace = readFileSync(join(fixtures, "explicit-edit-trace.jsonl"), "utf8");
+// Real `pi --mode json` streams (Pi 1.5.2, openai-codex/gpt-6-luna, 2026-11-18), message_update events dropped and long
+// strings, arrays and tool parameters trimmed: a dictated read, then six edits of a.ts through Hashline's edit, and through
+// Pi's own under PI_HASHLINE_BUILTIN=edit,write.
+const hashlineEdits = readFileSync(join(fixtures, "edit-failures-hashline.jsonl"), "utf8");
+const piEdits = readFileSync(join(fixtures, "edit-failures-pi.jsonl"), "utf8");
+const lines = (entries: unknown[]) => entries.map((entry) => JSON.stringify(entry)).join("\n");
 
 const byId = (text: string) => Object.fromEntries(scoreSession(text).calls.map((call) => [call.id, call]));
 
@@ -102,6 +108,50 @@ describe("scoreSession", () => {
 			["read", false, true], ["grep", false, true], ["edit", false, true],
 		]);
 		expect(scored.tasks).toEqual([{ editId: scored.calls[2].id, callsBeforeTouch: 0, touchedBy: "read" }]);
+	});
+
+	it("classes each refused edit of Hashline's by its error code, or a thrown error's text, and a landed one as none", () => {
+		// hash-mismatch, text-not-found, ambiguous-match, invalid-edit-variant, then a thrown `Invalid line reference`, then landed
+		expect(scoreSession(hashlineEdits).calls.map((call) => [call.tool, call.editFailure])).toEqual([
+			["read", null], ["edit", "anchor"], ["edit", "text"], ["edit", "text"], ["edit", "arguments"], ["edit", "anchor"], ["edit", null],
+		]);
+	});
+
+	it("classes each refused edit of Pi's own by its error text", () => {
+		// text not found, two occurrences, empty edits, empty oldText, then two landed
+		expect(scoreSession(piEdits).calls.map((call) => [call.tool, call.editFailure])).toEqual([
+			["read", null], ["edit", "text"], ["edit", "text"], ["edit", "arguments"], ["edit", "arguments"], ["edit", null], ["edit", null],
+		]);
+	});
+
+	it("classes a refusal before the tool ran as arguments, a known text behind a notice line, and any other error as other", () => {
+		const edit = (id: string) => ({ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id, name: "edit", arguments: { path: "a.ts" } }] } });
+		const refused = (id: string, text: string) => ({ type: "message", message: { role: "toolResult", toolCallId: id, content: [{ type: "text", text }], isError: true } });
+		const session = lines([
+			edit("e1"), refused("e1", 'Validation failed for tool "edit": edits must be array'),
+			edit("e2"), refused("e2", "[Context hygiene] 1 earlier tool result no longer reflects current state. Do not treat it as current:\n- read (file:/w/a.ts): [Stale read result]\n\nLine 9 does not exist (file has 8 lines). Re-read the file for current anchors."),
+			edit("e3"), refused("e3", "Invalid edits: expected array, received null."),
+			edit("e4"), refused("e4", "Permission denied: a.ts"),
+			// a code the classes leave out is other, whatever its text
+			edit("e5"), { type: "message", message: { role: "toolResult", toolCallId: "e5", content: [{ type: "text", text: "Found 2 occurrences of x overlapping" }], details: { ptcValue: { error: { code: "overlapping-edit" } } }, isError: true } },
+			{ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id: "w1", name: "write", arguments: { path: "a.ts" } }] } },
+			refused("w1", "Could not find the exact text in a.ts."),
+		]);
+		expect(scoreSession(session).calls.map((call) => call.editFailure)).toEqual(["arguments", "anchor", "arguments", "other", "other", null]);
+	});
+
+	it("counts, per edited file, the reads of that file before its first edit", () => {
+		expect(scoreSession(hashlineEdits).editedFiles).toEqual([{ path: "/private/tmp/s4drive/a.ts", readsBefore: 1 }]);
+		const call = (id: string, name: string, path: string) => ({ type: "message", message: { role: "assistant", content: [{ type: "toolCall", id, name, arguments: { path } }] } });
+		const session = lines([
+			{ type: "session", cwd: "/repo" },
+			call("r1", "read", "src/a.ts"), call("r2", "read", "/repo/src/a.ts"), call("r3", "read", "src/b.ts"),
+			call("e1", "edit", "./src/a.ts"),
+			call("r4", "read", "src/a.ts"), call("e2", "edit", "src/a.ts"),
+			call("e3", "edit", "src/c.ts"),
+		]);
+		// a.ts read twice (two path forms) before its first edit, the read after it not counted; c.ts edited unread; b.ts never edited
+		expect(scoreSession(session).editedFiles).toEqual([{ path: "/repo/src/a.ts", readsBefore: 2 }, { path: "/repo/src/c.ts", readsBefore: 0 }]);
 	});
 });
 

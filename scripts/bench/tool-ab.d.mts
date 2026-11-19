@@ -40,7 +40,21 @@ export function runJobs<T>(
   worker: (job: T) => Promise<{ cost: number }>,
 ): Promise<{ spent: number; skipped: number }>;
 
-export interface Confusion { errors: number; rejected: number; redundant: number; wrongTool: number; callsBeforeTouch: number | null }
+export type EditFailure = "anchor" | "text" | "arguments" | "other";
+export interface Confusion {
+  errors: number;
+  rejected: number;
+  redundant: number;
+  wrongTool: number;
+  callsBeforeTouch: number | null;
+  /** Calls of the `edit` tool, Pi's or Hashline's, and those refused, by why. */
+  edits: number;
+  editFailures: Record<EditFailure, number>;
+  /** Edit calls over those that landed; null when none landed. */
+  callsPerLandedEdit: number | null;
+  /** Per file an edit names, the reads of it before its first edit, averaged; null without an edit. */
+  readsBeforeEdit: number | null;
+}
 export interface RunScore extends EventSummary { confusion: Confusion }
 export function scoreRun(stdout: string): RunScore;
 
@@ -64,7 +78,7 @@ export interface SummaryRow {
   repeats: number;
   passed: number;
   totalCost: number;
-  metrics: Record<"pass" | "inputTokens" | "cost" | "toolCalls" | "errors" | "rejected" | "redundant" | "wrongTool" | "callsBeforeTouch", Metric>;
+  metrics: Record<"pass" | "inputTokens" | "cost" | "toolCalls" | "errors" | "rejected" | "redundant" | "wrongTool" | "callsBeforeTouch" | "edits" | EditFailure | "callsPerLandedEdit" | "readsBeforeEdit", Metric>;
 }
 export function summarizeRuns(results: RunResult[]): SummaryRow[];
 export function formatSummary(summary: {
