@@ -1,0 +1,142 @@
+{
+  "arms": [
+    "stock",
+    "no-ls-find",
+    "pi-edit",
+    "pi-read",
+    "pi-read-edit",
+    "bash-read-edit"
+  ],
+  "repeat": 2,
+  "concurrency": 3,
+  "timeout": 300,
+  "thinking": "off",
+  "providerExtensions": [],
+  "benchDir": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/tmp/explicit-edit-benchmark",
+  "models": [
+    "openai-codex/gpt-6-luna",
+    "anthropic-cc/claude-sonnet-5-5"
+  ],
+  "tasks": [
+    "locate",
+    "edit-sample"
+  ],
+  "maxCost": 20,
+  "out": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/tmp/bench-results/tool-ab-read-edit",
+  "host": {
+    "version": "1.5.2",
+    "cli": "/Users/maxwellnewman/.cache/pi-hashline-readmap/bench-hosts/1.5.2/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js"
+  },
+  "extension": {
+    "entry": "/Users/maxwellnewman/pi/workspace/pi-hashline-readmap/index.ts",
+    "commit": "f5f8b7a49be346a89a2685317a5d23d3d9d59f4f",
+    "changes": null
+  },
+  "snapshot": "06f775188a9d88496fb1bef2d54ba1b77aaf85ef",
+  "benchCommit": "4e11e95ccec7fd156f36755093f592d80d487224",
+  "armDefinitions": [
+    {
+      "name": "stock",
+      "extension": false,
+      "exclude": [],
+      "tools": [],
+      "env": {}
+    },
+    {
+      "name": "no-ls-find",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find"
+      ],
+      "tools": [],
+      "env": {}
+    },
+    {
+      "name": "pi-edit",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find"
+      ],
+      "tools": [],
+      "env": {
+        "PI_HASHLINE_BUILTIN": "edit,write"
+      }
+    },
+    {
+      "name": "pi-read",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find"
+      ],
+      "tools": [],
+      "env": {
+        "PI_HASHLINE_BUILTIN": "read"
+      }
+    },
+    {
+      "name": "pi-read-edit",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find"
+      ],
+      "tools": [],
+      "env": {
+        "PI_HASHLINE_BUILTIN": "read,edit,write"
+      }
+    },
+    {
+      "name": "bash-read-edit",
+      "extension": true,
+      "exclude": [
+        "ls",
+        "find",
+        "read",
+        "edit",
+        "write"
+      ],
+      "tools": [],
+      "env": {}
+    }
+  ],
+  "taskIds": [
+    "ansi-cursor-codes",
+    "rename-format-not-found",
+    "markdown-extension",
+    "ls-default-limit",
+    "bash-search-hint-commands",
+    "integer-plus-sign",
+    "find-stat-concurrency",
+    "outline-script-license",
+    "markdown-map-cache-version",
+    "ast-search-loop-suggestion",
+    "language-replace-10-go-plain",
+    "language-select-10-json-plain",
+    "language-insert-1-yaml-plain",
+    "unique-1000-plain",
+    "replace-all-1-unicode",
+    "multi-file-1-unicode",
+    "select-one-1000-plain",
+    "select-subset-1000-unicode",
+    "delete-subset-10-plain",
+    "insert-subset-100-unicode",
+    "distinct-edits-10-unicode",
+    "literal-1-quotes-unicode",
+    "replace-block-10-unicode",
+    "delete-block-10-plain",
+    "move-block-1000-unicode",
+    "copy-block-100-unicode",
+    "insert-block-100-unicode",
+    "insert-payload-1000-unicode",
+    "copy-within-100-plain",
+    "move-between-1000-unicode",
+    "unicode-fix-1-cyrillic-a-unicode"
+  ],
+  "startedAt": "2026-11-19T16:06:16.490Z",
+  "spent": 11.157276020000005,
+  "skipped": 0,
+  "finishedAt": "2026-11-19T17:21:55.599Z"
+}

@@ -1,0 +1,242 @@
+[
+  {
+    "id": "T01",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "select-one-1000-plain",
+    "attempt": "2",
+    "arm": "stock",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/anthropic-cc_claude-sonnet-5-5/stock/select-one-1000-plain#2.jsonl"
+  },
+  {
+    "id": "T02",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "markdown-extension",
+    "attempt": "2",
+    "arm": "pi-read",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read/markdown-extension#2.jsonl"
+  },
+  {
+    "id": "T03",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "replace-all-1-unicode",
+    "attempt": "2",
+    "arm": "pi-read",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read/replace-all-1-unicode#2.jsonl"
+  },
+  {
+    "id": "T04",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "select-one-1000-plain",
+    "attempt": "2",
+    "arm": "pi-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/anthropic-cc_claude-sonnet-5-5/pi-edit/select-one-1000-plain#2.jsonl"
+  },
+  {
+    "id": "T05",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "select-one-1000-plain",
+    "attempt": "2",
+    "arm": "pi-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/anthropic-cc_claude-sonnet-5-5/pi-read-edit/select-one-1000-plain#2.jsonl"
+  },
+  {
+    "id": "T06",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "select-subset-1000-unicode",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/no-ls-find/select-subset-1000-unicode#1.jsonl"
+  },
+  {
+    "id": "T07",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "copy-within-100-plain",
+    "attempt": "1",
+    "arm": "pi-read",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read/copy-within-100-plain#1.jsonl"
+  },
+  {
+    "id": "T08",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "replace-all-1-unicode",
+    "attempt": "2",
+    "arm": "pi-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-edit/replace-all-1-unicode#2.jsonl"
+  },
+  {
+    "id": "T09",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "select-subset-1000-unicode",
+    "attempt": "1",
+    "arm": "bash-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/bash-read-edit/select-subset-1000-unicode#1.jsonl"
+  },
+  {
+    "id": "T10",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "markdown-extension",
+    "attempt": "2",
+    "arm": "stock",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/stock/markdown-extension#2.jsonl"
+  },
+  {
+    "id": "T11",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "select-one-1000-plain",
+    "attempt": "2",
+    "arm": "bash-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/anthropic-cc_claude-sonnet-5-5/bash-read-edit/select-one-1000-plain#2.jsonl"
+  },
+  {
+    "id": "T12",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "replace-all-1-unicode",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/no-ls-find/replace-all-1-unicode#2.jsonl"
+  },
+  {
+    "id": "T13",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "copy-within-100-plain",
+    "attempt": "1",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/no-ls-find/copy-within-100-plain#1.jsonl"
+  },
+  {
+    "id": "T14",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "markdown-extension",
+    "attempt": "2",
+    "arm": "pi-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read-edit/markdown-extension#2.jsonl"
+  },
+  {
+    "id": "T15",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "select-one-1000-plain",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/anthropic-cc_claude-sonnet-5-5/no-ls-find/select-one-1000-plain#2.jsonl"
+  },
+  {
+    "id": "T16",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "copy-within-100-plain",
+    "attempt": "1",
+    "arm": "pi-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read-edit/copy-within-100-plain#1.jsonl"
+  },
+  {
+    "id": "T17",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "select-subset-1000-unicode",
+    "attempt": "1",
+    "arm": "pi-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-edit/select-subset-1000-unicode#1.jsonl"
+  },
+  {
+    "id": "T18",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "select-subset-1000-unicode",
+    "attempt": "1",
+    "arm": "stock",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/stock/select-subset-1000-unicode#1.jsonl"
+  },
+  {
+    "id": "T19",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "copy-within-100-plain",
+    "attempt": "1",
+    "arm": "stock",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/stock/copy-within-100-plain#1.jsonl"
+  },
+  {
+    "id": "T20",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "select-subset-1000-unicode",
+    "attempt": "1",
+    "arm": "pi-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read-edit/select-subset-1000-unicode#1.jsonl"
+  },
+  {
+    "id": "T21",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "select-subset-1000-unicode",
+    "attempt": "1",
+    "arm": "pi-read",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read/select-subset-1000-unicode#1.jsonl"
+  },
+  {
+    "id": "T22",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "markdown-extension",
+    "attempt": "2",
+    "arm": "no-ls-find",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/no-ls-find/markdown-extension#2.jsonl"
+  },
+  {
+    "id": "T23",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "markdown-extension",
+    "attempt": "2",
+    "arm": "pi-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-edit/markdown-extension#2.jsonl"
+  },
+  {
+    "id": "T24",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "replace-all-1-unicode",
+    "attempt": "2",
+    "arm": "bash-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/bash-read-edit/replace-all-1-unicode#2.jsonl"
+  },
+  {
+    "id": "T25",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "copy-within-100-plain",
+    "attempt": "1",
+    "arm": "pi-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-edit/copy-within-100-plain#1.jsonl"
+  },
+  {
+    "id": "T26",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "replace-all-1-unicode",
+    "attempt": "2",
+    "arm": "stock",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/stock/replace-all-1-unicode#2.jsonl"
+  },
+  {
+    "id": "T27",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "markdown-extension",
+    "attempt": "2",
+    "arm": "bash-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/bash-read-edit/markdown-extension#2.jsonl"
+  },
+  {
+    "id": "T28",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "replace-all-1-unicode",
+    "attempt": "2",
+    "arm": "pi-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/pi-read-edit/replace-all-1-unicode#2.jsonl"
+  },
+  {
+    "id": "T29",
+    "model": "openai-codex/gpt-6-luna",
+    "task": "copy-within-100-plain",
+    "attempt": "1",
+    "arm": "bash-read-edit",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/openai-codex_gpt-6-luna/bash-read-edit/copy-within-100-plain#1.jsonl"
+  },
+  {
+    "id": "T30",
+    "model": "anthropic-cc/claude-sonnet-5-5",
+    "task": "select-one-1000-plain",
+    "attempt": "2",
+    "arm": "pi-read",
+    "path": "../../tmp/bench-results/tool-ab-read-edit/traces/anthropic-cc_claude-sonnet-5-5/pi-read/select-one-1000-plain#2.jsonl"
+  }
+]
