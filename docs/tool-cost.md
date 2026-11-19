@@ -284,22 +284,34 @@ Mean per run (Δ, the spread between the two repeats' means), from `table.md`; o
 | edit | claude-sonnet-5-5 | pi-read-edit | 42 | 90% (0%) | 20,611 (1,494) | 532 (108) | $0.0251 ($0.0017) | 9.2 (1.0) | 0.00 (0.00) |
 | edit | claude-sonnet-5-5 | bash-read-edit | 42 | 100% (0%) | 18,334 (239) | 568 (1) | $0.0242 ($0.0003) | 10.4 (0.4) | - |
 
-Errors by tool over the whole run, errors/calls (`errors-by-tool.md`); `bash (tests)` is bash running tests, which fail in every arm without `node_modules`:
+Errors by tool, mean per run (Δ), from `errors-table.md` (whole-run counts of calls and errors in `errors-by-tool.md`); `bash (tests)` is bash running tests, which fail in every arm without `node_modules`; a run that never called a tool counts 0, and `-` marks a cell where no run called it:
 
-| model | arm | read | edit | write | grep | bash | bash (tests) | other |
-|---|---|---:|---:|---:|---:|---:|---:|---|
-| gpt-6-luna | stock | 1/107 | 13/104 | 0/1 | - | 0/77 | 15/15 | - |
-| gpt-6-luna | no-ls-find | 6/132 | 7/102 | 0/2 | 0/71 | 1/32 | 12/12 | - |
-| gpt-6-luna | pi-edit | 3/117 | 7/95 | 0/1 | 1/66 | 0/37 | 11/11 | - |
-| gpt-6-luna | pi-read | 1/120 | 25/125 | 0/2 | 1/127 | 0/24 | 13/13 | ast_search 0/2 |
-| gpt-6-luna | pi-read-edit | 2/118 | 7/100 | 0/1 | 0/76 | 1/49 | 11/11 | - |
-| gpt-6-luna | bash-read-edit | - | - | - | 5/453 | 13/219 | 13/17 | nu 21/114, ast_search 3/45 |
-| claude-sonnet-5-5 | stock | 0/3 | 0/21 | - | - | 14/157 | 1/3 | - |
-| claude-sonnet-5-5 | no-ls-find | 1/22 | 7/61 | - | 0/87 | 3/26 | - | - |
-| claude-sonnet-5-5 | pi-edit | 0/19 | 0/47 | - | 0/88 | 2/40 | - | - |
-| claude-sonnet-5-5 | pi-read | 0/22 | 8/65 | - | 0/87 | 4/25 | - | - |
-| claude-sonnet-5-5 | pi-read-edit | 0/32 | 0/55 | - | 0/82 | 1/36 | - | - |
-| claude-sonnet-5-5 | bash-read-edit | - | - | - | 0/101 | 13/86 | - | nu 0/9 |
+| set | model | arm | read | edit | write | grep | bash | bash (tests) | other |
+|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| locate | gpt-6-luna | stock | 0.00 (0.00) | 0.65 (1.10) | 0.00 (0.00) | - | 0.00 (0.00) | 0.75 (0.10) | - |
+| locate | gpt-6-luna | no-ls-find | 0.20 (0.20) | 0.10 (0.20) | - | 0.00 (0.00) | 0.00 (0.00) | 0.60 (0.20) | - |
+| locate | gpt-6-luna | pi-edit | 0.05 (0.10) | 0.05 (0.10) | - | 0.05 (0.10) | 0.00 (0.00) | 0.55 (0.10) | - |
+| locate | gpt-6-luna | pi-read | 0.00 (0.00) | 0.50 (0.20) | 0.00 (0.00) | 0.05 (0.10) | 0.00 (0.00) | 0.65 (0.10) | ast_search 0.00 (0.00) |
+| locate | gpt-6-luna | pi-read-edit | 0.00 (0.00) | 0.05 (0.10) | 0.00 (0.00) | 0.00 (0.00) | 0.00 (0.00) | 0.55 (0.10) | - |
+| locate | gpt-6-luna | bash-read-edit | - | - | - | 0.15 (0.30) | 0.25 (0.10) | 0.65 (0.10) | ast_search 0.15 (0.10), nu 0.60 (0.00) |
+| locate | claude-sonnet-5-5 | stock | 0.00 (0.00) | 0.00 (0.00) | - | - | 0.20 (0.00) | 0.05 (0.10) | - |
+| locate | claude-sonnet-5-5 | no-ls-find | 0.05 (0.10) | 0.25 (0.10) | - | 0.00 (0.00) | 0.05 (0.10) | - | - |
+| locate | claude-sonnet-5-5 | pi-edit | 0.00 (0.00) | 0.00 (0.00) | - | 0.00 (0.00) | 0.00 (0.00) | - | - |
+| locate | claude-sonnet-5-5 | pi-read | 0.00 (0.00) | 0.10 (0.20) | - | 0.00 (0.00) | 0.10 (0.20) | - | - |
+| locate | claude-sonnet-5-5 | pi-read-edit | 0.00 (0.00) | 0.00 (0.00) | - | 0.00 (0.00) | 0.00 (0.00) | - | - |
+| locate | claude-sonnet-5-5 | bash-read-edit | - | - | - | 0.00 (0.00) | 0.45 (0.10) | - | nu 0.00 (0.00) |
+| edit | gpt-6-luna | stock | 0.02 (0.05) | 0.00 (0.00) | - | - | 0.00 (0.00) | - | - |
+| edit | gpt-6-luna | no-ls-find | 0.05 (0.00) | 0.12 (0.24) | 0.00 (0.00) | 0.00 (0.00) | 0.02 (0.05) | - | - |
+| edit | gpt-6-luna | pi-edit | 0.05 (0.00) | 0.14 (0.00) | 0.00 (0.00) | 0.00 (0.00) | 0.00 (0.00) | - | - |
+| edit | gpt-6-luna | pi-read | 0.02 (0.05) | 0.36 (0.14) | - | 0.00 (0.00) | 0.00 (0.00) | - | ast_search 0.00 (0.00) |
+| edit | gpt-6-luna | pi-read-edit | 0.05 (0.00) | 0.14 (0.00) | - | 0.00 (0.00) | 0.02 (0.05) | - | - |
+| edit | gpt-6-luna | bash-read-edit | - | - | - | 0.05 (0.00) | 0.19 (0.00) | - | ast_search 0.00 (0.00), nu 0.21 (0.05) |
+| edit | claude-sonnet-5-5 | stock | 0.00 (0.00) | 0.00 (0.00) | - | - | 0.24 (0.10) | - | - |
+| edit | claude-sonnet-5-5 | no-ls-find | 0.00 (0.00) | 0.05 (0.00) | - | 0.00 (0.00) | 0.05 (0.00) | - | - |
+| edit | claude-sonnet-5-5 | pi-edit | 0.00 (0.00) | 0.00 (0.00) | - | 0.00 (0.00) | 0.05 (0.00) | - | - |
+| edit | claude-sonnet-5-5 | pi-read | 0.00 (0.00) | 0.14 (0.10) | - | 0.00 (0.00) | 0.05 (0.10) | - | - |
+| edit | claude-sonnet-5-5 | pi-read-edit | 0.00 (0.00) | 0.00 (0.00) | - | 0.00 (0.00) | 0.02 (0.05) | - | - |
+| edit | claude-sonnet-5-5 | bash-read-edit | - | - | - | 0.00 (0.00) | 0.10 (0.00) | - | nu 0.00 (0.00) |
 
 Edit failures, mean per run (Δ), from `summary.md`'s `## Edit failures`: `edit` calls, those refused by class, calls per landed edit (runs where one landed) and `read` calls of a file before its first edit (runs with an `edit` call). `bash-read-edit` has no `edit` tool, so its rows are 0 and `-`:
 
@@ -333,6 +345,7 @@ The spread rule of rulings 0008 and 0009, applied as a report, not a ruling (`ga
 - Against `pi-read` (Pi's `read`): on gpt-6-luna Hashline's `read` costs less on the locate tasks ($0.0023 against $0.0029) with fewer calls per landed edit (1.07 against 1.28), and on the edit control costs 7,855 more input tokens (spread 7,111) and $0.0003 more with fewer `other` refusals and calls per landed edit. On Sonnet's edit control Hashline's `edit` behind Pi's `read` is refused for an anchor 0.12 times a run against 0.02 behind its own, while Hashline's `read` costs 1,393 more input tokens (spread 53).
 - Against `pi-read-edit` (Pi's three): on gpt-6-luna's edit control Hashline's `edit` is refused for text 0.02 times a run against 0.14 and costs $0.0003 more. On Sonnet the locate tasks repeat `pi-edit`'s anchor gap; on the edit control Hashline passes 98% against 90% (spread 5%) while costing 7,220 more input tokens (spread 1,494) and 0.07 more errors a run.
 - Against `stock`: on gpt-6-luna's locate tasks Hashline halves input tokens (65,448 against 133,796, spread 37,300) and costs 39% less ($0.0023 against $0.0037); on Sonnet's it costs 19,516 more input tokens (spread 9,599) and $0.0100 more. On the edit control `stock` uses fewer input tokens on both models (gpt-6-luna 23,124 against 45,318; Sonnet 15,267 against 27,830), and Sonnet's `stock` errs more (0.24 a run against 0.10). No pass rate is beyond the spread.
+- Errors by tool, the same rule on `errors-table.md`: Hashline's `edit` errs more than Pi's on Sonnet, 0.25 a locate run against none (spread 0.10) beside `stock`, `pi-edit` and `pi-read-edit`, and 0.05 an edit-control run against none; on gpt-6-luna's locate tasks it errs less behind its own `read` than behind Pi's (0.10 against 0.50, spread 0.20). Bash errs more wherever it reads and edits: in `bash-read-edit` (gpt-6-luna 0.25 a locate run and 0.19 an edit run against 0 and 0.02; Sonnet 0.45 and 0.10 against 0.05 and 0.05) and in Sonnet's `stock` (0.20 and 0.24 against 0.05 and 0.05); `bash-read-edit` also draws 0.05 `grep` errors an edit run on gpt-6-luna against none. No other per-tool gap is beyond the spread.
 
 By task (`table.md`, 2 runs per cell, so these are leads for a later run, not results): on gpt-6-luna both arms with Hashline's `edit` passed `copy-within-100-plain` and `delete-block-10-plain` in 8 of 8 runs, the other four arms 2 of 16; the reverse, `no-ls-find` alone failed `language-select-10-json-plain` and `multi-file-1-unicode` in both repeats where `pi-read`, with the same `edit`, passed both. On Sonnet, `insert-block-100-unicode` failed all 4 runs with Pi's `edit` beside Hashline's `grep` (`pi-edit`, `pi-read-edit`) and passed in the other four arms, `stock`'s Pi `edit` included.
 
